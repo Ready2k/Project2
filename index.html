@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceBot - Voice Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-tab="chat">Voice Chat</button>
+            <button class="tab-btn" data-tab="admin">Admin Panel</button>
+            <button class="tab-btn" data-tab="settings">Settings</button>
+        </nav>
+
+        <!-- Chat Interface -->
+        <div id="chat-tab" class="tab-content active">
+            <div class="container">
+                <header>
+                    <h1>🏦 FinanceBot</h1>
+                    <p>Your AI Financial Assistant</p>
+                    <div class="persona-selector">
+                        <label>Customer: </label>
+                        <select id="personaSelect">
+                            <option value="john_doe">John Doe</option>
+                            <option value="sarah_smith">Sarah Smith</option>
+                            <option value="mike_johnson">Mike Johnson</option>
+                        </select>
+                    </div>
+                </header>
+
+                <div class="chat-container">
+                    <div id="conversation" class="conversation">
+                        <div class="bot-message">
+                            <div class="message-content">
+                                Hello! I'm your financial assistant. How can I help you today?
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button id="startBtn" class="voice-btn">
+                        🎤 Start Speaking
+                    </button>
+                    <button id="stopBtn" class="voice-btn" disabled>
+                        ⏹️ Stop
+                    </button>
+                    <div class="audio-feedback">
+                        <div class="audio-level-container">
+                            <label>Audio Level:</label>
+                            <div class="audio-level-bar">
+                                <div id="audioLevel" class="audio-level-fill"></div>
+                            </div>
+                            <span id="audioLevelText">0%</span>
+                        </div>
+                        <div class="recording-quality">
+                            <span id="recordingQuality" class="quality-indicator">🔴 Not Recording</span>
+                        </div>
+                    </div>
+                    <div class="status" id="status">Ready to listen</div>
+                </div>
+
+                <div class="features">
+                    <h3>Try saying:</h3>
+                    <ul>
+                        <li>"I've lost my card"</li>
+                        <li>"What's my account balance?"</li>
+                        <li>"I need to dispute a transaction"</li>
+                        <li>"How do I transfer money?"</li>
+                        <li>"I want to make a payment"</li>
+                    </ul>
+                </div>
+
+                <!-- Token Usage Panel -->
+                <div class="token-panel">
+                    <div class="token-header">
+                        <h3>💰 API Usage Tracker</h3>
+                        <button id="resetTokens" class="reset-btn">Reset</button>
+                    </div>
+                    <div class="token-content">
+                        <div class="token-stats">
+                            <div class="token-stat">
+                                <span class="token-label">Whisper (STT):</span>
+                                <span id="whisperTokens" class="token-value">0 requests</span>
+                                <span id="whisperCost" class="token-cost">$0.00</span>
+                            </div>
+                            <div class="token-stat">
+                                <span class="token-label">GPT-3.5 Turbo:</span>
+                                <span id="gptTokens" class="token-value">0 tokens</span>
+                                <span id="gptCost" class="token-cost">$0.00</span>
+                            </div>
+                            <div class="token-stat">
+                                <span class="token-label">TTS (Voice):</span>
+                                <span id="ttsTokens" class="token-value">0 chars</span>
+                                <span id="ttsCost" class="token-cost">$0.00</span>
+                            </div>
+                            <div class="token-stat total">
+                                <span class="token-label">Total Cost:</span>
+                                <span id="totalCost" class="token-value">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Debug Panel -->
+                <div class="debug-panel">
+                    <div class="debug-header">
+                        <h3>🔍 AI Communication Debug</h3>
+                        <button id="toggleDebug" class="toggle-btn">Hide</button>
+                    </div>
+                    <div id="debugContent" class="debug-content">
+                        <div class="debug-section">
+                            <h4>Speech-to-Text (Whisper):</h4>
+                            <div id="sttOutput" class="debug-output">Waiting for speech input...</div>
+                        </div>
+                        <div class="debug-section">
+                            <h4>System Prompt to GPT:</h4>
+                            <div id="systemPrompt" class="debug-output">System prompt will appear here...</div>
+                        </div>
+                        <div class="debug-section">
+                            <h4>GPT Response:</h4>
+                            <div id="gptResponse" class="debug-output">AI response will appear here...</div>
+                        </div>
+                        <div class="debug-section">
+                            <h4>OpenAI TTS:</h4>
+                            <div id="ttsOutput" class="debug-output">TTS information will appear here...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel -->
+        <div id="admin-tab" class="tab-content">
+            <div class="container">
+                <h2>Customer Personas Management</h2>
+
+                <div class="admin-section">
+                    <h3>Add New Persona</h3>
+                    <form id="personaForm">
+                        <div class="form-group">
+                            <label>Name:</label>
+                            <input type="text" id="personaName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Account Balance:</label>
+                            <input type="number" id="personaBalance" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Card Number (last 4 digits):</label>
+                            <input type="text" id="personaCard" maxlength="4" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Account Type:</label>
+                            <select id="personaAccountType">
+                                <option value="checking">Checking</option>
+                                <option value="savings">Savings</option>
+                                <option value="premium">Premium</option>
+                            </select>
+                        </div>
+                        <button type="submit">Add Persona</button>
+                    </form>
+                </div>
+
+                <div class="admin-section">
+                    <h3>Existing Personas</h3>
+                    <div id="personaList" class="persona-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div id="settings-tab" class="tab-content">
+            <div class="container">
+                <h2>Settings</h2>
+
+                <div class="settings-section">
+                    <h3>OpenAI Configuration</h3>
+                    <div class="form-group">
+                        <label>API Key:</label>
+                        <input type="password" id="openaiKey" placeholder="sk-...">
+                        <button id="saveKey">Save Key</button>
+                    </div>
+                </div>
+
+                <div class="voice-settings">
+                    <h3>🎤 OpenAI TTS Voice Settings</h3>
+                    <div class="voice-controls">
+                        <div class="voice-control">
+                            <label>TTS Model:</label>
+                            <select id="ttsModel">
+                                <option value="tts-1">TTS-1 (Standard, Faster)</option>
+                                <option value="tts-1-hd">TTS-1-HD (High Quality, Slower)</option>
+                            </select>
+                        </div>
+                        <div class="voice-control">
+                            <label>Voice:</label>
+                            <select id="ttsVoice">
+                                <option value="alloy">Alloy (Neutral)</option>
+                                <option value="echo">Echo (Male)</option>
+                                <option value="fable">Fable (British Male)</option>
+                                <option value="onyx">Onyx (Deep Male)</option>
+                                <option value="nova" selected>Nova (Female, Recommended)</option>
+                                <option value="shimmer">Shimmer (Female, Warm)</option>
+                            </select>
+                        </div>
+                        <div class="voice-control">
+                            <label>Speech Speed:</label>
+                            <input type="range" id="ttsSpeed" min="0.25" max="4.0" step="0.25" value="1.0">
+                            <span id="ttsSpeedValue">1.0x</span>
+                        </div>
+                    </div>
+                    <div class="voice-preview">
+                        <button id="testTtsVoice">🔊 Test OpenAI Voice</button>
+                    </div>
+                    <div class="voice-info">
+                        <p><strong>Note:</strong> OpenAI TTS provides much higher quality, more natural voices than browser synthesis. Nova and Shimmer are excellent for customer service scenarios.</p>
+                    </div>
+                </div>
+
+                <div class="speech-settings">
+                    <h3>🎙️ Speech Recognition Enhancement</h3>
+                    <div class="speech-controls">
+                        <div class="speech-control">
+                            <label>Audio Quality:</label>
+                            <select id="audioQuality">
+                                <option value="standard">Standard (16kHz)</option>
+                                <option value="high" selected>High (48kHz)</option>
+                            </select>
+                        </div>
+                        <div class="speech-control">
+                            <label>Noise Reduction:</label>
+                            <select id="noiseReduction">
+                                <option value="off">Off</option>
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                        <div class="speech-control">
+                            <label>Language Model:</label>
+                            <select id="whisperLanguage">
+                                <option value="en">English (Auto-detect)</option>
+                                <option value="en-US" selected>English (US)</option>
+                                <option value="en-GB">English (UK)</option>
+                                <option value="en-AU">English (AU)</option>
+                            </select>
+                        </div>
+                        <div class="speech-control">
+                            <label>Recognition Mode:</label>
+                            <select id="recognitionMode">
+                                <option value="standard">Standard</option>
+                                <option value="financial" selected>Financial Context</option>
+                                <option value="precise">Precise Mode</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="speech-tips">
+                        <h4>💡 Tips for Better Recognition:</h4>
+                        <ul>
+                            <li>Speak clearly and at normal pace</li>
+                            <li>Use a quiet environment with minimal background noise</li>
+                            <li>Hold the microphone 6-8 inches from your mouth</li>
+                            <li>Pause briefly between sentences</li>
+                            <li>Use financial terms naturally (e.g., "account balance", "credit card")</li>
+                            <li>Watch the audio level indicator - aim for green/yellow range</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

@@ -1,6 +1,6 @@
 # 🎤 Voice-to-Voice Financial Services Bot
 
-An advanced AI-powered voice assistant for financial services customer support, featuring real-time speech recognition, natural voice responses, and comprehensive customer persona management.
+An advanced AI-powered voice assistant for financial services customer support, featuring real-time speech recognition, natural voice responses, comprehensive customer persona management, and **configurable AI system prompts** - all without touching code!
 
 ## 🚀 Live Demo
 
@@ -38,11 +38,21 @@ python3 -m http.server 8000
 - **Usage analytics** with detailed pricing information
 - **Reset functionality** for cost tracking
 
+### 🤖 **Configurable AI System Prompts** (NEW!)
+- **No-code AI customization** - modify AI behavior without touching code
+- **Base personality configuration** - set tone, empathy, professionalism
+- **Financial context prompts** - customize banking procedures and responses
+- **Response instruction templates** - optimize for voice, length, clarity
+- **Custom scenario prompts** - add industry-specific knowledge (loans, investments, etc.)
+- **Real-time prompt testing** - preview generated prompts before use
+- **Import/export ready** - backup and share AI configurations
+
 ### 🔍 **Debug & Development Tools**
 - **Real-time API communication display**
 - **Speech-to-text transcription monitoring**
 - **System prompt and GPT response visibility**
 - **Voice generation details and statistics**
+- **Enhanced audio level monitoring** with quality indicators
 
 ## 🎯 Supported Use Cases
 

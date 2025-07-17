@@ -830,4 +830,288 @@ n Usage Panel */
     .speech-controls {
         grid-template-columns: 1fr;
     }
+}/* S
+ystem Prompts Configuration */
+.prompt-tabs {
+    display: flex;
+    background: #ecf0f1;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+    margin-bottom: 0;
+}
+
+.prompt-tab-btn {
+    flex: 1;
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    color: #7f8c8d;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+}
+
+.prompt-tab-btn:hover {
+    background: #d5dbdb;
+    color: #2c3e50;
+}
+
+.prompt-tab-btn.active {
+    background: white;
+    color: #3498db;
+    border-bottom-color: #3498db;
+}
+
+.prompt-content {
+    background: white;
+    border: 1px solid #ecf0f1;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 20px;
+}
+
+.prompt-section {
+    display: none;
+}
+
+.prompt-section.active {
+    display: block;
+}
+
+.prompt-section h4 {
+    color: #2c3e50;
+    margin-bottom: 8px;
+    font-size: 16px;
+}
+
+.prompt-description {
+    color: #7f8c8d;
+    font-size: 14px;
+    margin-bottom: 15px;
+    font-style: italic;
+}
+
+.prompt-textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #bdc3c7;
+    border-radius: 6px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    transition: border-color 0.3s ease;
+}
+
+.prompt-textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* Custom Prompts */
+.custom-prompts-list {
+    margin-bottom: 15px;
+}
+
+.custom-prompt-item {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    border: 1px solid #e9ecef;
+}
+
+.custom-prompt-item .scenario-name {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.custom-prompt-item .custom-prompt-text {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    resize: vertical;
+    margin-bottom: 10px;
+}
+
+.remove-custom-prompt {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.remove-custom-prompt:hover {
+    background: #c0392b;
+}
+
+.add-prompt-btn {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.add-prompt-btn:hover {
+    background: #2ecc71;
+}
+
+/* Prompt Actions */
+.prompt-actions {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.save-prompts-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.save-prompts-btn:hover {
+    background: #2980b9;
+}
+
+.reset-prompts-btn {
+    background: #e67e22;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.reset-prompts-btn:hover {
+    background: #d35400;
+}
+
+.test-prompts-btn {
+    background: #9b59b6;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.test-prompts-btn:hover {
+    background: #8e44ad;
+}
+
+/* Prompt Preview */
+.prompt-preview {
+    background: #2c3e50;
+    color: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.prompt-preview h4 {
+    color: #ecf0f1;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #34495e;
+    padding-bottom: 8px;
+}
+
+.prompt-preview-content {
+    background: #1a252f;
+    padding: 15px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #34495e;
+}
+
+/* Success/Error Messages */
+.prompt-message {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin: 10px 0;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.prompt-message.success {
+    background: #d5edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.prompt-message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.prompt-message.info {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+/* Responsive Design for Prompts */
+@media (max-width: 768px) {
+    .prompt-tabs {
+        flex-direction: column;
+    }
+    
+    .prompt-tab-btn {
+        border-bottom: 1px solid #bdc3c7;
+        border-radius: 0;
+    }
+    
+    .prompt-tab-btn.active {
+        border-bottom-color: #3498db;
+    }
+    
+    .prompt-actions {
+        flex-direction: column;
+    }
+    
+    .prompt-actions button {
+        width: 100%;
+    }
+    
+    .custom-prompt-item {
+        padding: 12px;
+    }
 }

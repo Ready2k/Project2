@@ -171,6 +171,81 @@
                     <h3>Existing Personas</h3>
                     <div id="personaList" class="persona-list"></div>
                 </div>
+
+                <div class="admin-section">
+                    <h3>AI System Prompts Configuration</h3>
+                    <div class="prompt-tabs">
+                        <button class="prompt-tab-btn active" data-prompt="base">Base Personality</button>
+                        <button class="prompt-tab-btn" data-prompt="financial">Financial Context</button>
+                        <button class="prompt-tab-btn" data-prompt="instructions">Instructions</button>
+                        <button class="prompt-tab-btn" data-prompt="custom">Custom Prompts</button>
+                    </div>
+                    
+                    <div class="prompt-content">
+                        <!-- Base Personality -->
+                        <div id="base-prompt" class="prompt-section active">
+                            <h4>Base AI Personality</h4>
+                            <p class="prompt-description">Define the core personality and tone of your AI assistant</p>
+                            <textarea id="basePersonality" class="prompt-textarea" rows="6" placeholder="You are a helpful, professional, and friendly financial services AI assistant...">You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.</textarea>
+                        </div>
+
+                        <!-- Financial Context -->
+                        <div id="financial-prompt" class="prompt-section">
+                            <h4>Financial Services Context</h4>
+                            <p class="prompt-description">Specific instructions for handling financial services scenarios</p>
+                            <textarea id="financialContext" class="prompt-textarea" rows="8" placeholder="When handling financial requests...">When handling financial requests:
+1. Always verify customer identity through account details
+2. For lost cards, immediately offer to block the card and arrange replacement
+3. For balance inquiries, provide current balance and recent transactions
+4. For disputes, guide customers through the dispute process step-by-step
+5. For transfers, ask for necessary details (amount, recipient, account)
+6. Always prioritize security and fraud prevention
+7. Offer additional relevant services when appropriate</textarea>
+                        </div>
+
+                        <!-- Instructions -->
+                        <div id="instructions-prompt" class="prompt-section">
+                            <h4>Response Instructions</h4>
+                            <p class="prompt-description">How the AI should structure and deliver responses</p>
+                            <textarea id="responseInstructions" class="prompt-textarea" rows="8" placeholder="Response guidelines...">Response Guidelines:
+1. Keep responses conversational and concise (suitable for voice)
+2. Use natural speech patterns with contractions (I'll, you're, we'll)
+3. Address customers by name when appropriate
+4. Provide specific information based on their account data
+5. Sound human and empathetic, not robotic
+6. Use clear, simple language avoiding jargon
+7. Always end with asking if there's anything else you can help with
+8. Maximum response length: 2-3 sentences for voice clarity</textarea>
+                        </div>
+
+                        <!-- Custom Prompts -->
+                        <div id="custom-prompt" class="prompt-section">
+                            <h4>Custom Scenario Prompts</h4>
+                            <p class="prompt-description">Add custom prompts for specific scenarios or industries</p>
+                            <div class="custom-prompts-list" id="customPromptsList">
+                                <div class="custom-prompt-item">
+                                    <input type="text" placeholder="Scenario name (e.g., 'Loan Inquiries')" class="scenario-name">
+                                    <textarea placeholder="Custom prompt for this scenario..." class="custom-prompt-text" rows="4"></textarea>
+                                    <button class="remove-custom-prompt">Remove</button>
+                                </div>
+                            </div>
+                            <button id="addCustomPrompt" class="add-prompt-btn">+ Add Custom Prompt</button>
+                        </div>
+                    </div>
+
+                    <div class="prompt-actions">
+                        <button id="savePrompts" class="save-prompts-btn">💾 Save All Prompts</button>
+                        <button id="resetPrompts" class="reset-prompts-btn">🔄 Reset to Defaults</button>
+                        <button id="testPrompts" class="test-prompts-btn">🧪 Test Current Setup</button>
+                    </div>
+
+                    <div class="prompt-preview">
+                        <h4>Generated System Prompt Preview:</h4>
+                        <div id="promptPreview" class="prompt-preview-content">
+                            Click "Test Current Setup" to see the complete system prompt that will be sent to the AI.
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

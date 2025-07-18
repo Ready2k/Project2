@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Debug Streaming</title>
+    <style>
+        .hidden { display: none; }
+        .control-group { margin: 10px 0; }
+        .voice-btn { padding: 10px 20px; margin: 5px; }
+        .streaming-btn { background: #9b59b6; color: white; }
+        .status-indicator { padding: 5px 10px; border-radius: 5px; }
+        .disconnected { background: #e74c3c; color: white; }
+        .connecting { background: #f39c12; color: white; }
+        .connected { background: #27ae60; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Debug Streaming Mode</h1>
+    
+    <div class="mode-toggle">
+        <label>
+            <input type="checkbox" id="streamingMode"> Streaming Mode
+        </label>
+        <div id="modeDescription">Batch Mode: Click to record, then process</div>
+    </div>
+
+    <div id="batchControls" class="control-group">
+        <button class="voice-btn">🎤 Start Speaking</button>
+        <button class="voice-btn">⏹️ Stop</button>
+    </div>
+
+    <div id="streamingControls" class="control-group hidden">
+        <button id="connectBtn" class="voice-btn streaming-btn">📞 Connect</button>
+        <button id="disconnectBtn" class="voice-btn streaming-btn" disabled>📞 Disconnect</button>
+        <div>
+            <span id="connectionStatus" class="status-indicator disconnected">Disconnected</span>
+            <span id="speakingIndicator">🔇</span>
+        </div>
+    </div>
+
+    <div id="status">Ready to test</div>
+    <div id="debug"></div>
+
+    <script>
+        const debug = document.getElementById('debug');
+        
+        function log(message) {
+            console.log(message);
+            debug.innerHTML += '<div>' + message + '</div>';
+        }
+        
+        log('Script loaded');
+        
+        const streamingMode = document.getElementById('streamingMode');
+        const batchControls = document.getElementById('batchControls');
+        const streamingControls = document.getElementById('streamingControls');
+        const modeDescription = document.getElementById('modeDescription');
+        const connectBtn = document.getElementById('connectBtn');
+        const status = document.getElementById('status');
+        const connectionStatus = document.getElementById('connectionStatus');
+        
+        log('Elements found: ' + JSON.stringify({
+            streamingMode: !!streamingMode,
+            batchControls: !!batchControls,
+            streamingControls: !!streamingControls,
+            modeDescription: !!modeDescription,
+            connectBtn: !!connectBtn
+        }));
+        
+        if (streamingMode) {
+            streamingMode.addEventListener('change', (e) => {
+                log('Toggle changed to: ' + e.target.checked);
+                
+                if (e.target.checked) {
+                    log('Switching to streaming mode');
+                    batchControls.classList.add('hidden');
+                    streamingControls.classList.remove('hidden');
+                    modeDescription.textContent = 'Streaming Mode: Real-time conversation';
+                } else {
+                    log('Switching to batch mode');
+                    batchControls.classList.remove('hidden');
+                    streamingControls.classList.add('hidden');
+                    modeDescription.textContent = 'Batch Mode: Click to record, then process';
+                }
+            });
+        }
+        
+        if (connectBtn) {
+            connectBtn.addEventListener('click', () => {
+                log('Connect button clicked');
+                status.textContent = 'Connecting...';
+                connectionStatus.textContent = 'Connecting...';
+                connectionStatus.className = 'status-indicator connecting';
+                
+                setTimeout(() => {
+                    log('Simulating connection result');
+                    status.textContent = 'Connection failed - Feature in development';
+                    connectionStatus.textContent = 'Disconnected';
+                    connectionStatus.className = 'status-indicator disconnected';
+                    
+                    // Show error message
+                    const errorDiv = document.createElement('div');
+                    errorDiv.style.background = '#f8d7da';
+                    errorDiv.style.padding = '10px';
+                    errorDiv.style.margin = '10px 0';
+                    errorDiv.style.border = '1px solid #f5c6cb';
+                    errorDiv.innerHTML = '<strong>Development Notice:</strong> Streaming mode UI is complete, but WebSocket integration is coming soon!';
+                    document.body.appendChild(errorDiv);
+                    
+                    log('Error message displayed');
+                }, 1000);
+            });
+        }
+        
+        log('Event listeners attached');
+    </script>
+</body>
+</html>

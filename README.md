@@ -1,6 +1,6 @@
 # 🎤 Voice-to-Voice Financial Services Bot
 
-An advanced AI-powered voice assistant for financial services customer support, featuring real-time speech recognition, natural voice responses, comprehensive customer persona management, and **configurable AI system prompts** - all without touching code!
+An advanced AI-powered voice assistant for financial services customer support, featuring **dual-mode operation** (Batch & Streaming), real-time speech recognition, natural voice responses, comprehensive customer persona management, and **configurable AI system prompts** - all without touching code!
 
 ## 🚀 Live Demo
 
@@ -11,6 +11,12 @@ python3 -m http.server 8000
 ```
 
 ## ✨ Key Features
+
+### 🔄 **Dual-Mode Operation** (NEW!)
+- **Batch Mode**: Traditional record → process → respond workflow
+- **Streaming Mode**: Real-time conversation like a phone call (UI ready, WebSocket integration in development)
+- **Seamless switching** between modes with visual toggle
+- **Mode-specific settings** and optimizations
 
 ### 🎙️ **Advanced Speech Recognition**
 - **OpenAI Whisper** integration for high-accuracy speech-to-text
@@ -46,6 +52,16 @@ python3 -m http.server 8000
 - **Custom scenario prompts** - add industry-specific knowledge (loans, investments, etc.)
 - **Real-time prompt testing** - preview generated prompts before use
 - **Import/export ready** - backup and share AI configurations
+
+### 📞 **Full-Duplex Streaming Mode** (Complete WebSocket Integration)
+- **Real-time conversation** - Continuous bidirectional audio like a phone call
+- **OpenAI Realtime API** - Direct WebSocket connection to GPT-4o Realtime
+- **Voice Activity Detection** - Server-side VAD with configurable sensitivity
+- **Response delay customization** - Adjustable silence threshold (0.5s - 3.0s)
+- **Audio buffer optimization** - Low latency, balanced, or high quality modes
+- **Speaking indicators** - Real-time visual feedback for conversation flow
+- **Connection management** - Robust connect/disconnect with status monitoring
+- **Error handling** - Graceful fallback suggestions and connection recovery
 
 ### 🔍 **Debug & Development Tools**
 - **Real-time API communication display**

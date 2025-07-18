@@ -350,6 +350,221 @@ button[type="submit"]:hover, #saveKey:hover {
     color: #3498db;
 }
 
+/* Mode Toggle */
+.mode-toggle {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 2px solid #e9ecef;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.mode-checkbox {
+    display: none;
+}
+
+.toggle-slider {
+    position: relative;
+    width: 50px;
+    height: 24px;
+    background: #bdc3c7;
+    border-radius: 12px;
+    transition: background 0.3s ease;
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.mode-checkbox:checked + .toggle-slider {
+    background: #3498db;
+}
+
+.mode-checkbox:checked + .toggle-slider::before {
+    transform: translateX(26px);
+}
+
+.mode-description {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #7f8c8d;
+    font-style: italic;
+}
+
+/* Control Groups */
+.control-group {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.control-group.hidden {
+    display: none;
+}
+
+/* Streaming Controls */
+.streaming-btn {
+    background: #9b59b6;
+    color: white;
+}
+
+.streaming-btn:hover:not(:disabled) {
+    background: #8e44ad;
+    transform: translateY(-2px);
+}
+
+.streaming-status {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin-top: 10px;
+    padding: 8px;
+    background: rgba(0,0,0,0.05);
+    border-radius: 6px;
+}
+
+.status-indicator {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-indicator.disconnected {
+    background: #e74c3c;
+    color: white;
+}
+
+.status-indicator.connecting {
+    background: #f39c12;
+    color: white;
+    animation: pulse 1s infinite;
+}
+
+.status-indicator.connected {
+    background: #27ae60;
+    color: white;
+}
+
+.speaking-indicator {
+    font-size: 18px;
+    transition: all 0.3s ease;
+}
+
+.speaking-indicator.speaking {
+    animation: bounce 0.5s infinite alternate;
+}
+
+@keyframes bounce {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.2); }
+}
+
+/* Streaming Settings */
+.streaming-settings {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.streaming-settings h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #9b59b6;
+    padding-bottom: 5px;
+}
+
+.streaming-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.streaming-control {
+    display: flex;
+    flex-direction: column;
+}
+
+.streaming-control label {
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.streaming-control input[type="range"] {
+    margin-right: 10px;
+}
+
+.streaming-control select,
+.streaming-control input[type="range"] {
+    padding: 8px;
+    border: 2px solid #bdc3c7;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.streaming-control select:focus,
+.streaming-control input[type="range"]:focus {
+    outline: none;
+    border-color: #9b59b6;
+}
+
+#responseDelayValue {
+    font-weight: bold;
+    color: #9b59b6;
+    margin-left: 10px;
+}
+
+.streaming-info {
+    background: #f4e6ff;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+    border-left: 4px solid #9b59b6;
+}
+
+.streaming-info h4 {
+    color: #9b59b6;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.streaming-info ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.streaming-info li {
+    color: #2c3e50;
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .app-container {
@@ -371,6 +586,85 @@ button[type="submit"]:hover, #saveKey:hover {
     
     .message-content {
         max-width: 85%;
+    }
+
+    .streaming-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .toggle-label {
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+
+/* Streaming Error Messages */
+.streaming-error {
+    background: #f8d7da;
+    border: 2px solid #f5c6cb;
+    border-radius: 8px;
+    margin: 15px 0;
+    animation: slideIn 0.3s ease-out;
+}
+
+.error-content {
+    padding: 15px;
+}
+
+.error-content h4 {
+    color: #721c24;
+    margin: 0 0 10px 0;
+    font-size: 16px;
+}
+
+.error-content p {
+    color: #721c24;
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.error-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.dismiss-btn, .switch-batch-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.dismiss-btn {
+    background: #6c757d;
+    color: white;
+}
+
+.dismiss-btn:hover {
+    background: #5a6268;
+}
+
+.switch-batch-btn {
+    background: #dc3545;
+    color: white;
+}
+
+.switch-batch-btn:hover {
+    background: #c82333;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }/*
  Debug Panel */

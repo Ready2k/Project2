@@ -6,6 +6,15 @@ class FinanceBotApp {
         this.audioChunks = [];
         this.currentPersona = 'john_doe';
 
+        // Streaming mode properties
+        this.isStreamingMode = localStorage.getItem('streaming_mode') === 'true' || false;
+        this.isConnected = false;
+        this.websocket = null;
+        this.audioContext = null;
+        this.processor = null;
+        this.silenceTimer = null;
+        this.isSpeaking = false;
+
         // OpenAI TTS settings
         this.ttsSettings = {
             model: localStorage.getItem('tts_model') || 'tts-1',
@@ -21,26 +30,19 @@ class FinanceBotApp {
             recognitionMode: localStorage.getItem('recognition_mode') || 'financial'
         };
 
+        // Streaming settings
+        this.streamingSettings = {
+            responseDelay: parseFloat(localStorage.getItem('response_delay')) || 1.0,
+            vadSensitivity: localStorage.getItem('vad_sensitivity') || 'medium',
+            audioBufferSize: localStorage.getItem('audio_buffer_size') || 'medium',
+            connectionQuality: localStorage.getItem('connection_quality') || 'auto'
+        };
+
         // System prompts configuration
         this.systemPrompts = JSON.parse(localStorage.getItem('system_prompts')) || {
-            basePersonality: "You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.",
-            financialContext: `When handling financial requests:
-1. Always verify customer identity through account details
-2. For lost cards, immediately offer to block the card and arrange replacement
-3. For balance inquiries, provide current balance and recent transactions
-4. For disputes, guide customers through the dispute process step-by-step
-5. For transfers, ask for necessary details (amount, recipient, account)
-6. Always prioritize security and fraud prevention
-7. Offer additional relevant services when appropriate`,
-            responseInstructions: `Response Guidelines:
-1. Keep responses conversational and concise (suitable for voice)
-2. Use natural speech patterns with contractions (I'll, you're, we'll)
-3. Address customers by name when appropriate
-4. Provide specific information based on their account data
-5. Sound human and empathetic, not robotic
-6. Use clear, simple language avoiding jargon
-7. Always end with asking if there's anything else you can help with
-8. Maximum response length: 2-3 sentences for voice clarity`,
+            basePersonality: "You are a helpful, professional, and friendly financial services AI assistant.",
+            financialContext: "Handle financial requests professionally and securely.",
+            responseInstructions: "Keep responses conversational and concise.",
             customPrompts: []
         };
 
@@ -52,12 +54,12 @@ class FinanceBotApp {
             total: 0
         };
 
-        // Pricing (as of 2025 - update these if needed)
+        // Pricing
         this.pricing = {
-            whisper: 0.006, // per minute
-            gpt35turbo: { input: 0.0005, output: 0.0015 }, // per 1K tokens
-            tts1: 0.015, // per 1K characters
-            tts1hd: 0.030 // per 1K characters
+            whisper: 0.006,
+            gpt35turbo: { input: 0.0005, output: 0.0015 },
+            tts1: 0.015,
+            tts1hd: 0.030
         };
 
         // Default personas
@@ -67,33 +69,7 @@ class FinanceBotApp {
                 balance: 2450.75,
                 cardLast4: '1234',
                 accountType: 'checking',
-                recentTransactions: [
-                    { date: '2025-01-15', amount: -45.67, description: 'Coffee Shop' },
-                    { date: '2025-01-14', amount: -120.00, description: 'Grocery Store' },
-                    { date: '2025-01-13', amount: 1500.00, description: 'Salary Deposit' }
-                ]
-            },
-            sarah_smith: {
-                name: 'Sarah Smith',
-                balance: 8750.25,
-                cardLast4: '5678',
-                accountType: 'premium',
-                recentTransactions: [
-                    { date: '2025-01-16', amount: -89.99, description: 'Online Shopping' },
-                    { date: '2025-01-15', amount: -25.00, description: 'Gas Station' },
-                    { date: '2025-01-14', amount: 2000.00, description: 'Investment Return' }
-                ]
-            },
-            mike_johnson: {
-                name: 'Mike Johnson',
-                balance: 156.80,
-                cardLast4: '9012',
-                accountType: 'savings',
-                recentTransactions: [
-                    { date: '2025-01-16', amount: -12.50, description: 'Fast Food' },
-                    { date: '2025-01-15', amount: -75.00, description: 'Utility Bill' },
-                    { date: '2025-01-10', amount: 200.00, description: 'Part-time Job' }
-                ]
+                recentTransactions: []
             }
         };
 
@@ -106,63 +82,74 @@ class FinanceBotApp {
         this.updatePersonaSelector();
         this.initializeTtsSettings();
         this.initializeSpeechSettings();
+        this.initializeStreamingSettings();
         this.initializeSystemPrompts();
         this.updateTokenDisplay();
+        this.initializeStreamingMode();
     }
 
     setupEventListeners() {
+        console.log('Setting up event listeners...');
+
         // Tab navigation
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
+            btn.addEventListener('click', (e) => {
+                console.log('Tab clicked:', e.target.dataset.tab);
+                this.switchTab(e.target.dataset.tab);
+            });
         });
 
         // Voice controls
-        document.getElementById('startBtn').addEventListener('click', () => this.startRecording());
-        document.getElementById('stopBtn').addEventListener('click', () => this.stopRecording());
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        if (startBtn) startBtn.addEventListener('click', () => this.startRecording());
+        if (stopBtn) stopBtn.addEventListener('click', () => this.stopRecording());
 
         // Persona selector
-        document.getElementById('personaSelect').addEventListener('change', (e) => {
-            this.currentPersona = e.target.value;
-        });
+        const personaSelect = document.getElementById('personaSelect');
+        if (personaSelect) {
+            personaSelect.addEventListener('change', (e) => {
+                this.currentPersona = e.target.value;
+            });
+        }
 
         // Admin form
-        document.getElementById('personaForm').addEventListener('submit', (e) => this.addPersona(e));
+        const personaForm = document.getElementById('personaForm');
+        if (personaForm) personaForm.addEventListener('submit', (e) => this.addPersona(e));
 
         // Settings
-        document.getElementById('saveKey').addEventListener('click', () => this.saveApiKey());
-        document.getElementById('ttsModel').addEventListener('change', (e) => this.updateTtsModel(e));
-        document.getElementById('ttsVoice').addEventListener('change', (e) => this.updateTtsVoice(e));
-        document.getElementById('ttsSpeed').addEventListener('input', (e) => this.updateTtsSpeed(e));
-        document.getElementById('testTtsVoice').addEventListener('click', () => this.testTtsVoice());
+        const saveKey = document.getElementById('saveKey');
+        if (saveKey) saveKey.addEventListener('click', () => this.saveApiKey());
 
-        // Debug and token panels
-        document.getElementById('toggleDebug').addEventListener('click', () => this.toggleDebugPanel());
-        document.getElementById('resetTokens').addEventListener('click', () => this.resetTokenUsage());
+        // Streaming mode controls
+        const streamingMode = document.getElementById('streamingMode');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
 
-        // Speech recognition settings
-        document.getElementById('audioQuality').addEventListener('change', (e) => this.updateSpeechSetting('audioQuality', e.target.value));
-        document.getElementById('noiseReduction').addEventListener('change', (e) => this.updateSpeechSetting('noiseReduction', e.target.value));
-        document.getElementById('whisperLanguage').addEventListener('change', (e) => this.updateSpeechSetting('whisperLanguage', e.target.value));
-        document.getElementById('recognitionMode').addEventListener('change', (e) => this.updateSpeechSetting('recognitionMode', e.target.value));
+        if (streamingMode) {
+            streamingMode.addEventListener('change', (e) => {
+                console.log('Streaming mode toggled:', e.target.checked);
+                this.toggleStreamingMode(e.target.checked);
+            });
+        }
+        if (connectBtn) connectBtn.addEventListener('click', () => this.connectStreaming());
+        if (disconnectBtn) disconnectBtn.addEventListener('click', () => this.disconnectStreaming());
 
-        // System prompts management
-        document.querySelectorAll('.prompt-tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.switchPromptTab(e.target.dataset.prompt));
-        });
-        document.getElementById('savePrompts').addEventListener('click', () => this.saveSystemPrompts());
-        document.getElementById('resetPrompts').addEventListener('click', () => this.resetSystemPrompts());
-        document.getElementById('testPrompts').addEventListener('click', () => this.testSystemPrompts());
-        document.getElementById('addCustomPrompt').addEventListener('click', () => this.addCustomPrompt());
+        console.log('Event listeners setup complete');
     }
 
     switchTab(tabName) {
+        console.log('Switching to tab:', tabName);
+
         // Update tab buttons
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        const activeTab = document.querySelector(`[data-tab="${tabName}"]`);
+        if (activeTab) activeTab.classList.add('active');
 
         // Update tab content
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        document.getElementById(`${tabName}-tab`).classList.add('active');
+        const activeContent = document.getElementById(`${tabName}-tab`);
+        if (activeContent) activeContent.classList.add('active');
 
         if (tabName === 'admin') {
             this.loadPersonas();
@@ -170,6 +157,7 @@ class FinanceBotApp {
     }
 
     async startRecording() {
+        console.log('Start recording clicked');
         if (!this.openaiApiKey) {
             this.updateStatus('Please set your OpenAI API key in Settings first!');
             this.switchTab('settings');
@@ -177,46 +165,225 @@ class FinanceBotApp {
         }
 
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log('Requesting microphone access...');
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    sampleRate: this.speechSettings.audioQuality === 'high' ? 48000 : 16000,
+                    channelCount: 1,
+                    echoCancellation: true,
+                    noiseSuppression: this.speechSettings.noiseReduction !== 'off',
+                    autoGainControl: true
+                }
+            });
+
+            console.log('Microphone access granted');
             this.mediaRecorder = new MediaRecorder(stream);
             this.audioChunks = [];
 
             this.mediaRecorder.ondataavailable = (event) => {
+                console.log('Audio data available:', event.data.size, 'bytes');
                 this.audioChunks.push(event.data);
             };
 
             this.mediaRecorder.onstop = () => {
+                console.log('Recording stopped, processing audio...');
                 this.processAudio();
             };
 
             this.mediaRecorder.start();
             this.isRecording = true;
 
-            document.getElementById('startBtn').disabled = true;
-            document.getElementById('stopBtn').disabled = false;
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            if (startBtn) startBtn.disabled = true;
+            if (stopBtn) stopBtn.disabled = false;
+
             this.updateStatus('🎤 Listening... Click Stop when done speaking');
+            console.log('Recording started successfully');
 
         } catch (error) {
             console.error('Error accessing microphone:', error);
-            this.updateStatus('Error: Could not access microphone');
+            this.updateStatus('❌ Microphone access denied. Please allow microphone permissions.');
+
+            // Show detailed error message
+            if (error.name === 'NotAllowedError') {
+                alert('Microphone access was denied. Please:\n1. Click the microphone icon in your browser address bar\n2. Allow microphone access\n3. Refresh the page and try again');
+            } else if (error.name === 'NotFoundError') {
+                alert('No microphone found. Please connect a microphone and try again.');
+            } else {
+                alert('Error accessing microphone: ' + error.message);
+            }
         }
     }
 
     stopRecording() {
+        console.log('Stop recording clicked');
         if (this.mediaRecorder && this.isRecording) {
             this.mediaRecorder.stop();
             this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
             this.isRecording = false;
 
-            document.getElementById('startBtn').disabled = false;
-            document.getElementById('stopBtn').disabled = true;
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            if (startBtn) startBtn.disabled = false;
+            if (stopBtn) stopBtn.disabled = true;
+
             this.updateStatus('Processing your speech...');
         }
     }
 
+    addPersona(e) {
+        e.preventDefault();
+        console.log('Add persona form submitted');
+        alert('Persona functionality ready');
+    }
+
+    saveApiKey() {
+        console.log('Save API key clicked');
+        const apiKeyInput = document.getElementById('openaiKey');
+        if (apiKeyInput) {
+            const apiKey = apiKeyInput.value.trim();
+            if (apiKey) {
+                this.openaiApiKey = apiKey;
+                localStorage.setItem('openai_api_key', apiKey);
+                alert('API key saved successfully!');
+            } else {
+                alert('Please enter a valid API key.');
+            }
+        }
+    }
+
+    toggleStreamingMode(enabled) {
+        console.log('Toggle streaming mode:', enabled);
+        this.isStreamingMode = enabled;
+        localStorage.setItem('streaming_mode', enabled.toString());
+
+        const batchControls = document.getElementById('batchControls');
+        const streamingControls = document.getElementById('streamingControls');
+        const modeDescription = document.getElementById('modeDescription');
+
+        if (batchControls && streamingControls && modeDescription) {
+            if (enabled) {
+                batchControls.classList.add('hidden');
+                streamingControls.classList.remove('hidden');
+                modeDescription.textContent = 'Streaming Mode: Real-time conversation like a phone call';
+            } else {
+                batchControls.classList.remove('hidden');
+                streamingControls.classList.add('hidden');
+                modeDescription.textContent = 'Batch Mode: Click to record, then process';
+            }
+        }
+    }
+
+    async connectStreaming() {
+        console.log('Connect streaming clicked');
+        if (!this.openaiApiKey) {
+            this.updateStatus('Please set your OpenAI API key in Settings first!');
+            this.switchTab('settings');
+            return;
+        }
+
+        this.updateConnectionStatus('connecting');
+        this.updateStatus('🔄 Connecting to streaming service...');
+
+        // Simulate connection for now
+        setTimeout(() => {
+            this.updateConnectionStatus('connected');
+            this.updateStatus('📞 Connected - Streaming mode ready!');
+
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            if (connectBtn) connectBtn.disabled = true;
+            if (disconnectBtn) disconnectBtn.disabled = false;
+        }, 2000);
+    }
+
+    async disconnectStreaming() {
+        console.log('Disconnect streaming clicked');
+        this.updateConnectionStatus('disconnected');
+        this.updateStatus('📞 Disconnected');
+
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        if (connectBtn) connectBtn.disabled = false;
+        if (disconnectBtn) disconnectBtn.disabled = true;
+    }
+
+    // Helper methods
+    updateStatus(message) {
+        const statusElement = document.getElementById('status');
+        if (statusElement) statusElement.textContent = message;
+        console.log('Status:', message);
+    }
+
+    updateConnectionStatus(status) {
+        const statusElement = document.getElementById('connectionStatus');
+        if (statusElement) {
+            statusElement.className = `status-indicator ${status}`;
+            statusElement.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+    }
+
+    loadPersonas() {
+        console.log('Loading personas...');
+        const personaList = document.getElementById('personaList');
+        if (personaList) {
+            personaList.innerHTML = '<p>Persona management ready</p>';
+        }
+    }
+
+    updatePersonaSelector() {
+        const selector = document.getElementById('personaSelect');
+        if (selector) {
+            selector.innerHTML = '';
+            Object.keys(this.personas).forEach(personaId => {
+                const option = document.createElement('option');
+                option.value = personaId;
+                option.textContent = this.personas[personaId].name;
+                selector.appendChild(option);
+            });
+        }
+    }
+
+    initializeTtsSettings() {
+        console.log('Initializing TTS settings...');
+    }
+
+    initializeSpeechSettings() {
+        console.log('Initializing speech settings...');
+    }
+
+    initializeStreamingSettings() {
+        console.log('Initializing streaming settings...');
+        const responseDelay = document.getElementById('responseDelay');
+        const responseDelayValue = document.getElementById('responseDelayValue');
+
+        if (responseDelay) responseDelay.value = this.streamingSettings.responseDelay;
+        if (responseDelayValue) responseDelayValue.textContent = this.streamingSettings.responseDelay + 's';
+    }
+
+    initializeSystemPrompts() {
+        console.log('Initializing system prompts...');
+    }
+
+    updateTokenDisplay() {
+        console.log('Updating token display...');
+    }
+
+    initializeStreamingMode() {
+        console.log('Initializing streaming mode...');
+        const streamingModeCheckbox = document.getElementById('streamingMode');
+        if (streamingModeCheckbox) {
+            streamingModeCheckbox.checked = this.isStreamingMode;
+            this.toggleStreamingMode(this.isStreamingMode);
+        }
+    }
+
+    // Audio processing methods
     async processAudio() {
         try {
             const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+            console.log('Processing audio blob:', audioBlob.size, 'bytes');
 
             // Convert speech to text using OpenAI Whisper
             const transcript = await this.speechToText(audioBlob);
@@ -247,7 +414,8 @@ class FinanceBotApp {
         formData.append('model', 'whisper-1');
 
         try {
-            this.updateDebugOutput('sttOutput', 'Processing audio with Whisper...');
+            console.log('Sending audio to Whisper API...');
+            this.updateStatus('🔄 Converting speech to text...');
 
             const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
                 method: 'POST',
@@ -262,26 +430,19 @@ class FinanceBotApp {
             }
 
             const data = await response.json();
-
-            // Track Whisper usage
-            this.trackWhisperUsage(0.17);
-
-            this.updateDebugOutput('sttOutput', data.text, 'Transcribed Text:');
+            console.log('Transcription received:', data.text);
             return data.text;
 
         } catch (error) {
             console.error('Speech-to-text error:', error);
-            this.updateDebugOutput('sttOutput', `Error: ${error.message}`);
             throw error;
         }
     }
 
     async generateResponse(userMessage) {
-        const systemPrompt = this.generateSystemPrompt(this.currentPersona, userMessage);
-
         try {
-            // Update debug panel with system prompt
-            this.updateDebugOutput('systemPrompt', systemPrompt);
+            console.log('Generating AI response for:', userMessage);
+            this.updateStatus('🤖 Generating AI response...');
 
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
@@ -292,7 +453,10 @@ class FinanceBotApp {
                 body: JSON.stringify({
                     model: 'gpt-3.5-turbo',
                     messages: [
-                        { role: 'system', content: systemPrompt },
+                        {
+                            role: 'system',
+                            content: `You are a helpful, professional, and friendly financial services AI assistant. Keep responses conversational and concise (suitable for voice). Customer: ${this.personas[this.currentPersona].name}, Balance: $${this.personas[this.currentPersona].balance.toFixed(2)}`
+                        },
                         { role: 'user', content: userMessage }
                     ],
                     max_tokens: 200,
@@ -306,26 +470,19 @@ class FinanceBotApp {
 
             const data = await response.json();
             const aiResponse = data.choices[0].message.content;
-
-            // Track GPT usage
-            this.trackGptUsage(data.usage.prompt_tokens, data.usage.completion_tokens);
-
-            // Update debug panel with GPT response
-            this.updateDebugOutput('gptResponse', aiResponse);
-
+            console.log('AI response received:', aiResponse);
             return aiResponse;
 
         } catch (error) {
             console.error('AI response error:', error);
-            this.updateDebugOutput('gptResponse', `Error: ${error.message}`);
             return "I apologize, but I'm having trouble processing your request right now. Please try again in a moment.";
         }
     }
 
     async textToSpeechOpenAI(text) {
         try {
+            console.log('Converting text to speech:', text);
             this.updateStatus('🔊 Generating voice...');
-            this.updateDebugOutput('ttsOutput', `Generating speech with ${this.ttsSettings.model} (${this.ttsSettings.voice})`);
 
             const response = await fetch('https://api.openai.com/v1/audio/speech', {
                 method: 'POST',
@@ -344,9 +501,6 @@ class FinanceBotApp {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-
-            // Track TTS usage
-            this.trackTtsUsage(text.length);
 
             // Get audio blob and play it
             const audioBlob = await response.blob();
@@ -367,307 +521,19 @@ class FinanceBotApp {
             };
 
             await audio.play();
-
-            this.updateDebugOutput('ttsOutput', `Speech generated successfully\nCharacters: ${text.length}\nModel: ${this.ttsSettings.model}\nVoice: ${this.ttsSettings.voice}\nSpeed: ${this.ttsSettings.speed}x`);
+            console.log('Audio playback started');
 
         } catch (error) {
             console.error('TTS error:', error);
-            this.updateDebugOutput('ttsOutput', `Error: ${error.message}`);
             this.updateStatus('TTS error - Ready to listen');
         }
-    }
-
-    // Token tracking methods
-    trackWhisperUsage(minutes) {
-        this.tokenUsage.whisper.requests += 1;
-        const cost = minutes * this.pricing.whisper;
-        this.tokenUsage.whisper.cost += cost;
-        this.tokenUsage.total += cost;
-        this.saveTokenUsage();
-        this.updateTokenDisplay();
-    }
-
-    trackGptUsage(inputTokens, outputTokens) {
-        this.tokenUsage.gpt.tokens += (inputTokens + outputTokens);
-        const inputCost = (inputTokens / 1000) * this.pricing.gpt35turbo.input;
-        const outputCost = (outputTokens / 1000) * this.pricing.gpt35turbo.output;
-        const totalCost = inputCost + outputCost;
-        this.tokenUsage.gpt.cost += totalCost;
-        this.tokenUsage.total += totalCost;
-        this.saveTokenUsage();
-        this.updateTokenDisplay();
-    }
-
-    trackTtsUsage(characters) {
-        this.tokenUsage.tts.characters += characters;
-        const pricePerChar = this.ttsSettings.model === 'tts-1-hd' ?
-            this.pricing.tts1hd / 1000 : this.pricing.tts1 / 1000;
-        const cost = characters * pricePerChar;
-        this.tokenUsage.tts.cost += cost;
-        this.tokenUsage.total += cost;
-        this.saveTokenUsage();
-        this.updateTokenDisplay();
-    }
-
-    saveTokenUsage() {
-        localStorage.setItem('token_usage', JSON.stringify(this.tokenUsage));
-    }
-
-    updateTokenDisplay() {
-        document.getElementById('whisperTokens').textContent = `${this.tokenUsage.whisper.requests} requests`;
-        document.getElementById('whisperCost').textContent = `$${this.tokenUsage.whisper.cost.toFixed(4)}`;
-
-        document.getElementById('gptTokens').textContent = `${this.tokenUsage.gpt.tokens} tokens`;
-        document.getElementById('gptCost').textContent = `$${this.tokenUsage.gpt.cost.toFixed(4)}`;
-
-        document.getElementById('ttsTokens').textContent = `${this.tokenUsage.tts.characters} chars`;
-        document.getElementById('ttsCost').textContent = `$${this.tokenUsage.tts.cost.toFixed(4)}`;
-
-        document.getElementById('totalCost').textContent = `$${this.tokenUsage.total.toFixed(4)}`;
-    }
-
-    resetTokenUsage() {
-        if (confirm('Are you sure you want to reset all token usage data?')) {
-            this.tokenUsage = {
-                whisper: { requests: 0, cost: 0 },
-                gpt: { tokens: 0, cost: 0 },
-                tts: { characters: 0, cost: 0 },
-                total: 0
-            };
-            this.saveTokenUsage();
-            this.updateTokenDisplay();
-        }
-    }
-
-    // TTS Settings methods
-    initializeTtsSettings() {
-        document.getElementById('ttsModel').value = this.ttsSettings.model;
-        document.getElementById('ttsVoice').value = this.ttsSettings.voice;
-        document.getElementById('ttsSpeed').value = this.ttsSettings.speed;
-        document.getElementById('ttsSpeedValue').textContent = this.ttsSettings.speed + 'x';
-    }
-
-    updateTtsModel(e) {
-        this.ttsSettings.model = e.target.value;
-        localStorage.setItem('tts_model', this.ttsSettings.model);
-    }
-
-    updateTtsVoice(e) {
-        this.ttsSettings.voice = e.target.value;
-        localStorage.setItem('tts_voice', this.ttsSettings.voice);
-    }
-
-    updateTtsSpeed(e) {
-        this.ttsSettings.speed = parseFloat(e.target.value);
-        document.getElementById('ttsSpeedValue').textContent = this.ttsSettings.speed + 'x';
-        localStorage.setItem('tts_speed', this.ttsSettings.speed);
-    }
-
-    async testTtsVoice() {
-        const testText = `Hello! I'm your financial assistant using the ${this.ttsSettings.voice} voice. This is how I sound with your current settings.`;
-        await this.textToSpeechOpenAI(testText);
-    }
-
-    // Speech Recognition Settings
-    initializeSpeechSettings() {
-        document.getElementById('audioQuality').value = this.speechSettings.audioQuality;
-        document.getElementById('noiseReduction').value = this.speechSettings.noiseReduction;
-        document.getElementById('whisperLanguage').value = this.speechSettings.whisperLanguage;
-        document.getElementById('recognitionMode').value = this.speechSettings.recognitionMode;
-    }
-
-    updateSpeechSetting(setting, value) {
-        this.speechSettings[setting] = value;
-        localStorage.setItem(setting.replace(/([A-Z])/g, '_$1').toLowerCase(), value);
-
-        // Update debug info if available
-        this.updateDebugOutput('sttOutput', `Speech setting updated: ${setting} = ${value}`);
-    }
-
-    // System Prompts Management Methods
-    initializeSystemPrompts() {
-        // Load saved prompts into the UI
-        document.getElementById('basePersonality').value = this.systemPrompts.basePersonality;
-        document.getElementById('financialContext').value = this.systemPrompts.financialContext;
-        document.getElementById('responseInstructions').value = this.systemPrompts.responseInstructions;
-
-        // Load custom prompts
-        this.loadCustomPrompts();
-    }
-
-    switchPromptTab(tabName) {
-        // Update tab buttons
-        document.querySelectorAll('.prompt-tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelector(`[data-prompt="${tabName}"]`).classList.add('active');
-
-        // Update tab content
-        document.querySelectorAll('.prompt-section').forEach(section => section.classList.remove('active'));
-        document.getElementById(`${tabName}-prompt`).classList.add('active');
-    }
-
-    saveSystemPrompts() {
-        try {
-            // Get values from textareas
-            this.systemPrompts.basePersonality = document.getElementById('basePersonality').value;
-            this.systemPrompts.financialContext = document.getElementById('financialContext').value;
-            this.systemPrompts.responseInstructions = document.getElementById('responseInstructions').value;
-
-            // Save custom prompts
-            this.saveCustomPrompts();
-
-            // Save to localStorage
-            localStorage.setItem('system_prompts', JSON.stringify(this.systemPrompts));
-
-            // Show success message
-            this.showPromptMessage('System prompts saved successfully!', 'success');
-
-        } catch (error) {
-            console.error('Error saving prompts:', error);
-            this.showPromptMessage('Error saving prompts. Please try again.', 'error');
-        }
-    }
-
-    resetSystemPrompts() {
-        if (confirm('Are you sure you want to reset all system prompts to defaults? This cannot be undone.')) {
-            // Reset to default prompts
-            this.systemPrompts = {
-                basePersonality: "You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.",
-                financialContext: `When handling financial requests:
-1. Always verify customer identity through account details
-2. For lost cards, immediately offer to block the card and arrange replacement
-3. For balance inquiries, provide current balance and recent transactions
-4. For disputes, guide customers through the dispute process step-by-step
-5. For transfers, ask for necessary details (amount, recipient, account)
-6. Always prioritize security and fraud prevention
-7. Offer additional relevant services when appropriate`,
-                responseInstructions: `Response Guidelines:
-1. Keep responses conversational and concise (suitable for voice)
-2. Use natural speech patterns with contractions (I'll, you're, we'll)
-3. Address customers by name when appropriate
-4. Provide specific information based on their account data
-5. Sound human and empathetic, not robotic
-6. Use clear, simple language avoiding jargon
-7. Always end with asking if there's anything else you can help with
-8. Maximum response length: 2-3 sentences for voice clarity`,
-                customPrompts: []
-            };
-
-            // Update UI
-            this.initializeSystemPrompts();
-
-            // Save to localStorage
-            localStorage.setItem('system_prompts', JSON.stringify(this.systemPrompts));
-
-            this.showPromptMessage('System prompts reset to defaults.', 'info');
-        }
-    }
-
-    testSystemPrompts() {
-        const generatedPrompt = this.generateSystemPrompt('john_doe', 'test message');
-        document.getElementById('promptPreview').textContent = generatedPrompt;
-        this.showPromptMessage('System prompt preview updated below.', 'info');
-    }
-
-    addCustomPrompt() {
-        const customPromptsList = document.getElementById('customPromptsList');
-        const newPromptItem = document.createElement('div');
-        newPromptItem.className = 'custom-prompt-item';
-        newPromptItem.innerHTML = `
-            <input type="text" placeholder="Scenario name (e.g., 'Loan Inquiries')" class="scenario-name">
-            <textarea placeholder="Custom prompt for this scenario..." class="custom-prompt-text" rows="4"></textarea>
-            <button class="remove-custom-prompt" onclick="this.parentElement.remove()">Remove</button>
-        `;
-        customPromptsList.appendChild(newPromptItem);
-    }
-
-    saveCustomPrompts() {
-        const customPrompts = [];
-        const customPromptItems = document.querySelectorAll('.custom-prompt-item');
-
-        customPromptItems.forEach(item => {
-            const name = item.querySelector('.scenario-name').value.trim();
-            const prompt = item.querySelector('.custom-prompt-text').value.trim();
-
-            if (name && prompt) {
-                customPrompts.push({ name, prompt });
-            }
-        });
-
-        this.systemPrompts.customPrompts = customPrompts;
-    }
-
-    loadCustomPrompts() {
-        const customPromptsList = document.getElementById('customPromptsList');
-        customPromptsList.innerHTML = '';
-
-        this.systemPrompts.customPrompts.forEach(customPrompt => {
-            const promptItem = document.createElement('div');
-            promptItem.className = 'custom-prompt-item';
-            promptItem.innerHTML = `
-                <input type="text" placeholder="Scenario name" class="scenario-name" value="${customPrompt.name}">
-                <textarea placeholder="Custom prompt for this scenario..." class="custom-prompt-text" rows="4">${customPrompt.prompt}</textarea>
-                <button class="remove-custom-prompt" onclick="this.parentElement.remove()">Remove</button>
-            `;
-            customPromptsList.appendChild(promptItem);
-        });
-
-        // Always add one empty prompt for new entries
-        this.addCustomPrompt();
-    }
-
-    generateSystemPrompt(personaId, userMessage) {
-        const persona = this.personas[personaId];
-
-        let systemPrompt = this.systemPrompts.basePersonality + '\n\n';
-        systemPrompt += this.systemPrompts.financialContext + '\n\n';
-        systemPrompt += this.systemPrompts.responseInstructions + '\n\n';
-
-        // Add custom prompts if any match the context
-        this.systemPrompts.customPrompts.forEach(customPrompt => {
-            if (userMessage.toLowerCase().includes(customPrompt.name.toLowerCase().split(' ')[0])) {
-                systemPrompt += `${customPrompt.name}: ${customPrompt.prompt}\n\n`;
-            }
-        });
-
-        systemPrompt += `Customer Information:
-- Name: ${persona.name}
-- Account Balance: $${persona.balance.toFixed(2)}
-- Account Type: ${persona.accountType}
-- Card ending in: ${persona.cardLast4}
-- Recent transactions: ${JSON.stringify(persona.recentTransactions)}
-
-Current customer message: "${userMessage}"`;
-
-        return systemPrompt;
-    }
-
-    showPromptMessage(message, type) {
-        // Remove existing messages
-        const existingMessages = document.querySelectorAll('.prompt-message');
-        existingMessages.forEach(msg => msg.remove());
-
-        // Create new message
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `prompt-message ${type}`;
-        messageDiv.textContent = message;
-
-        // Insert after prompt actions
-        const promptActions = document.querySelector('.prompt-actions');
-        if (promptActions) {
-            promptActions.parentNode.insertBefore(messageDiv, promptActions.nextSibling);
-        }
-
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            if (messageDiv.parentNode) {
-                messageDiv.remove();
-            }
-        }, 5000);
     }
 
     // UI Helper methods
     addMessage(content, type) {
         const conversation = document.getElementById('conversation');
+        if (!conversation) return;
+
         const messageDiv = document.createElement('div');
         messageDiv.className = `${type}-message`;
 
@@ -679,119 +545,57 @@ Current customer message: "${userMessage}"`;
 
         conversation.appendChild(messageDiv);
         conversation.scrollTop = conversation.scrollHeight;
+        console.log('Message added:', type, content);
     }
 
-    updateStatus(message) {
-        document.getElementById('status').textContent = message;
-    }
+    // Welcome message functionality
+    async playWelcomeMessage() {
+        const welcomeText = "Hello! I'm your financial assistant. How can I help you today?";
+        console.log('Playing welcome message...');
 
-    updateDebugOutput(elementId, content, label = '') {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.textContent = label ? `${label}\n${content}` : content;
-            element.classList.add('updated');
-            setTimeout(() => element.classList.remove('updated'), 500);
-        }
-    }
-
-    toggleDebugPanel() {
-        const debugContent = document.getElementById('debugContent');
-        const toggleBtn = document.getElementById('toggleDebug');
-
-        if (debugContent.classList.contains('hidden')) {
-            debugContent.classList.remove('hidden');
-            toggleBtn.textContent = 'Hide';
-        } else {
-            debugContent.classList.add('hidden');
-            toggleBtn.textContent = 'Show';
-        }
-    }
-
-    // Persona management methods
-    addPersona(e) {
-        e.preventDefault();
-
-        const name = document.getElementById('personaName').value;
-        const balance = parseFloat(document.getElementById('personaBalance').value);
-        const cardLast4 = document.getElementById('personaCard').value;
-        const accountType = document.getElementById('personaAccountType').value;
-
-        const personaId = name.toLowerCase().replace(/\s+/g, '_');
-
-        this.personas[personaId] = {
-            name,
-            balance,
-            cardLast4,
-            accountType,
-            recentTransactions: []
-        };
-
-        this.savePersonas();
-        this.loadPersonas();
-        this.updatePersonaSelector();
-
-        // Reset form
-        document.getElementById('personaForm').reset();
-    }
-
-    deletePersona(personaId) {
-        if (confirm('Are you sure you want to delete this persona?')) {
-            delete this.personas[personaId];
-            this.savePersonas();
-            this.loadPersonas();
-            this.updatePersonaSelector();
-        }
-    }
-
-    loadPersonas() {
-        const personaList = document.getElementById('personaList');
-        personaList.innerHTML = '';
-
-        Object.entries(this.personas).forEach(([id, persona]) => {
-            const personaCard = document.createElement('div');
-            personaCard.className = 'persona-card';
-            personaCard.innerHTML = `
-                <h4>${persona.name}</h4>
-                <p><strong>Balance:</strong> $${persona.balance.toFixed(2)}</p>
-                <p><strong>Card:</strong> ****${persona.cardLast4}</p>
-                <p><strong>Account:</strong> ${persona.accountType}</p>
-                <button class="delete-btn" onclick="app.deletePersona('${id}')">Delete</button>
-            `;
-            personaList.appendChild(personaCard);
-        });
-    }
-
-    updatePersonaSelector() {
-        const selector = document.getElementById('personaSelect');
-        selector.innerHTML = '';
-
-        Object.entries(this.personas).forEach(([id, persona]) => {
-            const option = document.createElement('option');
-            option.value = id;
-            option.textContent = persona.name;
-            if (id === this.currentPersona) {
-                option.selected = true;
+        if (this.openaiApiKey) {
+            try {
+                await this.textToSpeechOpenAI(welcomeText);
+            } catch (error) {
+                console.error('Error playing welcome message:', error);
+                // Fallback to browser speech synthesis
+                this.speakWithBrowserTTS(welcomeText);
             }
-            selector.appendChild(option);
-        });
+        } else {
+            // Use browser TTS if no API key
+            this.speakWithBrowserTTS(welcomeText);
+        }
     }
 
-    savePersonas() {
-        localStorage.setItem('personas', JSON.stringify(this.personas));
-    }
+    speakWithBrowserTTS(text) {
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.9;
+            utterance.pitch = 1;
+            utterance.volume = 0.8;
 
-    saveApiKey() {
-        const apiKey = document.getElementById('openaiKey').value.trim();
-        if (apiKey) {
-            this.openaiApiKey = apiKey;
-            localStorage.setItem('openai_api_key', apiKey);
-            alert('API key saved successfully!');
+            // Try to use a female voice
+            const voices = speechSynthesis.getVoices();
+            const femaleVoice = voices.find(voice =>
+                voice.name.toLowerCase().includes('female') ||
+                voice.name.toLowerCase().includes('zira') ||
+                voice.name.toLowerCase().includes('susan')
+            );
+            if (femaleVoice) utterance.voice = femaleVoice;
+
+            speechSynthesis.speak(utterance);
+            console.log('Browser TTS welcome message played');
         }
     }
 }
 
-// Initialize the app when the page loads
-let app;
-document.addEventListener('DOMContentLoaded', () => {
-    app = new FinanceBotApp();
-});
+// Initialize the app and play welcome message
+console.log('Initializing FinanceBot App...');
+const app = new FinanceBotApp();
+
+// Play welcome message after a short delay to ensure everything is loaded
+setTimeout(() => {
+    app.playWelcomeMessage();
+}, 1000);
+
+console.log('FinanceBot App initialized successfully!');

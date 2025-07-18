@@ -44,12 +44,41 @@
                 </div>
 
                 <div class="controls">
-                    <button id="startBtn" class="voice-btn">
-                        🎤 Start Speaking
-                    </button>
-                    <button id="stopBtn" class="voice-btn" disabled>
-                        ⏹️ Stop
-                    </button>
+                    <!-- Mode Toggle -->
+                    <div class="mode-toggle">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="streamingMode" class="mode-checkbox">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Streaming Mode</span>
+                        </label>
+                        <div class="mode-description">
+                            <span id="modeDescription">Batch Mode: Click to record, then process</span>
+                        </div>
+                    </div>
+
+                    <!-- Batch Mode Controls -->
+                    <div id="batchControls" class="control-group">
+                        <button id="startBtn" class="voice-btn">
+                            🎤 Start Speaking
+                        </button>
+                        <button id="stopBtn" class="voice-btn" disabled>
+                            ⏹️ Stop
+                        </button>
+                    </div>
+
+                    <!-- Streaming Mode Controls -->
+                    <div id="streamingControls" class="control-group hidden">
+                        <button id="connectBtn" class="voice-btn streaming-btn">
+                            📞 Connect
+                        </button>
+                        <button id="disconnectBtn" class="voice-btn streaming-btn" disabled>
+                            📞 Disconnect
+                        </button>
+                        <div class="streaming-status">
+                            <span id="connectionStatus" class="status-indicator disconnected">Disconnected</span>
+                            <span id="speakingIndicator" class="speaking-indicator">🔇</span>
+                        </div>
+                    </div>
                     <div class="audio-feedback">
                         <div class="audio-level-container">
                             <label>Audio Level:</label>
@@ -344,6 +373,51 @@
                             <li>Pause briefly between sentences</li>
                             <li>Use financial terms naturally (e.g., "account balance", "credit card")</li>
                             <li>Watch the audio level indicator - aim for green/yellow range</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="streaming-settings">
+                    <h3>📞 Streaming Mode Settings</h3>
+                    <div class="streaming-controls">
+                        <div class="streaming-control">
+                            <label>Response Delay (silence threshold):</label>
+                            <input type="range" id="responseDelay" min="0.5" max="3.0" step="0.1" value="1.0">
+                            <span id="responseDelayValue">1.0s</span>
+                        </div>
+                        <div class="streaming-control">
+                            <label>Voice Activity Detection:</label>
+                            <select id="vadSensitivity">
+                                <option value="low">Low Sensitivity</option>
+                                <option value="medium" selected>Medium Sensitivity</option>
+                                <option value="high">High Sensitivity</option>
+                            </select>
+                        </div>
+                        <div class="streaming-control">
+                            <label>Audio Buffer Size:</label>
+                            <select id="audioBufferSize">
+                                <option value="small">Small (Low Latency)</option>
+                                <option value="medium" selected>Medium (Balanced)</option>
+                                <option value="large">Large (High Quality)</option>
+                            </select>
+                        </div>
+                        <div class="streaming-control">
+                            <label>Connection Quality:</label>
+                            <select id="connectionQuality">
+                                <option value="auto" selected>Auto (Adaptive)</option>
+                                <option value="low">Low Bandwidth</option>
+                                <option value="high">High Bandwidth</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="streaming-info">
+                        <h4>🔄 Streaming Mode Features:</h4>
+                        <ul>
+                            <li><strong>Real-time conversation:</strong> Continuous audio connection like a phone call</li>
+                            <li><strong>Voice Activity Detection:</strong> AI responds when you pause speaking</li>
+                            <li><strong>Full Duplex:</strong> Both parties can speak and listen simultaneously</li>
+                            <li><strong>Lower latency:</strong> Faster response times than batch mode</li>
+                            <li><strong>Natural flow:</strong> More conversational interaction</li>
                         </ul>
                     </div>
                 </div>

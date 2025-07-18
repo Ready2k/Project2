@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Streaming Test</title>
+</head>
+<body>
+    <h1>Streaming Mode Test</h1>
+    <input type="checkbox" id="streamingMode"> Streaming Mode
+    <button id="connectBtn">Connect</button>
+    <div id="status">Ready</div>
+    
+    <script>
+        // Simple test to verify streaming toggle works
+        const streamingMode = document.getElementById('streamingMode');
+        const connectBtn = document.getElementById('connectBtn');
+        const status = document.getElementById('status');
+        
+        streamingMode.addEventListener('change', (e) => {
+            status.textContent = e.target.checked ? 'Streaming Mode ON' : 'Batch Mode ON';
+            console.log('Toggle works:', e.target.checked);
+        });
+        
+        connectBtn.addEventListener('click', () => {
+            status.textContent = 'Connect button clicked!';
+            console.log('Connect button works');
+        });
+        
+        console.log('Test page loaded successfully');
+    </script>
+</body>
+</html>

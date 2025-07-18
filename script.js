@@ -19,6 +19,14 @@ class FinanceBotApp {
         this.cachedMicStream = null;
         this.micPermissionGranted = false;
 
+        // State management
+        this.currentState = 'ready'; // ready, recording, processing, speaking
+        this.currentAudio = null; // Track current audio element for cleanup
+
+        // Audio monitoring
+        this.audioAnalyser = null;
+        this.audioLevelInterval = null;
+
         // OpenAI TTS settings
         this.ttsSettings = {
             model: localStorage.getItem('tts_model') || 'tts-1',
@@ -82,6 +90,7 @@ class FinanceBotApp {
 
     init() {
         this.setupEventListeners();
+        this.setupCleanupListeners();
         this.loadPersonas();
         this.updatePersonaSelector();
         this.initializeTtsSettings();
@@ -182,7 +191,13 @@ class FinanceBotApp {
             return;
         }
 
+        if (this.currentState !== 'ready') {
+            console.log('Cannot start recording, current state:', this.currentState);
+            return;
+        }
+
         try {
+            this.currentState = 'recording';
             let stream;
 
             // Check if we have a cached microphone stream
@@ -190,12 +205,12 @@ class FinanceBotApp {
                 console.log('Using cached microphone stream');
                 stream = this.cachedMicStream;
 
-                // Verify the stream is still active
+                // Verify all tracks are still active
                 const tracks = stream.getAudioTracks();
-                if (tracks.length === 0 || tracks[0].readyState === 'ended') {
+                const activeTrack = tracks.find(track => track.readyState === 'live');
+                if (!activeTrack) {
                     console.log('Cached stream is inactive, requesting new access...');
-                    this.cachedMicStream = null;
-                    this.micPermissionGranted = false;
+                    this.cleanupMicrophoneStream();
                     stream = await this.requestMicrophoneAccess();
                 }
             } else {
@@ -220,6 +235,12 @@ class FinanceBotApp {
             this.mediaRecorder.start();
             this.isRecording = true;
 
+            // Start audio level monitoring
+            this.startAudioLevelMonitoring(stream);
+
+            // Update recording status
+            this.updateRecordingStatus('🔴 Recording');
+
             const startBtn = document.getElementById('startBtn');
             const stopBtn = document.getElementById('stopBtn');
             if (startBtn) startBtn.disabled = true;
@@ -230,9 +251,16 @@ class FinanceBotApp {
 
         } catch (error) {
             console.error('Error accessing microphone:', error);
+            this.currentState = 'ready'; // Reset state on error
             this.updateStatus('❌ Microphone access denied. Please allow microphone permissions.');
             this.micPermissionGranted = false;
             this.cachedMicStream = null;
+
+            // Reset button states
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            if (startBtn) startBtn.disabled = false;
+            if (stopBtn) stopBtn.disabled = true;
 
             // Show detailed error message
             if (error.name === 'NotAllowedError') {
@@ -271,6 +299,13 @@ class FinanceBotApp {
             this.mediaRecorder.stop();
             this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
             this.isRecording = false;
+            this.currentState = 'processing';
+
+            // Stop audio level monitoring
+            this.stopAudioLevelMonitoring();
+
+            // Update recording status
+            this.updateRecordingStatus('🔴 Not Recording');
 
             const startBtn = document.getElementById('startBtn');
             const stopBtn = document.getElementById('stopBtn');
@@ -281,6 +316,447 @@ class FinanceBotApp {
         }
     }
 
+    // Audio processing methods
+    async processAudio() {
+        try {
+            const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+            console.log('Processing audio blob:', audioBlob.size, 'bytes');
+
+            // Validate audio blob size
+            if (audioBlob.size === 0) {
+                throw new Error('No audio data recorded');
+            }
+
+            // Convert speech to text using OpenAI Whisper
+            const transcript = await this.speechToText(audioBlob);
+
+            if (transcript && transcript.trim()) {
+                this.addMessage(transcript, 'user');
+                this.updateStatus('Generating response...');
+
+                // Generate AI response
+                const response = await this.generateResponse(transcript);
+                this.addMessage(response, 'bot');
+
+                // Convert response to speech using OpenAI TTS
+                this.currentState = 'speaking';
+                await this.textToSpeechOpenAI(response);
+
+                this.currentState = 'ready';
+                this.updateStatus('Ready to listen');
+            } else {
+                this.currentState = 'ready';
+                this.updateStatus('No speech detected. Please try again.');
+            }
+
+        } catch (error) {
+            console.error('Error processing audio:', error);
+            this.currentState = 'ready';
+            this.updateStatus('Error processing audio. Please try again.');
+        }
+    }
+
+    async speechToText(audioBlob) {
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'audio.wav');
+        formData.append('model', 'whisper-1');
+
+        try {
+            console.log('Sending audio to Whisper API...');
+            this.updateStatus('🔄 Converting speech to text...');
+            this.updateDebugOutput('sttOutput', 'Processing audio with Whisper...');
+
+            const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.openaiApiKey}`
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('Transcription received:', data.text);
+
+            // Track Whisper usage
+            this.trackWhisperUsage();
+
+            // Update debug output
+            this.updateDebugOutput('sttOutput', data.text, 'Transcribed Text:');
+
+            return data.text;
+
+        } catch (error) {
+            console.error('Speech-to-text error:', error);
+            this.updateDebugOutput('sttOutput', `Error: ${error.message}`);
+            throw error;
+        }
+    }
+
+    async generateResponse(userMessage) {
+        const systemPrompt = `You are a helpful, professional, and friendly financial services AI assistant. Keep responses conversational and concise (suitable for voice). Customer: ${this.personas[this.currentPersona].name}, Balance: $${this.personas[this.currentPersona].balance.toFixed(2)}`;
+
+        try {
+            console.log('Generating AI response for:', userMessage);
+            this.updateStatus('🤖 Generating AI response...');
+
+            // Update debug panel with system prompt
+            this.updateDebugOutput('systemPrompt', systemPrompt);
+
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.openaiApiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-3.5-turbo',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userMessage }
+                    ],
+                    max_tokens: 200,
+                    temperature: 0.8
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const aiResponse = data.choices[0].message.content;
+            console.log('AI response received:', aiResponse);
+
+            // Track GPT usage
+            if (data.usage) {
+                this.trackGptUsage(data.usage.prompt_tokens, data.usage.completion_tokens);
+            }
+
+            // Update debug panel with GPT response
+            this.updateDebugOutput('gptResponse', aiResponse);
+
+            return aiResponse;
+
+        } catch (error) {
+            console.error('AI response error:', error);
+            this.updateDebugOutput('gptResponse', `Error: ${error.message}`);
+            return "I apologize, but I'm having trouble processing your request right now. Please try again in a moment.";
+        }
+    }
+
+    async textToSpeechOpenAI(text) {
+        try {
+            console.log('Converting text to speech:', text);
+            this.updateStatus('🔊 Generating voice...');
+            this.updateDebugOutput('ttsOutput', `Generating speech with ${this.ttsSettings.model} (${this.ttsSettings.voice})`);
+
+            const response = await fetch('https://api.openai.com/v1/audio/speech', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.openaiApiKey}`
+                },
+                body: JSON.stringify({
+                    model: this.ttsSettings.model,
+                    input: text,
+                    voice: this.ttsSettings.voice,
+                    speed: this.ttsSettings.speed
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // Get audio blob and play it
+            const audioBlob = await response.blob();
+
+            // Validate audio blob
+            if (audioBlob.size === 0) {
+                throw new Error('Empty audio response from TTS API');
+            }
+
+            // Clean up previous audio if exists
+            if (this.currentAudio) {
+                this.currentAudio.pause();
+                this.currentAudio.src = '';
+                this.currentAudio = null;
+            }
+
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            this.currentAudio = audio;
+
+            this.updateStatus('🔊 Speaking...');
+
+            audio.onended = () => {
+                console.log('Audio playback ended');
+                this.updateStatus('Ready to listen');
+                URL.revokeObjectURL(audioUrl);
+                this.currentAudio = null;
+            };
+
+            audio.onerror = (error) => {
+                console.error('Audio playback error:', error);
+                this.updateStatus('Audio playback error - Ready to listen');
+                URL.revokeObjectURL(audioUrl);
+                this.currentAudio = null;
+            };
+
+            // Try to play audio
+            try {
+                await audio.play();
+                console.log('Audio playback started');
+            } catch (playError) {
+                console.warn('Audio autoplay blocked:', playError);
+
+                // Create manual play button
+                const playButton = document.createElement('button');
+                playButton.textContent = '🔊 Click to Play Audio Response';
+                playButton.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 10px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;';
+
+                playButton.onclick = () => {
+                    audio.play().then(() => {
+                        playButton.remove();
+                    }).catch(err => {
+                        console.error('Manual audio play failed:', err);
+                        playButton.textContent = '❌ Audio play failed';
+                        setTimeout(() => playButton.remove(), 3000);
+                    });
+                };
+
+                document.body.appendChild(playButton);
+                setTimeout(() => {
+                    if (playButton.parentNode) {
+                        playButton.remove();
+                    }
+                }, 10000);
+
+                this.updateStatus('🔊 Audio ready - Click the blue button to play');
+            }
+
+            // Track TTS usage
+            this.trackTtsUsage(text.length);
+            this.updateDebugOutput('ttsOutput', `Speech generated successfully\nCharacters: ${text.length}\nModel: ${this.ttsSettings.model}\nVoice: ${this.ttsSettings.voice}`);
+
+        } catch (error) {
+            console.error('TTS error:', error);
+            this.updateStatus('TTS error - Ready to listen');
+            this.updateDebugOutput('ttsOutput', `Error: ${error.message}`);
+
+            // Try fallback to browser TTS
+            this.speakWithBrowserTTS(text);
+        }
+    }
+
+    // Audio level monitoring methods
+    startAudioLevelMonitoring(stream) {
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.audioAnalyser = this.audioContext.createAnalyser();
+            const source = this.audioContext.createMediaStreamSource(stream);
+
+            this.audioAnalyser.fftSize = 256;
+            source.connect(this.audioAnalyser);
+
+            const bufferLength = this.audioAnalyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            this.audioLevelInterval = setInterval(() => {
+                this.audioAnalyser.getByteFrequencyData(dataArray);
+
+                // Calculate RMS for audio level
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i] * dataArray[i];
+                }
+                const rms = Math.sqrt(sum / dataArray.length);
+                const level = Math.min(100, Math.max(0, rms * 100 / 128));
+
+                this.updateAudioLevel(level);
+            }, 100);
+
+            console.log('Audio level monitoring started');
+        } catch (error) {
+            console.error('Error starting audio level monitoring:', error);
+        }
+    }
+
+    stopAudioLevelMonitoring() {
+        if (this.audioLevelInterval) {
+            clearInterval(this.audioLevelInterval);
+            this.audioLevelInterval = null;
+        }
+
+        if (this.audioContext) {
+            this.audioContext.close();
+            this.audioContext = null;
+        }
+
+        this.audioAnalyser = null;
+        this.updateAudioLevel(0);
+        console.log('Audio level monitoring stopped');
+    }
+
+    updateAudioLevel(level) {
+        const audioLevelFill = document.getElementById('audioLevel');
+        const audioLevelText = document.getElementById('audioLevelText');
+
+        if (audioLevelFill) {
+            audioLevelFill.style.width = level + '%';
+        }
+
+        if (audioLevelText) {
+            audioLevelText.textContent = Math.round(level) + '%';
+        }
+    }
+
+    updateRecordingStatus(status) {
+        const recordingQuality = document.getElementById('recordingQuality');
+        if (recordingQuality) {
+            recordingQuality.textContent = status;
+        }
+    }
+
+    // Debug panel methods
+    updateDebugOutput(elementId, content, label = '') {
+        const element = document.getElementById(elementId);
+        if (element) {
+            const timestamp = new Date().toLocaleTimeString();
+            const displayContent = label ? `${label}\n${content}` : content;
+            element.textContent = `[${timestamp}] ${displayContent}`;
+        }
+    }
+
+    // Token tracking methods
+    trackWhisperUsage(minutes = 0.17) {
+        this.tokenUsage.whisper.requests += 1;
+        const cost = minutes * this.pricing.whisper;
+        this.tokenUsage.whisper.cost += cost;
+        this.tokenUsage.total += cost;
+        this.saveTokenUsage();
+        this.updateTokenDisplay();
+    }
+
+    trackGptUsage(inputTokens, outputTokens) {
+        this.tokenUsage.gpt.tokens += (inputTokens + outputTokens);
+        const inputCost = (inputTokens / 1000) * this.pricing.gpt35turbo.input;
+        const outputCost = (outputTokens / 1000) * this.pricing.gpt35turbo.output;
+        const totalCost = inputCost + outputCost;
+        this.tokenUsage.gpt.cost += totalCost;
+        this.tokenUsage.total += totalCost;
+        this.saveTokenUsage();
+        this.updateTokenDisplay();
+    }
+
+    trackTtsUsage(characters) {
+        this.tokenUsage.tts.characters += characters;
+        const pricePerChar = this.ttsSettings.model === 'tts-1-hd' ?
+            this.pricing.tts1hd / 1000 : this.pricing.tts1 / 1000;
+        const cost = characters * pricePerChar;
+        this.tokenUsage.tts.cost += cost;
+        this.tokenUsage.total += cost;
+        this.saveTokenUsage();
+        this.updateTokenDisplay();
+    }
+
+    saveTokenUsage() {
+        localStorage.setItem('token_usage', JSON.stringify(this.tokenUsage));
+    }
+
+    updateTokenDisplay() {
+        const whisperTokens = document.getElementById('whisperTokens');
+        const whisperCost = document.getElementById('whisperCost');
+        const gptTokens = document.getElementById('gptTokens');
+        const gptCost = document.getElementById('gptCost');
+        const ttsTokens = document.getElementById('ttsTokens');
+        const ttsCost = document.getElementById('ttsCost');
+        const totalCost = document.getElementById('totalCost');
+
+        if (whisperTokens) whisperTokens.textContent = `${this.tokenUsage.whisper.requests} requests`;
+        if (whisperCost) whisperCost.textContent = `$${this.tokenUsage.whisper.cost.toFixed(4)}`;
+        if (gptTokens) gptTokens.textContent = `${this.tokenUsage.gpt.tokens} tokens`;
+        if (gptCost) gptCost.textContent = `$${this.tokenUsage.gpt.cost.toFixed(4)}`;
+        if (ttsTokens) ttsTokens.textContent = `${this.tokenUsage.tts.characters} chars`;
+        if (ttsCost) ttsCost.textContent = `$${this.tokenUsage.tts.cost.toFixed(4)}`;
+        if (totalCost) totalCost.textContent = `$${this.tokenUsage.total.toFixed(4)}`;
+    }
+    // UI Helper methods
+    addMessage(content, type) {
+        const conversation = document.getElementById('conversation');
+        if (!conversation) return;
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `${type}-message`;
+
+        messageDiv.innerHTML = `
+            <div class="message-content">
+                ${content}
+            </div>
+        `;
+
+        conversation.appendChild(messageDiv);
+        conversation.scrollTop = conversation.scrollHeight;
+        console.log('Message added:', type, content);
+    }
+
+    speakWithBrowserTTS(text) {
+        if ('speechSynthesis' in window) {
+            console.log('Using browser TTS fallback for:', text);
+
+            const speakText = () => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.9;
+                utterance.pitch = 1;
+                utterance.volume = 0.8;
+
+                // Try to use a female voice
+                const voices = speechSynthesis.getVoices();
+                const femaleVoice = voices.find(voice =>
+                    voice.name.toLowerCase().includes('female') ||
+                    voice.name.toLowerCase().includes('zira') ||
+                    voice.name.toLowerCase().includes('susan') ||
+                    voice.name.toLowerCase().includes('samantha') ||
+                    voice.name.toLowerCase().includes('karen')
+                );
+
+                if (femaleVoice) {
+                    utterance.voice = femaleVoice;
+                }
+
+                utterance.onstart = () => {
+                    this.updateStatus('🔊 Speaking (Browser TTS)...');
+                };
+
+                utterance.onend = () => {
+                    this.updateStatus('Ready to listen');
+                };
+
+                utterance.onerror = (error) => {
+                    console.error('Browser TTS error:', error);
+                    this.updateStatus('TTS error - Ready to listen');
+                };
+
+                speechSynthesis.speak(utterance);
+            };
+
+            // If voices aren't loaded yet, wait for them
+            if (speechSynthesis.getVoices().length === 0) {
+                speechSynthesis.addEventListener('voiceschanged', speakText, { once: true });
+            } else {
+                speakText();
+            }
+        } else {
+            console.error('Browser TTS not supported');
+            this.updateStatus('TTS not supported - Ready to listen');
+        }
+    }
+
+    // Settings and UI methods
     addPersona(e) {
         e.preventDefault();
         console.log('Add persona form submitted');
@@ -332,11 +808,27 @@ class FinanceBotApp {
             return;
         }
 
-        this.updateConnectionStatus('connecting');
-        this.updateStatus('🔄 Connecting to streaming service...');
+        if (this.isConnected) {
+            console.log('Already connected to streaming');
+            return;
+        }
 
-        // Simulate connection for now
-        setTimeout(() => {
+        try {
+            this.updateConnectionStatus('connecting');
+            this.updateStatus('🔄 Connecting to streaming service...');
+
+            // Simulate connection
+            await new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    if (Math.random() > 0.9) {
+                        reject(new Error('Connection timeout'));
+                    } else {
+                        resolve();
+                    }
+                }, 2000);
+            });
+
+            this.isConnected = true;
             this.updateConnectionStatus('connected');
             this.updateStatus('📞 Connected - Streaming mode ready!');
 
@@ -344,18 +836,55 @@ class FinanceBotApp {
             const disconnectBtn = document.getElementById('disconnectBtn');
             if (connectBtn) connectBtn.disabled = true;
             if (disconnectBtn) disconnectBtn.disabled = false;
-        }, 2000);
+
+        } catch (error) {
+            console.error('Streaming connection error:', error);
+            this.isConnected = false;
+            this.updateConnectionStatus('disconnected');
+            this.updateStatus('❌ Connection failed. Please try again.');
+
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            if (connectBtn) connectBtn.disabled = false;
+            if (disconnectBtn) disconnectBtn.disabled = true;
+        }
     }
 
     async disconnectStreaming() {
         console.log('Disconnect streaming clicked');
-        this.updateConnectionStatus('disconnected');
-        this.updateStatus('📞 Disconnected');
 
-        const connectBtn = document.getElementById('connectBtn');
-        const disconnectBtn = document.getElementById('disconnectBtn');
-        if (connectBtn) connectBtn.disabled = false;
-        if (disconnectBtn) disconnectBtn.disabled = true;
+        if (!this.isConnected) {
+            console.log('Already disconnected from streaming');
+            return;
+        }
+
+        try {
+            // Clean up streaming resources
+            if (this.websocket) {
+                this.websocket.close();
+                this.websocket = null;
+            }
+
+            if (this.audioContext) {
+                this.audioContext.close();
+                this.audioContext = null;
+            }
+
+            this.isConnected = false;
+            this.updateConnectionStatus('disconnected');
+            this.updateStatus('📞 Disconnected');
+
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            if (connectBtn) connectBtn.disabled = false;
+            if (disconnectBtn) disconnectBtn.disabled = true;
+
+        } catch (error) {
+            console.error('Error during disconnect:', error);
+            this.isConnected = false;
+            this.updateConnectionStatus('disconnected');
+            this.updateStatus('📞 Disconnected (with errors)');
+        }
     }
 
     // Helper methods
@@ -440,7 +969,6 @@ class FinanceBotApp {
             await this.textToSpeechOpenAI(testText);
         } catch (error) {
             console.error('TTS test error:', error);
-            // Fallback to browser TTS for testing
             this.speakWithBrowserTTS(testText);
         }
     }
@@ -462,10 +990,6 @@ class FinanceBotApp {
         console.log('Initializing system prompts...');
     }
 
-    updateTokenDisplay() {
-        console.log('Updating token display...');
-    }
-
     initializeStreamingMode() {
         console.log('Initializing streaming mode...');
         const streamingModeCheckbox = document.getElementById('streamingMode');
@@ -475,303 +999,7 @@ class FinanceBotApp {
         }
     }
 
-    // Audio processing methods
-    async processAudio() {
-        try {
-            const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
-            console.log('Processing audio blob:', audioBlob.size, 'bytes');
-
-            // Convert speech to text using OpenAI Whisper
-            const transcript = await this.speechToText(audioBlob);
-
-            if (transcript) {
-                this.addMessage(transcript, 'user');
-                this.updateStatus('Generating response...');
-
-                // Generate AI response
-                const response = await this.generateResponse(transcript);
-                this.addMessage(response, 'bot');
-
-                // Convert response to speech using OpenAI TTS
-                await this.textToSpeechOpenAI(response);
-
-                this.updateStatus('Ready to listen');
-            }
-
-        } catch (error) {
-            console.error('Error processing audio:', error);
-            this.updateStatus('Error processing audio. Please try again.');
-        }
-    }
-
-    async speechToText(audioBlob) {
-        const formData = new FormData();
-        formData.append('file', audioBlob, 'audio.wav');
-        formData.append('model', 'whisper-1');
-
-        try {
-            console.log('Sending audio to Whisper API...');
-            this.updateStatus('🔄 Converting speech to text...');
-
-            const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.openaiApiKey}`
-                },
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            console.log('Transcription received:', data.text);
-            return data.text;
-
-        } catch (error) {
-            console.error('Speech-to-text error:', error);
-            throw error;
-        }
-    }
-
-    async generateResponse(userMessage) {
-        try {
-            console.log('Generating AI response for:', userMessage);
-            this.updateStatus('🤖 Generating AI response...');
-
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.openaiApiKey}`
-                },
-                body: JSON.stringify({
-                    model: 'gpt-3.5-turbo',
-                    messages: [
-                        {
-                            role: 'system',
-                            content: `You are a helpful, professional, and friendly financial services AI assistant. Keep responses conversational and concise (suitable for voice). Customer: ${this.personas[this.currentPersona].name}, Balance: $${this.personas[this.currentPersona].balance.toFixed(2)}`
-                        },
-                        { role: 'user', content: userMessage }
-                    ],
-                    max_tokens: 200,
-                    temperature: 0.8
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            const aiResponse = data.choices[0].message.content;
-            console.log('AI response received:', aiResponse);
-            return aiResponse;
-
-        } catch (error) {
-            console.error('AI response error:', error);
-            return "I apologize, but I'm having trouble processing your request right now. Please try again in a moment.";
-        }
-    }
-
-    async textToSpeechOpenAI(text) {
-        try {
-            console.log('Converting text to speech:', text);
-            console.log('Using TTS settings:', this.ttsSettings);
-            this.updateStatus('🔊 Generating voice...');
-
-            const requestBody = {
-                model: this.ttsSettings.model,
-                input: text,
-                voice: this.ttsSettings.voice,
-                speed: this.ttsSettings.speed
-            };
-            console.log('TTS request body:', requestBody);
-
-            const response = await fetch('https://api.openai.com/v1/audio/speech', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.openaiApiKey}`
-                },
-                body: JSON.stringify(requestBody)
-            });
-
-            console.log('TTS response status:', response.status);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('TTS API error response:', errorText);
-                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-            }
-
-            // Get audio blob and play it
-            console.log('Getting audio blob...');
-            const audioBlob = await response.blob();
-            console.log('Audio blob size:', audioBlob.size, 'bytes');
-
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
-
-            this.updateStatus('🔊 Speaking...');
-
-            audio.onended = () => {
-                console.log('Audio playback ended');
-                this.updateStatus('Ready to listen');
-                URL.revokeObjectURL(audioUrl);
-            };
-
-            audio.onerror = (error) => {
-                console.error('Audio playback error:', error);
-                this.updateStatus('Audio playback error - Ready to listen');
-                URL.revokeObjectURL(audioUrl);
-            };
-
-            // Try to play audio, handle autoplay restrictions
-            try {
-                await audio.play();
-                console.log('Audio playback started');
-            } catch (playError) {
-                console.warn('Audio autoplay blocked, trying user interaction workaround:', playError);
-
-                // Show a user-friendly message and provide a manual play option
-                const playButton = document.createElement('button');
-                playButton.textContent = '🔊 Click to Play Audio Response';
-                playButton.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 10px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;';
-
-                playButton.onclick = () => {
-                    audio.play().then(() => {
-                        playButton.remove();
-                        console.log('Manual audio playback started');
-                    }).catch(err => {
-                        console.error('Manual audio play failed:', err);
-                        playButton.textContent = '❌ Audio play failed';
-                        setTimeout(() => playButton.remove(), 3000);
-                    });
-                };
-
-                document.body.appendChild(playButton);
-
-                // Auto-remove button after 10 seconds
-                setTimeout(() => {
-                    if (playButton.parentNode) {
-                        playButton.remove();
-                    }
-                }, 10000);
-
-                this.updateStatus('🔊 Audio ready - Click the blue button to play');
-            }
-
-        } catch (error) {
-            console.error('TTS error:', error);
-            console.error('Error details:', error.message, error.stack);
-            this.updateStatus('TTS error - Ready to listen');
-
-            // Try fallback to browser TTS
-            console.log('Attempting browser TTS fallback...');
-            this.speakWithBrowserTTS(text);
-        }
-    }
-
-    // UI Helper methods
-    addMessage(content, type) {
-        const conversation = document.getElementById('conversation');
-        if (!conversation) return;
-
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `${type}-message`;
-
-        messageDiv.innerHTML = `
-            <div class="message-content">
-                ${content}
-            </div>
-        `;
-
-        conversation.appendChild(messageDiv);
-        conversation.scrollTop = conversation.scrollHeight;
-        console.log('Message added:', type, content);
-    }
-
-    // Welcome message functionality
-    async playWelcomeMessage() {
-        const welcomeText = "Hello! I'm your financial assistant. How can I help you today?";
-        console.log('Playing welcome message...');
-
-        if (this.openaiApiKey) {
-            try {
-                await this.textToSpeechOpenAI(welcomeText);
-            } catch (error) {
-                console.error('Error playing welcome message:', error);
-                // Fallback to browser speech synthesis
-                this.speakWithBrowserTTS(welcomeText);
-            }
-        } else {
-            // Use browser TTS if no API key
-            this.speakWithBrowserTTS(welcomeText);
-        }
-    }
-
-    speakWithBrowserTTS(text) {
-        if ('speechSynthesis' in window) {
-            console.log('Using browser TTS fallback for:', text);
-
-            const speakText = () => {
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.rate = 0.9;
-                utterance.pitch = 1;
-                utterance.volume = 0.8;
-
-                // Try to use a female voice
-                const voices = speechSynthesis.getVoices();
-                console.log('Available voices:', voices.length);
-
-                const femaleVoice = voices.find(voice =>
-                    voice.name.toLowerCase().includes('female') ||
-                    voice.name.toLowerCase().includes('zira') ||
-                    voice.name.toLowerCase().includes('susan') ||
-                    voice.name.toLowerCase().includes('samantha') ||
-                    voice.name.toLowerCase().includes('karen')
-                );
-
-                if (femaleVoice) {
-                    utterance.voice = femaleVoice;
-                    console.log('Using voice:', femaleVoice.name);
-                } else {
-                    console.log('Using default voice');
-                }
-
-                utterance.onstart = () => {
-                    console.log('Browser TTS started');
-                    this.updateStatus('🔊 Speaking (Browser TTS)...');
-                };
-
-                utterance.onend = () => {
-                    console.log('Browser TTS ended');
-                    this.updateStatus('Ready to listen');
-                };
-
-                utterance.onerror = (error) => {
-                    console.error('Browser TTS error:', error);
-                    this.updateStatus('TTS error - Ready to listen');
-                };
-
-                speechSynthesis.speak(utterance);
-            };
-
-            // If voices aren't loaded yet, wait for them
-            if (speechSynthesis.getVoices().length === 0) {
-                speechSynthesis.addEventListener('voiceschanged', speakText, { once: true });
-            } else {
-                speakText();
-            }
-        } else {
-            console.error('Browser TTS not supported');
-            this.updateStatus('TTS not supported - Ready to listen');
-        }
-    }
-
-    // Cleanup method for microphone stream
+    // Cleanup methods
     cleanupMicrophoneStream() {
         if (this.cachedMicStream) {
             console.log('Cleaning up cached microphone stream');
@@ -784,14 +1012,50 @@ class FinanceBotApp {
         }
     }
 
-    // Call cleanup when page unloads
+    cleanupAllResources() {
+        console.log('Cleaning up all resources...');
+
+        this.cleanupMicrophoneStream();
+        this.stopAudioLevelMonitoring();
+
+        if (this.currentAudio) {
+            this.currentAudio.pause();
+            this.currentAudio.src = '';
+            this.currentAudio = null;
+        }
+
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+            this.mediaRecorder.stop();
+        }
+
+        if (this.websocket) {
+            this.websocket.close();
+            this.websocket = null;
+        }
+
+        this.currentState = 'ready';
+        this.isRecording = false;
+        this.isConnected = false;
+
+        this.updateRecordingStatus('🔴 Not Recording');
+    }
+
     setupCleanupListeners() {
+        console.log('Setting up cleanup listeners...');
+
         window.addEventListener('beforeunload', () => {
-            this.cleanupMicrophoneStream();
+            this.cleanupAllResources();
         });
 
         window.addEventListener('pagehide', () => {
-            this.cleanupMicrophoneStream();
+            this.cleanupAllResources();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && this.currentState === 'recording') {
+                console.log('Tab hidden while recording, stopping recording...');
+                this.stopRecording();
+            }
         });
     }
 }
@@ -800,8 +1064,4 @@ class FinanceBotApp {
 console.log('Initializing FinanceBot App...');
 const app = new FinanceBotApp();
 
-// Set up cleanup listeners
-app.setupCleanupListeners();
-
-// Note: Welcome message will play after first user interaction to comply with browser autoplay policies
 console.log('FinanceBot App initialized successfully!');

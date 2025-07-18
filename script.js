@@ -15,6 +15,10 @@ class FinanceBotApp {
         this.silenceTimer = null;
         this.isSpeaking = false;
 
+        // Microphone stream caching
+        this.cachedMicStream = null;
+        this.micPermissionGranted = false;
+
         // OpenAI TTS settings
         this.ttsSettings = {
             model: localStorage.getItem('tts_model') || 'tts-1',
@@ -86,6 +90,9 @@ class FinanceBotApp {
         this.initializeSystemPrompts();
         this.updateTokenDisplay();
         this.initializeStreamingMode();
+
+        // Switch to Settings tab on startup for configuration
+        this.switchTab('settings');
     }
 
     setupEventListeners() {
@@ -120,6 +127,17 @@ class FinanceBotApp {
         // Settings
         const saveKey = document.getElementById('saveKey');
         if (saveKey) saveKey.addEventListener('click', () => this.saveApiKey());
+
+        // TTS Settings
+        const ttsModel = document.getElementById('ttsModel');
+        const ttsVoice = document.getElementById('ttsVoice');
+        const ttsSpeed = document.getElementById('ttsSpeed');
+        const testTtsVoice = document.getElementById('testTtsVoice');
+
+        if (ttsModel) ttsModel.addEventListener('change', (e) => this.updateTtsModel(e));
+        if (ttsVoice) ttsVoice.addEventListener('change', (e) => this.updateTtsVoice(e));
+        if (ttsSpeed) ttsSpeed.addEventListener('input', (e) => this.updateTtsSpeed(e));
+        if (testTtsVoice) testTtsVoice.addEventListener('click', () => this.testTtsVoice());
 
         // Streaming mode controls
         const streamingMode = document.getElementById('streamingMode');
@@ -165,18 +183,27 @@ class FinanceBotApp {
         }
 
         try {
-            console.log('Requesting microphone access...');
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    sampleRate: this.speechSettings.audioQuality === 'high' ? 48000 : 16000,
-                    channelCount: 1,
-                    echoCancellation: true,
-                    noiseSuppression: this.speechSettings.noiseReduction !== 'off',
-                    autoGainControl: true
-                }
-            });
+            let stream;
 
-            console.log('Microphone access granted');
+            // Check if we have a cached microphone stream
+            if (this.cachedMicStream && this.micPermissionGranted) {
+                console.log('Using cached microphone stream');
+                stream = this.cachedMicStream;
+
+                // Verify the stream is still active
+                const tracks = stream.getAudioTracks();
+                if (tracks.length === 0 || tracks[0].readyState === 'ended') {
+                    console.log('Cached stream is inactive, requesting new access...');
+                    this.cachedMicStream = null;
+                    this.micPermissionGranted = false;
+                    stream = await this.requestMicrophoneAccess();
+                }
+            } else {
+                console.log('No cached stream, requesting microphone access...');
+                stream = await this.requestMicrophoneAccess();
+            }
+
+            console.log('Microphone stream ready');
             this.mediaRecorder = new MediaRecorder(stream);
             this.audioChunks = [];
 
@@ -204,6 +231,8 @@ class FinanceBotApp {
         } catch (error) {
             console.error('Error accessing microphone:', error);
             this.updateStatus('❌ Microphone access denied. Please allow microphone permissions.');
+            this.micPermissionGranted = false;
+            this.cachedMicStream = null;
 
             // Show detailed error message
             if (error.name === 'NotAllowedError') {
@@ -214,6 +243,26 @@ class FinanceBotApp {
                 alert('Error accessing microphone: ' + error.message);
             }
         }
+    }
+
+    async requestMicrophoneAccess() {
+        console.log('Requesting fresh microphone access...');
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                sampleRate: this.speechSettings.audioQuality === 'high' ? 48000 : 16000,
+                channelCount: 1,
+                echoCancellation: true,
+                noiseSuppression: this.speechSettings.noiseReduction !== 'off',
+                autoGainControl: true
+            }
+        });
+
+        // Cache the stream for future use
+        this.cachedMicStream = stream;
+        this.micPermissionGranted = true;
+        console.log('Microphone access granted and cached');
+
+        return stream;
     }
 
     stopRecording() {
@@ -347,6 +396,53 @@ class FinanceBotApp {
 
     initializeTtsSettings() {
         console.log('Initializing TTS settings...');
+        const ttsModel = document.getElementById('ttsModel');
+        const ttsVoice = document.getElementById('ttsVoice');
+        const ttsSpeed = document.getElementById('ttsSpeed');
+        const ttsSpeedValue = document.getElementById('ttsSpeedValue');
+
+        if (ttsModel) ttsModel.value = this.ttsSettings.model;
+        if (ttsVoice) ttsVoice.value = this.ttsSettings.voice;
+        if (ttsSpeed) ttsSpeed.value = this.ttsSettings.speed;
+        if (ttsSpeedValue) ttsSpeedValue.textContent = this.ttsSettings.speed + 'x';
+    }
+
+    updateTtsModel(e) {
+        this.ttsSettings.model = e.target.value;
+        localStorage.setItem('tts_model', this.ttsSettings.model);
+        console.log('TTS model updated:', this.ttsSettings.model);
+    }
+
+    updateTtsVoice(e) {
+        this.ttsSettings.voice = e.target.value;
+        localStorage.setItem('tts_voice', this.ttsSettings.voice);
+        console.log('TTS voice updated:', this.ttsSettings.voice);
+    }
+
+    updateTtsSpeed(e) {
+        this.ttsSettings.speed = parseFloat(e.target.value);
+        const ttsSpeedValue = document.getElementById('ttsSpeedValue');
+        if (ttsSpeedValue) ttsSpeedValue.textContent = this.ttsSettings.speed + 'x';
+        localStorage.setItem('tts_speed', this.ttsSettings.speed);
+        console.log('TTS speed updated:', this.ttsSettings.speed);
+    }
+
+    async testTtsVoice() {
+        console.log('Test TTS voice clicked');
+        if (!this.openaiApiKey) {
+            alert('Please set your OpenAI API key first!');
+            return;
+        }
+
+        const testText = `Hello! I'm your financial assistant using the ${this.ttsSettings.voice} voice. This is how I sound with your current settings.`;
+
+        try {
+            await this.textToSpeechOpenAI(testText);
+        } catch (error) {
+            console.error('TTS test error:', error);
+            // Fallback to browser TTS for testing
+            this.speakWithBrowserTTS(testText);
+        }
     }
 
     initializeSpeechSettings() {
@@ -482,7 +578,16 @@ class FinanceBotApp {
     async textToSpeechOpenAI(text) {
         try {
             console.log('Converting text to speech:', text);
+            console.log('Using TTS settings:', this.ttsSettings);
             this.updateStatus('🔊 Generating voice...');
+
+            const requestBody = {
+                model: this.ttsSettings.model,
+                input: text,
+                voice: this.ttsSettings.voice,
+                speed: this.ttsSettings.speed
+            };
+            console.log('TTS request body:', requestBody);
 
             const response = await fetch('https://api.openai.com/v1/audio/speech', {
                 method: 'POST',
@@ -490,26 +595,29 @@ class FinanceBotApp {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${this.openaiApiKey}`
                 },
-                body: JSON.stringify({
-                    model: this.ttsSettings.model,
-                    input: text,
-                    voice: this.ttsSettings.voice,
-                    speed: this.ttsSettings.speed
-                })
+                body: JSON.stringify(requestBody)
             });
 
+            console.log('TTS response status:', response.status);
+
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                console.error('TTS API error response:', errorText);
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
             }
 
             // Get audio blob and play it
+            console.log('Getting audio blob...');
             const audioBlob = await response.blob();
+            console.log('Audio blob size:', audioBlob.size, 'bytes');
+
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
 
             this.updateStatus('🔊 Speaking...');
 
             audio.onended = () => {
+                console.log('Audio playback ended');
                 this.updateStatus('Ready to listen');
                 URL.revokeObjectURL(audioUrl);
             };
@@ -520,12 +628,49 @@ class FinanceBotApp {
                 URL.revokeObjectURL(audioUrl);
             };
 
-            await audio.play();
-            console.log('Audio playback started');
+            // Try to play audio, handle autoplay restrictions
+            try {
+                await audio.play();
+                console.log('Audio playback started');
+            } catch (playError) {
+                console.warn('Audio autoplay blocked, trying user interaction workaround:', playError);
+
+                // Show a user-friendly message and provide a manual play option
+                const playButton = document.createElement('button');
+                playButton.textContent = '🔊 Click to Play Audio Response';
+                playButton.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 10px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;';
+
+                playButton.onclick = () => {
+                    audio.play().then(() => {
+                        playButton.remove();
+                        console.log('Manual audio playback started');
+                    }).catch(err => {
+                        console.error('Manual audio play failed:', err);
+                        playButton.textContent = '❌ Audio play failed';
+                        setTimeout(() => playButton.remove(), 3000);
+                    });
+                };
+
+                document.body.appendChild(playButton);
+
+                // Auto-remove button after 10 seconds
+                setTimeout(() => {
+                    if (playButton.parentNode) {
+                        playButton.remove();
+                    }
+                }, 10000);
+
+                this.updateStatus('🔊 Audio ready - Click the blue button to play');
+            }
 
         } catch (error) {
             console.error('TTS error:', error);
+            console.error('Error details:', error.message, error.stack);
             this.updateStatus('TTS error - Ready to listen');
+
+            // Try fallback to browser TTS
+            console.log('Attempting browser TTS fallback...');
+            this.speakWithBrowserTTS(text);
         }
     }
 
@@ -569,33 +714,94 @@ class FinanceBotApp {
 
     speakWithBrowserTTS(text) {
         if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 0.9;
-            utterance.pitch = 1;
-            utterance.volume = 0.8;
+            console.log('Using browser TTS fallback for:', text);
 
-            // Try to use a female voice
-            const voices = speechSynthesis.getVoices();
-            const femaleVoice = voices.find(voice =>
-                voice.name.toLowerCase().includes('female') ||
-                voice.name.toLowerCase().includes('zira') ||
-                voice.name.toLowerCase().includes('susan')
-            );
-            if (femaleVoice) utterance.voice = femaleVoice;
+            const speakText = () => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.9;
+                utterance.pitch = 1;
+                utterance.volume = 0.8;
 
-            speechSynthesis.speak(utterance);
-            console.log('Browser TTS welcome message played');
+                // Try to use a female voice
+                const voices = speechSynthesis.getVoices();
+                console.log('Available voices:', voices.length);
+
+                const femaleVoice = voices.find(voice =>
+                    voice.name.toLowerCase().includes('female') ||
+                    voice.name.toLowerCase().includes('zira') ||
+                    voice.name.toLowerCase().includes('susan') ||
+                    voice.name.toLowerCase().includes('samantha') ||
+                    voice.name.toLowerCase().includes('karen')
+                );
+
+                if (femaleVoice) {
+                    utterance.voice = femaleVoice;
+                    console.log('Using voice:', femaleVoice.name);
+                } else {
+                    console.log('Using default voice');
+                }
+
+                utterance.onstart = () => {
+                    console.log('Browser TTS started');
+                    this.updateStatus('🔊 Speaking (Browser TTS)...');
+                };
+
+                utterance.onend = () => {
+                    console.log('Browser TTS ended');
+                    this.updateStatus('Ready to listen');
+                };
+
+                utterance.onerror = (error) => {
+                    console.error('Browser TTS error:', error);
+                    this.updateStatus('TTS error - Ready to listen');
+                };
+
+                speechSynthesis.speak(utterance);
+            };
+
+            // If voices aren't loaded yet, wait for them
+            if (speechSynthesis.getVoices().length === 0) {
+                speechSynthesis.addEventListener('voiceschanged', speakText, { once: true });
+            } else {
+                speakText();
+            }
+        } else {
+            console.error('Browser TTS not supported');
+            this.updateStatus('TTS not supported - Ready to listen');
         }
+    }
+
+    // Cleanup method for microphone stream
+    cleanupMicrophoneStream() {
+        if (this.cachedMicStream) {
+            console.log('Cleaning up cached microphone stream');
+            this.cachedMicStream.getTracks().forEach(track => {
+                track.stop();
+                console.log('Stopped audio track:', track.label);
+            });
+            this.cachedMicStream = null;
+            this.micPermissionGranted = false;
+        }
+    }
+
+    // Call cleanup when page unloads
+    setupCleanupListeners() {
+        window.addEventListener('beforeunload', () => {
+            this.cleanupMicrophoneStream();
+        });
+
+        window.addEventListener('pagehide', () => {
+            this.cleanupMicrophoneStream();
+        });
     }
 }
 
-// Initialize the app and play welcome message
+// Initialize the app
 console.log('Initializing FinanceBot App...');
 const app = new FinanceBotApp();
 
-// Play welcome message after a short delay to ensure everything is loaded
-setTimeout(() => {
-    app.playWelcomeMessage();
-}, 1000);
+// Set up cleanup listeners
+app.setupCleanupListeners();
 
+// Note: Welcome message will play after first user interaction to comply with browser autoplay policies
 console.log('FinanceBot App initialized successfully!');

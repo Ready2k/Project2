@@ -22,7 +22,7 @@ class FinanceBotApp {
         // State management
         this.currentState = 'ready'; // ready, recording, processing, speaking
         this.currentAudio = null; // Track current audio element for cleanup
-
+        
         // Audio monitoring
         this.audioAnalyser = null;
         this.audioLevelInterval = null;
@@ -52,9 +52,24 @@ class FinanceBotApp {
 
         // System prompts configuration
         this.systemPrompts = JSON.parse(localStorage.getItem('system_prompts')) || {
-            basePersonality: "You are a helpful, professional, and friendly financial services AI assistant.",
-            financialContext: "Handle financial requests professionally and securely.",
-            responseInstructions: "Keep responses conversational and concise.",
+            basePersonality: "You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.",
+            financialContext: `When handling financial requests:
+1. Always verify customer identity through account details
+2. For lost cards, immediately offer to block the card and arrange replacement
+3. For balance inquiries, provide current balance and recent transactions
+4. For disputes, guide customers through the dispute process step-by-step
+5. For transfers, ask for necessary details (amount, recipient, account)
+6. Always prioritize security and fraud prevention
+7. Offer additional relevant services when appropriate`,
+            responseInstructions: `Response Guidelines:
+1. Keep responses conversational and concise (suitable for voice)
+2. Use natural speech patterns with contractions (I'll, you're, we'll)
+3. Address customers by name when appropriate
+4. Provide specific information based on their account data
+5. Sound human and empathetic, not robotic
+6. Use clear, simple language avoiding jargon
+7. Always end with asking if there's anything else you can help with
+8. Maximum response length: 2-3 sentences for voice clarity`,
             customPrompts: []
         };
 
@@ -81,7 +96,33 @@ class FinanceBotApp {
                 balance: 2450.75,
                 cardLast4: '1234',
                 accountType: 'checking',
-                recentTransactions: []
+                recentTransactions: [
+                    { date: '2025-01-15', amount: -45.67, description: 'Coffee Shop' },
+                    { date: '2025-01-14', amount: -120.00, description: 'Grocery Store' },
+                    { date: '2025-01-13', amount: 1500.00, description: 'Salary Deposit' }
+                ]
+            },
+            sarah_smith: {
+                name: 'Sarah Smith',
+                balance: 8750.25,
+                cardLast4: '5678',
+                accountType: 'premium',
+                recentTransactions: [
+                    { date: '2025-01-16', amount: -89.99, description: 'Online Shopping' },
+                    { date: '2025-01-15', amount: -25.00, description: 'Gas Station' },
+                    { date: '2025-01-14', amount: 2000.00, description: 'Investment Return' }
+                ]
+            },
+            mike_johnson: {
+                name: 'Mike Johnson',
+                balance: 156.80,
+                cardLast4: '9012',
+                accountType: 'savings',
+                recentTransactions: [
+                    { date: '2025-01-16', amount: -12.50, description: 'Fast Food' },
+                    { date: '2025-01-15', amount: -75.00, description: 'Utility Bill' },
+                    { date: '2025-01-10', amount: 200.00, description: 'Part-time Job' }
+                ]
             }
         };
 
@@ -162,6 +203,21 @@ class FinanceBotApp {
         if (connectBtn) connectBtn.addEventListener('click', () => this.connectStreaming());
         if (disconnectBtn) disconnectBtn.addEventListener('click', () => this.disconnectStreaming());
 
+        // System prompts management
+        document.querySelectorAll('.prompt-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.switchPromptTab(e.target.dataset.prompt));
+        });
+        
+        const savePrompts = document.getElementById('savePrompts');
+        const resetPrompts = document.getElementById('resetPrompts');
+        const testPrompts = document.getElementById('testPrompts');
+        const addCustomPrompt = document.getElementById('addCustomPrompt');
+        
+        if (savePrompts) savePrompts.addEventListener('click', () => this.saveSystemPrompts());
+        if (resetPrompts) resetPrompts.addEventListener('click', () => this.resetSystemPrompts());
+        if (testPrompts) testPrompts.addEventListener('click', () => this.testSystemPrompts());
+        if (addCustomPrompt) addCustomPrompt.addEventListener('click', () => this.addCustomPrompt());
+
         console.log('Event listeners setup complete');
     }
 
@@ -237,7 +293,7 @@ class FinanceBotApp {
 
             // Start audio level monitoring
             this.startAudioLevelMonitoring(stream);
-
+            
             // Update recording status
             this.updateRecordingStatus('🔴 Recording');
 
@@ -251,7 +307,7 @@ class FinanceBotApp {
 
         } catch (error) {
             console.error('Error accessing microphone:', error);
-            this.currentState = 'ready'; // Reset state on error
+            this.currentState = 'ready';
             this.updateStatus('❌ Microphone access denied. Please allow microphone permissions.');
             this.micPermissionGranted = false;
             this.cachedMicStream = null;
@@ -303,7 +359,7 @@ class FinanceBotApp {
 
             // Stop audio level monitoring
             this.stopAudioLevelMonitoring();
-
+            
             // Update recording status
             this.updateRecordingStatus('🔴 Not Recording');
 
@@ -380,13 +436,13 @@ class FinanceBotApp {
 
             const data = await response.json();
             console.log('Transcription received:', data.text);
-
+            
             // Track Whisper usage
             this.trackWhisperUsage();
-
+            
             // Update debug output
             this.updateDebugOutput('sttOutput', data.text, 'Transcribed Text:');
-
+            
             return data.text;
 
         } catch (error) {
@@ -397,12 +453,12 @@ class FinanceBotApp {
     }
 
     async generateResponse(userMessage) {
-        const systemPrompt = `You are a helpful, professional, and friendly financial services AI assistant. Keep responses conversational and concise (suitable for voice). Customer: ${this.personas[this.currentPersona].name}, Balance: $${this.personas[this.currentPersona].balance.toFixed(2)}`;
-
+        const systemPrompt = this.generateSystemPrompt(this.currentPersona, userMessage);
+        
         try {
             console.log('Generating AI response for:', userMessage);
             this.updateStatus('🤖 Generating AI response...');
-
+            
             // Update debug panel with system prompt
             this.updateDebugOutput('systemPrompt', systemPrompt);
 
@@ -430,15 +486,15 @@ class FinanceBotApp {
             const data = await response.json();
             const aiResponse = data.choices[0].message.content;
             console.log('AI response received:', aiResponse);
-
+            
             // Track GPT usage
             if (data.usage) {
                 this.trackGptUsage(data.usage.prompt_tokens, data.usage.completion_tokens);
             }
-
+            
             // Update debug panel with GPT response
             this.updateDebugOutput('gptResponse', aiResponse);
-
+            
             return aiResponse;
 
         } catch (error) {
@@ -474,7 +530,7 @@ class FinanceBotApp {
 
             // Get audio blob and play it
             const audioBlob = await response.blob();
-
+            
             // Validate audio blob
             if (audioBlob.size === 0) {
                 throw new Error('Empty audio response from TTS API');
@@ -513,7 +569,7 @@ class FinanceBotApp {
                 console.log('Audio playback started');
             } catch (playError) {
                 console.warn('Audio autoplay blocked:', playError);
-
+                
                 // Create manual play button
                 const playButton = document.createElement('button');
                 playButton.textContent = '🔊 Click to Play Audio Response';
@@ -547,7 +603,7 @@ class FinanceBotApp {
             console.error('TTS error:', error);
             this.updateStatus('TTS error - Ready to listen');
             this.updateDebugOutput('ttsOutput', `Error: ${error.message}`);
-
+            
             // Try fallback to browser TTS
             this.speakWithBrowserTTS(text);
         }
@@ -559,16 +615,16 @@ class FinanceBotApp {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             this.audioAnalyser = this.audioContext.createAnalyser();
             const source = this.audioContext.createMediaStreamSource(stream);
-
+            
             this.audioAnalyser.fftSize = 256;
             source.connect(this.audioAnalyser);
-
+            
             const bufferLength = this.audioAnalyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
-
+            
             this.audioLevelInterval = setInterval(() => {
                 this.audioAnalyser.getByteFrequencyData(dataArray);
-
+                
                 // Calculate RMS for audio level
                 let sum = 0;
                 for (let i = 0; i < dataArray.length; i++) {
@@ -576,10 +632,10 @@ class FinanceBotApp {
                 }
                 const rms = Math.sqrt(sum / dataArray.length);
                 const level = Math.min(100, Math.max(0, rms * 100 / 128));
-
+                
                 this.updateAudioLevel(level);
             }, 100);
-
+            
             console.log('Audio level monitoring started');
         } catch (error) {
             console.error('Error starting audio level monitoring:', error);
@@ -591,12 +647,12 @@ class FinanceBotApp {
             clearInterval(this.audioLevelInterval);
             this.audioLevelInterval = null;
         }
-
+        
         if (this.audioContext) {
             this.audioContext.close();
             this.audioContext = null;
         }
-
+        
         this.audioAnalyser = null;
         this.updateAudioLevel(0);
         console.log('Audio level monitoring stopped');
@@ -605,11 +661,11 @@ class FinanceBotApp {
     updateAudioLevel(level) {
         const audioLevelFill = document.getElementById('audioLevel');
         const audioLevelText = document.getElementById('audioLevelText');
-
+        
         if (audioLevelFill) {
             audioLevelFill.style.width = level + '%';
         }
-
+        
         if (audioLevelText) {
             audioLevelText.textContent = Math.round(level) + '%';
         }
@@ -685,7 +741,415 @@ class FinanceBotApp {
         if (ttsCost) ttsCost.textContent = `$${this.tokenUsage.tts.cost.toFixed(4)}`;
         if (totalCost) totalCost.textContent = `$${this.tokenUsage.total.toFixed(4)}`;
     }
-    // UI Helper methods
+
+    // Admin Panel - Personas Management
+    loadPersonas() {
+        console.log('Loading personas...');
+        const personaList = document.getElementById('personaList');
+        if (!personaList) return;
+
+        // Clear existing content
+        personaList.innerHTML = '';
+
+        // Create personas display
+        Object.keys(this.personas).forEach(personaId => {
+            const persona = this.personas[personaId];
+            const personaCard = document.createElement('div');
+            personaCard.className = 'persona-card';
+            personaCard.innerHTML = `
+                <div class="persona-header">
+                    <h4>${persona.name}</h4>
+                    <button class="delete-persona-btn" onclick="app.deletePersona('${personaId}')">Delete</button>
+                </div>
+                <div class="persona-details">
+                    <p><strong>Account Type:</strong> ${persona.accountType}</p>
+                    <p><strong>Balance:</strong> $${persona.balance.toFixed(2)}</p>
+                    <p><strong>Card Last 4:</strong> ****${persona.cardLast4}</p>
+                    <div class="recent-transactions">
+                        <strong>Recent Transactions:</strong>
+                        ${persona.recentTransactions && persona.recentTransactions.length > 0 ? 
+                            persona.recentTransactions.map(tx => 
+                                `<div class="transaction">
+                                    <span class="date">${tx.date}</span>
+                                    <span class="amount ${tx.amount < 0 ? 'negative' : 'positive'}">
+                                        ${tx.amount < 0 ? '-' : '+'}$${Math.abs(tx.amount).toFixed(2)}
+                                    </span>
+                                    <span class="description">${tx.description}</span>
+                                </div>`
+                            ).join('') : 
+                            '<p class="no-transactions">No recent transactions</p>'
+                        }
+                    </div>
+                </div>
+            `;
+            personaList.appendChild(personaCard);
+        });
+
+        // Add styling for persona cards
+        this.addPersonaStyles();
+    }
+
+    addPersonaStyles() {
+        if (!document.getElementById('persona-styles')) {
+            const style = document.createElement('style');
+            style.id = 'persona-styles';
+            style.textContent = `
+                .persona-card {
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    padding: 15px;
+                    margin-bottom: 15px;
+                    background: #f9f9f9;
+                }
+                .persona-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                }
+                .persona-header h4 {
+                    margin: 0;
+                    color: #333;
+                }
+                .delete-persona-btn {
+                    background: #dc3545;
+                    color: white;
+                    border: none;
+                    padding: 5px 10px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 12px;
+                }
+                .delete-persona-btn:hover {
+                    background: #c82333;
+                }
+                .persona-details p {
+                    margin: 5px 0;
+                    color: #666;
+                }
+                .recent-transactions {
+                    margin-top: 10px;
+                }
+                .transaction {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 5px 0;
+                    border-bottom: 1px solid #eee;
+                    font-size: 14px;
+                }
+                .transaction:last-child {
+                    border-bottom: none;
+                }
+                .amount.negative {
+                    color: #dc3545;
+                }
+                .amount.positive {
+                    color: #28a745;
+                }
+                .no-transactions {
+                    color: #999;
+                    font-style: italic;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    addPersona(e) {
+        e.preventDefault();
+        console.log('Add persona form submitted');
+        
+        // Get form values
+        const name = document.getElementById('personaName').value.trim();
+        const balance = parseFloat(document.getElementById('personaBalance').value);
+        const cardLast4 = document.getElementById('personaCard').value.trim();
+        const accountType = document.getElementById('personaAccountType').value;
+        
+        // Validate inputs
+        if (!name || isNaN(balance) || !cardLast4 || cardLast4.length !== 4) {
+            alert('Please fill in all fields correctly. Card number should be 4 digits.');
+            return;
+        }
+        
+        // Generate unique ID
+        const personaId = name.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now();
+        
+        // Create new persona
+        this.personas[personaId] = {
+            name: name,
+            balance: balance,
+            cardLast4: cardLast4,
+            accountType: accountType,
+            recentTransactions: [
+                { date: new Date().toISOString().split('T')[0], amount: balance, description: 'Initial Balance' }
+            ]
+        };
+        
+        // Save to localStorage
+        localStorage.setItem('personas', JSON.stringify(this.personas));
+        
+        // Update UI
+        this.updatePersonaSelector();
+        this.loadPersonas();
+        
+        // Reset form
+        document.getElementById('personaForm').reset();
+        
+        alert(`Persona "${name}" added successfully!`);
+    }
+
+    deletePersona(personaId) {
+        if (confirm(`Are you sure you want to delete this persona?`)) {
+            delete this.personas[personaId];
+            localStorage.setItem('personas', JSON.stringify(this.personas));
+            
+            // If deleted persona was selected, switch to first available
+            if (this.currentPersona === personaId) {
+                this.currentPersona = Object.keys(this.personas)[0] || 'john_doe';
+            }
+            
+            this.updatePersonaSelector();
+            this.loadPersonas();
+            
+            alert('Persona deleted successfully!');
+        }
+    }
+
+    // System Prompts Management
+    initializeSystemPrompts() {
+        console.log('Initializing system prompts...');
+        const basePersonality = document.getElementById('basePersonality');
+        const financialContext = document.getElementById('financialContext');
+        const responseInstructions = document.getElementById('responseInstructions');
+
+        if (basePersonality) basePersonality.value = this.systemPrompts.basePersonality;
+        if (financialContext) financialContext.value = this.systemPrompts.financialContext;
+        if (responseInstructions) responseInstructions.value = this.systemPrompts.responseInstructions;
+
+        // Load custom prompts
+        this.loadCustomPrompts();
+    }
+
+    switchPromptTab(tabName) {
+        console.log('Switching to prompt tab:', tabName);
+        
+        // Update tab buttons
+        document.querySelectorAll('.prompt-tab-btn').forEach(btn => btn.classList.remove('active'));
+        const activeTab = document.querySelector(`[data-prompt="${tabName}"]`);
+        if (activeTab) activeTab.classList.add('active');
+
+        // Update tab content
+        document.querySelectorAll('.prompt-section').forEach(section => section.classList.remove('active'));
+        const activeContent = document.getElementById(`${tabName}-prompt`);
+        if (activeContent) activeContent.classList.add('active');
+    }
+
+    saveSystemPrompts() {
+        try {
+            console.log('Saving system prompts...');
+            
+            const basePersonality = document.getElementById('basePersonality');
+            const financialContext = document.getElementById('financialContext');
+            const responseInstructions = document.getElementById('responseInstructions');
+
+            if (basePersonality) this.systemPrompts.basePersonality = basePersonality.value;
+            if (financialContext) this.systemPrompts.financialContext = financialContext.value;
+            if (responseInstructions) this.systemPrompts.responseInstructions = responseInstructions.value;
+
+            // Save custom prompts
+            this.saveCustomPrompts();
+
+            // Save to localStorage
+            localStorage.setItem('system_prompts', JSON.stringify(this.systemPrompts));
+
+            // Show success message
+            this.showPromptMessage('System prompts saved successfully!', 'success');
+
+        } catch (error) {
+            console.error('Error saving prompts:', error);
+            this.showPromptMessage('Error saving prompts. Please try again.', 'error');
+        }
+    }
+
+    resetSystemPrompts() {
+        if (confirm('Are you sure you want to reset all system prompts to defaults? This cannot be undone.')) {
+            // Reset to default prompts
+            this.systemPrompts = {
+                basePersonality: "You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.",
+                financialContext: `When handling financial requests:
+1. Always verify customer identity through account details
+2. For lost cards, immediately offer to block the card and arrange replacement
+3. For balance inquiries, provide current balance and recent transactions
+4. For disputes, guide customers through the dispute process step-by-step
+5. For transfers, ask for necessary details (amount, recipient, account)
+6. Always prioritize security and fraud prevention
+7. Offer additional relevant services when appropriate`,
+                responseInstructions: `Response Guidelines:
+1. Keep responses conversational and concise (suitable for voice)
+2. Use natural speech patterns with contractions (I'll, you're, we'll)
+3. Address customers by name when appropriate
+4. Provide specific information based on their account data
+5. Sound human and empathetic, not robotic
+6. Use clear, simple language avoiding jargon
+7. Always end with asking if there's anything else you can help with
+8. Maximum response length: 2-3 sentences for voice clarity`,
+                customPrompts: []
+            };
+
+            // Update UI
+            this.initializeSystemPrompts();
+
+            // Save to localStorage
+            localStorage.setItem('system_prompts', JSON.stringify(this.systemPrompts));
+
+            this.showPromptMessage('System prompts reset to defaults.', 'info');
+        }
+    }
+
+    testSystemPrompts() {
+        const generatedPrompt = this.generateSystemPrompt('john_doe', 'test message');
+        const promptPreview = document.getElementById('promptPreview');
+        if (promptPreview) {
+            promptPreview.textContent = generatedPrompt;
+        }
+        this.showPromptMessage('System prompt preview updated below.', 'info');
+    }
+
+    generateSystemPrompt(personaId, userMessage) {
+        const persona = this.personas[personaId] || this.personas['john_doe'];
+        
+        let systemPrompt = this.systemPrompts.basePersonality + '\n\n';
+        systemPrompt += this.systemPrompts.financialContext + '\n\n';
+        systemPrompt += this.systemPrompts.responseInstructions + '\n\n';
+        
+        // Add persona context
+        systemPrompt += `Customer Information:
+- Name: ${persona.name}
+- Account Type: ${persona.accountType}
+- Current Balance: $${persona.balance.toFixed(2)}
+- Card Last 4 Digits: ${persona.cardLast4}`;
+
+        // Add recent transactions if available
+        if (persona.recentTransactions && persona.recentTransactions.length > 0) {
+            systemPrompt += '\n- Recent Transactions:\n';
+            persona.recentTransactions.slice(0, 3).forEach(tx => {
+                systemPrompt += `  ${tx.date}: ${tx.amount >= 0 ? '+' : ''}$${tx.amount.toFixed(2)} - ${tx.description}\n`;
+            });
+        }
+
+        // Add custom prompts if any
+        if (this.systemPrompts.customPrompts && this.systemPrompts.customPrompts.length > 0) {
+            systemPrompt += '\n\nAdditional Instructions:\n';
+            this.systemPrompts.customPrompts.forEach(customPrompt => {
+                systemPrompt += `- ${customPrompt.name}: ${customPrompt.prompt}\n`;
+            });
+        }
+
+        return systemPrompt;
+    }
+
+    addCustomPrompt() {
+        const customPromptsList = document.getElementById('customPromptsList');
+        if (!customPromptsList) return;
+
+        const newPromptItem = document.createElement('div');
+        newPromptItem.className = 'custom-prompt-item';
+        newPromptItem.innerHTML = `
+            <input type="text" placeholder="Scenario name (e.g., 'Loan Inquiries')" class="scenario-name">
+            <textarea placeholder="Custom prompt for this scenario..." class="custom-prompt-text" rows="4"></textarea>
+            <button class="remove-custom-prompt" onclick="this.parentElement.remove()">Remove</button>
+        `;
+        customPromptsList.appendChild(newPromptItem);
+    }
+
+    saveCustomPrompts() {
+        const customPrompts = [];
+        const customPromptItems = document.querySelectorAll('.custom-prompt-item');
+
+        customPromptItems.forEach(item => {
+            const nameInput = item.querySelector('.scenario-name');
+            const promptTextarea = item.querySelector('.custom-prompt-text');
+
+            if (nameInput && promptTextarea) {
+                const name = nameInput.value.trim();
+                const prompt = promptTextarea.value.trim();
+
+                if (name && prompt) {
+                    customPrompts.push({ name, prompt });
+                }
+            }
+        });
+
+        this.systemPrompts.customPrompts = customPrompts;
+    }
+
+    loadCustomPrompts() {
+        const customPromptsList = document.getElementById('customPromptsList');
+        if (!customPromptsList) return;
+
+        customPromptsList.innerHTML = '';
+
+        this.systemPrompts.customPrompts.forEach(customPrompt => {
+            const promptItem = document.createElement('div');
+            promptItem.className = 'custom-prompt-item';
+            promptItem.innerHTML = `
+                <input type="text" placeholder="Scenario name" class="scenario-name" value="${customPrompt.name}">
+                <textarea placeholder="Custom prompt for this scenario..." class="custom-prompt-text" rows="4">${customPrompt.prompt}</textarea>
+                <button class="remove-custom-prompt" onclick="this.parentElement.remove()">Remove</button>
+            `;
+            customPromptsList.appendChild(promptItem);
+        });
+
+        // Add one empty prompt item if none exist
+        if (this.systemPrompts.customPrompts.length === 0) {
+            this.addCustomPrompt();
+        }
+    }
+
+    showPromptMessage(message, type) {
+        // Create or update message element
+        let messageEl = document.getElementById('prompt-message');
+        if (!messageEl) {
+            messageEl = document.createElement('div');
+            messageEl.id = 'prompt-message';
+            messageEl.style.cssText = 'padding: 10px; margin: 10px 0; border-radius: 4px; font-weight: bold;';
+            
+            const promptActions = document.querySelector('.prompt-actions');
+            if (promptActions) {
+                promptActions.parentNode.insertBefore(messageEl, promptActions);
+            }
+        }
+
+        // Set message and styling based on type
+        messageEl.textContent = message;
+        messageEl.className = `prompt-message ${type}`;
+        
+        switch (type) {
+            case 'success':
+                messageEl.style.backgroundColor = '#d4edda';
+                messageEl.style.color = '#155724';
+                messageEl.style.border = '1px solid #c3e6cb';
+                break;
+            case 'error':
+                messageEl.style.backgroundColor = '#f8d7da';
+                messageEl.style.color = '#721c24';
+                messageEl.style.border = '1px solid #f5c6cb';
+                break;
+            case 'info':
+                messageEl.style.backgroundColor = '#d1ecf1';
+                messageEl.style.color = '#0c5460';
+                messageEl.style.border = '1px solid #bee5eb';
+                break;
+        }
+
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+            if (messageEl.parentNode) {
+                messageEl.remove();
+            }
+        }, 3000);
+    }    
+// UI Helper methods
     addMessage(content, type) {
         const conversation = document.getElementById('conversation');
         if (!conversation) return;
@@ -756,13 +1220,7 @@ class FinanceBotApp {
         }
     }
 
-    // Settings and UI methods
-    addPersona(e) {
-        e.preventDefault();
-        console.log('Add persona form submitted');
-        alert('Persona functionality ready');
-    }
-
+    // Settings and configuration methods
     saveApiKey() {
         console.log('Save API key clicked');
         const apiKeyInput = document.getElementById('openaiKey');
@@ -842,7 +1300,7 @@ class FinanceBotApp {
             this.isConnected = false;
             this.updateConnectionStatus('disconnected');
             this.updateStatus('❌ Connection failed. Please try again.');
-
+            
             const connectBtn = document.getElementById('connectBtn');
             const disconnectBtn = document.getElementById('disconnectBtn');
             if (connectBtn) connectBtn.disabled = false;
@@ -852,7 +1310,7 @@ class FinanceBotApp {
 
     async disconnectStreaming() {
         console.log('Disconnect streaming clicked');
-
+        
         if (!this.isConnected) {
             console.log('Already disconnected from streaming');
             return;
@@ -864,7 +1322,7 @@ class FinanceBotApp {
                 this.websocket.close();
                 this.websocket = null;
             }
-
+            
             if (this.audioContext) {
                 this.audioContext.close();
                 this.audioContext = null;
@@ -899,14 +1357,6 @@ class FinanceBotApp {
         if (statusElement) {
             statusElement.className = `status-indicator ${status}`;
             statusElement.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-        }
-    }
-
-    loadPersonas() {
-        console.log('Loading personas...');
-        const personaList = document.getElementById('personaList');
-        if (personaList) {
-            personaList.innerHTML = '<p>Persona management ready</p>';
         }
     }
 
@@ -986,10 +1436,6 @@ class FinanceBotApp {
         if (responseDelayValue) responseDelayValue.textContent = this.streamingSettings.responseDelay + 's';
     }
 
-    initializeSystemPrompts() {
-        console.log('Initializing system prompts...');
-    }
-
     initializeStreamingMode() {
         console.log('Initializing streaming mode...');
         const streamingModeCheckbox = document.getElementById('streamingMode');
@@ -1014,35 +1460,35 @@ class FinanceBotApp {
 
     cleanupAllResources() {
         console.log('Cleaning up all resources...');
-
+        
         this.cleanupMicrophoneStream();
         this.stopAudioLevelMonitoring();
-
+        
         if (this.currentAudio) {
             this.currentAudio.pause();
             this.currentAudio.src = '';
             this.currentAudio = null;
         }
-
+        
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
             this.mediaRecorder.stop();
         }
-
+        
         if (this.websocket) {
             this.websocket.close();
             this.websocket = null;
         }
-
+        
         this.currentState = 'ready';
         this.isRecording = false;
         this.isConnected = false;
-
+        
         this.updateRecordingStatus('🔴 Not Recording');
     }
 
     setupCleanupListeners() {
         console.log('Setting up cleanup listeners...');
-
+        
         window.addEventListener('beforeunload', () => {
             this.cleanupAllResources();
         });
@@ -1050,7 +1496,7 @@ class FinanceBotApp {
         window.addEventListener('pagehide', () => {
             this.cleanupAllResources();
         });
-
+        
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && this.currentState === 'recording') {
                 console.log('Tab hidden while recording, stopping recording...');

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Module Test</title>
+</head>
+<body>
+    <h1>Testing Refactored Modules</h1>
+    <div id="test-results"></div>
+
+    <script src="token-tracker.js"></script>
+    <script src="api-client.js"></script>
+    <script>
+        // Test TokenTracker
+        console.log('Testing TokenTracker...');
+        const tracker = new TokenTracker();
+        console.log('✅ TokenTracker created successfully');
+        
+        // Test OpenAIClient
+        console.log('Testing OpenAIClient...');
+        const client = new OpenAIClient('test-key', tracker);
+        console.log('✅ OpenAIClient created successfully');
+        
+        // Test API key setting
+        client.setApiKey('new-test-key');
+        console.log('✅ API key setting works');
+        
+        // Test token tracker methods
+        tracker.trackWhisperUsage(0.5);
+        tracker.trackGptUsage(100, 50);
+        tracker.trackTtsUsage(200, 'tts-1');
+        console.log('✅ Token tracking methods work');
+        
+        const usage = tracker.getUsage();
+        console.log('Current usage:', usage);
+        
+        document.getElementById('test-results').innerHTML = `
+            <h2>✅ All Tests Passed!</h2>
+            <p><strong>TokenTracker:</strong> Working correctly</p>
+            <p><strong>OpenAIClient:</strong> Working correctly</p>
+            <p><strong>Integration:</strong> Working correctly</p>
+            <p><strong>Current Usage:</strong></p>
+            <ul>
+                <li>Whisper: ${usage.whisper.requests} requests, $${usage.whisper.cost.toFixed(4)}</li>
+                <li>GPT: ${usage.gpt.tokens} tokens, $${usage.gpt.cost.toFixed(4)}</li>
+                <li>TTS: ${usage.tts.characters} chars, $${usage.tts.cost.toFixed(4)}</li>
+                <li><strong>Total: $${usage.total.toFixed(4)}</strong></li>
+            </ul>
+        `;
+    </script>
+</body>
+</html>

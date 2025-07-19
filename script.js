@@ -6,6 +6,13 @@ class FinanceBotApp {
         this.audioChunks = [];
         this.currentPersona = 'john_doe';
 
+        // Initialize API client and token tracker
+        this.tokenTracker = new TokenTracker();
+        this.apiClient = new OpenAIClient(this.openaiApiKey, this.tokenTracker);
+
+        // Initialize streaming manager
+        this.streamingManager = new StreamingManager(this.openaiApiKey, this.debugStreamingMessage.bind(this));
+
         // Streaming mode properties
         this.isStreamingMode = localStorage.getItem('streaming_mode') === 'true' || false;
         this.isConnected = false;
@@ -22,7 +29,7 @@ class FinanceBotApp {
         // State management
         this.currentState = 'ready'; // ready, recording, processing, speaking
         this.currentAudio = null; // Track current audio element for cleanup
-        
+
         // Audio monitoring
         this.audioAnalyser = null;
         this.audioLevelInterval = null;
@@ -38,9 +45,19 @@ class FinanceBotApp {
         this.speechSettings = {
             audioQuality: localStorage.getItem('audio_quality') || 'high',
             noiseReduction: localStorage.getItem('noise_reduction') || 'medium',
-            whisperLanguage: localStorage.getItem('whisper_language') || 'en-US',
+            whisperLanguage: localStorage.getItem('whisper_language') || 'en',
             recognitionMode: localStorage.getItem('recognition_mode') || 'financial'
         };
+
+        // Fix for old localStorage data - force reset to 'en' if it's 'en-US'
+        if (this.speechSettings.whisperLanguage === 'en-US') {
+            this.speechSettings.whisperLanguage = 'en';
+            localStorage.setItem('whisper_language', 'en');
+            console.log('Fixed old language setting from en-US to en');
+        }
+
+        // Debug: Check what's actually stored
+        console.log('Loaded speech settings:', this.speechSettings);
 
         // Streaming settings
         this.streamingSettings = {
@@ -71,22 +88,6 @@ class FinanceBotApp {
 7. Always end with asking if there's anything else you can help with
 8. Maximum response length: 2-3 sentences for voice clarity`,
             customPrompts: []
-        };
-
-        // Token usage tracking
-        this.tokenUsage = JSON.parse(localStorage.getItem('token_usage')) || {
-            whisper: { requests: 0, cost: 0 },
-            gpt: { tokens: 0, cost: 0 },
-            tts: { characters: 0, cost: 0 },
-            total: 0
-        };
-
-        // Pricing
-        this.pricing = {
-            whisper: 0.006,
-            gpt35turbo: { input: 0.0005, output: 0.0015 },
-            tts1: 0.015,
-            tts1hd: 0.030
         };
 
         // Default personas
@@ -138,7 +139,7 @@ class FinanceBotApp {
         this.initializeSpeechSettings();
         this.initializeStreamingSettings();
         this.initializeSystemPrompts();
-        this.updateTokenDisplay();
+        this.tokenTracker.updateDisplay();
         this.initializeStreamingMode();
 
         // Switch to Settings tab on startup for configuration
@@ -207,12 +208,12 @@ class FinanceBotApp {
         document.querySelectorAll('.prompt-tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.switchPromptTab(e.target.dataset.prompt));
         });
-        
+
         const savePrompts = document.getElementById('savePrompts');
         const resetPrompts = document.getElementById('resetPrompts');
         const testPrompts = document.getElementById('testPrompts');
         const addCustomPrompt = document.getElementById('addCustomPrompt');
-        
+
         if (savePrompts) savePrompts.addEventListener('click', () => this.saveSystemPrompts());
         if (resetPrompts) resetPrompts.addEventListener('click', () => this.resetSystemPrompts());
         if (testPrompts) testPrompts.addEventListener('click', () => this.testSystemPrompts());
@@ -293,7 +294,7 @@ class FinanceBotApp {
 
             // Start audio level monitoring
             this.startAudioLevelMonitoring(stream);
-            
+
             // Update recording status
             this.updateRecordingStatus('🔴 Recording');
 
@@ -359,7 +360,7 @@ class FinanceBotApp {
 
             // Stop audio level monitoring
             this.stopAudioLevelMonitoring();
-            
+
             // Update recording status
             this.updateRecordingStatus('🔴 Not Recording');
 
@@ -413,37 +414,23 @@ class FinanceBotApp {
     }
 
     async speechToText(audioBlob) {
-        const formData = new FormData();
-        formData.append('file', audioBlob, 'audio.wav');
-        formData.append('model', 'whisper-1');
-
         try {
             console.log('Sending audio to Whisper API...');
             this.updateStatus('🔄 Converting speech to text...');
             this.updateDebugOutput('sttOutput', 'Processing audio with Whisper...');
 
-            const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.openaiApiKey}`
-                },
-                body: formData
+            console.log('Using language setting:', this.speechSettings.whisperLanguage);
+            const result = await this.apiClient.speechToText(audioBlob, {
+                language: this.speechSettings.whisperLanguage
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            if (result.success) {
+                console.log('Transcription received:', result.text);
+                this.updateDebugOutput('sttOutput', result.text, 'Transcribed Text:');
+                return result.text;
+            } else {
+                throw new Error(result.error);
             }
-
-            const data = await response.json();
-            console.log('Transcription received:', data.text);
-            
-            // Track Whisper usage
-            this.trackWhisperUsage();
-            
-            // Update debug output
-            this.updateDebugOutput('sttOutput', data.text, 'Transcribed Text:');
-            
-            return data.text;
 
         } catch (error) {
             console.error('Speech-to-text error:', error);
@@ -454,48 +441,31 @@ class FinanceBotApp {
 
     async generateResponse(userMessage) {
         const systemPrompt = this.generateSystemPrompt(this.currentPersona, userMessage);
-        
+
         try {
             console.log('Generating AI response for:', userMessage);
             this.updateStatus('🤖 Generating AI response...');
-            
+
             // Update debug panel with system prompt
             this.updateDebugOutput('systemPrompt', systemPrompt);
 
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.openaiApiKey}`
-                },
-                body: JSON.stringify({
-                    model: 'gpt-3.5-turbo',
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userMessage }
-                    ],
-                    max_tokens: 200,
-                    temperature: 0.8
-                })
+            const messages = [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userMessage }
+            ];
+
+            const result = await this.apiClient.generateChatCompletion(messages, {
+                maxTokens: 200,
+                temperature: 0.8
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            if (result.success) {
+                console.log('AI response received:', result.content);
+                this.updateDebugOutput('gptResponse', result.content);
+                return result.content;
+            } else {
+                throw new Error(result.error);
             }
-
-            const data = await response.json();
-            const aiResponse = data.choices[0].message.content;
-            console.log('AI response received:', aiResponse);
-            
-            // Track GPT usage
-            if (data.usage) {
-                this.trackGptUsage(data.usage.prompt_tokens, data.usage.completion_tokens);
-            }
-            
-            // Update debug panel with GPT response
-            this.updateDebugOutput('gptResponse', aiResponse);
-            
-            return aiResponse;
 
         } catch (error) {
             console.error('AI response error:', error);
@@ -510,30 +480,14 @@ class FinanceBotApp {
             this.updateStatus('🔊 Generating voice...');
             this.updateDebugOutput('ttsOutput', `Generating speech with ${this.ttsSettings.model} (${this.ttsSettings.voice})`);
 
-            const response = await fetch('https://api.openai.com/v1/audio/speech', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.openaiApiKey}`
-                },
-                body: JSON.stringify({
-                    model: this.ttsSettings.model,
-                    input: text,
-                    voice: this.ttsSettings.voice,
-                    speed: this.ttsSettings.speed
-                })
+            const result = await this.apiClient.textToSpeech(text, {
+                model: this.ttsSettings.model,
+                voice: this.ttsSettings.voice,
+                speed: this.ttsSettings.speed
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            // Get audio blob and play it
-            const audioBlob = await response.blob();
-            
-            // Validate audio blob
-            if (audioBlob.size === 0) {
-                throw new Error('Empty audio response from TTS API');
+            if (!result.success) {
+                throw new Error(result.error);
             }
 
             // Clean up previous audio if exists
@@ -543,7 +497,7 @@ class FinanceBotApp {
                 this.currentAudio = null;
             }
 
-            const audioUrl = URL.createObjectURL(audioBlob);
+            const audioUrl = URL.createObjectURL(result.audioBlob);
             const audio = new Audio(audioUrl);
             this.currentAudio = audio;
 
@@ -569,7 +523,7 @@ class FinanceBotApp {
                 console.log('Audio playback started');
             } catch (playError) {
                 console.warn('Audio autoplay blocked:', playError);
-                
+
                 // Create manual play button
                 const playButton = document.createElement('button');
                 playButton.textContent = '🔊 Click to Play Audio Response';
@@ -595,15 +549,13 @@ class FinanceBotApp {
                 this.updateStatus('🔊 Audio ready - Click the blue button to play');
             }
 
-            // Track TTS usage
-            this.trackTtsUsage(text.length);
             this.updateDebugOutput('ttsOutput', `Speech generated successfully\nCharacters: ${text.length}\nModel: ${this.ttsSettings.model}\nVoice: ${this.ttsSettings.voice}`);
 
         } catch (error) {
             console.error('TTS error:', error);
             this.updateStatus('TTS error - Ready to listen');
             this.updateDebugOutput('ttsOutput', `Error: ${error.message}`);
-            
+
             // Try fallback to browser TTS
             this.speakWithBrowserTTS(text);
         }
@@ -615,16 +567,16 @@ class FinanceBotApp {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             this.audioAnalyser = this.audioContext.createAnalyser();
             const source = this.audioContext.createMediaStreamSource(stream);
-            
+
             this.audioAnalyser.fftSize = 256;
             source.connect(this.audioAnalyser);
-            
+
             const bufferLength = this.audioAnalyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
-            
+
             this.audioLevelInterval = setInterval(() => {
                 this.audioAnalyser.getByteFrequencyData(dataArray);
-                
+
                 // Calculate RMS for audio level
                 let sum = 0;
                 for (let i = 0; i < dataArray.length; i++) {
@@ -632,10 +584,10 @@ class FinanceBotApp {
                 }
                 const rms = Math.sqrt(sum / dataArray.length);
                 const level = Math.min(100, Math.max(0, rms * 100 / 128));
-                
+
                 this.updateAudioLevel(level);
             }, 100);
-            
+
             console.log('Audio level monitoring started');
         } catch (error) {
             console.error('Error starting audio level monitoring:', error);
@@ -647,12 +599,12 @@ class FinanceBotApp {
             clearInterval(this.audioLevelInterval);
             this.audioLevelInterval = null;
         }
-        
+
         if (this.audioContext) {
             this.audioContext.close();
             this.audioContext = null;
         }
-        
+
         this.audioAnalyser = null;
         this.updateAudioLevel(0);
         console.log('Audio level monitoring stopped');
@@ -661,11 +613,11 @@ class FinanceBotApp {
     updateAudioLevel(level) {
         const audioLevelFill = document.getElementById('audioLevel');
         const audioLevelText = document.getElementById('audioLevelText');
-        
+
         if (audioLevelFill) {
             audioLevelFill.style.width = level + '%';
         }
-        
+
         if (audioLevelText) {
             audioLevelText.textContent = Math.round(level) + '%';
         }
@@ -688,59 +640,13 @@ class FinanceBotApp {
         }
     }
 
-    // Token tracking methods
-    trackWhisperUsage(minutes = 0.17) {
-        this.tokenUsage.whisper.requests += 1;
-        const cost = minutes * this.pricing.whisper;
-        this.tokenUsage.whisper.cost += cost;
-        this.tokenUsage.total += cost;
-        this.saveTokenUsage();
-        this.updateTokenDisplay();
-    }
+    // Token tracking methods (now handled by TokenTracker class)
 
-    trackGptUsage(inputTokens, outputTokens) {
-        this.tokenUsage.gpt.tokens += (inputTokens + outputTokens);
-        const inputCost = (inputTokens / 1000) * this.pricing.gpt35turbo.input;
-        const outputCost = (outputTokens / 1000) * this.pricing.gpt35turbo.output;
-        const totalCost = inputCost + outputCost;
-        this.tokenUsage.gpt.cost += totalCost;
-        this.tokenUsage.total += totalCost;
-        this.saveTokenUsage();
-        this.updateTokenDisplay();
-    }
 
-    trackTtsUsage(characters) {
-        this.tokenUsage.tts.characters += characters;
-        const pricePerChar = this.ttsSettings.model === 'tts-1-hd' ?
-            this.pricing.tts1hd / 1000 : this.pricing.tts1 / 1000;
-        const cost = characters * pricePerChar;
-        this.tokenUsage.tts.cost += cost;
-        this.tokenUsage.total += cost;
-        this.saveTokenUsage();
-        this.updateTokenDisplay();
-    }
 
-    saveTokenUsage() {
-        localStorage.setItem('token_usage', JSON.stringify(this.tokenUsage));
-    }
 
-    updateTokenDisplay() {
-        const whisperTokens = document.getElementById('whisperTokens');
-        const whisperCost = document.getElementById('whisperCost');
-        const gptTokens = document.getElementById('gptTokens');
-        const gptCost = document.getElementById('gptCost');
-        const ttsTokens = document.getElementById('ttsTokens');
-        const ttsCost = document.getElementById('ttsCost');
-        const totalCost = document.getElementById('totalCost');
 
-        if (whisperTokens) whisperTokens.textContent = `${this.tokenUsage.whisper.requests} requests`;
-        if (whisperCost) whisperCost.textContent = `$${this.tokenUsage.whisper.cost.toFixed(4)}`;
-        if (gptTokens) gptTokens.textContent = `${this.tokenUsage.gpt.tokens} tokens`;
-        if (gptCost) gptCost.textContent = `$${this.tokenUsage.gpt.cost.toFixed(4)}`;
-        if (ttsTokens) ttsTokens.textContent = `${this.tokenUsage.tts.characters} chars`;
-        if (ttsCost) ttsCost.textContent = `$${this.tokenUsage.tts.cost.toFixed(4)}`;
-        if (totalCost) totalCost.textContent = `$${this.tokenUsage.total.toFixed(4)}`;
-    }
+    // Token display is now handled by TokenTracker.updateDisplay()
 
     // Admin Panel - Personas Management
     loadPersonas() {
@@ -767,18 +673,18 @@ class FinanceBotApp {
                     <p><strong>Card Last 4:</strong> ****${persona.cardLast4}</p>
                     <div class="recent-transactions">
                         <strong>Recent Transactions:</strong>
-                        ${persona.recentTransactions && persona.recentTransactions.length > 0 ? 
-                            persona.recentTransactions.map(tx => 
-                                `<div class="transaction">
+                        ${persona.recentTransactions && persona.recentTransactions.length > 0 ?
+                    persona.recentTransactions.map(tx =>
+                        `<div class="transaction">
                                     <span class="date">${tx.date}</span>
                                     <span class="amount ${tx.amount < 0 ? 'negative' : 'positive'}">
                                         ${tx.amount < 0 ? '-' : '+'}$${Math.abs(tx.amount).toFixed(2)}
                                     </span>
                                     <span class="description">${tx.description}</span>
                                 </div>`
-                            ).join('') : 
-                            '<p class="no-transactions">No recent transactions</p>'
-                        }
+                    ).join('') :
+                    '<p class="no-transactions">No recent transactions</p>'
+                }
                     </div>
                 </div>
             `;
@@ -858,22 +764,22 @@ class FinanceBotApp {
     addPersona(e) {
         e.preventDefault();
         console.log('Add persona form submitted');
-        
+
         // Get form values
         const name = document.getElementById('personaName').value.trim();
         const balance = parseFloat(document.getElementById('personaBalance').value);
         const cardLast4 = document.getElementById('personaCard').value.trim();
         const accountType = document.getElementById('personaAccountType').value;
-        
+
         // Validate inputs
         if (!name || isNaN(balance) || !cardLast4 || cardLast4.length !== 4) {
             alert('Please fill in all fields correctly. Card number should be 4 digits.');
             return;
         }
-        
+
         // Generate unique ID
         const personaId = name.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now();
-        
+
         // Create new persona
         this.personas[personaId] = {
             name: name,
@@ -884,17 +790,17 @@ class FinanceBotApp {
                 { date: new Date().toISOString().split('T')[0], amount: balance, description: 'Initial Balance' }
             ]
         };
-        
+
         // Save to localStorage
         localStorage.setItem('personas', JSON.stringify(this.personas));
-        
+
         // Update UI
         this.updatePersonaSelector();
         this.loadPersonas();
-        
+
         // Reset form
         document.getElementById('personaForm').reset();
-        
+
         alert(`Persona "${name}" added successfully!`);
     }
 
@@ -902,15 +808,15 @@ class FinanceBotApp {
         if (confirm(`Are you sure you want to delete this persona?`)) {
             delete this.personas[personaId];
             localStorage.setItem('personas', JSON.stringify(this.personas));
-            
+
             // If deleted persona was selected, switch to first available
             if (this.currentPersona === personaId) {
                 this.currentPersona = Object.keys(this.personas)[0] || 'john_doe';
             }
-            
+
             this.updatePersonaSelector();
             this.loadPersonas();
-            
+
             alert('Persona deleted successfully!');
         }
     }
@@ -932,7 +838,7 @@ class FinanceBotApp {
 
     switchPromptTab(tabName) {
         console.log('Switching to prompt tab:', tabName);
-        
+
         // Update tab buttons
         document.querySelectorAll('.prompt-tab-btn').forEach(btn => btn.classList.remove('active'));
         const activeTab = document.querySelector(`[data-prompt="${tabName}"]`);
@@ -947,7 +853,7 @@ class FinanceBotApp {
     saveSystemPrompts() {
         try {
             console.log('Saving system prompts...');
-            
+
             const basePersonality = document.getElementById('basePersonality');
             const financialContext = document.getElementById('financialContext');
             const responseInstructions = document.getElementById('responseInstructions');
@@ -1017,11 +923,11 @@ class FinanceBotApp {
 
     generateSystemPrompt(personaId, userMessage) {
         const persona = this.personas[personaId] || this.personas['john_doe'];
-        
+
         let systemPrompt = this.systemPrompts.basePersonality + '\n\n';
         systemPrompt += this.systemPrompts.financialContext + '\n\n';
         systemPrompt += this.systemPrompts.responseInstructions + '\n\n';
-        
+
         // Add persona context
         systemPrompt += `Customer Information:
 - Name: ${persona.name}
@@ -1113,7 +1019,7 @@ class FinanceBotApp {
             messageEl = document.createElement('div');
             messageEl.id = 'prompt-message';
             messageEl.style.cssText = 'padding: 10px; margin: 10px 0; border-radius: 4px; font-weight: bold;';
-            
+
             const promptActions = document.querySelector('.prompt-actions');
             if (promptActions) {
                 promptActions.parentNode.insertBefore(messageEl, promptActions);
@@ -1123,7 +1029,7 @@ class FinanceBotApp {
         // Set message and styling based on type
         messageEl.textContent = message;
         messageEl.className = `prompt-message ${type}`;
-        
+
         switch (type) {
             case 'success':
                 messageEl.style.backgroundColor = '#d4edda';
@@ -1148,8 +1054,8 @@ class FinanceBotApp {
                 messageEl.remove();
             }
         }, 3000);
-    }    
-// UI Helper methods
+    }
+    // UI Helper methods
     addMessage(content, type) {
         const conversation = document.getElementById('conversation');
         if (!conversation) return;
@@ -1228,12 +1134,19 @@ class FinanceBotApp {
             const apiKey = apiKeyInput.value.trim();
             if (apiKey) {
                 this.openaiApiKey = apiKey;
+                this.apiClient.setApiKey(apiKey);
+                this.streamingManager.setApiKey(apiKey);
                 localStorage.setItem('openai_api_key', apiKey);
                 alert('API key saved successfully!');
             } else {
                 alert('Please enter a valid API key.');
             }
         }
+    }
+
+    // Debug callback for streaming manager
+    debugStreamingMessage(message, data) {
+        this.updateDebugOutput('streamingOutput', message + (data ? ` | Data: ${JSON.stringify(data)}` : ''));
     }
 
     toggleStreamingMode(enabled) {
@@ -1273,34 +1186,46 @@ class FinanceBotApp {
 
         try {
             this.updateConnectionStatus('connecting');
-            this.updateStatus('🔄 Connecting to streaming service...');
+            this.updateStatus('🔄 Connecting to OpenAI Realtime API...');
 
-            // Simulate connection
-            await new Promise((resolve, reject) => {
-                setTimeout(() => {
-                    if (Math.random() > 0.9) {
-                        reject(new Error('Connection timeout'));
-                    } else {
-                        resolve();
-                    }
-                }, 2000);
-            });
+            // Update streaming manager settings
+            this.streamingManager.updateSettings(this.streamingSettings);
 
-            this.isConnected = true;
-            this.updateConnectionStatus('connected');
-            this.updateStatus('📞 Connected - Streaming mode ready!');
+            // Attempt real connection to OpenAI Realtime API
+            const result = await this.streamingManager.connect();
 
-            const connectBtn = document.getElementById('connectBtn');
-            const disconnectBtn = document.getElementById('disconnectBtn');
-            if (connectBtn) connectBtn.disabled = true;
-            if (disconnectBtn) disconnectBtn.disabled = false;
+            if (result.success) {
+                this.isConnected = true;
+                this.updateConnectionStatus('connected');
+                this.updateStatus('📞 Connected to OpenAI Realtime API!');
+                this.updateDebugOutput('streamingOutput', 'Successfully connected to OpenAI Realtime API');
+
+                // Start audio streaming
+                const audioResult = await this.streamingManager.startAudioStreaming();
+                if (audioResult.success) {
+                    this.updateStatus('🎤 Connected and streaming audio!');
+                    this.updateDebugOutput('streamingOutput', 'Audio streaming started successfully');
+                } else {
+                    this.updateStatus('📞 Connected but audio streaming failed');
+                    this.updateDebugOutput('streamingOutput', `Audio streaming error: ${audioResult.error}`);
+                }
+
+                const connectBtn = document.getElementById('connectBtn');
+                const disconnectBtn = document.getElementById('disconnectBtn');
+                if (connectBtn) connectBtn.disabled = true;
+                if (disconnectBtn) disconnectBtn.disabled = false;
+
+            } else {
+                throw new Error(result.error);
+            }
 
         } catch (error) {
             console.error('Streaming connection error:', error);
             this.isConnected = false;
             this.updateConnectionStatus('disconnected');
-            this.updateStatus('❌ Connection failed. Please try again.');
-            
+            this.updateStatus(`❌ Connection failed: ${error.message}`);
+            this.updateDebugOutput('streamingOutput', `Connection failed: ${error.message}`);
+
             const connectBtn = document.getElementById('connectBtn');
             const disconnectBtn = document.getElementById('disconnectBtn');
             if (connectBtn) connectBtn.disabled = false;
@@ -1310,27 +1235,22 @@ class FinanceBotApp {
 
     async disconnectStreaming() {
         console.log('Disconnect streaming clicked');
-        
+
         if (!this.isConnected) {
             console.log('Already disconnected from streaming');
             return;
         }
 
         try {
-            // Clean up streaming resources
-            if (this.websocket) {
-                this.websocket.close();
-                this.websocket = null;
-            }
-            
-            if (this.audioContext) {
-                this.audioContext.close();
-                this.audioContext = null;
-            }
+            this.updateStatus('🔄 Disconnecting...');
+
+            // Use streaming manager to disconnect
+            await this.streamingManager.disconnect();
 
             this.isConnected = false;
             this.updateConnectionStatus('disconnected');
-            this.updateStatus('📞 Disconnected');
+            this.updateStatus('📞 Disconnected from OpenAI Realtime API');
+            this.updateDebugOutput('streamingOutput', 'Disconnected from OpenAI Realtime API');
 
             const connectBtn = document.getElementById('connectBtn');
             const disconnectBtn = document.getElementById('disconnectBtn');
@@ -1342,6 +1262,7 @@ class FinanceBotApp {
             this.isConnected = false;
             this.updateConnectionStatus('disconnected');
             this.updateStatus('📞 Disconnected (with errors)');
+            this.updateDebugOutput('streamingOutput', `Disconnect error: ${error.message}`);
         }
     }
 
@@ -1460,35 +1381,35 @@ class FinanceBotApp {
 
     cleanupAllResources() {
         console.log('Cleaning up all resources...');
-        
+
         this.cleanupMicrophoneStream();
         this.stopAudioLevelMonitoring();
-        
+
         if (this.currentAudio) {
             this.currentAudio.pause();
             this.currentAudio.src = '';
             this.currentAudio = null;
         }
-        
+
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
             this.mediaRecorder.stop();
         }
-        
+
         if (this.websocket) {
             this.websocket.close();
             this.websocket = null;
         }
-        
+
         this.currentState = 'ready';
         this.isRecording = false;
         this.isConnected = false;
-        
+
         this.updateRecordingStatus('🔴 Not Recording');
     }
 
     setupCleanupListeners() {
         console.log('Setting up cleanup listeners...');
-        
+
         window.addEventListener('beforeunload', () => {
             this.cleanupAllResources();
         });
@@ -1496,7 +1417,7 @@ class FinanceBotApp {
         window.addEventListener('pagehide', () => {
             this.cleanupAllResources();
         });
-        
+
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && this.currentState === 'recording') {
                 console.log('Tab hidden while recording, stopping recording...');
@@ -1509,5 +1430,6 @@ class FinanceBotApp {
 // Initialize the app
 console.log('Initializing FinanceBot App...');
 const app = new FinanceBotApp();
+window.app = app; // Make app globally accessible for streaming manager
 
 console.log('FinanceBot App initialized successfully!');

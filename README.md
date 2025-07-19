@@ -53,15 +53,16 @@ python3 -m http.server 8000
 - **Real-time prompt testing** - preview generated prompts before use
 - **Import/export ready** - backup and share AI configurations
 
-### 📞 **Full-Duplex Streaming Mode** (Complete WebSocket Integration)
+### 📞 **Full-Duplex Streaming Mode** (✅ FULLY IMPLEMENTED)
 - **Real-time conversation** - Continuous bidirectional audio like a phone call
-- **OpenAI Realtime API** - Direct WebSocket connection to GPT-4o Realtime
+- **OpenAI Realtime API** - Direct WebSocket connection to GPT-4o Realtime (2024-12-17)
 - **Voice Activity Detection** - Server-side VAD with configurable sensitivity
-- **Response delay customization** - Adjustable silence threshold (0.5s - 3.0s)
-- **Audio buffer optimization** - Low latency, balanced, or high quality modes
-- **Speaking indicators** - Real-time visual feedback for conversation flow
-- **Connection management** - Robust connect/disconnect with status monitoring
-- **Error handling** - Graceful fallback suggestions and connection recovery
+- **Persona integration** - AI knows customer details (balance, transactions, card info)
+- **Real-time audio streaming** - PCM16 audio processing with proper buffering
+- **Text + Audio responses** - See responses in chat AND hear them spoken
+- **Audio level monitoring** - Visual feedback during conversation
+- **Robust error handling** - Graceful recovery from connection issues
+- **Modular architecture** - Clean separation with StreamingManager module
 
 ### 🔍 **Debug & Development Tools**
 - **Real-time API communication display**
@@ -72,15 +73,28 @@ python3 -m http.server 8000
 
 ## 🎯 Supported Use Cases
 
+### **Financial Services Scenarios:**
 - **Lost Card Reporting** - "I've lost my credit card"
 - **Account Balance Inquiries** - "What's my account balance?"
+- **Transaction History** - "Tell me about my recent transactions"
 - **Transaction Disputes** - "I need to dispute a charge"
 - **Money Transfers** - "How do I transfer money?"
+- **Account Information** - "What type of account do I have?"
 - **General Banking Support** - Various customer service scenarios
+
+### **Conversation Modes:**
+- **Batch Mode**: Traditional record → process → respond workflow
+- **Streaming Mode**: Real-time conversation with immediate responses
+- **Persona-aware**: AI knows specific customer details and account information
 
 ## 🛠️ Technical Stack
 
 - **Frontend**: Vanilla JavaScript (ES6+), HTML5, CSS3
+- **Architecture**: Modular design with separated concerns
+  - `api-client.js` - OpenAI API interactions (Whisper, GPT, TTS)
+  - `token-tracker.js` - Usage tracking and cost calculation
+  - `streaming-manager.js` - Real-time WebSocket streaming (NEW!)
+  - `script.js` - Main application logic and UI
 - **APIs**: OpenAI (Whisper, GPT-3.5-turbo, TTS)
 - **Audio**: Web Audio API, MediaRecorder API
 - **Storage**: LocalStorage for settings persistence
@@ -104,13 +118,23 @@ cd Project2
 - Go to **Settings** tab
 - Enter your OpenAI API key
 - Configure voice and speech recognition settings
+- Test the modules with `test-modules.html` (optional)
 
 ### 4. **Test the System**
+
+#### **Batch Mode (Traditional):**
 - Select a customer persona (John Doe, Sarah Smith, or Mike Johnson)
 - Click "🎤 Start Speaking"
 - Grant microphone permissions
 - Say something like "What's my account balance?"
 - Listen to the AI response
+
+#### **Streaming Mode (Real-time):**
+- Toggle "Streaming Mode" switch
+- Click "📞 Connect" to establish real-time connection
+- Grant microphone permissions
+- Have a natural conversation - AI responds automatically when you stop speaking
+- See responses in chat AND hear them spoken simultaneously
 
 ## ⚙️ Configuration Options
 
@@ -152,6 +176,8 @@ Based on typical usage patterns:
 - **TTS**: ~$0.015-0.030 per 1K characters
 
 A 5-minute conversation typically costs **$0.05-0.10** total.
+
+**Streaming Mode**: Costs are similar but provide real-time interaction with immediate responses.
 
 ## 🔒 Security & Privacy
 
@@ -201,6 +227,39 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For questions or support, please open an issue in the GitHub repository.
+
+---
+
+**Built with ❤️ for the future of voice-enabled financial services**
+##
+ 🔧 Development Notes
+
+### **Module Structure**
+```
+📁 Project Root
+├── 📄 index.html              # Main application interface
+├── 📄 script.js               # Main app logic and UI coordination
+├── 📄 api-client.js           # OpenAI API client (Whisper, GPT, TTS)
+├── 📄 token-tracker.js        # Usage tracking and cost calculation
+├── 📄 streaming-manager.js    # Real-time WebSocket streaming
+├── 📄 styles.css              # Application styling
+└── 📄 test-modules.html       # Module testing utility
+```
+
+### **Streaming Mode Implementation**
+- **WebSocket Connection**: Direct connection to OpenAI Realtime API
+- **Authentication**: Uses `openai-insecure-api-key` subprotocol for browser compatibility
+- **Audio Format**: PCM16 at 24kHz sample rate
+- **Voice Activity Detection**: Server-side VAD with configurable thresholds
+- **Real-time Processing**: Immediate audio chunk processing and playback
+- **Persona Context**: Dynamic customer information injection into AI instructions
+
+### **Key Technical Achievements**
+1. **Modular Refactoring**: Reduced main script from 1,513 to 1,405 lines
+2. **Real-time Streaming**: Full bidirectional audio conversation
+3. **Robust Error Handling**: Graceful recovery from connection issues
+4. **Performance Optimization**: Efficient audio buffering and playback
+5. **Developer Experience**: Comprehensive debugging and logging
 
 ---
 

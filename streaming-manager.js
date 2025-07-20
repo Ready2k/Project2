@@ -21,14 +21,17 @@ class StreamingManager {
         this.speechStopTimer = null;
         this.isResponseActive = false;
         this.currentTextResponse = '';
+        this.currentUserTranscript = '';
         this.hasAudioResponse = false;
         this.audioResponseElement = null;
         this.audioChunks = [];
         this.isPlayingAudio = false;
         this.audioQueue = [];
         this.audioBuffer = [];
-        this.minBufferSize = 3; // Wait for at least 3 chunks before starting playback
+        this.minBufferSize = 2; // Wait for at least 2 chunks before starting playback
         this.isBuffering = false;
+        this.audioResponseStarted = false;
+        this.totalAudioChunks = 0;
 
         // Settings
         this.settings = {
@@ -162,12 +165,13 @@ class StreamingManager {
             session: {
                 modalities: ['text', 'audio'],
                 instructions: instructions,
-                voice: 'alloy',
+                voice: 'shimmer', // More expressive voice
                 input_audio_format: 'pcm16',
                 output_audio_format: 'pcm16',
                 input_audio_transcription: {
                     model: 'whisper-1'
                 },
+
                 turn_detection: {
                     type: 'server_vad',
                     threshold: this.getVadThreshold(),
@@ -176,8 +180,8 @@ class StreamingManager {
                 },
                 tools: [],
                 tool_choice: 'auto',
-                temperature: 0.8,
-                max_response_output_tokens: 200
+                temperature: 0.9, // More expressive responses
+                max_response_output_tokens: 500 // Allow longer responses
             }
         };
 
@@ -248,6 +252,13 @@ class StreamingManager {
 
                 case 'error':
                     this.debug('API Error:', message.error);
+                    // Check if this error is causing response truncation
+                    if (message.error && message.error.message) {
+                        this.debug('Error details:', message.error.message);
+                        if (message.error.message.includes('token') || message.error.message.includes('limit')) {
+                            this.debug('WARNING: Token limit may be causing response truncation');
+                        }
+                    }
                     break;
 
                 case 'input_audio_buffer.speech_started':
@@ -263,7 +274,15 @@ class StreamingManager {
                 case 'conversation.item.input_audio_transcription.completed':
                     this.debug('Transcription completed:', message.transcript);
                     // Display user message in chat
-                    this.displayUserMessage(message.transcript);
+                    if (message.transcript) {
+                        this.displayUserMessage(message.transcript);
+                    } else if (this.currentUserTranscript) {
+                        // Use accumulated transcript from deltas
+                        this.displayUserMessage(this.currentUserTranscript);
+                        this.currentUserTranscript = '';
+                    } else {
+                        this.debug('Warning: No transcript in transcription completed message');
+                    }
                     break;
 
                 case 'response.audio.delta':
@@ -299,6 +318,35 @@ class StreamingManager {
                     }
                     break;
 
+                case 'response.output_item.done':
+                    this.debug('Response output item completed:', message.item);
+                    if (message.item && message.item.content) {
+                        // Look for completed text content
+                        message.item.content.forEach(content => {
+                            if (content.type === 'text' && content.text) {
+                                this.debug('Complete text response:', content.text);
+                                this.displayBotMessage(content.text);
+                                this.updateDebugPanel('gptResponse', content.text);
+                            }
+                        });
+                    }
+                    break;
+
+                case 'response.text.delta':
+                    this.debug('Text response delta:', message.delta);
+                    this.accumulateTextResponse(message.delta);
+                    break;
+
+                case 'response.text.done':
+                    this.debug('Text response completed');
+                    if (this.currentTextResponse) {
+                        this.debug('Final accumulated text:', this.currentTextResponse);
+                        this.displayBotMessage(this.currentTextResponse);
+                        this.updateDebugPanel('gptResponse', this.currentTextResponse);
+                        this.currentTextResponse = '';
+                    }
+                    break;
+
                 case 'response.content_part.added':
                     this.debug('Response content part added:', message.part);
                     if (message.part && message.part.type === 'text' && message.part.text) {
@@ -307,11 +355,41 @@ class StreamingManager {
                     }
                     break;
 
-                case 'response.done':
-                    this.debug('Response completed');
+                case 'response.audio_transcript.delta':
+                    this.debug('Audio transcript delta:', message.delta);
+                    this.accumulateTextResponse(message.delta);
+                    break;
+
+                case 'response.audio_transcript.done':
+                    this.debug('Audio transcript completed');
+                    this.displayBotTextResponse();
+                    break;
+
+                case 'response.audio.done':
+                    this.debug('Audio response completed - all audio chunks received');
+                    // Audio is complete, but don't reset state until full response is done
+                    break;
+
+                case 'response.cancelled':
+                    this.debug('Response was cancelled - this may cause truncation');
                     this.isResponseActive = false;
-                    // If we had an audio-only response, show completion
-                    this.completeAudioResponse();
+                    break;
+
+                case 'response.failed':
+                    this.debug('Response failed:', message.error);
+                    this.isResponseActive = false;
+                    break;
+
+                case 'response.done':
+                    this.debug(`Full response completed - received ${this.totalAudioChunks} total audio chunks`);
+                    this.isResponseActive = false;
+                    this.audioResponseStarted = false;
+
+                    // Wait longer for all queued audio to finish playing
+                    setTimeout(() => {
+                        this.completeAudioResponse();
+                        this.totalAudioChunks = 0;
+                    }, 4000); // Wait 4 seconds for all audio to finish
                     break;
 
                 case 'response.created':
@@ -321,10 +399,15 @@ class StreamingManager {
 
                 case 'conversation.item.input_audio_transcription.delta':
                     this.debug('Transcription delta:', message.delta);
+                    // Accumulate user transcription
+                    if (!this.currentUserTranscript) {
+                        this.currentUserTranscript = '';
+                    }
+                    this.currentUserTranscript += message.delta;
                     break;
 
                 default:
-                    this.debug('Unknown message type:', message.type);
+                    this.debug('Unknown message type:', message.type, message);
             }
 
         } catch (error) {
@@ -499,6 +582,8 @@ class StreamingManager {
         this.audioBuffer = [];
         this.audioChunks = [];
         this.isBuffering = false;
+        this.audioResponseStarted = false;
+        this.totalAudioChunks = 0;
 
         // Clear any pending timers
         if (this.speechStopTimer) {
@@ -531,15 +616,25 @@ class StreamingManager {
         try {
             this.debug('Received audio response chunk from OpenAI');
 
+            this.totalAudioChunks++;
+            this.debug(`Received audio chunk ${this.totalAudioChunks} from OpenAI`);
+
             // Add directly to queue for immediate processing
             this.audioQueue.push({ type: 'base64', data: audioData });
 
-            // Start playing if not already playing
+            // Start playing immediately if not already playing
             if (!this.isPlayingAudio) {
                 this.debug('Starting audio playback immediately');
                 this.playQueuedAudio();
             } else {
                 this.debug(`Added chunk to queue, ${this.audioQueue.length} chunks queued`);
+                // Ensure playback continues even if there was a gap
+                setTimeout(() => {
+                    if (!this.isPlayingAudio && this.audioQueue.length > 0) {
+                        this.debug('Restarting stalled audio playback');
+                        this.playQueuedAudio();
+                    }
+                }, 100);
             }
 
         } catch (error) {
@@ -603,8 +698,8 @@ class StreamingManager {
                     // Continue with next chunk instead of stopping
                 }
 
-                // Small delay to ensure smooth playback
-                await new Promise(resolve => setTimeout(resolve, 50));
+                // Small delay to prevent audio overlap
+                await new Promise(resolve => setTimeout(resolve, 25));
             }
         } catch (error) {
             this.debug('Error in queued audio playback:', error);
@@ -612,11 +707,11 @@ class StreamingManager {
             // Check if there are more chunks to play
             if (this.audioQueue.length > 0) {
                 this.debug(`Continuing playback with ${this.audioQueue.length} more chunks`);
-                // Continue playing immediately
-                setTimeout(() => this.playQueuedAudio(), 10);
+                // Continue playing immediately without delay
+                this.playQueuedAudio();
             } else {
                 this.isPlayingAudio = false;
-                this.debug('All audio chunks played');
+                this.debug(`All queued audio chunks played (${this.totalAudioChunks} total received)`);
             }
         }
     }
@@ -627,7 +722,12 @@ class StreamingManager {
     async playPCM16Audio(pcm16Buffer) {
         try {
             if (!this.audioContext) {
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                // Create audio context with optimal settings for voice
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: 24000, // Match OpenAI's output exactly
+                    latencyHint: 'interactive' // Optimize for real-time playback
+                });
+                this.debug('Created optimized audio context for streaming');
             }
 
             // Debug: Log buffer info
@@ -656,20 +756,30 @@ class StreamingManager {
                 channelData[i] = sample / 32768.0; // Convert to -1.0 to 1.0 range
             }
 
-            // Create audio source with gain control
+            // Create enhanced audio processing chain for better quality
             const source = this.audioContext.createBufferSource();
             const gainNode = this.audioContext.createGain();
+            const compressor = this.audioContext.createDynamicsCompressor();
+
+            // Configure compressor for voice enhancement
+            compressor.threshold.setValueAtTime(-24, this.audioContext.currentTime);
+            compressor.knee.setValueAtTime(30, this.audioContext.currentTime);
+            compressor.ratio.setValueAtTime(12, this.audioContext.currentTime);
+            compressor.attack.setValueAtTime(0.003, this.audioContext.currentTime);
+            compressor.release.setValueAtTime(0.25, this.audioContext.currentTime);
 
             source.buffer = audioBuffer;
-            gainNode.gain.value = 0.8; // Slightly reduce volume to prevent clipping
+            gainNode.gain.value = 1.0; // Full volume with compression
 
+            // Connect enhanced audio processing chain
             source.connect(gainNode);
-            gainNode.connect(this.audioContext.destination);
+            gainNode.connect(compressor);
+            compressor.connect(this.audioContext.destination);
 
             // Return a promise that resolves when audio finishes
             return new Promise((resolve, reject) => {
                 source.onended = () => {
-                    this.debug(`PCM16 audio chunk completed: ${numSamples} samples`);
+                    this.debug(`High-quality PCM16 audio completed: ${numSamples} samples`);
                     resolve();
                 };
 
@@ -679,7 +789,7 @@ class StreamingManager {
                 };
 
                 source.start();
-                this.debug(`Playing PCM16 audio: ${numSamples} samples at ${sampleRate}Hz`);
+                this.debug(`Playing enhanced PCM16 audio: ${numSamples} samples at ${sampleRate}Hz with compression`);
             });
 
         } catch (error) {
@@ -728,16 +838,17 @@ class StreamingManager {
             type: 'input_audio_buffer.commit'
         });
 
-        // Create a response (only if no active response)
+        // Create a response with explicit instructions for complete responses
         this.sendMessage({
             type: 'response.create',
             response: {
                 modalities: ['text', 'audio'],
-                instructions: 'Please respond to the user\'s question about their financial account.'
+                instructions: 'Please provide a complete and detailed response to the user\'s financial question. Include all relevant information and end with asking if there is anything else you can help with. Do not truncate your response.'
             }
         });
 
         this.isResponseActive = true;
+        this.debug('Response creation requested with complete response instructions');
     }
 
     /**
@@ -962,6 +1073,24 @@ When the customer asks about their account, balance, transactions, or card, use 
         }
 
         return instructions;
+    }
+
+    /**
+     * Flush remaining audio when response is complete
+     */
+    flushRemainingAudio() {
+        this.debug(`Flushing remaining audio - Buffer: ${this.audioBuffer.length}, Queue: ${this.audioQueue.length}`);
+
+        // Move all buffered chunks to queue regardless of buffer size
+        while (this.audioBuffer.length > 0) {
+            this.audioQueue.push(this.audioBuffer.shift());
+        }
+
+        // Start playing if not already playing
+        if (!this.isPlayingAudio && this.audioQueue.length > 0) {
+            this.debug(`Starting final playback with ${this.audioQueue.length} remaining chunks`);
+            this.playQueuedAudio();
+        }
     }
 
     /**

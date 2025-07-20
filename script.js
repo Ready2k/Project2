@@ -1,4 +1,4 @@
-class FinanceBotApp {
+class SpeechToSpeechApp {
     constructor() {
         this.openaiApiKey = localStorage.getItem('openai_api_key') || '';
         this.isRecording = false;
@@ -85,24 +85,24 @@ class FinanceBotApp {
 
         // System prompts configuration
         this.systemPrompts = JSON.parse(localStorage.getItem('system_prompts')) || {
-            basePersonality: "You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.",
-            financialContext: `When handling financial requests:
-1. Always verify customer identity through account details
-2. For lost cards, immediately offer to block the card and arrange replacement
-3. For balance inquiries, provide current balance and recent transactions
-4. For disputes, guide customers through the dispute process step-by-step
-5. For transfers, ask for necessary details (amount, recipient, account)
-6. Always prioritize security and fraud prevention
-7. Offer additional relevant services when appropriate`,
+            basePersonality: "You are a helpful, professional, and friendly AI voice assistant. You should be empathetic, clear in your communication, and engaging in conversation. Speak in a conversational tone while being informative and helpful.",
+            financialContext: `When handling general requests:
+1. Be conversational and natural in your responses
+2. Provide helpful and accurate information
+3. Ask clarifying questions when needed
+4. Be patient and understanding
+5. Offer to help with follow-up questions
+6. Stay on topic but be flexible in conversation
+7. Provide examples when helpful`,
             responseInstructions: `Response Guidelines:
 1. Keep responses conversational and concise (suitable for voice)
 2. Use natural speech patterns with contractions (I'll, you're, we'll)
-3. Address customers by name when appropriate
-4. Provide specific information based on their account data
-5. Sound human and empathetic, not robotic
-6. Use clear, simple language avoiding jargon
-7. Always end with asking if there's anything else you can help with
-8. Maximum response length: 2-3 sentences for voice clarity`,
+3. Address users in a friendly manner
+4. Sound human and empathetic, not robotic
+5. Use clear, simple language avoiding jargon
+6. Always end with asking if there's anything else you can help with
+7. Maximum response length: 2-3 sentences for voice clarity
+8. Be engaging and maintain a pleasant conversation flow`,
             customPrompts: []
         };
 
@@ -159,6 +159,7 @@ class FinanceBotApp {
         this.tokenTracker.updateDisplay();
         this.initializeStreamingMode();
         this.initializeMuteButtons();
+        this.updateKeyStatus();
 
         // Switch to Settings tab on startup for configuration
         this.switchTab('settings');
@@ -195,7 +196,9 @@ class FinanceBotApp {
 
         // Settings
         const saveKey = document.getElementById('saveKey');
+        const clearKey = document.getElementById('clearKey');
         if (saveKey) saveKey.addEventListener('click', () => this.saveApiKey());
+        if (clearKey) clearKey.addEventListener('click', () => this.clearApiKey());
 
         // TTS Settings
         const ttsMode = document.getElementById('ttsMode');
@@ -1147,24 +1150,24 @@ class FinanceBotApp {
         if (confirm('Are you sure you want to reset all system prompts to defaults? This cannot be undone.')) {
             // Reset to default prompts
             this.systemPrompts = {
-                basePersonality: "You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.",
-                financialContext: `When handling financial requests:
-1. Always verify customer identity through account details
-2. For lost cards, immediately offer to block the card and arrange replacement
-3. For balance inquiries, provide current balance and recent transactions
-4. For disputes, guide customers through the dispute process step-by-step
-5. For transfers, ask for necessary details (amount, recipient, account)
-6. Always prioritize security and fraud prevention
-7. Offer additional relevant services when appropriate`,
+                basePersonality: "You are a helpful, professional, and friendly AI voice assistant. You should be empathetic, clear in your communication, and engaging in conversation. Speak in a conversational tone while being informative and helpful.",
+                financialContext: `When handling general requests:
+1. Be conversational and natural in your responses
+2. Provide helpful and accurate information
+3. Ask clarifying questions when needed
+4. Be patient and understanding
+5. Offer to help with follow-up questions
+6. Stay on topic but be flexible in conversation
+7. Provide examples when helpful`,
                 responseInstructions: `Response Guidelines:
 1. Keep responses conversational and concise (suitable for voice)
 2. Use natural speech patterns with contractions (I'll, you're, we'll)
-3. Address customers by name when appropriate
-4. Provide specific information based on their account data
-5. Sound human and empathetic, not robotic
-6. Use clear, simple language avoiding jargon
-7. Always end with asking if there's anything else you can help with
-8. Maximum response length: 2-3 sentences for voice clarity`,
+3. Address users in a friendly manner
+4. Sound human and empathetic, not robotic
+5. Use clear, simple language avoiding jargon
+6. Always end with asking if there's anything else you can help with
+7. Maximum response length: 2-3 sentences for voice clarity
+8. Be engaging and maintain a pleasant conversation flow`,
                 customPrompts: []
             };
 
@@ -1403,9 +1406,59 @@ class FinanceBotApp {
                 this.apiClient.setApiKey(apiKey);
                 this.streamingManager.setApiKey(apiKey);
                 localStorage.setItem('openai_api_key', apiKey);
+                this.updateKeyStatus();
                 alert('API key saved successfully!');
+                console.log('API key saved and updated');
             } else {
                 alert('Please enter a valid API key.');
+            }
+        }
+    }
+
+    clearApiKey() {
+        console.log('Clear API key clicked');
+        
+        const confirmed = confirm('Are you sure you want to clear your OpenAI API key?\n\nThis will:\n• Remove the key from local storage\n• Disable all OpenAI features\n• Require re-entering the key to use the app');
+        
+        if (confirmed) {
+            // Clear from memory
+            this.openaiApiKey = '';
+            
+            // Clear from API clients
+            this.apiClient.setApiKey('');
+            this.streamingManager.setApiKey('');
+            
+            // Clear from localStorage
+            localStorage.removeItem('openai_api_key');
+            
+            // Clear the input field
+            const apiKeyInput = document.getElementById('openaiKey');
+            if (apiKeyInput) {
+                apiKeyInput.value = '';
+            }
+            
+            // Update status
+            this.updateKeyStatus();
+            
+            // Disconnect if connected
+            if (this.isConnected) {
+                this.disconnectStreaming();
+            }
+            
+            alert('API key cleared successfully!\n\nYou will need to enter a new API key to use OpenAI features.');
+            console.log('API key cleared from all locations');
+        }
+    }
+
+    updateKeyStatus() {
+        const keyStatus = document.getElementById('keyStatus');
+        if (keyStatus) {
+            if (this.openaiApiKey && this.openaiApiKey.length > 0) {
+                keyStatus.textContent = `API Key Set (${this.openaiApiKey.substring(0, 7)}...)`;
+                keyStatus.className = 'key-status key-set';
+            } else {
+                keyStatus.textContent = 'No API key set';
+                keyStatus.className = 'key-status no-key';
             }
         }
     }
@@ -1728,7 +1781,7 @@ class FinanceBotApp {
             return;
         }
 
-        const testText = `Hello! I'm your financial assistant using the ${this.ttsSettings.voice} voice. This is how I sound with your current settings.`;
+        const testText = `Hello! I'm your AI voice assistant using the ${this.ttsSettings.voice} voice. This is how I sound with your current settings.`;
 
         try {
             await this.textToSpeechOpenAI(testText);
@@ -1827,8 +1880,8 @@ class FinanceBotApp {
 }
 
 // Initialize the app
-console.log('Initializing FinanceBot App...');
-const app = new FinanceBotApp();
+console.log('Initializing Speech-to-Speech (STS) App...');
+const app = new SpeechToSpeechApp();
 window.app = app; // Make app globally accessible for streaming manager
 
-console.log('FinanceBot App initialized successfully!');
+console.log('Speech-to-Speech (STS) App initialized successfully!');

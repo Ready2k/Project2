@@ -649,13 +649,25 @@ class StreamingManager {
             this.totalAudioChunks++;
             this.debug(`Received audio chunk ${this.totalAudioChunks} from OpenAI`);
 
-            // Add directly to queue for immediate processing
+            // Add to queue for processing
             this.audioQueue.push({ type: 'base64', data: audioData });
 
-            // Start playing immediately if not already playing
+            // Smart buffering: Wait for initial chunks before starting playback
             if (!this.isPlayingAudio) {
-                this.debug('Starting audio playback immediately');
-                this.playQueuedAudio();
+                if (this.totalAudioChunks === 1) {
+                    // First chunk - start buffering with delay
+                    this.debug('First audio chunk received, starting buffered playback...');
+                    setTimeout(() => {
+                        if (!this.isPlayingAudio && this.audioQueue.length > 0) {
+                            this.debug(`Starting playback after buffer delay with ${this.audioQueue.length} chunks`);
+                            this.playQueuedAudio();
+                        }
+                    }, 300); // 300ms buffer delay for smoother start
+                } else if (this.audioQueue.length >= 2) {
+                    // Multiple chunks available - start immediately
+                    this.debug('Multiple chunks available, starting playback immediately');
+                    this.playQueuedAudio();
+                }
             } else {
                 this.debug(`Added chunk to queue, ${this.audioQueue.length} chunks queued`);
                 // Ensure playback continues even if there was a gap

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinanceBot - Voice Assistant</title>
+    <title>Speech-to-Speech (STS)</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -21,8 +21,8 @@
         <div id="chat-tab" class="tab-content active">
             <div class="container">
                 <header>
-                    <h1>🏦 FinanceBot</h1>
-                    <p>Your AI Financial Assistant</p>
+                    <h1>� Speech-to-Speech (STS)</h1>
+                    <p>AI Voice Conversation Demo</p>
                     <div class="persona-selector">
                         <label>Customer: </label>
                         <select id="personaSelect">
@@ -37,7 +37,7 @@
                     <div id="conversation" class="conversation">
                         <div class="bot-message">
                             <div class="message-content">
-                                Hello! I'm your financial assistant. How can I help you today?
+                                Hello! I'm your AI voice assistant. How can I help you today?
                             </div>
                         </div>
                     </div>
@@ -104,11 +104,11 @@
                 <div class="features">
                     <h3>Try saying:</h3>
                     <ul>
-                        <li>"I've lost my card"</li>
-                        <li>"What's my account balance?"</li>
-                        <li>"I need to dispute a transaction"</li>
-                        <li>"How do I transfer money?"</li>
-                        <li>"I want to make a payment"</li>
+                        <li>"Hello, how are you today?"</li>
+                        <li>"Tell me a joke"</li>
+                        <li>"What's the weather like?"</li>
+                        <li>"Explain artificial intelligence"</li>
+                        <li>"Help me with a question"</li>
                     </ul>
                 </div>
 
@@ -305,8 +305,14 @@
                     <h3>OpenAI Configuration</h3>
                     <div class="form-group">
                         <label>API Key:</label>
-                        <input type="password" id="openaiKey" placeholder="sk-...">
-                        <button id="saveKey">Save Key</button>
+                        <div class="api-key-controls">
+                            <input type="password" id="openaiKey" placeholder="sk-...">
+                            <button id="saveKey">Save Key</button>
+                            <button id="clearKey" class="clear-key-btn">Clear Key</button>
+                        </div>
+                        <div class="api-key-status">
+                            <span id="keyStatus" class="key-status">No API key set</span>
+                        </div>
                     </div>
                 </div>
 

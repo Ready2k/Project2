@@ -286,6 +286,62 @@ button[type="submit"]:hover, #saveKey:hover {
     background: #2980b9;
 }
 
+/* API Key Controls */
+.api-key-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.api-key-controls input {
+    flex: 1;
+    margin: 0;
+}
+
+.clear-key-btn {
+    background: #e74c3c;
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.clear-key-btn:hover {
+    background: #c0392b;
+}
+
+.api-key-status {
+    margin-top: 8px;
+}
+
+.key-status {
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.key-status.no-key {
+    background: #e74c3c;
+    color: white;
+}
+
+.key-status.key-set {
+    background: #27ae60;
+    color: white;
+}
+
+.key-status.key-invalid {
+    background: #f39c12;
+    color: white;
+}
+
 /* Persona List */
 .persona-list {
     display: grid;

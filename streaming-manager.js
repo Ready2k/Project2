@@ -568,6 +568,36 @@ class StreamingManager {
     }
 
     /**
+     * Pause audio streaming (mute)
+     */
+    pauseAudioStreaming() {
+        this.debug('Pausing audio streaming (mute)...');
+        
+        if (this.mediaStream) {
+            this.mediaStream.getAudioTracks().forEach(track => {
+                track.enabled = false;
+            });
+        }
+        
+        this.debug('Audio streaming paused');
+    }
+
+    /**
+     * Resume audio streaming (unmute)
+     */
+    resumeAudioStreaming() {
+        this.debug('Resuming audio streaming (unmute)...');
+        
+        if (this.mediaStream) {
+            this.mediaStream.getAudioTracks().forEach(track => {
+                track.enabled = true;
+            });
+        }
+        
+        this.debug('Audio streaming resumed');
+    }
+
+    /**
      * Stop audio streaming
      */
     stopAudioStreaming() {

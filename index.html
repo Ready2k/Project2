@@ -64,6 +64,9 @@
                         <button id="stopBtn" class="voice-btn" disabled>
                             ⏹️ Stop
                         </button>
+                        <button id="batchMuteBtn" class="voice-btn mute-btn" disabled>
+                            🎤 Mute
+                        </button>
                     </div>
 
                     <!-- Streaming Mode Controls -->
@@ -74,9 +77,13 @@
                         <button id="disconnectBtn" class="voice-btn streaming-btn" disabled>
                             📞 Disconnect
                         </button>
+                        <button id="muteBtn" class="voice-btn mute-btn" disabled>
+                            🎤 Mute
+                        </button>
                         <div class="streaming-status">
                             <span id="connectionStatus" class="status-indicator disconnected">Disconnected</span>
                             <span id="speakingIndicator" class="speaking-indicator">🔇</span>
+                            <span id="muteStatus" class="mute-indicator">🎤 Live</span>
                         </div>
                     </div>
                     <div class="audio-feedback">
@@ -161,7 +168,8 @@
                         </div>
                         <div class="debug-section">
                             <h4>Streaming Connection:</h4>
-                            <div id="streamingOutput" class="debug-output">Streaming debug info will appear here...</div>
+                            <div id="streamingOutput" class="debug-output">Streaming debug info will appear here...
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -213,20 +221,23 @@
                         <button class="prompt-tab-btn" data-prompt="instructions">Instructions</button>
                         <button class="prompt-tab-btn" data-prompt="custom">Custom Prompts</button>
                     </div>
-                    
+
                     <div class="prompt-content">
                         <!-- Base Personality -->
                         <div id="base-prompt" class="prompt-section active">
                             <h4>Base AI Personality</h4>
                             <p class="prompt-description">Define the core personality and tone of your AI assistant</p>
-                            <textarea id="basePersonality" class="prompt-textarea" rows="6" placeholder="You are a helpful, professional, and friendly financial services AI assistant...">You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.</textarea>
+                            <textarea id="basePersonality" class="prompt-textarea" rows="6"
+                                placeholder="You are a helpful, professional, and friendly financial services AI assistant...">You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.</textarea>
                         </div>
 
                         <!-- Financial Context -->
                         <div id="financial-prompt" class="prompt-section">
                             <h4>Financial Services Context</h4>
-                            <p class="prompt-description">Specific instructions for handling financial services scenarios</p>
-                            <textarea id="financialContext" class="prompt-textarea" rows="8" placeholder="When handling financial requests...">When handling financial requests:
+                            <p class="prompt-description">Specific instructions for handling financial services
+                                scenarios</p>
+                            <textarea id="financialContext" class="prompt-textarea" rows="8"
+                                placeholder="When handling financial requests...">When handling financial requests:
 1. Always verify customer identity through account details
 2. For lost cards, immediately offer to block the card and arrange replacement
 3. For balance inquiries, provide current balance and recent transactions
@@ -240,7 +251,8 @@
                         <div id="instructions-prompt" class="prompt-section">
                             <h4>Response Instructions</h4>
                             <p class="prompt-description">How the AI should structure and deliver responses</p>
-                            <textarea id="responseInstructions" class="prompt-textarea" rows="8" placeholder="Response guidelines...">Response Guidelines:
+                            <textarea id="responseInstructions" class="prompt-textarea" rows="8"
+                                placeholder="Response guidelines...">Response Guidelines:
 1. Keep responses conversational and concise (suitable for voice)
 2. Use natural speech patterns with contractions (I'll, you're, we'll)
 3. Address customers by name when appropriate
@@ -257,8 +269,10 @@
                             <p class="prompt-description">Add custom prompts for specific scenarios or industries</p>
                             <div class="custom-prompts-list" id="customPromptsList">
                                 <div class="custom-prompt-item">
-                                    <input type="text" placeholder="Scenario name (e.g., 'Loan Inquiries')" class="scenario-name">
-                                    <textarea placeholder="Custom prompt for this scenario..." class="custom-prompt-text" rows="4"></textarea>
+                                    <input type="text" placeholder="Scenario name (e.g., 'Loan Inquiries')"
+                                        class="scenario-name">
+                                    <textarea placeholder="Custom prompt for this scenario..."
+                                        class="custom-prompt-text" rows="4"></textarea>
                                     <button class="remove-custom-prompt">Remove</button>
                                 </div>
                             </div>
@@ -297,37 +311,89 @@
                 </div>
 
                 <div class="voice-settings">
-                    <h3>🎤 OpenAI TTS Voice Settings</h3>
-                    <div class="voice-controls">
+                    <h3>🎤 Text-to-Speech Settings</h3>
+
+                    <!-- TTS Mode Selection -->
+                    <div class="tts-mode-selection">
                         <div class="voice-control">
-                            <label>TTS Model:</label>
-                            <select id="ttsModel">
-                                <option value="tts-1">TTS-1 (Standard, Faster)</option>
-                                <option value="tts-1-hd">TTS-1-HD (High Quality, Slower)</option>
+                            <label>TTS Mode:</label>
+                            <select id="ttsMode">
+                                <option value="openai">OpenAI TTS (High Quality, Requires API)</option>
+                                <option value="browser">Browser TTS (Free, Local)</option>
                             </select>
                         </div>
-                        <div class="voice-control">
-                            <label>Voice:</label>
-                            <select id="ttsVoice">
-                                <option value="alloy">Alloy (Neutral)</option>
-                                <option value="echo">Echo (Male)</option>
-                                <option value="fable">Fable (British Male)</option>
-                                <option value="onyx">Onyx (Deep Male)</option>
-                                <option value="nova" selected>Nova (Female, Recommended)</option>
-                                <option value="shimmer">Shimmer (Female, Warm)</option>
-                            </select>
+                    </div>
+
+                    <!-- OpenAI TTS Settings -->
+                    <div id="openaiTtsSettings" class="tts-settings-group">
+                        <h4>OpenAI TTS Settings</h4>
+                        <div class="voice-controls">
+                            <div class="voice-control">
+                                <label>TTS Model:</label>
+                                <select id="ttsModel">
+                                    <option value="tts-1">TTS-1 (Standard, Faster)</option>
+                                    <option value="tts-1-hd">TTS-1-HD (High Quality, Slower)</option>
+                                </select>
+                            </div>
+                            <div class="voice-control">
+                                <label>Voice:</label>
+                                <select id="ttsVoice">
+                                    <option value="alloy">Alloy (Neutral)</option>
+                                    <option value="echo">Echo (Male)</option>
+                                    <option value="fable">Fable (British Male)</option>
+                                    <option value="onyx">Onyx (Deep Male)</option>
+                                    <option value="nova" selected>Nova (Female, Recommended)</option>
+                                    <option value="shimmer">Shimmer (Female, Warm)</option>
+                                </select>
+                            </div>
+                            <div class="voice-control">
+                                <label>Speech Speed:</label>
+                                <input type="range" id="ttsSpeed" min="0.25" max="4.0" step="0.25" value="1.0">
+                                <span id="ttsSpeedValue">1.0x</span>
+                            </div>
                         </div>
-                        <div class="voice-control">
-                            <label>Speech Speed:</label>
-                            <input type="range" id="ttsSpeed" min="0.25" max="4.0" step="0.25" value="1.0">
-                            <span id="ttsSpeedValue">1.0x</span>
+                        <div class="voice-preview">
+                            <button id="testTtsVoice">🔊 Test OpenAI Voice</button>
+                        </div>
+                        <div class="voice-info">
+                            <p><strong>OpenAI TTS:</strong> Premium quality, natural-sounding voices. Requires API key
+                                and costs per character.</p>
                         </div>
                     </div>
-                    <div class="voice-preview">
-                        <button id="testTtsVoice">🔊 Test OpenAI Voice</button>
-                    </div>
-                    <div class="voice-info">
-                        <p><strong>Note:</strong> OpenAI TTS provides much higher quality, more natural voices than browser synthesis. Nova and Shimmer are excellent for customer service scenarios.</p>
+
+                    <!-- Browser TTS Settings -->
+                    <div id="browserTtsSettings" class="tts-settings-group hidden">
+                        <h4>Browser TTS Settings</h4>
+                        <div class="voice-controls">
+                            <div class="voice-control">
+                                <label>Voice:</label>
+                                <select id="browserVoice">
+                                    <option value="">Loading voices...</option>
+                                </select>
+                            </div>
+                            <div class="voice-control">
+                                <label>Speech Rate:</label>
+                                <input type="range" id="browserRate" min="0.1" max="2.0" step="0.1" value="1.0">
+                                <span id="browserRateValue">1.0x</span>
+                            </div>
+                            <div class="voice-control">
+                                <label>Pitch:</label>
+                                <input type="range" id="browserPitch" min="0" max="2" step="0.1" value="1.0">
+                                <span id="browserPitchValue">1.0</span>
+                            </div>
+                            <div class="voice-control">
+                                <label>Volume:</label>
+                                <input type="range" id="browserVolume" min="0" max="1" step="0.1" value="1.0">
+                                <span id="browserVolumeValue">100%</span>
+                            </div>
+                        </div>
+                        <div class="voice-preview">
+                            <button id="testBrowserVoice">🔊 Test Browser Voice</button>
+                        </div>
+                        <div class="voice-info">
+                            <p><strong>Browser TTS:</strong> Free local text-to-speech using your system's voices.
+                                Quality varies by device and browser.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -417,7 +483,8 @@
                     <div class="streaming-info">
                         <h4>🔄 Streaming Mode Features:</h4>
                         <ul>
-                            <li><strong>Real-time conversation:</strong> Continuous audio connection like a phone call</li>
+                            <li><strong>Real-time conversation:</strong> Continuous audio connection like a phone call
+                            </li>
                             <li><strong>Voice Activity Detection:</strong> AI responds when you pause speaking</li>
                             <li><strong>Full Duplex:</strong> Both parties can speak and listen simultaneously</li>
                             <li><strong>Lower latency:</strong> Faster response times than batch mode</li>

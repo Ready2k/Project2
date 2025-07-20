@@ -21,6 +21,10 @@ class FinanceBotApp {
         this.processor = null;
         this.silenceTimer = null;
         this.isSpeaking = false;
+        
+        // Mute functionality
+        this.isMuted = false;
+        this.mutedStream = null;
 
         // Microphone stream caching
         this.cachedMicStream = null;
@@ -34,12 +38,24 @@ class FinanceBotApp {
         this.audioAnalyser = null;
         this.audioLevelInterval = null;
 
-        // OpenAI TTS settings
+        // TTS settings
+        this.ttsMode = localStorage.getItem('tts_mode') || 'openai';
         this.ttsSettings = {
             model: localStorage.getItem('tts_model') || 'tts-1',
             voice: localStorage.getItem('tts_voice') || 'nova',
             speed: parseFloat(localStorage.getItem('tts_speed')) || 1.0
         };
+        
+        // Browser TTS settings
+        this.browserTtsSettings = {
+            voice: localStorage.getItem('browser_tts_voice') || '',
+            rate: parseFloat(localStorage.getItem('browser_tts_rate')) || 1.0,
+            pitch: parseFloat(localStorage.getItem('browser_tts_pitch')) || 1.0,
+            volume: parseFloat(localStorage.getItem('browser_tts_volume')) || 1.0
+        };
+        
+        // Available browser voices
+        this.availableVoices = [];
 
         // Speech recognition settings
         this.speechSettings = {
@@ -136,11 +152,13 @@ class FinanceBotApp {
         this.loadPersonas();
         this.updatePersonaSelector();
         this.initializeTtsSettings();
+        this.initializeBrowserTts();
         this.initializeSpeechSettings();
         this.initializeStreamingSettings();
         this.initializeSystemPrompts();
         this.tokenTracker.updateDisplay();
         this.initializeStreamingMode();
+        this.initializeMuteButtons();
 
         // Switch to Settings tab on startup for configuration
         this.switchTab('settings');
@@ -180,20 +198,37 @@ class FinanceBotApp {
         if (saveKey) saveKey.addEventListener('click', () => this.saveApiKey());
 
         // TTS Settings
+        const ttsMode = document.getElementById('ttsMode');
         const ttsModel = document.getElementById('ttsModel');
         const ttsVoice = document.getElementById('ttsVoice');
         const ttsSpeed = document.getElementById('ttsSpeed');
         const testTtsVoice = document.getElementById('testTtsVoice');
+        
+        // Browser TTS Settings
+        const browserVoice = document.getElementById('browserVoice');
+        const browserRate = document.getElementById('browserRate');
+        const browserPitch = document.getElementById('browserPitch');
+        const browserVolume = document.getElementById('browserVolume');
+        const testBrowserVoice = document.getElementById('testBrowserVoice');
 
+        if (ttsMode) ttsMode.addEventListener('change', (e) => this.updateTtsMode(e));
         if (ttsModel) ttsModel.addEventListener('change', (e) => this.updateTtsModel(e));
         if (ttsVoice) ttsVoice.addEventListener('change', (e) => this.updateTtsVoice(e));
         if (ttsSpeed) ttsSpeed.addEventListener('input', (e) => this.updateTtsSpeed(e));
         if (testTtsVoice) testTtsVoice.addEventListener('click', () => this.testTtsVoice());
+        
+        if (browserVoice) browserVoice.addEventListener('change', (e) => this.updateBrowserVoice(e));
+        if (browserRate) browserRate.addEventListener('input', (e) => this.updateBrowserRate(e));
+        if (browserPitch) browserPitch.addEventListener('input', (e) => this.updateBrowserPitch(e));
+        if (browserVolume) browserVolume.addEventListener('input', (e) => this.updateBrowserVolume(e));
+        if (testBrowserVoice) testBrowserVoice.addEventListener('click', () => this.testBrowserVoice());
 
         // Streaming mode controls
         const streamingMode = document.getElementById('streamingMode');
         const connectBtn = document.getElementById('connectBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
+        const muteBtn = document.getElementById('muteBtn');
+        const batchMuteBtn = document.getElementById('batchMuteBtn');
 
         if (streamingMode) {
             streamingMode.addEventListener('change', (e) => {
@@ -203,6 +238,8 @@ class FinanceBotApp {
         }
         if (connectBtn) connectBtn.addEventListener('click', () => this.connectStreaming());
         if (disconnectBtn) disconnectBtn.addEventListener('click', () => this.disconnectStreaming());
+        if (muteBtn) muteBtn.addEventListener('click', () => this.toggleMute());
+        if (batchMuteBtn) batchMuteBtn.addEventListener('click', () => this.toggleMute());
 
         // System prompts management
         document.querySelectorAll('.prompt-tab-btn').forEach(btn => {
@@ -300,8 +337,10 @@ class FinanceBotApp {
 
             const startBtn = document.getElementById('startBtn');
             const stopBtn = document.getElementById('stopBtn');
+            const batchMuteBtn = document.getElementById('batchMuteBtn');
             if (startBtn) startBtn.disabled = true;
             if (stopBtn) stopBtn.disabled = false;
+            if (batchMuteBtn) batchMuteBtn.disabled = false;
 
             this.updateStatus('🎤 Listening... Click Stop when done speaking');
             console.log('Recording started successfully');
@@ -316,8 +355,10 @@ class FinanceBotApp {
             // Reset button states
             const startBtn = document.getElementById('startBtn');
             const stopBtn = document.getElementById('stopBtn');
+            const batchMuteBtn = document.getElementById('batchMuteBtn');
             if (startBtn) startBtn.disabled = false;
             if (stopBtn) stopBtn.disabled = true;
+            if (batchMuteBtn) batchMuteBtn.disabled = true;
 
             // Show detailed error message
             if (error.name === 'NotAllowedError') {
@@ -366,8 +407,10 @@ class FinanceBotApp {
 
             const startBtn = document.getElementById('startBtn');
             const stopBtn = document.getElementById('stopBtn');
+            const batchMuteBtn = document.getElementById('batchMuteBtn');
             if (startBtn) startBtn.disabled = false;
             if (stopBtn) stopBtn.disabled = true;
+            if (batchMuteBtn) batchMuteBtn.disabled = true;
 
             this.updateStatus('Processing your speech...');
         }
@@ -395,9 +438,9 @@ class FinanceBotApp {
                 const response = await this.generateResponse(transcript);
                 this.addMessage(response, 'bot');
 
-                // Convert response to speech using OpenAI TTS
+                // Convert response to speech using selected TTS mode
                 this.currentState = 'speaking';
-                await this.textToSpeechOpenAI(response);
+                await this.textToSpeech(response);
 
                 this.currentState = 'ready';
                 this.updateStatus('Ready to listen');
@@ -474,9 +517,17 @@ class FinanceBotApp {
         }
     }
 
+    async textToSpeech(text) {
+        if (this.ttsMode === 'browser') {
+            return this.textToSpeechBrowser(text);
+        } else {
+            return this.textToSpeechOpenAI(text);
+        }
+    }
+
     async textToSpeechOpenAI(text) {
         try {
-            console.log('Converting text to speech:', text);
+            console.log('Converting text to speech with OpenAI:', text);
             this.updateStatus('🔊 Generating voice...');
             this.updateDebugOutput('ttsOutput', `Generating speech with ${this.ttsSettings.model} (${this.ttsSettings.voice})`);
 
@@ -552,13 +603,71 @@ class FinanceBotApp {
             this.updateDebugOutput('ttsOutput', `Speech generated successfully\nCharacters: ${text.length}\nModel: ${this.ttsSettings.model}\nVoice: ${this.ttsSettings.voice}`);
 
         } catch (error) {
-            console.error('TTS error:', error);
-            this.updateStatus('TTS error - Ready to listen');
-            this.updateDebugOutput('ttsOutput', `Error: ${error.message}`);
+            console.error('OpenAI TTS error:', error);
+            this.updateStatus('OpenAI TTS error - trying browser TTS...');
+            this.updateDebugOutput('ttsOutput', `OpenAI TTS Error: ${error.message} - Falling back to browser TTS`);
 
-            // Try fallback to browser TTS
-            this.speakWithBrowserTTS(text);
+            // Fallback to browser TTS
+            return this.textToSpeechBrowser(text);
         }
+    }
+
+    async textToSpeechBrowser(text) {
+        return new Promise((resolve, reject) => {
+            try {
+                console.log('Converting text to speech with Browser TTS:', text);
+                this.updateStatus('🔊 Generating voice with browser...');
+                this.updateDebugOutput('ttsOutput', `Generating speech with Browser TTS`);
+
+                if (!('speechSynthesis' in window)) {
+                    throw new Error('Browser TTS not supported');
+                }
+
+                // Stop any ongoing speech
+                speechSynthesis.cancel();
+
+                const utterance = new SpeechSynthesisUtterance(text);
+                
+                // Apply settings
+                if (this.browserTtsSettings.voice && this.availableVoices.length > 0) {
+                    const voiceIndex = parseInt(this.browserTtsSettings.voice);
+                    if (voiceIndex >= 0 && voiceIndex < this.availableVoices.length) {
+                        utterance.voice = this.availableVoices[voiceIndex];
+                    }
+                }
+                
+                utterance.rate = this.browserTtsSettings.rate;
+                utterance.pitch = this.browserTtsSettings.pitch;
+                utterance.volume = this.browserTtsSettings.volume;
+
+                utterance.onstart = () => {
+                    console.log('Browser TTS started');
+                    this.updateStatus('🔊 Speaking...');
+                };
+
+                utterance.onend = () => {
+                    console.log('Browser TTS ended');
+                    this.updateStatus('Ready to listen');
+                    this.updateDebugOutput('ttsOutput', `Browser TTS completed successfully\nCharacters: ${text.length}\nVoice: ${utterance.voice ? utterance.voice.name : 'Default'}`);
+                    resolve();
+                };
+
+                utterance.onerror = (error) => {
+                    console.error('Browser TTS error:', error);
+                    this.updateStatus('Browser TTS error - Ready to listen');
+                    this.updateDebugOutput('ttsOutput', `Browser TTS Error: ${error.error}`);
+                    reject(error);
+                };
+
+                speechSynthesis.speak(utterance);
+
+            } catch (error) {
+                console.error('Browser TTS setup error:', error);
+                this.updateStatus('TTS error - Ready to listen');
+                this.updateDebugOutput('ttsOutput', `Browser TTS Error: ${error.message}`);
+                reject(error);
+            }
+        });
     }
 
     // Audio level monitoring methods
@@ -615,12 +724,169 @@ class FinanceBotApp {
         const audioLevelText = document.getElementById('audioLevelText');
 
         if (audioLevelFill) {
-            audioLevelFill.style.width = level + '%';
+            audioLevelFill.style.width = this.isMuted ? 0 : level + '%';
         }
 
         if (audioLevelText) {
-            audioLevelText.textContent = Math.round(level) + '%';
+            audioLevelText.textContent = this.isMuted ? '0%' : Math.round(level) + '%';
         }
+    }
+
+    // Mute functionality
+    toggleMute() {
+        console.log('Mute button clicked, current state:', this.isMuted);
+        
+        if (this.isMuted) {
+            this.unmute();
+        } else {
+            this.mute();
+        }
+    }
+
+    mute() {
+        console.log('Muting audio stream...');
+        this.isMuted = true;
+        
+        // Update button states and text
+        this.updateMuteButtonStates();
+        
+        // Stop audio streaming in streaming mode
+        if (this.isStreamingMode && this.streamingManager) {
+            this.streamingManager.pauseAudioStreaming();
+        }
+        
+        // Stop recording in batch mode
+        if (!this.isStreamingMode && this.isRecording) {
+            this.pauseRecording();
+        }
+        
+        // Mute microphone tracks
+        this.muteMicrophoneTracks();
+        
+        this.updateStatus('🔇 Microphone muted - background noise blocked');
+        console.log('Audio stream muted successfully');
+    }
+
+    unmute() {
+        console.log('Unmuting audio stream...');
+        this.isMuted = false;
+        
+        // Update button states and text
+        this.updateMuteButtonStates();
+        
+        // Resume audio streaming in streaming mode
+        if (this.isStreamingMode && this.streamingManager) {
+            this.streamingManager.resumeAudioStreaming();
+        }
+        
+        // Resume recording in batch mode if it was active
+        if (!this.isStreamingMode && this.mutedStream) {
+            this.resumeRecording();
+        }
+        
+        // Unmute microphone tracks
+        this.unmuteMicrophoneTracks();
+        
+        this.updateStatus(this.isStreamingMode ? 
+            (this.isConnected ? '🎤 Connected and listening' : 'Ready to connect') : 
+            'Ready to listen');
+        console.log('Audio stream unmuted successfully');
+    }
+
+    updateMuteButtonStates() {
+        const muteBtn = document.getElementById('muteBtn');
+        const batchMuteBtn = document.getElementById('batchMuteBtn');
+        const muteStatus = document.getElementById('muteStatus');
+        
+        const muteText = this.isMuted ? '🔊 Unmute' : '🎤 Mute';
+        const muteClass = this.isMuted ? 'muted' : '';
+        
+        if (muteBtn) {
+            muteBtn.textContent = muteText;
+            muteBtn.className = `voice-btn mute-btn ${muteClass}`;
+        }
+        
+        if (batchMuteBtn) {
+            batchMuteBtn.textContent = muteText;
+            batchMuteBtn.className = `voice-btn mute-btn ${muteClass}`;
+        }
+        
+        if (muteStatus) {
+            muteStatus.textContent = this.isMuted ? '🔇 Muted' : '🎤 Live';
+            muteStatus.className = `mute-indicator ${this.isMuted ? 'muted' : 'live'}`;
+        }
+    }
+
+    muteMicrophoneTracks() {
+        // Mute all active microphone tracks
+        if (this.cachedMicStream) {
+            this.cachedMicStream.getAudioTracks().forEach(track => {
+                track.enabled = false;
+            });
+        }
+        
+        if (this.mediaRecorder && this.mediaRecorder.stream) {
+            this.mediaRecorder.stream.getAudioTracks().forEach(track => {
+                track.enabled = false;
+            });
+        }
+    }
+
+    unmuteMicrophoneTracks() {
+        // Unmute all active microphone tracks
+        if (this.cachedMicStream) {
+            this.cachedMicStream.getAudioTracks().forEach(track => {
+                track.enabled = true;
+            });
+        }
+        
+        if (this.mediaRecorder && this.mediaRecorder.stream) {
+            this.mediaRecorder.stream.getAudioTracks().forEach(track => {
+                track.enabled = true;
+            });
+        }
+    }
+
+    pauseRecording() {
+        if (this.mediaRecorder && this.isRecording) {
+            console.log('Pausing recording due to mute');
+            this.mutedStream = this.mediaRecorder.stream;
+            // Don't actually stop the recorder, just disable the tracks
+        }
+    }
+
+    resumeRecording() {
+        if (this.mutedStream) {
+            console.log('Resuming recording after unmute');
+            this.mutedStream = null;
+        }
+    }
+
+    initializeMuteButtons() {
+        console.log('Initializing mute buttons...');
+        
+        // Set initial mute button states
+        this.updateMuteButtonStates();
+        
+        // Disable mute buttons initially (they get enabled when recording/connecting)
+        const muteBtn = document.getElementById('muteBtn');
+        const batchMuteBtn = document.getElementById('batchMuteBtn');
+        
+        if (muteBtn) {
+            muteBtn.disabled = true;
+            console.log('Streaming mute button found and disabled initially');
+        } else {
+            console.log('Streaming mute button not found!');
+        }
+        
+        if (batchMuteBtn) {
+            batchMuteBtn.disabled = true;
+            console.log('Batch mute button found and disabled initially');
+        } else {
+            console.log('Batch mute button not found!');
+        }
+        
+        console.log('Mute buttons initialized - they will be enabled when you start recording or connect');
     }
 
     updateRecordingStatus(status) {
@@ -1212,8 +1478,13 @@ class FinanceBotApp {
 
                 const connectBtn = document.getElementById('connectBtn');
                 const disconnectBtn = document.getElementById('disconnectBtn');
+                const muteBtn = document.getElementById('muteBtn');
                 if (connectBtn) connectBtn.disabled = true;
                 if (disconnectBtn) disconnectBtn.disabled = false;
+                if (muteBtn) {
+                    muteBtn.disabled = false;
+                    console.log('Mute button enabled - you can now mute/unmute your microphone');
+                }
 
             } else {
                 throw new Error(result.error);
@@ -1228,8 +1499,10 @@ class FinanceBotApp {
 
             const connectBtn = document.getElementById('connectBtn');
             const disconnectBtn = document.getElementById('disconnectBtn');
+            const muteBtn = document.getElementById('muteBtn');
             if (connectBtn) connectBtn.disabled = false;
             if (disconnectBtn) disconnectBtn.disabled = true;
+            if (muteBtn) muteBtn.disabled = true;
         }
     }
 
@@ -1254,8 +1527,10 @@ class FinanceBotApp {
 
             const connectBtn = document.getElementById('connectBtn');
             const disconnectBtn = document.getElementById('disconnectBtn');
+            const muteBtn = document.getElementById('muteBtn');
             if (connectBtn) connectBtn.disabled = false;
             if (disconnectBtn) disconnectBtn.disabled = true;
+            if (muteBtn) muteBtn.disabled = true;
 
         } catch (error) {
             console.error('Error during disconnect:', error);
@@ -1296,15 +1571,82 @@ class FinanceBotApp {
 
     initializeTtsSettings() {
         console.log('Initializing TTS settings...');
+        
+        const ttsMode = document.getElementById('ttsMode');
         const ttsModel = document.getElementById('ttsModel');
         const ttsVoice = document.getElementById('ttsVoice');
         const ttsSpeed = document.getElementById('ttsSpeed');
         const ttsSpeedValue = document.getElementById('ttsSpeedValue');
 
+        if (ttsMode) ttsMode.value = this.ttsMode;
         if (ttsModel) ttsModel.value = this.ttsSettings.model;
         if (ttsVoice) ttsVoice.value = this.ttsSettings.voice;
         if (ttsSpeed) ttsSpeed.value = this.ttsSettings.speed;
         if (ttsSpeedValue) ttsSpeedValue.textContent = this.ttsSettings.speed + 'x';
+
+        // Show/hide appropriate settings based on mode
+        this.toggleTtsSettings();
+
+        console.log('TTS settings initialized:', { mode: this.ttsMode, settings: this.ttsSettings });
+    }
+
+    initializeBrowserTts() {
+        console.log('Initializing Browser TTS...');
+        
+        // Load available voices
+        this.loadBrowserVoices();
+        
+        // Initialize browser TTS settings
+        const browserRate = document.getElementById('browserRate');
+        const browserPitch = document.getElementById('browserPitch');
+        const browserVolume = document.getElementById('browserVolume');
+        const browserRateValue = document.getElementById('browserRateValue');
+        const browserPitchValue = document.getElementById('browserPitchValue');
+        const browserVolumeValue = document.getElementById('browserVolumeValue');
+
+        if (browserRate) browserRate.value = this.browserTtsSettings.rate;
+        if (browserPitch) browserPitch.value = this.browserTtsSettings.pitch;
+        if (browserVolume) browserVolume.value = this.browserTtsSettings.volume;
+        if (browserRateValue) browserRateValue.textContent = this.browserTtsSettings.rate + 'x';
+        if (browserPitchValue) browserPitchValue.textContent = this.browserTtsSettings.pitch;
+        if (browserVolumeValue) browserVolumeValue.textContent = Math.round(this.browserTtsSettings.volume * 100) + '%';
+
+        console.log('Browser TTS settings initialized:', this.browserTtsSettings);
+    }
+
+    loadBrowserVoices() {
+        if ('speechSynthesis' in window) {
+            const loadVoices = () => {
+                this.availableVoices = speechSynthesis.getVoices();
+                console.log('Available browser voices:', this.availableVoices.length);
+                
+                const browserVoiceSelect = document.getElementById('browserVoice');
+                if (browserVoiceSelect && this.availableVoices.length > 0) {
+                    browserVoiceSelect.innerHTML = '';
+                    
+                    this.availableVoices.forEach((voice, index) => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = `${voice.name} (${voice.lang})`;
+                        if (voice.default) option.textContent += ' - Default';
+                        browserVoiceSelect.appendChild(option);
+                    });
+                    
+                    // Set saved voice or default
+                    if (this.browserTtsSettings.voice) {
+                        browserVoiceSelect.value = this.browserTtsSettings.voice;
+                    }
+                }
+            };
+
+            // Load voices immediately if available
+            loadVoices();
+            
+            // Also listen for voices changed event (some browsers load voices asynchronously)
+            speechSynthesis.onvoiceschanged = loadVoices;
+        } else {
+            console.warn('Browser TTS not supported');
+        }
     }
 
     updateTtsModel(e) {
@@ -1327,6 +1669,58 @@ class FinanceBotApp {
         console.log('TTS speed updated:', this.ttsSettings.speed);
     }
 
+    updateTtsMode(e) {
+        this.ttsMode = e.target.value;
+        localStorage.setItem('tts_mode', this.ttsMode);
+        this.toggleTtsSettings();
+        console.log('TTS mode updated:', this.ttsMode);
+    }
+
+    toggleTtsSettings() {
+        const openaiSettings = document.getElementById('openaiTtsSettings');
+        const browserSettings = document.getElementById('browserTtsSettings');
+        
+        if (openaiSettings && browserSettings) {
+            if (this.ttsMode === 'openai') {
+                openaiSettings.classList.remove('hidden');
+                browserSettings.classList.add('hidden');
+            } else {
+                openaiSettings.classList.add('hidden');
+                browserSettings.classList.remove('hidden');
+            }
+        }
+    }
+
+    updateBrowserVoice(e) {
+        this.browserTtsSettings.voice = e.target.value;
+        localStorage.setItem('browser_tts_voice', this.browserTtsSettings.voice);
+        console.log('Browser TTS voice updated:', this.browserTtsSettings.voice);
+    }
+
+    updateBrowserRate(e) {
+        this.browserTtsSettings.rate = parseFloat(e.target.value);
+        localStorage.setItem('browser_tts_rate', this.browserTtsSettings.rate);
+        const rateValue = document.getElementById('browserRateValue');
+        if (rateValue) rateValue.textContent = this.browserTtsSettings.rate + 'x';
+        console.log('Browser TTS rate updated:', this.browserTtsSettings.rate);
+    }
+
+    updateBrowserPitch(e) {
+        this.browserTtsSettings.pitch = parseFloat(e.target.value);
+        localStorage.setItem('browser_tts_pitch', this.browserTtsSettings.pitch);
+        const pitchValue = document.getElementById('browserPitchValue');
+        if (pitchValue) pitchValue.textContent = this.browserTtsSettings.pitch;
+        console.log('Browser TTS pitch updated:', this.browserTtsSettings.pitch);
+    }
+
+    updateBrowserVolume(e) {
+        this.browserTtsSettings.volume = parseFloat(e.target.value);
+        localStorage.setItem('browser_tts_volume', this.browserTtsSettings.volume);
+        const volumeValue = document.getElementById('browserVolumeValue');
+        if (volumeValue) volumeValue.textContent = Math.round(this.browserTtsSettings.volume * 100) + '%';
+        console.log('Browser TTS volume updated:', this.browserTtsSettings.volume);
+    }
+
     async testTtsVoice() {
         console.log('Test TTS voice clicked');
         if (!this.openaiApiKey) {
@@ -1340,8 +1734,13 @@ class FinanceBotApp {
             await this.textToSpeechOpenAI(testText);
         } catch (error) {
             console.error('TTS test error:', error);
-            this.speakWithBrowserTTS(testText);
+            this.textToSpeechBrowser(testText);
         }
+    }
+
+    testBrowserVoice() {
+        const testText = "Hello! This is a test of the browser text-to-speech voice. How does it sound with your current settings?";
+        this.textToSpeechBrowser(testText);
     }
 
     initializeSpeechSettings() {

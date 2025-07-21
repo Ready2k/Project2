@@ -189,8 +189,8 @@
                             <input type="text" id="personaName" required>
                         </div>
                         <div class="form-group">
-                            <label>Account Balance:</label>
-                            <input type="number" id="personaBalance" step="0.01" required>
+                            <label>Account Balance (£):</label>
+                            <input type="number" id="personaBalance" step="0.01" required placeholder="e.g., 1500.00">
                         </div>
                         <div class="form-group">
                             <label>Card Number (last 4 digits):</label>
@@ -211,6 +211,42 @@
                 <div class="admin-section">
                     <h3>Existing Personas</h3>
                     <div id="personaList" class="persona-list"></div>
+                </div>
+
+                <div class="admin-section">
+                    <h3>Transaction Management</h3>
+                    <div class="transaction-management">
+                        <div class="form-group">
+                            <label>Select Persona:</label>
+                            <select id="transactionPersonaSelect">
+                                <option value="">Select a persona...</option>
+                            </select>
+                        </div>
+                        
+                        <div id="transactionForm" style="display: none;">
+                            <h4>Add New Transaction</h4>
+                            <form id="addTransactionForm">
+                                <div class="form-group">
+                                    <label>Date:</label>
+                                    <input type="date" id="transactionDate" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Amount (£):</label>
+                                    <input type="number" id="transactionAmount" step="0.01" required placeholder="Use negative for debits">
+                                </div>
+                                <div class="form-group">
+                                    <label>Description:</label>
+                                    <input type="text" id="transactionDescription" required placeholder="e.g., Tesco Groceries">
+                                </div>
+                                <button type="submit">Add Transaction</button>
+                            </form>
+                            
+                            <div id="transactionHistory" class="transaction-history">
+                                <h4>Recent Transactions</h4>
+                                <div id="transactionList"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="admin-section">
@@ -506,6 +542,7 @@
     <script src="token-tracker.js"></script>
     <script src="api-client.js"></script>
     <script src="streaming-manager.js"></script>
+    <script src="persona-manager.js"></script>
     <script src="script.js"></script>
 </body>
 

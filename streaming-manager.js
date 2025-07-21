@@ -1079,9 +1079,8 @@ class StreamingManager {
     getCurrentPersonaInfo() {
         try {
             // Access the main app instance to get current persona
-            if (window.app && window.app.currentPersona && window.app.personas) {
-                const personaId = window.app.currentPersona;
-                const persona = window.app.personas[personaId];
+            if (window.app && window.app.personaManager) {
+                const persona = window.app.personaManager.getCurrentPersonaData();
                 this.debug('Retrieved persona info:', persona?.name || 'Unknown');
                 return persona;
             }

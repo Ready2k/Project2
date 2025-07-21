@@ -1,0 +1,38 @@
+{
+  "john_doe": {
+    "name": "John Doe",
+    "balance": 2450.75,
+    "cardLast4": "1234",
+    "accountType": "checking",
+    "currency": "GBP",
+    "recentTransactions": [
+      { "date": "2025-01-15", "amount": -45.67, "description": "Coffee Shop" },
+      { "date": "2025-01-14", "amount": -120.00, "description": "Tesco Groceries" },
+      { "date": "2025-01-13", "amount": 1500.00, "description": "Salary Deposit" }
+    ]
+  },
+  "sarah_smith": {
+    "name": "Sarah Smith",
+    "balance": 8750.25,
+    "cardLast4": "5678",
+    "accountType": "premium",
+    "currency": "GBP",
+    "recentTransactions": [
+      { "date": "2025-01-16", "amount": -89.99, "description": "ASOS Online Shopping" },
+      { "date": "2025-01-15", "amount": -25.00, "description": "Shell Petrol Station" },
+      { "date": "2025-01-14", "amount": 2000.00, "description": "Investment Return" }
+    ]
+  },
+  "mike_johnson": {
+    "name": "Mike Johnson",
+    "balance": 156.80,
+    "cardLast4": "9012",
+    "accountType": "savings",
+    "currency": "GBP",
+    "recentTransactions": [
+      { "date": "2025-01-16", "amount": -12.50, "description": "McDonald's" },
+      { "date": "2025-01-15", "amount": -75.00, "description": "British Gas Bill" },
+      { "date": "2025-01-10", "amount": 200.00, "description": "Part-time Job" }
+    ]
+  }
+}

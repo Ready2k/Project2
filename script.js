@@ -4,7 +4,8 @@ class SpeechToSpeechApp {
         this.isRecording = false;
         this.mediaRecorder = null;
         this.audioChunks = [];
-        this.currentPersona = 'john_doe';
+        // Initialize persona manager
+        this.personaManager = new PersonaManager();
 
         // Initialize API client and token tracker
         this.tokenTracker = new TokenTracker();
@@ -21,7 +22,7 @@ class SpeechToSpeechApp {
         this.processor = null;
         this.silenceTimer = null;
         this.isSpeaking = false;
-        
+
         // Mute functionality
         this.isMuted = false;
         this.mutedStream = null;
@@ -45,7 +46,7 @@ class SpeechToSpeechApp {
             voice: localStorage.getItem('tts_voice') || 'nova',
             speed: parseFloat(localStorage.getItem('tts_speed')) || 1.0
         };
-        
+
         // Browser TTS settings
         this.browserTtsSettings = {
             voice: localStorage.getItem('browser_tts_voice') || '',
@@ -53,7 +54,7 @@ class SpeechToSpeechApp {
             pitch: parseFloat(localStorage.getItem('browser_tts_pitch')) || 1.0,
             volume: parseFloat(localStorage.getItem('browser_tts_volume')) || 1.0
         };
-        
+
         // Available browser voices
         this.availableVoices = [];
 
@@ -106,47 +107,15 @@ class SpeechToSpeechApp {
             customPrompts: []
         };
 
-        // Default personas
-        this.personas = JSON.parse(localStorage.getItem('personas')) || {
-            john_doe: {
-                name: 'John Doe',
-                balance: 2450.75,
-                cardLast4: '1234',
-                accountType: 'checking',
-                recentTransactions: [
-                    { date: '2025-01-15', amount: -45.67, description: 'Coffee Shop' },
-                    { date: '2025-01-14', amount: -120.00, description: 'Grocery Store' },
-                    { date: '2025-01-13', amount: 1500.00, description: 'Salary Deposit' }
-                ]
-            },
-            sarah_smith: {
-                name: 'Sarah Smith',
-                balance: 8750.25,
-                cardLast4: '5678',
-                accountType: 'premium',
-                recentTransactions: [
-                    { date: '2025-01-16', amount: -89.99, description: 'Online Shopping' },
-                    { date: '2025-01-15', amount: -25.00, description: 'Gas Station' },
-                    { date: '2025-01-14', amount: 2000.00, description: 'Investment Return' }
-                ]
-            },
-            mike_johnson: {
-                name: 'Mike Johnson',
-                balance: 156.80,
-                cardLast4: '9012',
-                accountType: 'savings',
-                recentTransactions: [
-                    { date: '2025-01-16', amount: -12.50, description: 'Fast Food' },
-                    { date: '2025-01-15', amount: -75.00, description: 'Utility Bill' },
-                    { date: '2025-01-10', amount: 200.00, description: 'Part-time Job' }
-                ]
-            }
-        };
+
 
         this.init();
     }
 
-    init() {
+    async init() {
+        // Initialize persona manager first
+        await this.personaManager.init();
+
         this.setupEventListeners();
         this.setupCleanupListeners();
         this.loadPersonas();
@@ -186,13 +155,24 @@ class SpeechToSpeechApp {
         const personaSelect = document.getElementById('personaSelect');
         if (personaSelect) {
             personaSelect.addEventListener('change', (e) => {
-                this.currentPersona = e.target.value;
+                this.personaManager.setCurrentPersona(e.target.value);
             });
         }
 
         // Admin form
         const personaForm = document.getElementById('personaForm');
         if (personaForm) personaForm.addEventListener('submit', (e) => this.addPersona(e));
+
+        // Transaction management
+        const transactionPersonaSelect = document.getElementById('transactionPersonaSelect');
+        const addTransactionForm = document.getElementById('addTransactionForm');
+
+        if (transactionPersonaSelect) {
+            transactionPersonaSelect.addEventListener('change', (e) => this.selectPersonaForTransactions(e.target.value));
+        }
+        if (addTransactionForm) {
+            addTransactionForm.addEventListener('submit', (e) => this.addTransaction(e));
+        }
 
         // Settings
         const saveKey = document.getElementById('saveKey');
@@ -206,7 +186,7 @@ class SpeechToSpeechApp {
         const ttsVoice = document.getElementById('ttsVoice');
         const ttsSpeed = document.getElementById('ttsSpeed');
         const testTtsVoice = document.getElementById('testTtsVoice');
-        
+
         // Browser TTS Settings
         const browserVoice = document.getElementById('browserVoice');
         const browserRate = document.getElementById('browserRate');
@@ -219,7 +199,7 @@ class SpeechToSpeechApp {
         if (ttsVoice) ttsVoice.addEventListener('change', (e) => this.updateTtsVoice(e));
         if (ttsSpeed) ttsSpeed.addEventListener('input', (e) => this.updateTtsSpeed(e));
         if (testTtsVoice) testTtsVoice.addEventListener('click', () => this.testTtsVoice());
-        
+
         if (browserVoice) browserVoice.addEventListener('change', (e) => this.updateBrowserVoice(e));
         if (browserRate) browserRate.addEventListener('input', (e) => this.updateBrowserRate(e));
         if (browserPitch) browserPitch.addEventListener('input', (e) => this.updateBrowserPitch(e));
@@ -486,7 +466,7 @@ class SpeechToSpeechApp {
     }
 
     async generateResponse(userMessage) {
-        const systemPrompt = this.generateSystemPrompt(this.currentPersona, userMessage);
+        const systemPrompt = this.generateSystemPrompt(this.personaManager.getCurrentPersona(), userMessage);
 
         try {
             console.log('Generating AI response for:', userMessage);
@@ -630,7 +610,7 @@ class SpeechToSpeechApp {
                 speechSynthesis.cancel();
 
                 const utterance = new SpeechSynthesisUtterance(text);
-                
+
                 // Apply settings
                 if (this.browserTtsSettings.voice && this.availableVoices.length > 0) {
                     const voiceIndex = parseInt(this.browserTtsSettings.voice);
@@ -638,7 +618,7 @@ class SpeechToSpeechApp {
                         utterance.voice = this.availableVoices[voiceIndex];
                     }
                 }
-                
+
                 utterance.rate = this.browserTtsSettings.rate;
                 utterance.pitch = this.browserTtsSettings.pitch;
                 utterance.volume = this.browserTtsSettings.volume;
@@ -738,7 +718,7 @@ class SpeechToSpeechApp {
     // Mute functionality
     toggleMute() {
         console.log('Mute button clicked, current state:', this.isMuted);
-        
+
         if (this.isMuted) {
             this.unmute();
         } else {
@@ -749,23 +729,23 @@ class SpeechToSpeechApp {
     mute() {
         console.log('Muting audio stream...');
         this.isMuted = true;
-        
+
         // Update button states and text
         this.updateMuteButtonStates();
-        
+
         // Stop audio streaming in streaming mode
         if (this.isStreamingMode && this.streamingManager) {
             this.streamingManager.pauseAudioStreaming();
         }
-        
+
         // Stop recording in batch mode
         if (!this.isStreamingMode && this.isRecording) {
             this.pauseRecording();
         }
-        
+
         // Mute microphone tracks
         this.muteMicrophoneTracks();
-        
+
         this.updateStatus('🔇 Microphone muted - background noise blocked');
         console.log('Audio stream muted successfully');
     }
@@ -773,25 +753,25 @@ class SpeechToSpeechApp {
     unmute() {
         console.log('Unmuting audio stream...');
         this.isMuted = false;
-        
+
         // Update button states and text
         this.updateMuteButtonStates();
-        
+
         // Resume audio streaming in streaming mode
         if (this.isStreamingMode && this.streamingManager) {
             this.streamingManager.resumeAudioStreaming();
         }
-        
+
         // Resume recording in batch mode if it was active
         if (!this.isStreamingMode && this.mutedStream) {
             this.resumeRecording();
         }
-        
+
         // Unmute microphone tracks
         this.unmuteMicrophoneTracks();
-        
-        this.updateStatus(this.isStreamingMode ? 
-            (this.isConnected ? '🎤 Connected and listening' : 'Ready to connect') : 
+
+        this.updateStatus(this.isStreamingMode ?
+            (this.isConnected ? '🎤 Connected and listening' : 'Ready to connect') :
             'Ready to listen');
         console.log('Audio stream unmuted successfully');
     }
@@ -800,20 +780,20 @@ class SpeechToSpeechApp {
         const muteBtn = document.getElementById('muteBtn');
         const batchMuteBtn = document.getElementById('batchMuteBtn');
         const muteStatus = document.getElementById('muteStatus');
-        
+
         const muteText = this.isMuted ? '🔊 Unmute' : '🎤 Mute';
         const muteClass = this.isMuted ? 'muted' : '';
-        
+
         if (muteBtn) {
             muteBtn.textContent = muteText;
             muteBtn.className = `voice-btn mute-btn ${muteClass}`;
         }
-        
+
         if (batchMuteBtn) {
             batchMuteBtn.textContent = muteText;
             batchMuteBtn.className = `voice-btn mute-btn ${muteClass}`;
         }
-        
+
         if (muteStatus) {
             muteStatus.textContent = this.isMuted ? '🔇 Muted' : '🎤 Live';
             muteStatus.className = `mute-indicator ${this.isMuted ? 'muted' : 'live'}`;
@@ -827,7 +807,7 @@ class SpeechToSpeechApp {
                 track.enabled = false;
             });
         }
-        
+
         if (this.mediaRecorder && this.mediaRecorder.stream) {
             this.mediaRecorder.stream.getAudioTracks().forEach(track => {
                 track.enabled = false;
@@ -842,7 +822,7 @@ class SpeechToSpeechApp {
                 track.enabled = true;
             });
         }
-        
+
         if (this.mediaRecorder && this.mediaRecorder.stream) {
             this.mediaRecorder.stream.getAudioTracks().forEach(track => {
                 track.enabled = true;
@@ -867,28 +847,28 @@ class SpeechToSpeechApp {
 
     initializeMuteButtons() {
         console.log('Initializing mute buttons...');
-        
+
         // Set initial mute button states
         this.updateMuteButtonStates();
-        
+
         // Disable mute buttons initially (they get enabled when recording/connecting)
         const muteBtn = document.getElementById('muteBtn');
         const batchMuteBtn = document.getElementById('batchMuteBtn');
-        
+
         if (muteBtn) {
             muteBtn.disabled = true;
             console.log('Streaming mute button found and disabled initially');
         } else {
             console.log('Streaming mute button not found!');
         }
-        
+
         if (batchMuteBtn) {
             batchMuteBtn.disabled = true;
             console.log('Batch mute button found and disabled initially');
         } else {
             console.log('Batch mute button not found!');
         }
-        
+
         console.log('Mute buttons initialized - they will be enabled when you start recording or connect');
     }
 
@@ -927,8 +907,9 @@ class SpeechToSpeechApp {
         personaList.innerHTML = '';
 
         // Create personas display
-        Object.keys(this.personas).forEach(personaId => {
-            const persona = this.personas[personaId];
+        const personas = this.personaManager.getAllPersonas();
+        Object.keys(personas).forEach(personaId => {
+            const persona = personas[personaId];
             const personaCard = document.createElement('div');
             personaCard.className = 'persona-card';
             personaCard.innerHTML = `
@@ -938,7 +919,7 @@ class SpeechToSpeechApp {
                 </div>
                 <div class="persona-details">
                     <p><strong>Account Type:</strong> ${persona.accountType}</p>
-                    <p><strong>Balance:</strong> $${persona.balance.toFixed(2)}</p>
+                    <p><strong>Balance:</strong> ${this.personaManager.formatCurrency(persona.balance)}</p>
                     <p><strong>Card Last 4:</strong> ****${persona.cardLast4}</p>
                     <div class="recent-transactions">
                         <strong>Recent Transactions:</strong>
@@ -947,7 +928,7 @@ class SpeechToSpeechApp {
                         `<div class="transaction">
                                     <span class="date">${tx.date}</span>
                                     <span class="amount ${tx.amount < 0 ? 'negative' : 'positive'}">
-                                        ${tx.amount < 0 ? '-' : '+'}$${Math.abs(tx.amount).toFixed(2)}
+                                        ${this.personaManager.formatCurrency(tx.amount)}
                                     </span>
                                     <span class="description">${tx.description}</span>
                                 </div>`
@@ -962,6 +943,9 @@ class SpeechToSpeechApp {
 
         // Add styling for persona cards
         this.addPersonaStyles();
+
+        // Update transaction persona selector
+        this.updateTransactionPersonaSelector();
     }
 
     addPersonaStyles() {
@@ -1025,6 +1009,73 @@ class SpeechToSpeechApp {
                     color: #999;
                     font-style: italic;
                 }
+                
+                /* Transaction Management Styles */
+                .transaction-management {
+                    background: #f8f9fa;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin-bottom: 20px;
+                }
+                .transaction-history {
+                    margin-top: 20px;
+                }
+                .current-balance {
+                    background: #e9ecef;
+                    padding: 10px;
+                    border-radius: 4px;
+                    margin-bottom: 15px;
+                    text-align: center;
+                }
+                .transaction-items {
+                    max-height: 300px;
+                    overflow-y: auto;
+                }
+                .transaction-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 10px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 4px;
+                    margin-bottom: 8px;
+                    background: white;
+                }
+                .transaction-info {
+                    display: flex;
+                    gap: 15px;
+                    align-items: center;
+                    flex: 1;
+                }
+                .transaction-date {
+                    font-weight: bold;
+                    color: #495057;
+                    min-width: 80px;
+                }
+                .transaction-description {
+                    flex: 1;
+                    color: #6c757d;
+                }
+                .transaction-amount.credit {
+                    color: #28a745;
+                    font-weight: bold;
+                }
+                .transaction-amount.debit {
+                    color: #dc3545;
+                    font-weight: bold;
+                }
+                .remove-transaction-btn {
+                    background: #6c757d;
+                    color: white;
+                    border: none;
+                    padding: 4px 8px;
+                    border-radius: 3px;
+                    cursor: pointer;
+                    font-size: 11px;
+                }
+                .remove-transaction-btn:hover {
+                    background: #5a6268;
+                }
             `;
             document.head.appendChild(style);
         }
@@ -1047,21 +1098,22 @@ class SpeechToSpeechApp {
         }
 
         // Generate unique ID
-        const personaId = name.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now();
+        const personaId = this.personaManager.generatePersonaId(name);
 
         // Create new persona
-        this.personas[personaId] = {
+        const newPersona = {
             name: name,
             balance: balance,
             cardLast4: cardLast4,
             accountType: accountType,
+            currency: 'GBP',
             recentTransactions: [
-                { date: new Date().toISOString().split('T')[0], amount: balance, description: 'Initial Balance' }
+                { date: new Date().toISOString().split('T')[0], amount: balance, description: 'Initial Balance', id: Date.now() }
             ]
         };
 
-        // Save to localStorage
-        localStorage.setItem('personas', JSON.stringify(this.personas));
+        // Add persona using persona manager
+        this.personaManager.addPersona(personaId, newPersona);
 
         // Update UI
         this.updatePersonaSelector();
@@ -1075,18 +1127,153 @@ class SpeechToSpeechApp {
 
     deletePersona(personaId) {
         if (confirm(`Are you sure you want to delete this persona?`)) {
-            delete this.personas[personaId];
-            localStorage.setItem('personas', JSON.stringify(this.personas));
+            this.personaManager.deletePersona(personaId);
 
             // If deleted persona was selected, switch to first available
-            if (this.currentPersona === personaId) {
-                this.currentPersona = Object.keys(this.personas)[0] || 'john_doe';
+            if (this.personaManager.getCurrentPersona() === personaId) {
+                const availablePersonas = this.personaManager.getPersonaIds();
+                const newPersona = availablePersonas[0] || 'john_doe';
+                this.personaManager.setCurrentPersona(newPersona);
             }
 
             this.updatePersonaSelector();
             this.loadPersonas();
 
             alert('Persona deleted successfully!');
+        }
+    }
+
+    // Transaction Management
+    selectPersonaForTransactions(personaId) {
+        const transactionForm = document.getElementById('transactionForm');
+        const transactionDate = document.getElementById('transactionDate');
+
+        if (personaId && this.personaManager.personaExists(personaId)) {
+            transactionForm.style.display = 'block';
+
+            // Set default date to today
+            if (transactionDate) {
+                transactionDate.value = new Date().toISOString().split('T')[0];
+            }
+
+            this.loadTransactionHistory(personaId);
+            this.updateTransactionPersonaSelector();
+        } else {
+            transactionForm.style.display = 'none';
+        }
+    }
+
+    addTransaction(e) {
+        e.preventDefault();
+
+        const personaSelect = document.getElementById('transactionPersonaSelect');
+        const personaId = personaSelect.value;
+
+        if (!personaId) {
+            alert('Please select a persona first.');
+            return;
+        }
+
+        const date = document.getElementById('transactionDate').value;
+        const amount = parseFloat(document.getElementById('transactionAmount').value);
+        const description = document.getElementById('transactionDescription').value.trim();
+
+        if (!date || isNaN(amount) || !description) {
+            alert('Please fill in all transaction fields.');
+            return;
+        }
+
+        const transaction = { date, amount, description };
+
+        if (this.personaManager.addTransaction(personaId, transaction)) {
+            // Reset form
+            document.getElementById('addTransactionForm').reset();
+            document.getElementById('transactionDate').value = new Date().toISOString().split('T')[0];
+
+            // Refresh displays
+            this.loadTransactionHistory(personaId);
+            this.loadPersonas();
+            this.updatePersonaSelector();
+
+            alert('Transaction added successfully!');
+        } else {
+            alert('Failed to add transaction.');
+        }
+    }
+
+    loadTransactionHistory(personaId) {
+        const transactionList = document.getElementById('transactionList');
+        if (!transactionList) return;
+
+        const transactions = this.personaManager.getTransactions(personaId);
+        const persona = this.personaManager.getPersona(personaId);
+
+        if (!transactions.length) {
+            transactionList.innerHTML = '<p>No transactions found.</p>';
+            return;
+        }
+
+        let html = `<div class="current-balance">
+            <strong>Current Balance: ${this.personaManager.formatCurrency(persona.balance)}</strong>
+        </div>`;
+
+        html += '<div class="transaction-items">';
+        transactions.forEach(tx => {
+            const amountClass = tx.amount >= 0 ? 'credit' : 'debit';
+            html += `
+                <div class="transaction-item">
+                    <div class="transaction-info">
+                        <span class="transaction-date">${tx.date}</span>
+                        <span class="transaction-description">${tx.description}</span>
+                        <span class="transaction-amount ${amountClass}">
+                            ${this.personaManager.formatCurrency(tx.amount)}
+                        </span>
+                    </div>
+                    <button class="remove-transaction-btn" onclick="app.removeTransaction('${personaId}', '${tx.id}')">
+                        Remove
+                    </button>
+                </div>
+            `;
+        });
+        html += '</div>';
+
+        transactionList.innerHTML = html;
+    }
+
+    removeTransaction(personaId, transactionId) {
+        if (confirm('Are you sure you want to remove this transaction?')) {
+            if (this.personaManager.removeTransaction(personaId, transactionId)) {
+                this.loadTransactionHistory(personaId);
+                this.loadPersonas();
+                this.updatePersonaSelector();
+                alert('Transaction removed successfully!');
+            } else {
+                alert('Failed to remove transaction.');
+            }
+        }
+    }
+
+    updateTransactionPersonaSelector() {
+        const selector = document.getElementById('transactionPersonaSelect');
+        if (!selector) return;
+
+        // Keep current selection
+        const currentValue = selector.value;
+
+        // Clear and repopulate
+        selector.innerHTML = '<option value="">Select a persona...</option>';
+
+        const personas = this.personaManager.getAllPersonas();
+        Object.keys(personas).forEach(personaId => {
+            const option = document.createElement('option');
+            option.value = personaId;
+            option.textContent = personas[personaId].name;
+            selector.appendChild(option);
+        });
+
+        // Restore selection if it still exists
+        if (currentValue && this.personaManager.personaExists(currentValue)) {
+            selector.value = currentValue;
         }
     }
 
@@ -1182,7 +1369,8 @@ class SpeechToSpeechApp {
     }
 
     testSystemPrompts() {
-        const generatedPrompt = this.generateSystemPrompt('john_doe', 'test message');
+        const currentPersona = this.personaManager.getCurrentPersona() || 'john_doe';
+        const generatedPrompt = this.generateSystemPrompt(currentPersona, 'test message');
         const promptPreview = document.getElementById('promptPreview');
         if (promptPreview) {
             promptPreview.textContent = generatedPrompt;
@@ -1191,7 +1379,15 @@ class SpeechToSpeechApp {
     }
 
     generateSystemPrompt(personaId, userMessage) {
-        const persona = this.personas[personaId] || this.personas['john_doe'];
+        const persona = this.personaManager.getPersona(personaId);
+
+        if (!persona) {
+            console.warn('No persona found for ID:', personaId);
+            return this.systemPrompts.basePersonality + '\n\n' +
+                this.systemPrompts.financialContext + '\n\n' +
+                this.systemPrompts.responseInstructions + '\n\n' +
+                'Customer Information: No customer data available';
+        }
 
         let systemPrompt = this.systemPrompts.basePersonality + '\n\n';
         systemPrompt += this.systemPrompts.financialContext + '\n\n';
@@ -1201,14 +1397,14 @@ class SpeechToSpeechApp {
         systemPrompt += `Customer Information:
 - Name: ${persona.name}
 - Account Type: ${persona.accountType}
-- Current Balance: $${persona.balance.toFixed(2)}
+- Current Balance: ${this.personaManager.formatCurrency(persona.balance)}
 - Card Last 4 Digits: ${persona.cardLast4}`;
 
         // Add recent transactions if available
         if (persona.recentTransactions && persona.recentTransactions.length > 0) {
             systemPrompt += '\n- Recent Transactions:\n';
             persona.recentTransactions.slice(0, 3).forEach(tx => {
-                systemPrompt += `  ${tx.date}: ${tx.amount >= 0 ? '+' : ''}$${tx.amount.toFixed(2)} - ${tx.description}\n`;
+                systemPrompt += `  ${tx.date}: ${this.personaManager.formatCurrency(tx.amount)} - ${tx.description}\n`;
             });
         }
 
@@ -1417,34 +1613,34 @@ class SpeechToSpeechApp {
 
     clearApiKey() {
         console.log('Clear API key clicked');
-        
+
         const confirmed = confirm('Are you sure you want to clear your OpenAI API key?\n\nThis will:\n• Remove the key from local storage\n• Disable all OpenAI features\n• Require re-entering the key to use the app');
-        
+
         if (confirmed) {
             // Clear from memory
             this.openaiApiKey = '';
-            
+
             // Clear from API clients
             this.apiClient.setApiKey('');
             this.streamingManager.setApiKey('');
-            
+
             // Clear from localStorage
             localStorage.removeItem('openai_api_key');
-            
+
             // Clear the input field
             const apiKeyInput = document.getElementById('openaiKey');
             if (apiKeyInput) {
                 apiKeyInput.value = '';
             }
-            
+
             // Update status
             this.updateKeyStatus();
-            
+
             // Disconnect if connected
             if (this.isConnected) {
                 this.disconnectStreaming();
             }
-            
+
             alert('API key cleared successfully!\n\nYou will need to enter a new API key to use OpenAI features.');
             console.log('API key cleared from all locations');
         }
@@ -1613,18 +1809,22 @@ class SpeechToSpeechApp {
         const selector = document.getElementById('personaSelect');
         if (selector) {
             selector.innerHTML = '';
-            Object.keys(this.personas).forEach(personaId => {
+            const personas = this.personaManager.getAllPersonas();
+            Object.keys(personas).forEach(personaId => {
                 const option = document.createElement('option');
                 option.value = personaId;
-                option.textContent = this.personas[personaId].name;
+                option.textContent = personas[personaId].name;
                 selector.appendChild(option);
             });
+
+            // Set current selection
+            selector.value = this.personaManager.getCurrentPersona();
         }
     }
 
     initializeTtsSettings() {
         console.log('Initializing TTS settings...');
-        
+
         const ttsMode = document.getElementById('ttsMode');
         const ttsModel = document.getElementById('ttsModel');
         const ttsVoice = document.getElementById('ttsVoice');
@@ -1645,10 +1845,10 @@ class SpeechToSpeechApp {
 
     initializeBrowserTts() {
         console.log('Initializing Browser TTS...');
-        
+
         // Load available voices
         this.loadBrowserVoices();
-        
+
         // Initialize browser TTS settings
         const browserRate = document.getElementById('browserRate');
         const browserPitch = document.getElementById('browserPitch');
@@ -1672,11 +1872,11 @@ class SpeechToSpeechApp {
             const loadVoices = () => {
                 this.availableVoices = speechSynthesis.getVoices();
                 console.log('Available browser voices:', this.availableVoices.length);
-                
+
                 const browserVoiceSelect = document.getElementById('browserVoice');
                 if (browserVoiceSelect && this.availableVoices.length > 0) {
                     browserVoiceSelect.innerHTML = '';
-                    
+
                     this.availableVoices.forEach((voice, index) => {
                         const option = document.createElement('option');
                         option.value = index;
@@ -1684,7 +1884,7 @@ class SpeechToSpeechApp {
                         if (voice.default) option.textContent += ' - Default';
                         browserVoiceSelect.appendChild(option);
                     });
-                    
+
                     // Set saved voice or default
                     if (this.browserTtsSettings.voice) {
                         browserVoiceSelect.value = this.browserTtsSettings.voice;
@@ -1694,7 +1894,7 @@ class SpeechToSpeechApp {
 
             // Load voices immediately if available
             loadVoices();
-            
+
             // Also listen for voices changed event (some browsers load voices asynchronously)
             speechSynthesis.onvoiceschanged = loadVoices;
         } else {
@@ -1732,7 +1932,7 @@ class SpeechToSpeechApp {
     toggleTtsSettings() {
         const openaiSettings = document.getElementById('openaiTtsSettings');
         const browserSettings = document.getElementById('browserTtsSettings');
-        
+
         if (openaiSettings && browserSettings) {
             if (this.ttsMode === 'openai') {
                 openaiSettings.classList.remove('hidden');

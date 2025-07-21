@@ -2,6 +2,11 @@ class SystemPromptsManager {
     constructor() {
         this.systemPrompts = {};
         this.initialized = false;
+        
+        // Initialize debug logger for this module
+        this.debug = window.debugManager ? window.debugManager.createModuleLogger('SystemPromptsManager') : {
+            log: () => {}, warn: () => {}, error: () => {}, info: () => {}
+        };
     }
 
     async init() {
@@ -21,16 +26,16 @@ class SystemPromptsManager {
                 // Merge default prompts with stored ones (stored takes precedence)
                 this.systemPrompts = { ...defaultPrompts, ...this.systemPrompts };
             } else {
-                console.warn('Could not load system-prompts.json, using stored prompts only');
+                this.debug.warn('Could not load system-prompts.json, using stored prompts only');
             }
 
             // Ensure required properties exist
             this.ensureRequiredProperties();
 
             this.initialized = true;
-            console.log('SystemPromptsManager initialized');
+            this.debug.log('SystemPromptsManager initialized');
         } catch (error) {
-            console.error('Error initializing SystemPromptsManager:', error);
+            this.debug.error('Error initializing SystemPromptsManager:', error);
             // Fallback to default structure
             this.setDefaults();
             this.initialized = true;
@@ -153,13 +158,13 @@ class SystemPromptsManager {
                     return true;
                 })
                 .catch(error => {
-                    console.error('Error loading defaults:', error);
+                    this.debug.error('Error loading defaults:', error);
                     this.setDefaults();
                     this.saveToLocalStorage();
                     return true;
                 });
         } catch (error) {
-            console.error('Error resetting to defaults:', error);
+            this.debug.error('Error resetting to defaults:', error);
             this.setDefaults();
             this.saveToLocalStorage();
             return Promise.resolve(true);

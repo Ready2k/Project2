@@ -534,11 +534,32 @@
                         </ul>
                     </div>
                 </div>
+
+                <div class="settings-section">
+                    <h3>🐛 Debug Settings</h3>
+                    <div class="debug-controls">
+                        <div class="debug-control">
+                            <label class="toggle-label">
+                                <input type="checkbox" id="debugToggle" class="debug-checkbox">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-text">Enable Debug Logging</span>
+                            </label>
+                            <div class="debug-description">
+                                <span id="debugDescription">Debug logging is disabled (recommended for normal use)</span>
+                            </div>
+                        </div>
+                        <div class="debug-info">
+                            <p><strong>Debug Mode:</strong> Shows detailed console logs for troubleshooting</p>
+                            <p><strong>Note:</strong> Only enable when investigating issues - can impact performance</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- API and utility modules -->
+    <script src="debug-manager.js"></script>
     <script src="token-tracker.js"></script>
     <script src="api-client.js"></script>
     <script src="streaming-manager.js"></script>

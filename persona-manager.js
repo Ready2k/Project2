@@ -3,6 +3,11 @@ class PersonaManager {
         this.personas = {};
         this.currentPersona = 'john_doe';
         this.initialized = false;
+        
+        // Initialize debug logger for this module
+        this.debug = window.debugManager ? window.debugManager.createModuleLogger('PersonaManager') : {
+            log: () => {}, warn: () => {}, error: () => {}, info: () => {}
+        };
     }
 
     async init() {
@@ -22,13 +27,13 @@ class PersonaManager {
                 // Merge default personas with stored ones (stored takes precedence)
                 this.personas = { ...defaultPersonas, ...this.personas };
             } else {
-                console.warn('Could not load personas.json, using stored personas only');
+                this.debug.warn('Could not load personas.json, using stored personas only');
             }
 
             this.initialized = true;
-            console.log('PersonaManager initialized with personas:', Object.keys(this.personas));
+            this.debug.log('PersonaManager initialized with personas:', Object.keys(this.personas));
         } catch (error) {
-            console.error('Error initializing PersonaManager:', error);
+            this.debug.error('Error initializing PersonaManager:', error);
             // Fallback to empty personas object
             this.personas = {};
             this.initialized = true;

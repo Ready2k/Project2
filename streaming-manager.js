@@ -6,6 +6,11 @@ class StreamingManager {
     constructor(apiKey, debugCallback = null) {
         this.apiKey = apiKey;
         this.debugCallback = debugCallback;
+        
+        // Initialize debug logger for this module
+        this.debug = window.debugManager ? window.debugManager.createModuleLogger('StreamingManager') : {
+            log: () => {}, warn: () => {}, error: () => {}, info: () => {}
+        };
 
         // Connection state
         this.websocket = null;
@@ -42,28 +47,28 @@ class StreamingManager {
         };
 
         // Debug logging
-        this.debug('StreamingManager initialized');
+        this.debug.log('StreamingManager initialized');
     }
 
-    debug(message, data = null) {
-        const timestamp = new Date().toISOString();
-        const logMessage = `[${timestamp}] StreamingManager: ${message}`;
-
-        console.log(logMessage, data || '');
-
+    // Legacy debug method for backward compatibility with debugCallback
+    debugLegacy(message, data = null) {
+        this.debug.log(message, data);
+        
         if (this.debugCallback) {
+            const timestamp = new Date().toISOString();
+            const logMessage = `[${timestamp}] StreamingManager: ${message}`;
             this.debugCallback(logMessage, data);
         }
     }
 
     setApiKey(apiKey) {
         this.apiKey = apiKey;
-        this.debug('API key updated');
+        this.debug.log('API key updated');
     }
 
     updateSettings(settings) {
         this.settings = { ...this.settings, ...settings };
-        this.debug('Settings updated', this.settings);
+        this.debug.log('Settings updated', this.settings);
     }
 
     /**
@@ -71,23 +76,23 @@ class StreamingManager {
      */
     async connect() {
         if (this.isConnecting || this.isConnected) {
-            this.debug('Already connecting or connected');
+            this.debug.log('Already connecting or connected');
             return { success: false, error: 'Already connecting or connected' };
         }
 
         if (!this.apiKey) {
-            this.debug('No API key provided');
+            this.debug.log('No API key provided');
             return { success: false, error: 'API key required' };
         }
 
         try {
             this.isConnecting = true;
-            this.debug('Starting connection to OpenAI Realtime API...');
+            this.debug.log('Starting connection to OpenAI Realtime API...');
 
             // OpenAI Realtime API WebSocket URL with latest model
             const wsUrl = `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`;
 
-            this.debug('Connecting to WebSocket URL:', wsUrl);
+            this.debug.log('Connecting to WebSocket URL:', wsUrl);
 
             // Try using the Authorization header approach with a workaround
             // Create a custom request to establish the connection with proper headers
@@ -105,14 +110,14 @@ class StreamingManager {
             // Set up event handlers
             return new Promise((resolve, reject) => {
                 const connectionTimeout = setTimeout(() => {
-                    this.debug('Connection timeout');
+                    this.debug.log('Connection timeout');
                     this.cleanup();
                     reject(new Error('Connection timeout'));
                 }, 10000); // 10 second timeout
 
                 this.websocket.onopen = () => {
                     clearTimeout(connectionTimeout);
-                    this.debug('WebSocket connection opened');
+                    this.debug.log('WebSocket connection opened');
                     this.isConnected = true;
                     this.isConnecting = false;
 
@@ -128,14 +133,14 @@ class StreamingManager {
 
                 this.websocket.onerror = (error) => {
                     clearTimeout(connectionTimeout);
-                    this.debug('WebSocket error:', error);
+                    this.debug.error('WebSocket error:', error);
                     this.cleanup();
                     reject(new Error(`WebSocket error: ${error.message || 'Unknown error'}`));
                 };
 
                 this.websocket.onclose = (event) => {
                     clearTimeout(connectionTimeout);
-                    this.debug('WebSocket closed:', { code: event.code, reason: event.reason });
+                    this.debug.log('WebSocket closed:', { code: event.code, reason: event.reason });
                     this.cleanup();
 
                     if (this.isConnecting) {
@@ -145,7 +150,7 @@ class StreamingManager {
             });
 
         } catch (error) {
-            this.debug('Connection error:', error);
+            this.debug.error('Connection error:', error);
             this.cleanup();
             return { success: false, error: error.message };
         }
@@ -185,7 +190,7 @@ class StreamingManager {
             }
         };
 
-        this.debug('Sending session config with persona:', currentPersona?.name || 'Unknown');
+        this.debug.log('Sending session config with persona:', currentPersona?.name || 'Unknown');
         this.sendMessage(config);
     }
 
@@ -204,7 +209,7 @@ class StreamingManager {
             'openai-beta.realtime-v1'
         ];
 
-        this.debug('Creating WebSocket with subprotocols:', subprotocols.map(p => p.startsWith('openai-insecure-api-key') ? 'openai-insecure-api-key.[HIDDEN]' : p));
+        this.debug.log('Creating WebSocket with subprotocols:', subprotocols.map(p => p.startsWith('openai-insecure-api-key') ? 'openai-insecure-api-key.[HIDDEN]' : p));
 
         return new WebSocket(url, subprotocols);
     }
@@ -227,9 +232,9 @@ class StreamingManager {
     sendMessage(message) {
         if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
             this.websocket.send(JSON.stringify(message));
-            this.debug('Message sent:', message.type);
+            this.debug.log('Message sent:', message.type);
         } else {
-            this.debug('Cannot send message - WebSocket not connected');
+            this.debug.log('Cannot send message - WebSocket not connected');
         }
     }
 
@@ -239,40 +244,40 @@ class StreamingManager {
     handleMessage(event) {
         try {
             const message = JSON.parse(event.data);
-            this.debug('Message received:', message.type, message);
+            this.debug.log('Message received:', message.type, message);
 
             switch (message.type) {
                 case 'session.created':
-                    this.debug('Session created successfully');
+                    this.debug.log('Session created successfully');
                     break;
 
                 case 'session.updated':
-                    this.debug('Session updated');
+                    this.debug.log('Session updated');
                     break;
 
                 case 'error':
-                    this.debug('API Error:', message.error);
+                    this.debug.error('API Error:', message.error);
                     // Check if this error is causing response truncation
                     if (message.error && message.error.message) {
-                        this.debug('Error details:', message.error.message);
+                        this.debug.error('Error details:', message.error.message);
                         if (message.error.message.includes('token') || message.error.message.includes('limit')) {
-                            this.debug('WARNING: Token limit may be causing response truncation');
+                            this.debug.log('WARNING: Token limit may be causing response truncation');
                         }
                     }
                     break;
 
                 case 'input_audio_buffer.speech_started':
-                    this.debug('Speech started detected');
+                    this.debug.log('Speech started detected');
                     break;
 
                 case 'input_audio_buffer.speech_stopped':
-                    this.debug('Speech stopped detected');
+                    this.debug.log('Speech stopped detected');
                     // Add delay before committing to ensure we have enough audio
                     this.scheduleAudioCommit();
                     break;
 
                 case 'conversation.item.input_audio_transcription.completed':
-                    this.debug('Transcription completed:', message.transcript);
+                    this.debug.log('Transcription completed:', message.transcript);
                     // Display user message in chat
                     if (message.transcript) {
                         this.displayUserMessage(message.transcript);
@@ -281,12 +286,12 @@ class StreamingManager {
                         this.displayUserMessage(this.currentUserTranscript);
                         this.currentUserTranscript = '';
                     } else {
-                        this.debug('Warning: No transcript in transcription completed message');
+                        this.debug.log('Warning: No transcript in transcription completed message');
                     }
                     break;
 
                 case 'response.audio.delta':
-                    this.debug('Audio response chunk received');
+                    this.debug.log('Audio response chunk received');
                     if (message.delta) {
                         this.handleAudioResponse(message.delta);
                         // Also indicate audio response in chat
@@ -295,23 +300,23 @@ class StreamingManager {
                     break;
 
                 case 'response.text.delta':
-                    this.debug('Text response chunk:', message.delta);
+                    this.debug.log('Text response chunk:', message.delta);
                     // Accumulate text response
                     this.accumulateTextResponse(message.delta);
                     break;
 
                 case 'response.text.done':
-                    this.debug('Text response completed');
+                    this.debug.log('Text response completed');
                     // Display complete text response
                     this.displayBotTextResponse();
                     break;
 
                 case 'response.output_item.added':
-                    this.debug('Response output item added:', message.item);
+                    this.debug.log('Response output item added:', message.item);
                     if (message.item && message.item.content) {
                         message.item.content.forEach(content => {
                             if (content.type === 'text' && content.text) {
-                                this.debug('Found text content:', content.text);
+                                this.debug.log('Found text content:', content.text);
                                 this.displayBotMessage(content.text);
                             }
                         });
@@ -319,12 +324,12 @@ class StreamingManager {
                     break;
 
                 case 'response.output_item.done':
-                    this.debug('Response output item completed:', message.item);
+                    this.debug.log('Response output item completed:', message.item);
                     if (message.item && message.item.content) {
                         // Look for completed text content
                         message.item.content.forEach(content => {
                             if (content.type === 'text' && content.text) {
-                                this.debug('Complete text response:', content.text);
+                                this.debug.log('Complete text response:', content.text);
                                 this.displayBotMessage(content.text);
                                 this.updateDebugPanel('gptResponse', content.text);
                             }
@@ -333,14 +338,14 @@ class StreamingManager {
                     break;
 
                 case 'response.text.delta':
-                    this.debug('Text response delta:', message.delta);
+                    this.debug.log('Text response delta:', message.delta);
                     this.accumulateTextResponse(message.delta);
                     break;
 
                 case 'response.text.done':
-                    this.debug('Text response completed');
+                    this.debug.log('Text response completed');
                     if (this.currentTextResponse) {
-                        this.debug('Final accumulated text:', this.currentTextResponse);
+                        this.debug.log('Final accumulated text:', this.currentTextResponse);
                         this.displayBotMessage(this.currentTextResponse);
                         this.updateDebugPanel('gptResponse', this.currentTextResponse);
                         this.currentTextResponse = '';
@@ -348,40 +353,40 @@ class StreamingManager {
                     break;
 
                 case 'response.content_part.added':
-                    this.debug('Response content part added:', message.part);
+                    this.debug.log('Response content part added:', message.part);
                     if (message.part && message.part.type === 'text' && message.part.text) {
-                        this.debug('Found text part:', message.part.text);
+                        this.debug.log('Found text part:', message.part.text);
                         this.displayBotMessage(message.part.text);
                     }
                     break;
 
                 case 'response.audio_transcript.delta':
-                    this.debug('Audio transcript delta:', message.delta);
+                    this.debug.log('Audio transcript delta:', message.delta);
                     this.accumulateTextResponse(message.delta);
                     break;
 
                 case 'response.audio_transcript.done':
-                    this.debug('Audio transcript completed');
+                    this.debug.log('Audio transcript completed');
                     this.displayBotTextResponse();
                     break;
 
                 case 'response.audio.done':
-                    this.debug('Audio response completed - all audio chunks received');
+                    this.debug.log('Audio response completed - all audio chunks received');
                     // Audio is complete, but don't reset state until full response is done
                     break;
 
                 case 'response.cancelled':
-                    this.debug('Response was cancelled - this may cause truncation');
+                    this.debug.log('Response was cancelled - this may cause truncation');
                     this.isResponseActive = false;
                     break;
 
                 case 'response.failed':
-                    this.debug('Response failed:', message.error);
+                    this.debug.error('Response failed:', message.error);
                     this.isResponseActive = false;
                     break;
 
                 case 'response.done':
-                    this.debug(`Full response completed - received ${this.totalAudioChunks} total audio chunks`);
+                    this.debug.log(`Full response completed - received ${this.totalAudioChunks} total audio chunks`);
                     this.isResponseActive = false;
                     this.audioResponseStarted = false;
 
@@ -393,12 +398,12 @@ class StreamingManager {
                     break;
 
                 case 'response.created':
-                    this.debug('Response created');
+                    this.debug.log('Response created');
                     this.isResponseActive = true;
                     break;
 
                 case 'conversation.item.input_audio_transcription.delta':
-                    this.debug('Transcription delta:', message.delta);
+                    this.debug.log('Transcription delta:', message.delta);
                     // Accumulate user transcription
                     if (!this.currentUserTranscript) {
                         this.currentUserTranscript = '';
@@ -407,11 +412,11 @@ class StreamingManager {
                     break;
 
                 default:
-                    this.debug('Unknown message type:', message.type, message);
+                    this.debug.log('Unknown message type:', message.type, message);
             }
 
         } catch (error) {
-            this.debug('Error parsing message:', error);
+            this.debug.error('Error parsing message:', error);
         }
     }
 
@@ -419,7 +424,7 @@ class StreamingManager {
      * Disconnect from the streaming service
      */
     async disconnect() {
-        this.debug('Disconnecting...');
+        this.debug.log('Disconnecting...');
         this.cleanup();
         return { success: true };
     }
@@ -428,7 +433,7 @@ class StreamingManager {
      * Clean up resources
      */
     cleanup() {
-        this.debug('Cleaning up resources...');
+        this.debug.log('Cleaning up resources...');
 
         this.isConnected = false;
         this.isConnecting = false;
@@ -441,7 +446,7 @@ class StreamingManager {
             this.websocket = null;
         }
 
-        this.debug('Cleanup completed');
+        this.debug.log('Cleanup completed');
     }
 
     /**
@@ -449,17 +454,17 @@ class StreamingManager {
      */
     async startAudioStreaming() {
         if (!this.isConnected) {
-            this.debug('Cannot start audio streaming - not connected');
+            this.debug.log('Cannot start audio streaming - not connected');
             return { success: false, error: 'Not connected to streaming service' };
         }
 
         if (this.isStreamingAudio) {
-            this.debug('Audio streaming already active');
+            this.debug.log('Audio streaming already active');
             return { success: true };
         }
 
         try {
-            this.debug('Starting audio streaming...');
+            this.debug.log('Starting audio streaming...');
 
             // Get microphone access
             this.mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -496,12 +501,12 @@ class StreamingManager {
             this.processor.connect(this.audioContext.destination);
 
             this.isStreamingAudio = true;
-            this.debug('Audio streaming started successfully');
+            this.debug.log('Audio streaming started successfully');
 
             return { success: true };
 
         } catch (error) {
-            this.debug('Error starting audio streaming:', error);
+            this.debug.log('Error starting audio streaming:', error);
             return { success: false, error: error.message };
         }
     }
@@ -530,11 +535,11 @@ class StreamingManager {
 
             // Debug: Log audio chunk info (but not the data itself)
             if (Math.random() < 0.01) { // Log only 1% of chunks to avoid spam
-                this.debug(`Audio chunk sent: ${audioData.length} samples, ${pcm16Data.byteLength} bytes`);
+                this.debug.log(`Audio chunk sent: ${audioData.length} samples, ${pcm16Data.byteLength} bytes`);
             }
 
         } catch (error) {
-            this.debug('Error processing audio chunk:', error);
+            this.debug.log('Error processing audio chunk:', error);
         }
     }
 
@@ -571,7 +576,7 @@ class StreamingManager {
      * Pause audio streaming (mute)
      */
     pauseAudioStreaming() {
-        this.debug('Pausing audio streaming (mute)...');
+        this.debug.log('Pausing audio streaming (mute)...');
         
         if (this.mediaStream) {
             this.mediaStream.getAudioTracks().forEach(track => {
@@ -579,14 +584,14 @@ class StreamingManager {
             });
         }
         
-        this.debug('Audio streaming paused');
+        this.debug.log('Audio streaming paused');
     }
 
     /**
      * Resume audio streaming (unmute)
      */
     resumeAudioStreaming() {
-        this.debug('Resuming audio streaming (unmute)...');
+        this.debug.log('Resuming audio streaming (unmute)...');
         
         if (this.mediaStream) {
             this.mediaStream.getAudioTracks().forEach(track => {
@@ -594,14 +599,14 @@ class StreamingManager {
             });
         }
         
-        this.debug('Audio streaming resumed');
+        this.debug.log('Audio streaming resumed');
     }
 
     /**
      * Stop audio streaming
      */
     stopAudioStreaming() {
-        this.debug('Stopping audio streaming...');
+        this.debug.log('Stopping audio streaming...');
 
         this.isStreamingAudio = false;
         this.isResponseActive = false;
@@ -636,7 +641,7 @@ class StreamingManager {
             this.mediaStream = null;
         }
 
-        this.debug('Audio streaming stopped');
+        this.debug.log('Audio streaming stopped');
     }
 
     /**
@@ -644,10 +649,10 @@ class StreamingManager {
      */
     handleAudioResponse(audioData) {
         try {
-            this.debug('Received audio response chunk from OpenAI');
+            this.debug.log('Received audio response chunk from OpenAI');
 
             this.totalAudioChunks++;
-            this.debug(`Received audio chunk ${this.totalAudioChunks} from OpenAI`);
+            this.debug.log(`Received audio chunk ${this.totalAudioChunks} from OpenAI`);
 
             // Add to queue for processing
             this.audioQueue.push({ type: 'base64', data: audioData });
@@ -656,31 +661,31 @@ class StreamingManager {
             if (!this.isPlayingAudio) {
                 if (this.totalAudioChunks === 1) {
                     // First chunk - start buffering with delay
-                    this.debug('First audio chunk received, starting buffered playback...');
+                    this.debug.log('First audio chunk received, starting buffered playback...');
                     setTimeout(() => {
                         if (!this.isPlayingAudio && this.audioQueue.length > 0) {
-                            this.debug(`Starting playback after buffer delay with ${this.audioQueue.length} chunks`);
+                            this.debug.log(`Starting playback after buffer delay with ${this.audioQueue.length} chunks`);
                             this.playQueuedAudio();
                         }
                     }, 300); // 300ms buffer delay for smoother start
                 } else if (this.audioQueue.length >= 2) {
                     // Multiple chunks available - start immediately
-                    this.debug('Multiple chunks available, starting playback immediately');
+                    this.debug.log('Multiple chunks available, starting playback immediately');
                     this.playQueuedAudio();
                 }
             } else {
-                this.debug(`Added chunk to queue, ${this.audioQueue.length} chunks queued`);
+                this.debug.log(`Added chunk to queue, ${this.audioQueue.length} chunks queued`);
                 // Ensure playback continues even if there was a gap
                 setTimeout(() => {
                     if (!this.isPlayingAudio && this.audioQueue.length > 0) {
-                        this.debug('Restarting stalled audio playback');
+                        this.debug.log('Restarting stalled audio playback');
                         this.playQueuedAudio();
                     }
                 }, 100);
             }
 
         } catch (error) {
-            this.debug('Error handling audio response:', error);
+            this.debug.log('Error handling audio response:', error);
         }
     }
 
@@ -701,7 +706,7 @@ class StreamingManager {
         }
 
         this.isBuffering = false;
-        this.debug(`Starting playback with ${this.audioQueue.length} buffered chunks`);
+        this.debug.log(`Starting playback with ${this.audioQueue.length} buffered chunks`);
 
         // Start continuous playback
         this.playQueuedAudio();
@@ -712,31 +717,31 @@ class StreamingManager {
      */
     async playQueuedAudio() {
         if (this.isPlayingAudio) {
-            this.debug('Audio already playing, skipping');
+            this.debug.log('Audio already playing, skipping');
             return;
         }
 
         if (this.audioQueue.length === 0) {
-            this.debug('No audio chunks in queue');
+            this.debug.log('No audio chunks in queue');
             return;
         }
 
         this.isPlayingAudio = true;
-        this.debug(`Starting queued audio playback with ${this.audioQueue.length} chunks`);
+        this.debug.log(`Starting queued audio playback with ${this.audioQueue.length} chunks`);
 
         try {
             let chunkIndex = 0;
             while (this.audioQueue.length > 0) {
                 const audioItem = this.audioQueue.shift();
-                this.debug(`Playing audio chunk ${chunkIndex + 1}`);
+                this.debug.log(`Playing audio chunk ${chunkIndex + 1}`);
 
                 try {
                     // Try alternative method first, then fall back to PCM16
                     await this.playAudioAlternative(audioItem.data);
                     chunkIndex++;
-                    this.debug(`Chunk ${chunkIndex} completed successfully`);
+                    this.debug.log(`Chunk ${chunkIndex} completed successfully`);
                 } catch (chunkError) {
-                    this.debug(`Error playing chunk ${chunkIndex + 1}:`, chunkError);
+                    this.debug.log(`Error playing chunk ${chunkIndex + 1}:`, chunkError);
                     // Continue with next chunk instead of stopping
                 }
 
@@ -744,16 +749,16 @@ class StreamingManager {
                 await new Promise(resolve => setTimeout(resolve, 25));
             }
         } catch (error) {
-            this.debug('Error in queued audio playback:', error);
+            this.debug.log('Error in queued audio playback:', error);
         } finally {
             // Check if there are more chunks to play
             if (this.audioQueue.length > 0) {
-                this.debug(`Continuing playback with ${this.audioQueue.length} more chunks`);
+                this.debug.log(`Continuing playback with ${this.audioQueue.length} more chunks`);
                 // Continue playing immediately without delay
                 this.playQueuedAudio();
             } else {
                 this.isPlayingAudio = false;
-                this.debug(`All queued audio chunks played (${this.totalAudioChunks} total received)`);
+                this.debug.log(`All queued audio chunks played (${this.totalAudioChunks} total received)`);
             }
         }
     }
@@ -769,11 +774,11 @@ class StreamingManager {
                     sampleRate: 24000, // Match OpenAI's output exactly
                     latencyHint: 'interactive' // Optimize for real-time playback
                 });
-                this.debug('Created optimized audio context for streaming');
+                this.debug.log('Created optimized audio context for streaming');
             }
 
             // Debug: Log buffer info
-            this.debug(`Playing audio: ${pcm16Buffer.byteLength} bytes, ${pcm16Buffer.byteLength / 2} samples`);
+            this.debug.log(`Playing audio: ${pcm16Buffer.byteLength} bytes, ${pcm16Buffer.byteLength / 2} samples`);
 
             // Convert PCM16 to AudioBuffer
             // Try different sample rates to see which sounds correct
@@ -782,11 +787,11 @@ class StreamingManager {
             const numSamples = pcm16Buffer.byteLength / 2; // 16-bit = 2 bytes per sample
 
             if (numSamples === 0) {
-                this.debug('Empty audio buffer, skipping playback');
+                this.debug.log('Empty audio buffer, skipping playback');
                 return Promise.resolve();
             }
 
-            this.debug(`Creating audio buffer: ${numSamples} samples at ${sampleRate}Hz`);
+            this.debug.log(`Creating audio buffer: ${numSamples} samples at ${sampleRate}Hz`);
 
             const audioBuffer = this.audioContext.createBuffer(1, numSamples, sampleRate);
             const channelData = audioBuffer.getChannelData(0);
@@ -821,21 +826,21 @@ class StreamingManager {
             // Return a promise that resolves when audio finishes
             return new Promise((resolve, reject) => {
                 source.onended = () => {
-                    this.debug(`High-quality PCM16 audio completed: ${numSamples} samples`);
+                    this.debug.log(`High-quality PCM16 audio completed: ${numSamples} samples`);
                     resolve();
                 };
 
                 source.onerror = (error) => {
-                    this.debug('Error during audio playback:', error);
+                    this.debug.log('Error during audio playback:', error);
                     reject(error);
                 };
 
                 source.start();
-                this.debug(`Playing enhanced PCM16 audio: ${numSamples} samples at ${sampleRate}Hz with compression`);
+                this.debug.log(`Playing enhanced PCM16 audio: ${numSamples} samples at ${sampleRate}Hz with compression`);
             });
 
         } catch (error) {
-            this.debug('Error playing PCM16 audio response:', error);
+            this.debug.log('Error playing PCM16 audio response:', error);
             throw error;
         }
     }
@@ -869,11 +874,11 @@ class StreamingManager {
      */
     commitAudioAndRespond() {
         if (this.isResponseActive) {
-            this.debug('Response already active, skipping new request');
+            this.debug.log('Response already active, skipping new request');
             return;
         }
 
-        this.debug('Committing audio buffer and requesting response...');
+        this.debug.log('Committing audio buffer and requesting response...');
 
         // Commit the input audio buffer
         this.sendMessage({
@@ -890,7 +895,7 @@ class StreamingManager {
         });
 
         this.isResponseActive = true;
-        this.debug('Response creation requested with complete response instructions');
+        this.debug.log('Response creation requested with complete response instructions');
     }
 
     /**
@@ -921,7 +926,7 @@ class StreamingManager {
             }
 
         } catch (error) {
-            this.debug('Error updating audio level:', error);
+            this.debug.log('Error updating audio level:', error);
         }
     }
 
@@ -930,7 +935,7 @@ class StreamingManager {
      */
     async playAudioAlternative(audioData) {
         try {
-            this.debug('Trying alternative audio playback method');
+            this.debug.log('Trying alternative audio playback method');
 
             if (!this.audioContext) {
                 this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -950,16 +955,16 @@ class StreamingManager {
                 source.buffer = audioBuffer;
                 source.connect(this.audioContext.destination);
                 source.start();
-                this.debug('Alternative audio playback successful');
+                this.debug.log('Alternative audio playback successful');
                 return;
             } catch (decodeError) {
-                this.debug('Standard audio decode failed, using PCM16 method');
+                this.debug.log('Standard audio decode failed, using PCM16 method');
                 // Fall back to PCM16 method
                 return this.playPCM16Audio(bytes.buffer);
             }
 
         } catch (error) {
-            this.debug('Alternative audio playback failed:', error);
+            this.debug.log('Alternative audio playback failed:', error);
             throw error;
         }
     }
@@ -976,10 +981,10 @@ class StreamingManager {
                 messageDiv.innerHTML = `<div class="message-content">${transcript}</div>`;
                 conversation.appendChild(messageDiv);
                 conversation.scrollTop = conversation.scrollHeight;
-                this.debug('User message displayed in chat');
+                this.debug.log('User message displayed in chat');
             }
         } catch (error) {
-            this.debug('Error displaying user message:', error);
+            this.debug.log('Error displaying user message:', error);
         }
     }
 
@@ -1005,13 +1010,13 @@ class StreamingManager {
                 messageDiv.innerHTML = `<div class="message-content">${text}</div>`;
                 conversation.appendChild(messageDiv);
                 conversation.scrollTop = conversation.scrollHeight;
-                this.debug('Bot message displayed in chat:', text);
+                this.debug.log('Bot message displayed in chat:', text);
 
                 // Also update debug panel
                 this.updateDebugPanel('gptResponse', text);
             }
         } catch (error) {
-            this.debug('Error displaying bot message:', error);
+            this.debug.log('Error displaying bot message:', error);
         }
     }
 
@@ -1025,7 +1030,7 @@ class StreamingManager {
                 this.currentTextResponse = '';
             }
         } catch (error) {
-            this.debug('Error displaying bot text response:', error);
+            this.debug.log('Error displaying bot text response:', error);
         }
     }
 
@@ -1043,10 +1048,10 @@ class StreamingManager {
                     this.audioResponseElement.innerHTML = `<div class="message-content">🔊 <em>Playing audio response...</em></div>`;
                     conversation.appendChild(this.audioResponseElement);
                     conversation.scrollTop = conversation.scrollHeight;
-                    this.debug('Audio response indicator added to chat');
+                    this.debug.log('Audio response indicator added to chat');
                 }
             } catch (error) {
-                this.debug('Error indicating audio response:', error);
+                this.debug.log('Error indicating audio response:', error);
             }
         }
     }
@@ -1061,11 +1066,11 @@ class StreamingManager {
                 setTimeout(() => {
                     if (this.audioResponseElement) {
                         this.audioResponseElement.innerHTML = `<div class="message-content">🔊 <em>Audio response completed</em></div>`;
-                        this.debug('Audio response completed in chat');
+                        this.debug.log('Audio response completed in chat');
                     }
                 }, 1000);
             } catch (error) {
-                this.debug('Error completing audio response:', error);
+                this.debug.log('Error completing audio response:', error);
             }
         }
         // Reset for next response
@@ -1081,13 +1086,13 @@ class StreamingManager {
             // Access the main app instance to get current persona
             if (window.app && window.app.personaManager) {
                 const persona = window.app.personaManager.getCurrentPersonaData();
-                this.debug('Retrieved persona info:', persona?.name || 'Unknown');
+                this.debug.log('Retrieved persona info:', persona?.name || 'Unknown');
                 return persona;
             }
-            this.debug('No persona information available');
+            this.debug.log('No persona information available');
             return null;
         } catch (error) {
-            this.debug('Error getting persona info:', error);
+            this.debug.log('Error getting persona info:', error);
             return null;
         }
     }
@@ -1099,15 +1104,15 @@ class StreamingManager {
         try {
             // Use the SystemPromptsManager from the main app if available
             if (window.app && window.app.systemPromptsManager) {
-                this.debug('Using SystemPromptsManager for streaming instructions');
+                this.debug.log('Using SystemPromptsManager for streaming instructions');
                 return window.app.systemPromptsManager.generateSystemPrompt(persona, 'streaming');
             }
         } catch (error) {
-            this.debug('Error using SystemPromptsManager, falling back to hardcoded:', error);
+            this.debug.log('Error using SystemPromptsManager, falling back to hardcoded:', error);
         }
 
         // Fallback to hardcoded instructions if SystemPromptsManager is not available
-        this.debug('Using fallback hardcoded instructions for streaming');
+        this.debug.log('Using fallback hardcoded instructions for streaming');
         let instructions = `You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.
 
 Keep responses conversational and concise (suitable for voice). Use natural speech patterns with contractions (I'll, you're, we'll). Sound human and empathetic, not robotic. Use clear, simple language avoiding jargon. Always end with asking if there's anything else you can help with. Maximum response length: 2-3 sentences for voice clarity.`;
@@ -1132,7 +1137,7 @@ When the customer asks about their account, balance, transactions, or card, use 
      * Flush remaining audio when response is complete
      */
     flushRemainingAudio() {
-        this.debug(`Flushing remaining audio - Buffer: ${this.audioBuffer.length}, Queue: ${this.audioQueue.length}`);
+        this.debug.log(`Flushing remaining audio - Buffer: ${this.audioBuffer.length}, Queue: ${this.audioQueue.length}`);
 
         // Move all buffered chunks to queue regardless of buffer size
         while (this.audioBuffer.length > 0) {
@@ -1141,7 +1146,7 @@ When the customer asks about their account, balance, transactions, or card, use 
 
         // Start playing if not already playing
         if (!this.isPlayingAudio && this.audioQueue.length > 0) {
-            this.debug(`Starting final playback with ${this.audioQueue.length} remaining chunks`);
+            this.debug.log(`Starting final playback with ${this.audioQueue.length} remaining chunks`);
             this.playQueuedAudio();
         }
     }
@@ -1151,14 +1156,14 @@ When the customer asks about their account, balance, transactions, or card, use 
      */
     flushAudioBuffer() {
         if (this.audioBuffer.length > 0) {
-            this.debug(`Flushing ${this.audioBuffer.length} remaining audio chunks`);
+            this.debug.log(`Flushing ${this.audioBuffer.length} remaining audio chunks`);
 
             // If not currently playing, start playback with remaining chunks
             if (!this.isPlayingAudio) {
                 this.startBufferedPlayback();
             } else {
                 // If already playing, the chunks will be picked up by the continuous playback
-                this.debug('Audio already playing, buffered chunks will be processed automatically');
+                this.debug.log('Audio already playing, buffered chunks will be processed automatically');
             }
         }
     }
@@ -1174,7 +1179,7 @@ When the customer asks about their account, balance, transactions, or card, use 
                 element.textContent = `[${timestamp}] ${content}`;
             }
         } catch (error) {
-            this.debug('Error updating debug panel:', error);
+            this.debug.log('Error updating debug panel:', error);
         }
     }
 

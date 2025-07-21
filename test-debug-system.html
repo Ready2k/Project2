@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Debug System</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        button { margin: 5px; padding: 8px 15px; }
+        .debug-toggle { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Debug System Test</h1>
+    
+    <div class="test-section">
+        <h3>Debug Toggle</h3>
+        <div class="debug-toggle">
+            <label>
+                <input type="checkbox" id="debugToggle"> Enable Debug Logging
+            </label>
+            <p id="debugStatus">Debug status will appear here</p>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test Logging</h3>
+        <button onclick="testLogging()">Test All Log Levels</button>
+        <button onclick="testModuleLogging()">Test Module Logging</button>
+        <button onclick="testPerformance()">Test Performance Timing</button>
+        <button onclick="testGrouping()">Test Log Grouping</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>Instructions</h3>
+        <p>1. Open browser console (F12)</p>
+        <p>2. Toggle debug mode on/off</p>
+        <p>3. Click test buttons to see logging behavior</p>
+        <p>4. Notice that only errors show when debug is off</p>
+    </div>
+    
+    <script src="debug-manager.js"></script>
+    <script>
+        // Test the debug system
+        const testLogger = window.debugManager.createModuleLogger('TestModule');
+        
+        function updateDebugStatus() {
+            const status = document.getElementById('debugStatus');
+            const isEnabled = window.debugManager.isEnabled();
+            status.textContent = isEnabled 
+                ? 'Debug logging is ENABLED - check console for detailed output'
+                : 'Debug logging is DISABLED - only errors will show in console';
+        }
+        
+        function testLogging() {
+            console.log('=== Testing All Log Levels ===');
+            testLogger.log('This is a debug log message');
+            testLogger.info('This is an info message');
+            testLogger.warn('This is a warning message');
+            testLogger.error('This is an error message (always shows)');
+        }
+        
+        function testModuleLogging() {
+            const appLogger = window.debugManager.createModuleLogger('TestApp');
+            const apiLogger = window.debugManager.createModuleLogger('TestAPI');
+            
+            console.log('=== Testing Module Logging ===');
+            appLogger.log('App module message');
+            apiLogger.log('API module message');
+            testLogger.log('Test module message');
+        }
+        
+        function testPerformance() {
+            console.log('=== Testing Performance Timing ===');
+            window.debugManager.time('test-operation');
+            
+            // Simulate some work
+            setTimeout(() => {
+                window.debugManager.timeEnd('test-operation');
+            }, 100);
+        }
+        
+        function testGrouping() {
+            console.log('=== Testing Log Grouping ===');
+            window.debugManager.group('Test Group');
+            testLogger.log('Message inside group 1');
+            testLogger.log('Message inside group 2');
+            testLogger.warn('Warning inside group');
+            window.debugManager.groupEnd();
+            testLogger.log('Message outside group');
+        }
+        
+        // Set up debug toggle
+        document.addEventListener('DOMContentLoaded', () => {
+            const debugToggle = document.getElementById('debugToggle');
+            debugToggle.checked = window.debugManager.isEnabled();
+            updateDebugStatus();
+            
+            debugToggle.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    window.debugManager.enable();
+                } else {
+                    window.debugManager.disable();
+                }
+                updateDebugStatus();
+            });
+        });
+    </script>
+</body>
+</html>

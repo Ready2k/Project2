@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Streaming Debug Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        button { margin: 5px; padding: 8px 15px; }
+        .debug-toggle { margin: 10px 0; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Streaming Debug Fix Test</h1>
+    
+    <div class="test-section">
+        <h3>Debug Toggle</h3>
+        <div class="debug-toggle">
+            <label>
+                <input type="checkbox" id="debugToggle"> Enable Debug Logging
+            </label>
+            <p id="debugStatus">Debug status will appear here</p>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Streaming Manager Test</h3>
+        <button onclick="testStreamingManager()">Test Streaming Manager Creation</button>
+        <button onclick="testDebugCalls()">Test Debug Method Calls</button>
+        <div id="testResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Instructions</h3>
+        <p>1. Open browser console (F12)</p>
+        <p>2. Toggle debug mode on/off</p>
+        <p>3. Click test buttons to verify debug system works</p>
+        <p>4. Check that no "this.debug is not a function" errors occur</p>
+    </div>
+    
+    <script src="debug-manager.js"></script>
+    <script src="streaming-manager.js"></script>
+    <script>
+        let streamingManager = null;
+        
+        function updateDebugStatus() {
+            const status = document.getElementById('debugStatus');
+            const isEnabled = window.debugManager.isEnabled();
+            status.textContent = isEnabled 
+                ? 'Debug logging is ENABLED - check console for detailed output'
+                : 'Debug logging is DISABLED - only errors will show in console';
+        }
+        
+        function testStreamingManager() {
+            const results = document.getElementById('testResults');
+            
+            try {
+                // Create streaming manager instance
+                streamingManager = new StreamingManager('test-key', (msg) => {
+                    console.log('Debug callback:', msg);
+                });
+                
+                results.innerHTML = '<div class="status success">✅ StreamingManager created successfully!</div>';
+            } catch (error) {
+                results.innerHTML = `<div class="status error">❌ Error creating StreamingManager: ${error.message}</div>`;
+                console.error('StreamingManager creation error:', error);
+            }
+        }
+        
+        function testDebugCalls() {
+            const results = document.getElementById('testResults');
+            
+            if (!streamingManager) {
+                results.innerHTML = '<div class="status error">❌ Please create StreamingManager first</div>';
+                return;
+            }
+            
+            try {
+                // Test various debug method calls
+                streamingManager.debug.log('Test log message');
+                streamingManager.debug.info('Test info message');
+                streamingManager.debug.warn('Test warning message');
+                streamingManager.debug.error('Test error message');
+                
+                // Test the legacy debug method
+                streamingManager.debugLegacy('Test legacy debug message');
+                
+                results.innerHTML = '<div class="status success">✅ All debug method calls successful! Check console for output.</div>';
+            } catch (error) {
+                results.innerHTML = `<div class="status error">❌ Error calling debug methods: ${error.message}</div>`;
+                console.error('Debug method test error:', error);
+            }
+        }
+        
+        // Set up debug toggle
+        document.addEventListener('DOMContentLoaded', () => {
+            const debugToggle = document.getElementById('debugToggle');
+            debugToggle.checked = window.debugManager.isEnabled();
+            updateDebugStatus();
+            
+            debugToggle.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    window.debugManager.enable();
+                } else {
+                    window.debugManager.disable();
+                }
+                updateDebugStatus();
+            });
+        });
+    </script>
+</body>
+</html>

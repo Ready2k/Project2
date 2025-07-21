@@ -4,6 +4,9 @@ class SpeechToSpeechApp {
         this.isRecording = false;
         this.mediaRecorder = null;
         this.audioChunks = [];
+        // Initialize debug logger for this module
+        this.debug = window.debugManager.createModuleLogger('SpeechToSpeechApp');
+        
         // Initialize persona manager
         this.personaManager = new PersonaManager();
         
@@ -113,6 +116,7 @@ class SpeechToSpeechApp {
         this.initializeSpeechSettings();
         this.initializeStreamingSettings();
         this.initializeSystemPrompts();
+        this.initializeDebugSettings();
         this.tokenTracker.updateDisplay();
         this.initializeStreamingMode();
         this.initializeMuteButtons();
@@ -123,12 +127,12 @@ class SpeechToSpeechApp {
     }
 
     setupEventListeners() {
-        console.log('Setting up event listeners...');
+        this.debug.log('Setting up event listeners...');
 
         // Tab navigation
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                console.log('Tab clicked:', e.target.dataset.tab);
+                this.debug.log('Tab clicked:', e.target.dataset.tab);
                 this.switchTab(e.target.dataset.tab);
             });
         });
@@ -203,7 +207,7 @@ class SpeechToSpeechApp {
 
         if (streamingMode) {
             streamingMode.addEventListener('change', (e) => {
-                console.log('Streaming mode toggled:', e.target.checked);
+                this.debug.log('Streaming mode toggled:', e.target.checked);
                 this.toggleStreamingMode(e.target.checked);
             });
         }
@@ -227,11 +231,17 @@ class SpeechToSpeechApp {
         if (testPrompts) testPrompts.addEventListener('click', () => this.testSystemPrompts());
         if (addCustomPrompt) addCustomPrompt.addEventListener('click', () => this.addCustomPrompt());
 
-        console.log('Event listeners setup complete');
+        // Debug toggle
+        const debugToggle = document.getElementById('debugToggle');
+        if (debugToggle) {
+            debugToggle.addEventListener('change', (e) => this.toggleDebugMode(e.target.checked));
+        }
+
+        this.debug.log('Event listeners setup complete');
     }
 
     switchTab(tabName) {
-        console.log('Switching to tab:', tabName);
+        this.debug.log('Switching to tab:', tabName);
 
         // Update tab buttons
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -249,7 +259,7 @@ class SpeechToSpeechApp {
     }
 
     async startRecording() {
-        console.log('Start recording clicked');
+        this.debug.log('Start recording clicked');
         if (!this.openaiApiKey) {
             this.updateStatus('Please set your OpenAI API key in Settings first!');
             this.switchTab('settings');
@@ -257,7 +267,7 @@ class SpeechToSpeechApp {
         }
 
         if (this.currentState !== 'ready') {
-            console.log('Cannot start recording, current state:', this.currentState);
+            this.debug.log('Cannot start recording, current state:', this.currentState);
             return;
         }
 
@@ -363,7 +373,7 @@ class SpeechToSpeechApp {
     }
 
     stopRecording() {
-        console.log('Stop recording clicked');
+        this.debug.log('Stop recording clicked');
         if (this.mediaRecorder && this.isRecording) {
             this.mediaRecorder.stop();
             this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
@@ -887,7 +897,7 @@ class SpeechToSpeechApp {
 
     // Admin Panel - Personas Management
     loadPersonas() {
-        console.log('Loading personas...');
+        this.debug.log('Loading personas...');
         const personaList = document.getElementById('personaList');
         if (!personaList) return;
 
@@ -1071,7 +1081,7 @@ class SpeechToSpeechApp {
 
     addPersona(e) {
         e.preventDefault();
-        console.log('Add persona form submitted');
+        this.debug.log('Add persona form submitted');
 
         // Get form values
         const name = document.getElementById('personaName').value.trim();
@@ -2002,10 +2012,44 @@ class SpeechToSpeechApp {
 
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && this.currentState === 'recording') {
-                console.log('Tab hidden while recording, stopping recording...');
+                this.debug.log('Tab hidden while recording, stopping recording...');
                 this.stopRecording();
             }
         });
+    }
+
+    // Debug Settings Management
+    initializeDebugSettings() {
+        this.debug.log('Initializing debug settings...');
+        
+        const debugToggle = document.getElementById('debugToggle');
+        const debugDescription = document.getElementById('debugDescription');
+        
+        if (debugToggle) {
+            debugToggle.checked = window.debugManager.isEnabled();
+            this.updateDebugDescription();
+        }
+    }
+
+    toggleDebugMode(enabled) {
+        if (enabled) {
+            window.debugManager.enable();
+        } else {
+            window.debugManager.disable();
+        }
+        
+        this.updateDebugDescription();
+        this.debug.log('Debug mode toggled:', enabled ? 'enabled' : 'disabled');
+    }
+
+    updateDebugDescription() {
+        const debugDescription = document.getElementById('debugDescription');
+        if (debugDescription) {
+            const isEnabled = window.debugManager.isEnabled();
+            debugDescription.textContent = isEnabled 
+                ? 'Debug logging is enabled (detailed console output active)'
+                : 'Debug logging is disabled (recommended for normal use)';
+        }
     }
 }
 

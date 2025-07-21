@@ -32,11 +32,14 @@ python3 -m http.server 8000
 - **Customizable speech speed** and voice selection
 - **Natural conversation flow** with proper pauses
 
-### 👥 **Customer Persona Management**
-- **Pre-loaded customer profiles** with realistic financial data
-- **Admin panel** for adding/managing customer personas
-- **Account balances, transaction history, card details**
-- **Dynamic persona switching** for testing scenarios
+### 👥 **JSON-Driven Customer Persona Management** (ENHANCED!)
+- **Fully modular personas** - extracted to separate JSON file and manager class
+- **UK Sterling currency** - all amounts displayed in proper GBP formatting (£1,234.56)
+- **Transaction management** - add/remove transactions with real-time balance updates
+- **Pre-loaded UK customer profiles** - realistic data with UK merchants (Tesco, ASOS, etc.)
+- **Admin panel** for comprehensive persona and transaction management
+- **Account balances, transaction history, card details** with persistent storage
+- **Dynamic persona switching** for testing various customer scenarios
 
 ### 💰 **Comprehensive Cost Tracking**
 - **Real-time token usage monitoring** for all OpenAI services
@@ -44,14 +47,17 @@ python3 -m http.server 8000
 - **Usage analytics** with detailed pricing information
 - **Reset functionality** for cost tracking
 
-### 🤖 **Configurable AI System Prompts** (NEW!)
-- **No-code AI customization** - modify AI behavior without touching code
-- **Base personality configuration** - set tone, empathy, professionalism
-- **Financial context prompts** - customize banking procedures and responses
-- **Response instruction templates** - optimize for voice, length, clarity
-- **Custom scenario prompts** - add industry-specific knowledge (loans, investments, etc.)
+### 🤖 **JSON-Driven AI System Prompts** (NEW!)
+- **Fully modular system prompts** - extracted to separate JSON file and manager class
+- **No-code AI customization** - modify AI behavior by editing JSON or admin panel
+- **Base personality configuration** - set tone, empathy, professionalism, topic restrictions
+- **Financial context prompts** - customize banking procedures and UK-specific responses
+- **Response instruction templates** - optimize for voice, length, British English
+- **Custom scenario prompts** - add industry-specific knowledge (loans, security, etc.)
 - **Real-time prompt testing** - preview generated prompts before use
-- **Import/export ready** - backup and share AI configurations
+- **Streaming mode integration** - both batch and streaming modes use same prompts
+- **UK Sterling support** - proper GBP formatting throughout all modes
+- **Banking restrictions** - configurable topic limitations (banking-only responses)
 
 ### 📞 **Full-Duplex Streaming Mode** (✅ FULLY IMPLEMENTED)
 - **Real-time conversation** - Continuous bidirectional audio like a phone call
@@ -93,8 +99,10 @@ python3 -m http.server 8000
 - **Architecture**: Modular design with separated concerns
   - `api-client.js` - OpenAI API interactions (Whisper, GPT, TTS)
   - `token-tracker.js` - Usage tracking and cost calculation
-  - `streaming-manager.js` - Real-time WebSocket streaming (NEW!)
-  - `script.js` - Main application logic and UI
+  - `streaming-manager.js` - Real-time WebSocket streaming with system prompts integration
+  - `persona-manager.js` - Customer persona management and transaction handling (NEW!)
+  - `system-prompts-manager.js` - AI system prompts configuration and generation (NEW!)
+  - `script.js` - Main application logic and UI coordination
 - **APIs**: OpenAI (Whisper, GPT-3.5-turbo, TTS)
 - **Audio**: Web Audio API, MediaRecorder API
 - **Storage**: LocalStorage for settings persistence
@@ -135,6 +143,48 @@ cd Project2
 - Grant microphone permissions
 - Have a natural conversation - AI responds automatically when you stop speaking
 - See responses in chat AND hear them spoken simultaneously
+
+## 🏗️ JSON-Driven Architecture (NEW!)
+
+### **Modular Configuration System**
+The application now uses a fully modular, JSON-driven architecture that separates data from code:
+
+#### **Customer Personas** (`personas.json`)
+```json
+{
+  "john_doe": {
+    "name": "John Doe",
+    "balance": 2450.75,
+    "currency": "GBP",
+    "cardLast4": "1234",
+    "accountType": "checking",
+    "recentTransactions": [...]
+  }
+}
+```
+
+#### **AI System Prompts** (`system-prompts.json`)
+```json
+{
+  "basePersonality": "You are a helpful, professional AI assistant...",
+  "financialContext": "When handling financial services requests...",
+  "responseInstructions": "Response Guidelines...",
+  "customPrompts": [
+    {
+      "name": "Banking Restrictions",
+      "prompt": "You can only assist with banking questions..."
+    }
+  ]
+}
+```
+
+### **Benefits of JSON-Driven Design**
+- ✅ **No code changes needed** - modify behavior by editing JSON files
+- ✅ **Easy deployment** - update personas/prompts without redeployment
+- ✅ **Version control friendly** - track changes to AI behavior
+- ✅ **Backup and restore** - simple JSON file management
+- ✅ **Team collaboration** - non-developers can modify AI behavior
+- ✅ **A/B testing ready** - swap configurations easily
 
 ## ⚙️ Configuration Options
 
@@ -237,13 +287,20 @@ For questions or support, please open an issue in the GitHub repository.
 ### **Module Structure**
 ```
 📁 Project Root
-├── 📄 index.html              # Main application interface
-├── 📄 script.js               # Main app logic and UI coordination
-├── 📄 api-client.js           # OpenAI API client (Whisper, GPT, TTS)
-├── 📄 token-tracker.js        # Usage tracking and cost calculation
-├── 📄 streaming-manager.js    # Real-time WebSocket streaming
-├── 📄 styles.css              # Application styling
-└── 📄 test-modules.html       # Module testing utility
+├── 📄 index.html                    # Main application interface
+├── 📄 script.js                     # Main app logic and UI coordination
+├── 📄 api-client.js                 # OpenAI API client (Whisper, GPT, TTS)
+├── 📄 token-tracker.js              # Usage tracking and cost calculation
+├── 📄 streaming-manager.js          # Real-time WebSocket streaming
+├── 📄 persona-manager.js            # Customer persona management (NEW!)
+├── 📄 system-prompts-manager.js     # AI system prompts configuration (NEW!)
+├── 📄 personas.json                 # Customer persona data (NEW!)
+├── 📄 system-prompts.json           # AI system prompts configuration (NEW!)
+├── 📄 styles.css                    # Application styling
+├── 📄 test-modules.html             # Module testing utility
+├── 📄 test-personas.html            # Persona manager testing (NEW!)
+├── 📄 test-system-prompts.html      # System prompts testing (NEW!)
+└── 📄 test-streaming-prompts.html   # Streaming integration testing (NEW!)
 ```
 
 ### **Streaming Mode Implementation**

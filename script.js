@@ -6,6 +6,9 @@ class SpeechToSpeechApp {
         this.audioChunks = [];
         // Initialize persona manager
         this.personaManager = new PersonaManager();
+        
+        // Initialize system prompts manager
+        this.systemPromptsManager = new SystemPromptsManager();
 
         // Initialize API client and token tracker
         this.tokenTracker = new TokenTracker();
@@ -84,28 +87,7 @@ class SpeechToSpeechApp {
             connectionQuality: localStorage.getItem('connection_quality') || 'auto'
         };
 
-        // System prompts configuration
-        this.systemPrompts = JSON.parse(localStorage.getItem('system_prompts')) || {
-            basePersonality: "You are a helpful, professional, and friendly AI voice assistant. You should be empathetic, clear in your communication, and engaging in conversation. Speak in a conversational tone while being informative and helpful.",
-            financialContext: `When handling general requests:
-1. Be conversational and natural in your responses
-2. Provide helpful and accurate information
-3. Ask clarifying questions when needed
-4. Be patient and understanding
-5. Offer to help with follow-up questions
-6. Stay on topic but be flexible in conversation
-7. Provide examples when helpful`,
-            responseInstructions: `Response Guidelines:
-1. Keep responses conversational and concise (suitable for voice)
-2. Use natural speech patterns with contractions (I'll, you're, we'll)
-3. Address users in a friendly manner
-4. Sound human and empathetic, not robotic
-5. Use clear, simple language avoiding jargon
-6. Always end with asking if there's anything else you can help with
-7. Maximum response length: 2-3 sentences for voice clarity
-8. Be engaging and maintain a pleasant conversation flow`,
-            customPrompts: []
-        };
+
 
 
 
@@ -115,6 +97,12 @@ class SpeechToSpeechApp {
     async init() {
         // Initialize persona manager first
         await this.personaManager.init();
+        
+        // Initialize system prompts manager
+        await this.systemPromptsManager.init();
+        
+        // Set up currency formatter for system prompts
+        this.systemPromptsManager.setCurrencyFormatter(this.personaManager.formatCurrency.bind(this.personaManager));
 
         this.setupEventListeners();
         this.setupCleanupListeners();
@@ -1284,9 +1272,9 @@ class SpeechToSpeechApp {
         const financialContext = document.getElementById('financialContext');
         const responseInstructions = document.getElementById('responseInstructions');
 
-        if (basePersonality) basePersonality.value = this.systemPrompts.basePersonality;
-        if (financialContext) financialContext.value = this.systemPrompts.financialContext;
-        if (responseInstructions) responseInstructions.value = this.systemPrompts.responseInstructions;
+        if (basePersonality) basePersonality.value = this.systemPromptsManager.getBasePersonality();
+        if (financialContext) financialContext.value = this.systemPromptsManager.getFinancialContext();
+        if (responseInstructions) responseInstructions.value = this.systemPromptsManager.getResponseInstructions();
 
         // Load custom prompts
         this.loadCustomPrompts();
@@ -1314,15 +1302,12 @@ class SpeechToSpeechApp {
             const financialContext = document.getElementById('financialContext');
             const responseInstructions = document.getElementById('responseInstructions');
 
-            if (basePersonality) this.systemPrompts.basePersonality = basePersonality.value;
-            if (financialContext) this.systemPrompts.financialContext = financialContext.value;
-            if (responseInstructions) this.systemPrompts.responseInstructions = responseInstructions.value;
+            if (basePersonality) this.systemPromptsManager.updateBasePersonality(basePersonality.value);
+            if (financialContext) this.systemPromptsManager.updateFinancialContext(financialContext.value);
+            if (responseInstructions) this.systemPromptsManager.updateResponseInstructions(responseInstructions.value);
 
             // Save custom prompts
             this.saveCustomPrompts();
-
-            // Save to localStorage
-            localStorage.setItem('system_prompts', JSON.stringify(this.systemPrompts));
 
             // Show success message
             this.showPromptMessage('System prompts saved successfully!', 'success');
@@ -1333,38 +1318,19 @@ class SpeechToSpeechApp {
         }
     }
 
-    resetSystemPrompts() {
+    async resetSystemPrompts() {
         if (confirm('Are you sure you want to reset all system prompts to defaults? This cannot be undone.')) {
-            // Reset to default prompts
-            this.systemPrompts = {
-                basePersonality: "You are a helpful, professional, and friendly AI voice assistant. You should be empathetic, clear in your communication, and engaging in conversation. Speak in a conversational tone while being informative and helpful.",
-                financialContext: `When handling general requests:
-1. Be conversational and natural in your responses
-2. Provide helpful and accurate information
-3. Ask clarifying questions when needed
-4. Be patient and understanding
-5. Offer to help with follow-up questions
-6. Stay on topic but be flexible in conversation
-7. Provide examples when helpful`,
-                responseInstructions: `Response Guidelines:
-1. Keep responses conversational and concise (suitable for voice)
-2. Use natural speech patterns with contractions (I'll, you're, we'll)
-3. Address users in a friendly manner
-4. Sound human and empathetic, not robotic
-5. Use clear, simple language avoiding jargon
-6. Always end with asking if there's anything else you can help with
-7. Maximum response length: 2-3 sentences for voice clarity
-8. Be engaging and maintain a pleasant conversation flow`,
-                customPrompts: []
-            };
-
-            // Update UI
-            this.initializeSystemPrompts();
-
-            // Save to localStorage
-            localStorage.setItem('system_prompts', JSON.stringify(this.systemPrompts));
-
-            this.showPromptMessage('System prompts reset to defaults.', 'info');
+            try {
+                await this.systemPromptsManager.resetToDefaults();
+                
+                // Update UI
+                this.initializeSystemPrompts();
+                
+                this.showPromptMessage('System prompts reset to defaults.', 'info');
+            } catch (error) {
+                console.error('Error resetting prompts:', error);
+                this.showPromptMessage('Error resetting prompts. Please try again.', 'error');
+            }
         }
     }
 
@@ -1380,43 +1346,7 @@ class SpeechToSpeechApp {
 
     generateSystemPrompt(personaId, userMessage) {
         const persona = this.personaManager.getPersona(personaId);
-
-        if (!persona) {
-            console.warn('No persona found for ID:', personaId);
-            return this.systemPrompts.basePersonality + '\n\n' +
-                this.systemPrompts.financialContext + '\n\n' +
-                this.systemPrompts.responseInstructions + '\n\n' +
-                'Customer Information: No customer data available';
-        }
-
-        let systemPrompt = this.systemPrompts.basePersonality + '\n\n';
-        systemPrompt += this.systemPrompts.financialContext + '\n\n';
-        systemPrompt += this.systemPrompts.responseInstructions + '\n\n';
-
-        // Add persona context
-        systemPrompt += `Customer Information:
-- Name: ${persona.name}
-- Account Type: ${persona.accountType}
-- Current Balance: ${this.personaManager.formatCurrency(persona.balance)}
-- Card Last 4 Digits: ${persona.cardLast4}`;
-
-        // Add recent transactions if available
-        if (persona.recentTransactions && persona.recentTransactions.length > 0) {
-            systemPrompt += '\n- Recent Transactions:\n';
-            persona.recentTransactions.slice(0, 3).forEach(tx => {
-                systemPrompt += `  ${tx.date}: ${this.personaManager.formatCurrency(tx.amount)} - ${tx.description}\n`;
-            });
-        }
-
-        // Add custom prompts if any
-        if (this.systemPrompts.customPrompts && this.systemPrompts.customPrompts.length > 0) {
-            systemPrompt += '\n\nAdditional Instructions:\n';
-            this.systemPrompts.customPrompts.forEach(customPrompt => {
-                systemPrompt += `- ${customPrompt.name}: ${customPrompt.prompt}\n`;
-            });
-        }
-
-        return systemPrompt;
+        return this.systemPromptsManager.generateSystemPrompt(persona, userMessage);
     }
 
     addCustomPrompt() {
@@ -1451,7 +1381,7 @@ class SpeechToSpeechApp {
             }
         });
 
-        this.systemPrompts.customPrompts = customPrompts;
+        this.systemPromptsManager.updateCustomPrompts(customPrompts);
     }
 
     loadCustomPrompts() {
@@ -1460,7 +1390,7 @@ class SpeechToSpeechApp {
 
         customPromptsList.innerHTML = '';
 
-        this.systemPrompts.customPrompts.forEach(customPrompt => {
+        this.systemPromptsManager.getCustomPrompts().forEach(customPrompt => {
             const promptItem = document.createElement('div');
             promptItem.className = 'custom-prompt-item';
             promptItem.innerHTML = `
@@ -1472,7 +1402,7 @@ class SpeechToSpeechApp {
         });
 
         // Add one empty prompt item if none exist
-        if (this.systemPrompts.customPrompts.length === 0) {
+        if (this.systemPromptsManager.getCustomPrompts().length === 0) {
             this.addCustomPrompt();
         }
     }

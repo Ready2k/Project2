@@ -1096,6 +1096,18 @@ class StreamingManager {
      * Generate instructions with persona context
      */
     generateInstructions(persona) {
+        try {
+            // Use the SystemPromptsManager from the main app if available
+            if (window.app && window.app.systemPromptsManager) {
+                this.debug('Using SystemPromptsManager for streaming instructions');
+                return window.app.systemPromptsManager.generateSystemPrompt(persona, 'streaming');
+            }
+        } catch (error) {
+            this.debug('Error using SystemPromptsManager, falling back to hardcoded:', error);
+        }
+
+        // Fallback to hardcoded instructions if SystemPromptsManager is not available
+        this.debug('Using fallback hardcoded instructions for streaming');
         let instructions = `You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.
 
 Keep responses conversational and concise (suitable for voice). Use natural speech patterns with contractions (I'll, you're, we'll). Sound human and empathetic, not robotic. Use clear, simple language avoiding jargon. Always end with asking if there's anything else you can help with. Maximum response length: 2-3 sentences for voice clarity.`;
@@ -1103,11 +1115,11 @@ Keep responses conversational and concise (suitable for voice). Use natural spee
         if (persona) {
             instructions += `\n\nCURRENT CUSTOMER INFORMATION:
 - Name: ${persona.name}
-- Account Balance: $${persona.balance.toFixed(2)}
+- Account Balance: ${window.app && window.app.personaManager ? window.app.personaManager.formatCurrency(persona.balance) : '£' + persona.balance.toFixed(2)}
 - Card ending in: ${persona.cardLast4}
 - Account Type: ${persona.accountType}
 - Recent Transactions: ${persona.recentTransactions.map(t =>
-                `${t.date}: ${t.amount >= 0 ? '+' : ''}$${t.amount.toFixed(2)} - ${t.description}`
+                `${t.date}: ${window.app && window.app.personaManager ? window.app.personaManager.formatCurrency(t.amount) : '£' + t.amount.toFixed(2)} - ${t.description}`
             ).join(', ')}
 
 When the customer asks about their account, balance, transactions, or card, use this specific information. Address them by name when appropriate.`;

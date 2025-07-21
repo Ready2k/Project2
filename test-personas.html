@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Personas</title>
+</head>
+<body>
+    <h1>Persona Manager Test</h1>
+    <div id="output"></div>
+    
+    <script src="persona-manager.js"></script>
+    <script>
+        async function testPersonaManager() {
+            const output = document.getElementById('output');
+            const personaManager = new PersonaManager();
+            
+            try {
+                await personaManager.init();
+                
+                const personas = personaManager.getAllPersonas();
+                const johnDoe = personaManager.getPersona('john_doe');
+                
+                // Test adding a transaction
+                personaManager.addTransaction('john_doe', {
+                    amount: -25.50,
+                    description: 'Test Transaction - Costa Coffee'
+                });
+                
+                const updatedJohnDoe = personaManager.getPersona('john_doe');
+                
+                output.innerHTML = `
+                    <h2>Loaded Personas:</h2>
+                    <pre>${JSON.stringify(personas, null, 2)}</pre>
+                    
+                    <h2>Currency Formatting Test:</h2>
+                    <p>£1500.75 formatted: ${personaManager.formatCurrency(1500.75)}</p>
+                    <p>-£25.50 formatted: ${personaManager.formatCurrency(-25.50)}</p>
+                    
+                    <h2>John Doe Before Transaction:</h2>
+                    <p>Balance: ${personaManager.formatCurrency(johnDoe.balance)}</p>
+                    
+                    <h2>John Doe After Adding Transaction:</h2>
+                    <p>Balance: ${personaManager.formatCurrency(updatedJohnDoe.balance)}</p>
+                    <p>Recent Transactions:</p>
+                    <pre>${JSON.stringify(updatedJohnDoe.recentTransactions.slice(0, 3), null, 2)}</pre>
+                `;
+            } catch (error) {
+                output.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+        
+        testPersonaManager();
+    </script>
+</body>
+</html>

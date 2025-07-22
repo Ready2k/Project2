@@ -1372,6 +1372,33 @@ When the customer asks about their account, balance, transactions, or card, use 
     getAudioStatus() {
         return this.isStreamingAudio ? 'streaming' : 'stopped';
     }
+
+    /**
+     * Clear conversation state
+     */
+    clearConversationState() {
+        this.debug.log('Clearing streaming conversation state');
+        
+        // Reset text response accumulation
+        this.currentTextResponse = '';
+        this.currentUserTranscript = '';
+        
+        // Reset response state
+        this.isResponseActive = false;
+        this.audioResponseStarted = false;
+        this.hasAudioResponse = false;
+        
+        // Clear audio buffers
+        this.audioQueue = [];
+        this.audioBuffer = [];
+        this.audioChunks = [];
+        this.totalAudioChunks = 0;
+        
+        // Reset session tracking for new conversation
+        this.resetSessionTracking();
+        
+        this.debug.log('Streaming conversation state cleared');
+    }
 }
 
 // Export for use in other modules

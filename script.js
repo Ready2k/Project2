@@ -156,8 +156,13 @@ class SpeechToSpeechApp {
         // Voice controls
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
+        const clearConversationBtn = document.getElementById('clearConversationBtn');
+        const clearStreamingConversationBtn = document.getElementById('clearStreamingConversationBtn');
+        
         if (startBtn) startBtn.addEventListener('click', () => this.startRecording());
         if (stopBtn) stopBtn.addEventListener('click', () => this.stopRecording());
+        if (clearConversationBtn) clearConversationBtn.addEventListener('click', () => this.clearConversation());
+        if (clearStreamingConversationBtn) clearStreamingConversationBtn.addEventListener('click', () => this.clearConversation());
 
         // Persona selector
         const personaSelect = document.getElementById('personaSelect');
@@ -1581,6 +1586,48 @@ class SpeechToSpeechApp {
         conversation.appendChild(messageDiv);
         conversation.scrollTop = conversation.scrollHeight;
         console.log('Message added:', type, content);
+    }
+
+    clearConversation() {
+        const conversation = document.getElementById('conversation');
+        if (!conversation) return;
+
+        // Show confirmation dialog
+        const confirmed = confirm('Are you sure you want to clear the conversation? This action cannot be undone.');
+        
+        if (confirmed) {
+            // Clear all messages except keep the initial bot greeting
+            conversation.innerHTML = `
+                <div class="bot-message">
+                    <div class="message-content">
+                        Hello! I'm your AI voice assistant. How can I help you today?
+                    </div>
+                </div>
+            `;
+            
+            console.log('Conversation cleared');
+            this.updateStatus('Conversation cleared - Ready to listen');
+            
+            // Clear streaming conversation state if in streaming mode
+            if (this.streamingManager && this.isStreamingMode) {
+                this.streamingManager.clearConversationState();
+            }
+            
+            // Stop any currently playing audio
+            if (this.currentAudio) {
+                this.currentAudio.pause();
+                this.currentAudio.src = '';
+                this.currentAudio = null;
+            }
+            
+            // Stop browser TTS if active
+            if ('speechSynthesis' in window) {
+                speechSynthesis.cancel();
+            }
+            
+            // Reset current state to ready
+            this.currentState = 'ready';
+        }
     }
 
     speakWithBrowserTTS(text) {

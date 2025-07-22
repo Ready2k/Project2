@@ -186,6 +186,16 @@ header p {
     transform: translateY(-2px);
 }
 
+.clear-btn {
+    background: #f39c12 !important;
+    color: white !important;
+}
+
+.clear-btn:hover:not(:disabled) {
+    background: #e67e22 !important;
+    transform: translateY(-2px);
+}
+
 .voice-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;

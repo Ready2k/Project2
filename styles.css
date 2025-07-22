@@ -961,7 +961,12 @@ n Usage Panel */
     color: white;
 }
 
-.reset-btn {
+.token-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.reset-btn, .update-btn, .test-btn {
     background: rgba(255,255,255,0.2);
     color: white;
     border: none;
@@ -972,8 +977,24 @@ n Usage Panel */
     transition: background 0.3s ease;
 }
 
-.reset-btn:hover {
+.update-btn {
+    background: rgba(52, 152, 219, 0.8);
+}
+
+.test-btn {
+    background: rgba(155, 89, 182, 0.8);
+}
+
+.reset-btn:hover, .update-btn:hover, .test-btn:hover {
     background: rgba(255,255,255,0.3);
+}
+
+.update-btn:hover {
+    background: rgba(52, 152, 219, 1);
+}
+
+.test-btn:hover {
+    background: rgba(155, 89, 182, 1);
 }
 
 .token-content {

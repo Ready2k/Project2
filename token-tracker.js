@@ -30,14 +30,17 @@ class TokenTracker {
     }
 
     trackWhisperUsage(minutes = 0.17) {
+        console.log('TokenTracker: Tracking Whisper usage -', minutes, 'minutes');
         this.usage.whisper.requests += 1;
         const cost = minutes * this.pricing.whisper;
         this.usage.whisper.cost += cost;
         this.usage.total += cost;
         this.saveUsage();
+        console.log('TokenTracker: Whisper usage updated -', this.usage.whisper.requests, 'requests, $' + this.usage.whisper.cost.toFixed(4));
     }
 
     trackGptUsage(inputTokens, outputTokens) {
+        console.log('TokenTracker: Tracking GPT usage -', inputTokens, 'input,', outputTokens, 'output tokens');
         this.usage.gpt.tokens += (inputTokens + outputTokens);
         const inputCost = (inputTokens / 1000) * this.pricing.gpt35turbo.input;
         const outputCost = (outputTokens / 1000) * this.pricing.gpt35turbo.output;
@@ -45,9 +48,11 @@ class TokenTracker {
         this.usage.gpt.cost += totalCost;
         this.usage.total += totalCost;
         this.saveUsage();
+        console.log('TokenTracker: GPT usage updated -', this.usage.gpt.tokens, 'tokens, $' + this.usage.gpt.cost.toFixed(4));
     }
 
     trackTtsUsage(characters, model = 'tts-1') {
+        console.log('TokenTracker: Tracking TTS usage -', characters, 'characters, model:', model);
         this.usage.tts.characters += characters;
         const pricePerChar = model === 'tts-1-hd' ?
             this.pricing.tts1hd / 1000 : this.pricing.tts1 / 1000;
@@ -55,6 +60,7 @@ class TokenTracker {
         this.usage.tts.cost += cost;
         this.usage.total += cost;
         this.saveUsage();
+        console.log('TokenTracker: TTS usage updated -', this.usage.tts.characters, 'characters, $' + this.usage.tts.cost.toFixed(4));
     }
 
     getUsage() {
@@ -82,13 +88,17 @@ class TokenTracker {
             totalCost: document.getElementById('totalCost')
         };
 
+        console.log('TokenTracker: Updating display with usage:', this.usage);
+        
         if (elements.whisperTokens) elements.whisperTokens.textContent = `${this.usage.whisper.requests} requests`;
-        if (elements.whisperCost) elements.whisperCost.textContent = `${this.usage.whisper.cost.toFixed(4)}`;
+        if (elements.whisperCost) elements.whisperCost.textContent = `$${this.usage.whisper.cost.toFixed(4)}`;
         if (elements.gptTokens) elements.gptTokens.textContent = `${this.usage.gpt.tokens} tokens`;
-        if (elements.gptCost) elements.gptCost.textContent = `${this.usage.gpt.cost.toFixed(4)}`;
+        if (elements.gptCost) elements.gptCost.textContent = `$${this.usage.gpt.cost.toFixed(4)}`;
         if (elements.ttsTokens) elements.ttsTokens.textContent = `${this.usage.tts.characters} chars`;
-        if (elements.ttsCost) elements.ttsCost.textContent = `${this.usage.tts.cost.toFixed(4)}`;
+        if (elements.ttsCost) elements.ttsCost.textContent = `$${this.usage.tts.cost.toFixed(4)}`;
         if (elements.totalCost) elements.totalCost.textContent = `$${this.usage.total.toFixed(4)}`;
+        
+        console.log('TokenTracker: Display updated successfully');
     }
 }
 

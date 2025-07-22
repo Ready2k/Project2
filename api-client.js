@@ -79,7 +79,10 @@ class OpenAIClient {
             
             // Track usage if tracker is available
             if (this.tokenTracker) {
+                console.log('Tracking Whisper usage...');
                 this.tokenTracker.trackWhisperUsage();
+            } else {
+                console.warn('Token tracker not available for Whisper usage tracking');
             }
             
             return {
@@ -131,10 +134,13 @@ class OpenAIClient {
             
             // Track usage if tracker is available
             if (this.tokenTracker && data.usage) {
+                console.log('Tracking GPT usage:', data.usage.prompt_tokens, 'input,', data.usage.completion_tokens, 'output tokens');
                 this.tokenTracker.trackGptUsage(
                     data.usage.prompt_tokens, 
                     data.usage.completion_tokens
                 );
+            } else {
+                console.warn('Token tracker not available for GPT usage tracking', { hasTracker: !!this.tokenTracker, hasUsage: !!data.usage });
             }
             
             return {
@@ -191,7 +197,10 @@ class OpenAIClient {
 
             // Track usage if tracker is available
             if (this.tokenTracker) {
+                console.log('Tracking TTS usage:', text.length, 'characters, model:', requestBody.model);
                 this.tokenTracker.trackTtsUsage(text.length, requestBody.model);
+            } else {
+                console.warn('Token tracker not available for TTS usage tracking');
             }
 
             return {

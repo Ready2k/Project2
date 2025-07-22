@@ -3,9 +3,10 @@
  * Handles OpenAI Realtime API WebSocket connections and real-time audio streaming
  */
 class StreamingManager {
-    constructor(apiKey, debugCallback = null) {
+    constructor(apiKey, debugCallback = null, tokenTracker = null) {
         this.apiKey = apiKey;
         this.debugCallback = debugCallback;
+        this.tokenTracker = tokenTracker;
         
         // Initialize debug logger for this module
         this.debug = window.debugManager ? window.debugManager.createModuleLogger('StreamingManager') : {
@@ -46,8 +47,19 @@ class StreamingManager {
             connectionQuality: 'auto'
         };
 
+        // Token tracking for streaming
+        this.streamingSession = {
+            startTime: null,
+            endTime: null,
+            audioMinutesReceived: 0,
+            audioMinutesSent: 0,
+            estimatedInputTokens: 0,
+            estimatedOutputTokens: 0,
+            textResponseLength: 0
+        };
+
         // Debug logging
-        this.debug.log('StreamingManager initialized');
+        this.debug.log('StreamingManager initialized with token tracking:', !!this.tokenTracker);
     }
 
     // Legacy debug method for backward compatibility with debugCallback
@@ -64,6 +76,11 @@ class StreamingManager {
     setApiKey(apiKey) {
         this.apiKey = apiKey;
         this.debug.log('API key updated');
+    }
+
+    setTokenTracker(tokenTracker) {
+        this.tokenTracker = tokenTracker;
+        this.debug.log('Token tracker updated');
     }
 
     updateSettings(settings) {
@@ -249,6 +266,8 @@ class StreamingManager {
             switch (message.type) {
                 case 'session.created':
                     this.debug.log('Session created successfully');
+                    // Start tracking session
+                    this.streamingSession.startTime = Date.now();
                     break;
 
                 case 'session.updated':
@@ -278,13 +297,14 @@ class StreamingManager {
 
                 case 'conversation.item.input_audio_transcription.completed':
                     this.debug.log('Transcription completed:', message.transcript);
-                    // Display user message in chat
-                    if (message.transcript) {
-                        this.displayUserMessage(message.transcript);
-                    } else if (this.currentUserTranscript) {
-                        // Use accumulated transcript from deltas
-                        this.displayUserMessage(this.currentUserTranscript);
-                        this.currentUserTranscript = '';
+                    // Track input transcription for token estimation
+                    const transcript = message.transcript || this.currentUserTranscript;
+                    if (transcript) {
+                        this.trackInputText(transcript);
+                        this.displayUserMessage(transcript);
+                        if (message.transcript) {
+                            this.currentUserTranscript = '';
+                        }
                     } else {
                         this.debug.log('Warning: No transcript in transcription completed message');
                     }
@@ -294,6 +314,8 @@ class StreamingManager {
                     this.debug.log('Audio response chunk received');
                     if (message.delta) {
                         this.handleAudioResponse(message.delta);
+                        // Track audio output for cost estimation
+                        this.trackAudioOutput(message.delta);
                         // Also indicate audio response in chat
                         this.indicateAudioResponse();
                     }
@@ -330,6 +352,7 @@ class StreamingManager {
                         message.item.content.forEach(content => {
                             if (content.type === 'text' && content.text) {
                                 this.debug.log('Complete text response:', content.text);
+                                this.trackOutputText(content.text);
                                 this.displayBotMessage(content.text);
                                 this.updateDebugPanel('gptResponse', content.text);
                             }
@@ -390,6 +413,9 @@ class StreamingManager {
                     this.isResponseActive = false;
                     this.audioResponseStarted = false;
 
+                    // Track the completed response
+                    this.trackResponseCompletion();
+
                     // Wait longer for all queued audio to finish playing
                     setTimeout(() => {
                         this.completeAudioResponse();
@@ -425,8 +451,162 @@ class StreamingManager {
      */
     async disconnect() {
         this.debug.log('Disconnecting...');
+        // Track session end
+        this.streamingSession.endTime = Date.now();
+        this.trackSessionEnd();
         this.cleanup();
         return { success: true };
+    }
+
+    /**
+     * Track input text for token estimation
+     */
+    trackInputText(text) {
+        if (!text) return;
+        
+        // Rough token estimation: ~4 characters per token for English
+        const estimatedTokens = Math.ceil(text.length / 4);
+        this.streamingSession.estimatedInputTokens += estimatedTokens;
+        
+        this.debug.log(`Tracked input text: ${text.length} chars, ~${estimatedTokens} tokens`);
+    }
+
+    /**
+     * Track output text for token estimation
+     */
+    trackOutputText(text) {
+        if (!text) return;
+        
+        // Rough token estimation: ~4 characters per token for English
+        const estimatedTokens = Math.ceil(text.length / 4);
+        this.streamingSession.estimatedOutputTokens += estimatedTokens;
+        this.streamingSession.textResponseLength += text.length;
+        
+        this.debug.log(`Tracked output text: ${text.length} chars, ~${estimatedTokens} tokens`);
+    }
+
+    /**
+     * Track audio input for duration estimation
+     */
+    trackAudioInput(audioBytes) {
+        if (!audioBytes) return;
+        
+        // PCM16 at 24kHz: ~48KB per second of audio
+        const estimatedSeconds = audioBytes / 48000;
+        const estimatedMinutes = estimatedSeconds / 60;
+        
+        this.streamingSession.audioMinutesSent += estimatedMinutes;
+        
+        // Log occasionally to avoid spam
+        if (Math.random() < 0.01) { // 1% of chunks
+            this.debug.log(`Audio input tracking: +${estimatedMinutes.toFixed(4)} min (total sent: ${this.streamingSession.audioMinutesSent.toFixed(4)} min)`);
+        }
+    }
+
+    /**
+     * Track audio output for duration estimation
+     */
+    trackAudioOutput(audioData) {
+        if (!audioData) return;
+        
+        // Estimate audio duration from base64 data size
+        // PCM16 at 24kHz: ~48KB per second of audio
+        const audioBytes = (audioData.length * 3) / 4; // base64 to bytes
+        const estimatedSeconds = audioBytes / 48000;
+        const estimatedMinutes = estimatedSeconds / 60;
+        
+        this.streamingSession.audioMinutesReceived += estimatedMinutes;
+        
+        // Log occasionally to avoid spam
+        if (Math.random() < 0.05) { // 5% of chunks
+            this.debug.log(`Audio output tracking: +${estimatedMinutes.toFixed(4)} min (total received: ${this.streamingSession.audioMinutesReceived.toFixed(4)} min)`);
+        }
+    }
+
+    /**
+     * Track response completion and update token tracker
+     */
+    trackResponseCompletion() {
+        if (!this.tokenTracker) {
+            this.debug.log('No token tracker available for streaming session tracking');
+            return;
+        }
+
+        const session = this.streamingSession;
+        
+        this.debug.log('Tracking streaming session completion:', {
+            inputTokens: session.estimatedInputTokens,
+            outputTokens: session.estimatedOutputTokens,
+            audioMinutes: session.audioMinutesReceived,
+            textLength: session.textResponseLength
+        });
+
+        // Track GPT usage (estimated tokens)
+        if (session.estimatedInputTokens > 0 || session.estimatedOutputTokens > 0) {
+            this.tokenTracker.trackGptUsage(
+                session.estimatedInputTokens,
+                session.estimatedOutputTokens
+            );
+        }
+
+        // Track TTS usage (audio generation)
+        if (session.textResponseLength > 0) {
+            // Use tts-1-hd pricing for streaming as it's higher quality
+            this.tokenTracker.trackTtsUsage(session.textResponseLength, 'tts-1-hd');
+        }
+
+        // Track Whisper usage (input transcription)
+        if (session.audioMinutesSent > 0) {
+            this.tokenTracker.trackWhisperUsage(session.audioMinutesSent);
+        }
+
+        // Update display
+        this.tokenTracker.updateDisplay();
+
+        // Reset session tracking
+        this.resetSessionTracking();
+    }
+
+    /**
+     * Track session end
+     */
+    trackSessionEnd() {
+        if (this.streamingSession.startTime && !this.streamingSession.endTime) {
+            this.streamingSession.endTime = Date.now();
+            const sessionDuration = (this.streamingSession.endTime - this.streamingSession.startTime) / 1000;
+            this.debug.log(`Streaming session ended after ${sessionDuration.toFixed(1)} seconds`);
+        }
+    }
+
+    /**
+     * Reset session tracking
+     */
+    resetSessionTracking() {
+        this.streamingSession = {
+            startTime: null,
+            endTime: null,
+            audioMinutesReceived: 0,
+            audioMinutesSent: 0,
+            estimatedInputTokens: 0,
+            estimatedOutputTokens: 0,
+            textResponseLength: 0
+        };
+    }
+
+    /**
+     * Get current session tracking stats
+     */
+    getSessionStats() {
+        return { ...this.streamingSession };
+    }
+
+    /**
+     * Manually trigger token tracking update (for testing)
+     */
+    updateTokenDisplay() {
+        if (this.tokenTracker) {
+            this.tokenTracker.updateDisplay();
+        }
     }
 
     /**
@@ -532,6 +712,9 @@ class StreamingManager {
             };
 
             this.sendMessage(audioMessage);
+
+            // Track audio input for cost estimation
+            this.trackAudioInput(pcm16Data.byteLength);
 
             // Debug: Log audio chunk info (but not the data itself)
             if (Math.random() < 0.01) { // Log only 1% of chunks to avoid spam

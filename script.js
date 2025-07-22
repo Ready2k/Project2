@@ -6,10 +6,10 @@ class SpeechToSpeechApp {
         this.audioChunks = [];
         // Initialize debug logger for this module
         this.debug = window.debugManager.createModuleLogger('SpeechToSpeechApp');
-        
+
         // Initialize persona manager
         this.personaManager = new PersonaManager();
-        
+
         // Initialize system prompts manager
         this.systemPromptsManager = new SystemPromptsManager();
 
@@ -17,8 +17,8 @@ class SpeechToSpeechApp {
         this.tokenTracker = new TokenTracker();
         this.apiClient = new OpenAIClient(this.openaiApiKey, this.tokenTracker);
 
-        // Initialize streaming manager
-        this.streamingManager = new StreamingManager(this.openaiApiKey, this.debugStreamingMessage.bind(this));
+        // Initialize streaming manager with token tracker
+        this.streamingManager = new StreamingManager(this.openaiApiKey, this.debugStreamingMessage.bind(this), this.tokenTracker);
 
         // Streaming mode properties
         this.isStreamingMode = localStorage.getItem('streaming_mode') === 'true' || false;
@@ -100,10 +100,10 @@ class SpeechToSpeechApp {
     async init() {
         // Initialize persona manager first
         await this.personaManager.init();
-        
+
         // Initialize system prompts manager
         await this.systemPromptsManager.init();
-        
+
         // Set up currency formatter for system prompts
         this.systemPromptsManager.setCurrencyFormatter(this.personaManager.formatCurrency.bind(this.personaManager));
 
@@ -117,7 +117,18 @@ class SpeechToSpeechApp {
         this.initializeStreamingSettings();
         this.initializeSystemPrompts();
         this.initializeDebugSettings();
+        
+        // Ensure token tracker is properly linked to API client
+        this.apiClient.setTokenTracker(this.tokenTracker);
         this.tokenTracker.updateDisplay();
+        
+        // Log token tracking status for debugging
+        this.debug.log('Token tracking initialized:', {
+            hasTokenTracker: !!this.tokenTracker,
+            apiClientHasTracker: !!this.apiClient.tokenTracker,
+            currentUsage: this.tokenTracker.getUsage()
+        });
+        
         this.initializeStreamingMode();
         this.initializeMuteButtons();
         this.updateKeyStatus();
@@ -235,6 +246,27 @@ class SpeechToSpeechApp {
         const debugToggle = document.getElementById('debugToggle');
         if (debugToggle) {
             debugToggle.addEventListener('change', (e) => this.toggleDebugMode(e.target.checked));
+        }
+
+        // Token management buttons
+        const resetTokens = document.getElementById('resetTokens');
+        const updateTokens = document.getElementById('updateTokens');
+        const testTokens = document.getElementById('testTokens');
+        
+        if (resetTokens) {
+            resetTokens.addEventListener('click', () => this.resetTokenUsage());
+        }
+        if (updateTokens) {
+            updateTokens.addEventListener('click', () => this.updateTokenDisplay());
+        }
+        if (testTokens) {
+            testTokens.addEventListener('click', () => this.testTokenTracking());
+        }
+
+        // Debug panel toggle button (Hide/Show)
+        const toggleDebug = document.getElementById('toggleDebug');
+        if (toggleDebug) {
+            toggleDebug.addEventListener('click', () => this.toggleDebugPanel());
         }
 
         this.debug.log('Event listeners setup complete');
@@ -447,6 +479,12 @@ class SpeechToSpeechApp {
             const result = await this.apiClient.speechToText(audioBlob, {
                 language: this.speechSettings.whisperLanguage
             });
+            
+            // Debug: Check if tracking happened
+            this.debug.log('After Whisper API call - Token tracker status:', {
+                hasTracker: !!this.apiClient.tokenTracker,
+                currentUsage: this.tokenTracker.getUsage()
+            });
 
             if (result.success) {
                 console.log('Transcription received:', result.text);
@@ -482,6 +520,12 @@ class SpeechToSpeechApp {
                 maxTokens: 200,
                 temperature: 0.8
             });
+            
+            // Debug: Check if tracking happened
+            this.debug.log('After GPT API call - Token tracker status:', {
+                hasTracker: !!this.apiClient.tokenTracker,
+                currentUsage: this.tokenTracker.getUsage()
+            });
 
             if (result.success) {
                 console.log('AI response received:', result.content);
@@ -516,6 +560,12 @@ class SpeechToSpeechApp {
                 model: this.ttsSettings.model,
                 voice: this.ttsSettings.voice,
                 speed: this.ttsSettings.speed
+            });
+            
+            // Debug: Check if tracking happened
+            this.debug.log('After TTS API call - Token tracker status:', {
+                hasTracker: !!this.apiClient.tokenTracker,
+                currentUsage: this.tokenTracker.getUsage()
             });
 
             if (!result.success) {
@@ -1332,10 +1382,10 @@ class SpeechToSpeechApp {
         if (confirm('Are you sure you want to reset all system prompts to defaults? This cannot be undone.')) {
             try {
                 await this.systemPromptsManager.resetToDefaults();
-                
+
                 // Update UI
                 this.initializeSystemPrompts();
-                
+
                 this.showPromptMessage('System prompts reset to defaults.', 'info');
             } catch (error) {
                 console.error('Error resetting prompts:', error);
@@ -1540,6 +1590,8 @@ class SpeechToSpeechApp {
             if (apiKey) {
                 this.openaiApiKey = apiKey;
                 this.apiClient.setApiKey(apiKey);
+                // Ensure token tracker is properly linked
+                this.apiClient.setTokenTracker(this.tokenTracker);
                 this.streamingManager.setApiKey(apiKey);
                 localStorage.setItem('openai_api_key', apiKey);
                 this.updateKeyStatus();
@@ -2021,10 +2073,10 @@ class SpeechToSpeechApp {
     // Debug Settings Management
     initializeDebugSettings() {
         this.debug.log('Initializing debug settings...');
-        
+
         const debugToggle = document.getElementById('debugToggle');
         const debugDescription = document.getElementById('debugDescription');
-        
+
         if (debugToggle) {
             debugToggle.checked = window.debugManager.isEnabled();
             this.updateDebugDescription();
@@ -2037,7 +2089,7 @@ class SpeechToSpeechApp {
         } else {
             window.debugManager.disable();
         }
-        
+
         this.updateDebugDescription();
         this.debug.log('Debug mode toggled:', enabled ? 'enabled' : 'disabled');
     }
@@ -2046,9 +2098,98 @@ class SpeechToSpeechApp {
         const debugDescription = document.getElementById('debugDescription');
         if (debugDescription) {
             const isEnabled = window.debugManager.isEnabled();
-            debugDescription.textContent = isEnabled 
+            debugDescription.textContent = isEnabled
                 ? 'Debug logging is enabled (detailed console output active)'
                 : 'Debug logging is disabled (recommended for normal use)';
+        }
+    }
+
+    // Reset token usage tracking
+    resetTokenUsage() {
+        this.debug.log('Resetting token usage...');
+
+        if (this.tokenTracker) {
+            this.tokenTracker.resetUsage();
+            this.tokenTracker.updateDisplay();
+            this.debug.log('Token usage reset successfully');
+
+            // Show user feedback
+            this.updateStatus('Token usage reset successfully');
+            setTimeout(() => {
+                this.updateStatus('Ready to listen');
+            }, 2000);
+        } else {
+            this.debug.error('Token tracker not available');
+        }
+    }
+
+    // Update token display manually
+    updateTokenDisplay() {
+        this.debug.log('Manually updating token display...');
+
+        if (this.tokenTracker) {
+            // Force reload from localStorage
+            this.tokenTracker.usage = this.tokenTracker.loadUsage();
+            this.tokenTracker.updateDisplay();
+
+            const usage = this.tokenTracker.getUsage();
+            this.debug.log('Current usage:', usage);
+
+            // Show user feedback
+            this.updateStatus(`Updated: ${usage.whisper.requests} Whisper, ${usage.gpt.tokens} GPT tokens, ${usage.tts.characters} TTS chars`);
+            setTimeout(() => {
+                this.updateStatus('Ready to listen');
+            }, 3000);
+        } else {
+            this.debug.error('Token tracker not available');
+            this.updateStatus('Error: Token tracker not available');
+        }
+    }
+
+    // Test token tracking with sample data
+    testTokenTracking() {
+        this.debug.log('Testing token tracking with sample data...');
+
+        if (this.tokenTracker) {
+            // Add some test usage
+            this.tokenTracker.trackWhisperUsage(0.25); // 15 seconds of audio
+            this.tokenTracker.trackGptUsage(50, 25); // 50 input, 25 output tokens
+            this.tokenTracker.trackTtsUsage(100, 'tts-1'); // 100 characters
+
+            this.tokenTracker.updateDisplay();
+
+            // Show user feedback
+            this.updateStatus('Test data added: +1 Whisper request, +75 GPT tokens, +100 TTS chars');
+            setTimeout(() => {
+                this.updateStatus('Ready to listen');
+            }, 3000);
+        } else {
+            this.debug.error('Token tracker not available');
+            this.updateStatus('Error: Token tracker not available');
+        }
+    }
+
+    // Toggle debug panel visibility (Hide/Show button)
+    toggleDebugPanel() {
+        const debugContent = document.getElementById('debugContent');
+        const toggleButton = document.getElementById('toggleDebug');
+
+        if (debugContent && toggleButton) {
+            const isHidden = debugContent.classList.contains('hidden');
+
+            if (isHidden) {
+                // Show the panel
+                debugContent.classList.remove('hidden');
+                toggleButton.textContent = 'Hide';
+                this.debug.log('Debug panel shown');
+            } else {
+                // Hide the panel
+                debugContent.classList.add('hidden');
+                toggleButton.textContent = 'Show';
+                this.debug.log('Debug panel hidden');
+            }
+        } else {
+            this.debug.error('Debug panel elements not found');
         }
     }
 }

@@ -319,6 +319,16 @@ button[type="submit"]:hover, #saveKey:hover {
     margin-top: 8px;
 }
 
+.model-info {
+    margin-top: 8px;
+}
+
+.model-description {
+    font-size: 0.9em;
+    color: #666;
+    font-style: italic;
+}
+
 .key-status {
     padding: 6px 12px;
     border-radius: 15px;

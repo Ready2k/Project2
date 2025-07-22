@@ -45,6 +45,9 @@ class SpeechToSpeechApp {
         this.audioAnalyser = null;
         this.audioLevelInterval = null;
 
+        // GPT model setting
+        this.gptModel = localStorage.getItem('gpt_model') || 'gpt-3.5-turbo';
+
         // TTS settings
         this.ttsMode = localStorage.getItem('tts_mode') || 'openai';
         this.ttsSettings = {
@@ -111,6 +114,7 @@ class SpeechToSpeechApp {
         this.setupCleanupListeners();
         this.loadPersonas();
         this.updatePersonaSelector();
+        this.initializeGptSettings();
         this.initializeTtsSettings();
         this.initializeBrowserTts();
         this.initializeSpeechSettings();
@@ -180,8 +184,10 @@ class SpeechToSpeechApp {
         // Settings
         const saveKey = document.getElementById('saveKey');
         const clearKey = document.getElementById('clearKey');
+        const gptModel = document.getElementById('gptModel');
         if (saveKey) saveKey.addEventListener('click', () => this.saveApiKey());
         if (clearKey) clearKey.addEventListener('click', () => this.clearApiKey());
+        if (gptModel) gptModel.addEventListener('change', (e) => this.updateGptModel(e));
 
         // TTS Settings
         const ttsMode = document.getElementById('ttsMode');
@@ -517,6 +523,7 @@ class SpeechToSpeechApp {
             ];
 
             const result = await this.apiClient.generateChatCompletion(messages, {
+                model: this.gptModel,
                 maxTokens: 200,
                 temperature: 0.8
             });
@@ -1814,6 +1821,20 @@ class SpeechToSpeechApp {
         }
     }
 
+    initializeGptSettings() {
+        console.log('Initializing GPT settings...');
+
+        const gptModel = document.getElementById('gptModel');
+        const modelDescription = document.getElementById('modelDescription');
+
+        if (gptModel) {
+            gptModel.value = this.gptModel;
+            this.updateModelDescription(this.gptModel);
+        }
+
+        console.log('GPT settings initialized:', { model: this.gptModel });
+    }
+
     initializeTtsSettings() {
         console.log('Initializing TTS settings...');
 
@@ -1912,6 +1933,40 @@ class SpeechToSpeechApp {
         if (ttsSpeedValue) ttsSpeedValue.textContent = this.ttsSettings.speed + 'x';
         localStorage.setItem('tts_speed', this.ttsSettings.speed);
         console.log('TTS speed updated:', this.ttsSettings.speed);
+    }
+
+    updateGptModel(e) {
+        this.gptModel = e.target.value;
+        localStorage.setItem('gpt_model', this.gptModel);
+        this.updateModelDescription(this.gptModel);
+        console.log('GPT model updated:', this.gptModel);
+    }
+
+    updateModelDescription(model) {
+        const modelDescription = document.getElementById('modelDescription');
+        const gptModelLabel = document.getElementById('gptModelLabel');
+
+        const descriptions = {
+            'gpt-3.5-turbo': 'Fast and cost-effective for basic financial conversations',
+            'gpt-4o-mini': 'Better reasoning and accuracy, still cost-effective',
+            'gpt-4o': 'High-quality responses with excellent reasoning',
+            'gpt-4-turbo': 'Premium quality with advanced reasoning capabilities'
+        };
+
+        const labels = {
+            'gpt-3.5-turbo': 'GPT-3.5 Turbo',
+            'gpt-4o-mini': 'GPT-4o Mini',
+            'gpt-4o': 'GPT-4o',
+            'gpt-4-turbo': 'GPT-4 Turbo'
+        };
+
+        if (modelDescription) {
+            modelDescription.textContent = descriptions[model] || 'Selected model for AI responses';
+        }
+        
+        if (gptModelLabel) {
+            gptModelLabel.textContent = labels[model] || model;
+        }
     }
 
     updateTtsMode(e) {

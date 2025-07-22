@@ -72,7 +72,8 @@ class SpeechToSpeechApp {
             audioQuality: localStorage.getItem('audio_quality') || 'high',
             noiseReduction: localStorage.getItem('noise_reduction') || 'medium',
             whisperLanguage: localStorage.getItem('whisper_language') || 'en',
-            recognitionMode: localStorage.getItem('recognition_mode') || 'financial'
+            recognitionMode: localStorage.getItem('recognition_mode') || 'financial',
+            keepMicActive: localStorage.getItem('keep_mic_active') === 'true' || true // Default to true to avoid permission popups
         };
 
         // Fix for old localStorage data - force reset to 'en' if it's 'en-US'
@@ -313,16 +314,16 @@ class SpeechToSpeechApp {
             this.currentState = 'recording';
             let stream;
 
-            // Check if we have a cached microphone stream
+            // Check if we have a cached microphone stream with active tracks
             if (this.cachedMicStream && this.micPermissionGranted) {
-                console.log('Using cached microphone stream');
-                stream = this.cachedMicStream;
-
-                // Verify all tracks are still active
-                const tracks = stream.getAudioTracks();
+                const tracks = this.cachedMicStream.getAudioTracks();
                 const activeTrack = tracks.find(track => track.readyState === 'live');
-                if (!activeTrack) {
-                    console.log('Cached stream is inactive, requesting new access...');
+                
+                if (activeTrack) {
+                    console.log('Using cached microphone stream');
+                    stream = this.cachedMicStream;
+                } else {
+                    console.log('Cached stream tracks are inactive, requesting new access...');
                     this.cleanupMicrophoneStream();
                     stream = await this.requestMicrophoneAccess();
                 }
@@ -410,11 +411,57 @@ class SpeechToSpeechApp {
         return stream;
     }
 
+    cleanupMicrophoneStream() {
+        if (this.cachedMicStream) {
+            this.cachedMicStream.getTracks().forEach(track => track.stop());
+            this.cachedMicStream = null;
+        }
+        this.micPermissionGranted = false;
+    }
+
+    cleanupAllResources() {
+        console.log('Cleaning up all resources...');
+        
+        // Stop any ongoing recording
+        if (this.isRecording && this.mediaRecorder) {
+            this.mediaRecorder.stop();
+        }
+        
+        // Clean up microphone stream
+        this.cleanupMicrophoneStream();
+        
+        // Stop any playing audio
+        if (this.currentAudio) {
+            this.currentAudio.pause();
+            this.currentAudio.src = '';
+            this.currentAudio = null;
+        }
+        
+        // Stop browser TTS
+        if ('speechSynthesis' in window) {
+            speechSynthesis.cancel();
+        }
+        
+        // Disconnect streaming if active
+        if (this.isConnected && this.streamingManager) {
+            this.streamingManager.disconnect();
+        }
+        
+        // Stop audio level monitoring
+        this.stopAudioLevelMonitoring();
+    }
+
     stopRecording() {
         this.debug.log('Stop recording clicked');
         if (this.mediaRecorder && this.isRecording) {
             this.mediaRecorder.stop();
-            this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            
+            // Only stop tracks if user preference is to not keep mic active
+            if (!this.speechSettings.keepMicActive) {
+                this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                this.cleanupMicrophoneStream();
+            }
+            
             this.isRecording = false;
             this.currentState = 'processing';
 
@@ -2109,12 +2156,20 @@ class SpeechToSpeechApp {
     setupCleanupListeners() {
         console.log('Setting up cleanup listeners...');
 
+        // Clean up all resources when page unloads
         window.addEventListener('beforeunload', () => {
             this.cleanupAllResources();
         });
 
         window.addEventListener('pagehide', () => {
             this.cleanupAllResources();
+        });
+
+        // Clean up microphone stream on visibility change (tab switch) if not recording
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && !this.isRecording) {
+                this.cleanupMicrophoneStream();
+            }
         });
 
         document.addEventListener('visibilitychange', () => {

@@ -25,6 +25,7 @@ python3 -m http.server 8000
 - **Multi-language support** (English variants: US, UK, AU)
 - **Noise reduction** and audio quality enhancement
 - **Smart recording quality indicators**
+- **Persistent microphone access** - eliminates permission popups in batch mode
 
 ### 🗣️ **Natural Voice Responses**
 - **OpenAI TTS** with 6 professional voices (Nova, Shimmer, Onyx, etc.)
@@ -76,6 +77,12 @@ python3 -m http.server 8000
 - **System prompt and GPT response visibility**
 - **Voice generation details and statistics**
 - **Enhanced audio level monitoring** with quality indicators
+
+### 💬 **Conversation Management**
+- **Clear conversation feature** - Reset chat history with confirmation dialog
+- **Cross-mode compatibility** - Works in both batch and streaming modes
+- **Complete state reset** - Clears all conversation data, audio buffers, and session tracking
+- **Smart cleanup** - Stops playing audio and resets app state when clearing
 
 ## 🎯 Supported Use Cases
 
@@ -133,9 +140,10 @@ cd Project2
 #### **Batch Mode (Traditional):**
 - Select a customer persona (John Doe, Sarah Smith, or Mike Johnson)
 - Click "🎤 Start Speaking"
-- Grant microphone permissions
+- Grant microphone permissions (only once - permissions persist between recordings)
 - Say something like "What's my account balance?"
 - Listen to the AI response
+- Use "🗑️ Clear Chat" to start a fresh conversation
 
 #### **Streaming Mode (Real-time):**
 - Toggle "Streaming Mode" switch
@@ -143,6 +151,7 @@ cd Project2
 - Grant microphone permissions
 - Have a natural conversation - AI responds automatically when you stop speaking
 - See responses in chat AND hear them spoken simultaneously
+- Use "🗑️ Clear Chat" to reset the conversation state
 
 ## 🏗️ JSON-Driven Architecture (NEW!)
 
@@ -193,6 +202,7 @@ The application now uses a fully modular, JSON-driven architecture that separate
 - **Noise Reduction**: Off/Low/Medium/High
 - **Language Model**: English variants for accent optimization
 - **Recognition Mode**: Financial context vs Precise vs Standard
+- **Keep Microphone Active**: Prevents permission popups between recordings (default: enabled)
 
 ### **Voice Response Settings**
 - **TTS Model**: TTS-1 (fast) vs TTS-1-HD (high quality)

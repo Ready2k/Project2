@@ -39,6 +39,17 @@ Token usage is tracked automatically in both **Batch Mode** and **Streaming Mode
 - **Purpose**: Clear all usage statistics
 - **What it does**: Sets all counters back to 0 and $0.00
 
+### 🗑️ Clear Conversation Feature
+
+#### **Clear Chat Button** 🗑️
+- **Purpose**: Reset conversation history while preserving token tracking
+- **What it does**:
+  - Clears all chat messages (keeps initial greeting)
+  - Resets conversation state in both batch and streaming modes
+  - Stops any playing audio
+  - **Preserves token usage statistics** (doesn't reset costs)
+- **When to use**: Start fresh conversations without losing cost tracking data
+
 ## 🔍 Troubleshooting
 
 ### If Token Tracking Isn't Working:
@@ -111,6 +122,8 @@ Token usage is tracked automatically in both **Batch Mode** and **Streaming Mode
 - **Test First**: Use the Test button to verify tracking before real usage
 - **Debug Mode**: Enable debug logging in Settings for detailed tracking info
 - **Regular Updates**: Click Update if you suspect numbers are outdated
+- **Clear vs Reset**: Use "Clear Chat" to start new conversations, "Reset" to clear cost tracking
+- **Microphone Persistence**: In batch mode, microphone permissions persist between recordings to avoid popups
 
 ## 📊 Cost Breakdown
 

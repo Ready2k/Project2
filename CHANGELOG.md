@@ -6,6 +6,13 @@ All notable changes to the Voice-to-Voice Financial Services Bot project.
 
 ### 🆕 Added Features
 
+#### 🔐 Enhanced API Key Security
+- **In-memory API key storage** - keys no longer persisted to localStorage or disk
+- **On-demand key prompting** - users prompted for API key exactly when needed
+- **Session-based security** - API key cleared automatically on page refresh
+- **Improved privacy** - no sensitive data stored locally
+- **Streamlined UX** - eliminates need to visit settings before using features
+
 #### 💬 Clear Conversation Feature
 - **Clear Chat buttons** added to both batch and streaming mode controls
 - **Confirmation dialog** prevents accidental conversation clearing

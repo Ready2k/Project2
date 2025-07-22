@@ -2,7 +2,7 @@
 
 An advanced AI-powered voice assistant for financial services customer support, featuring **dual-mode operation** (Batch & Streaming), real-time speech recognition, natural voice responses, comprehensive customer persona management, and **configurable AI system prompts** - all without touching code!
 
-## 🚀 Live Demo
+## 🚀 Quick Start
 
 Simply open `index.html` in your browser or run a local server:
 ```bash
@@ -12,20 +12,18 @@ python3 -m http.server 8000
 
 ## ✨ Key Features
 
-### 🔄 **Dual-Mode Operation** (NEW!)
+### 🔄 **Dual-Mode Operation**
 - **Batch Mode**: Traditional record → process → respond workflow
-- **Streaming Mode**: Real-time conversation like a phone call (UI ready, WebSocket integration in development)
+- **Streaming Mode**: Real-time conversation using OpenAI Realtime API with full-duplex audio
 - **Seamless switching** between modes with visual toggle
 - **Mode-specific settings** and optimizations
 
 ### 🎙️ **Advanced Speech Recognition**
 - **OpenAI Whisper** integration for high-accuracy speech-to-text
-- **Real-time audio monitoring** with visual feedback
 - **Financial context optimization** for banking terminology
 - **Multi-language support** (English variants: US, UK, AU)
 - **Noise reduction** and audio quality enhancement
-- **Smart recording quality indicators**
-- **Persistent microphone access** - eliminates permission popups in batch mode
+- **Persistent microphone access** - eliminates permission popups
 
 ### 🗣️ **Natural Voice Responses**
 - **OpenAI TTS** with 6 professional voices (Nova, Shimmer, Onyx, etc.)
@@ -33,14 +31,29 @@ python3 -m http.server 8000
 - **Customizable speech speed** and voice selection
 - **Natural conversation flow** with proper pauses
 
-### 👥 **JSON-Driven Customer Persona Management** (ENHANCED!)
+### 👥 **JSON-Driven Customer Persona Management**
 - **Fully modular personas** - extracted to separate JSON file and manager class
 - **UK Sterling currency** - all amounts displayed in proper GBP formatting (£1,234.56)
 - **Transaction management** - add/remove transactions with real-time balance updates
-- **Pre-loaded UK customer profiles** - realistic data with UK merchants (Tesco, ASOS, etc.)
+- **Pre-loaded UK customer profiles** - realistic data with UK merchants
 - **Admin panel** for comprehensive persona and transaction management
-- **Account balances, transaction history, card details** with persistent storage
 - **Dynamic persona switching** for testing various customer scenarios
+
+### 🤖 **JSON-Driven AI System Prompts**
+- **Fully modular system prompts** - extracted to separate JSON file and manager class
+- **No-code AI customization** - modify AI behavior by editing JSON or admin panel
+- **Base personality configuration** - set tone, empathy, professionalism
+- **Financial context prompts** - customize banking procedures and UK-specific responses
+- **Real-time prompt testing** - preview generated prompts before use
+- **Banking restrictions** - configurable topic limitations
+
+### 📞 **Full-Duplex Streaming Mode**
+- **Real-time conversation** - Continuous bidirectional audio like a phone call
+- **OpenAI Realtime API** - Direct WebSocket connection to GPT-4o Realtime
+- **Voice Activity Detection** - Server-side VAD with configurable sensitivity
+- **Persona integration** - AI knows customer details (balance, transactions, card info)
+- **Real-time audio streaming** - PCM16 audio processing with proper buffering
+- **Text + Audio responses** - See responses in chat AND hear them spoken
 
 ### 💰 **Comprehensive Cost Tracking**
 - **Real-time token usage monitoring** for all OpenAI services
@@ -48,41 +61,12 @@ python3 -m http.server 8000
 - **Usage analytics** with detailed pricing information
 - **Reset functionality** for cost tracking
 
-### 🤖 **JSON-Driven AI System Prompts** (NEW!)
-- **Fully modular system prompts** - extracted to separate JSON file and manager class
-- **No-code AI customization** - modify AI behavior by editing JSON or admin panel
-- **Base personality configuration** - set tone, empathy, professionalism, topic restrictions
-- **Financial context prompts** - customize banking procedures and UK-specific responses
-- **Response instruction templates** - optimize for voice, length, British English
-- **Custom scenario prompts** - add industry-specific knowledge (loans, security, etc.)
-- **Real-time prompt testing** - preview generated prompts before use
-- **Streaming mode integration** - both batch and streaming modes use same prompts
-- **UK Sterling support** - proper GBP formatting throughout all modes
-- **Banking restrictions** - configurable topic limitations (banking-only responses)
-
-### 📞 **Full-Duplex Streaming Mode** (✅ FULLY IMPLEMENTED)
-- **Real-time conversation** - Continuous bidirectional audio like a phone call
-- **OpenAI Realtime API** - Direct WebSocket connection to GPT-4o Realtime (2024-12-17)
-- **Voice Activity Detection** - Server-side VAD with configurable sensitivity
-- **Persona integration** - AI knows customer details (balance, transactions, card info)
-- **Real-time audio streaming** - PCM16 audio processing with proper buffering
-- **Text + Audio responses** - See responses in chat AND hear them spoken
-- **Audio level monitoring** - Visual feedback during conversation
-- **Robust error handling** - Graceful recovery from connection issues
-- **Modular architecture** - Clean separation with StreamingManager module
-
 ### 🔍 **Debug & Development Tools**
 - **Real-time API communication display**
 - **Speech-to-text transcription monitoring**
 - **System prompt and GPT response visibility**
 - **Voice generation details and statistics**
 - **Enhanced audio level monitoring** with quality indicators
-
-### 💬 **Conversation Management**
-- **Clear conversation feature** - Reset chat history with confirmation dialog
-- **Cross-mode compatibility** - Works in both batch and streaming modes
-- **Complete state reset** - Clears all conversation data, audio buffers, and session tracking
-- **Smart cleanup** - Stops playing audio and resets app state when clearing
 
 ## 🎯 Supported Use Cases
 
@@ -95,25 +79,19 @@ python3 -m http.server 8000
 - **Account Information** - "What type of account do I have?"
 - **General Banking Support** - Various customer service scenarios
 
-### **Conversation Modes:**
-- **Batch Mode**: Traditional record → process → respond workflow
-- **Streaming Mode**: Real-time conversation with immediate responses
-- **Persona-aware**: AI knows specific customer details and account information
-
 ## 🛠️ Technical Stack
 
 - **Frontend**: Vanilla JavaScript (ES6+), HTML5, CSS3
 - **Architecture**: Modular design with separated concerns
   - `api-client.js` - OpenAI API interactions (Whisper, GPT, TTS)
   - `token-tracker.js` - Usage tracking and cost calculation
-  - `streaming-manager.js` - Real-time WebSocket streaming with system prompts integration
-  - `persona-manager.js` - Customer persona management and transaction handling (NEW!)
-  - `system-prompts-manager.js` - AI system prompts configuration and generation (NEW!)
+  - `streaming-manager.js` - Real-time WebSocket streaming
+  - `persona-manager.js` - Customer persona management
+  - `system-prompts-manager.js` - AI system prompts configuration
   - `script.js` - Main application logic and UI coordination
-- **APIs**: OpenAI (Whisper, GPT-3.5-turbo, TTS)
+- **APIs**: OpenAI (Whisper, GPT-3.5-turbo, TTS, Realtime API)
 - **Audio**: Web Audio API, MediaRecorder API
 - **Storage**: LocalStorage for settings persistence
-- **Design**: Responsive CSS Grid/Flexbox layout
 
 ## 📋 Setup Instructions
 
@@ -130,9 +108,9 @@ cd Project2
 
 ### 3. **Configure the Application**
 - Open the application in your browser
-- Go to **Settings** tab
-- Enter your OpenAI API key
-- Configure voice and speech recognition settings
+- When you first use a feature requiring OpenAI (recording, TTS, streaming), you'll be prompted to enter your API key
+- The key is stored in memory for the session only (not saved to disk)
+- Configure voice and speech recognition settings in the **Settings** tab
 - Test the modules with `test-modules.html` (optional)
 
 ### 4. **Test the System**
@@ -140,10 +118,9 @@ cd Project2
 #### **Batch Mode (Traditional):**
 - Select a customer persona (John Doe, Sarah Smith, or Mike Johnson)
 - Click "🎤 Start Speaking"
-- Grant microphone permissions (only once - permissions persist between recordings)
+- Grant microphone permissions (only once - permissions persist)
 - Say something like "What's my account balance?"
 - Listen to the AI response
-- Use "🗑️ Clear Chat" to start a fresh conversation
 
 #### **Streaming Mode (Real-time):**
 - Toggle "Streaming Mode" switch
@@ -151,12 +128,11 @@ cd Project2
 - Grant microphone permissions
 - Have a natural conversation - AI responds automatically when you stop speaking
 - See responses in chat AND hear them spoken simultaneously
-- Use "🗑️ Clear Chat" to reset the conversation state
 
-## 🏗️ JSON-Driven Architecture (NEW!)
+## 🏗️ JSON-Driven Architecture
 
 ### **Modular Configuration System**
-The application now uses a fully modular, JSON-driven architecture that separates data from code:
+The application uses a fully modular, JSON-driven architecture that separates data from code:
 
 #### **Customer Personas** (`personas.json`)
 ```json
@@ -178,12 +154,7 @@ The application now uses a fully modular, JSON-driven architecture that separate
   "basePersonality": "You are a helpful, professional AI assistant...",
   "financialContext": "When handling financial services requests...",
   "responseInstructions": "Response Guidelines...",
-  "customPrompts": [
-    {
-      "name": "Banking Restrictions",
-      "prompt": "You can only assist with banking questions..."
-    }
-  ]
+  "customPrompts": [...]
 }
 ```
 
@@ -191,7 +162,6 @@ The application now uses a fully modular, JSON-driven architecture that separate
 - ✅ **No code changes needed** - modify behavior by editing JSON files
 - ✅ **Easy deployment** - update personas/prompts without redeployment
 - ✅ **Version control friendly** - track changes to AI behavior
-- ✅ **Backup and restore** - simple JSON file management
 - ✅ **Team collaboration** - non-developers can modify AI behavior
 - ✅ **A/B testing ready** - swap configurations easily
 
@@ -202,31 +172,12 @@ The application now uses a fully modular, JSON-driven architecture that separate
 - **Noise Reduction**: Off/Low/Medium/High
 - **Language Model**: English variants for accent optimization
 - **Recognition Mode**: Financial context vs Precise vs Standard
-- **Keep Microphone Active**: Prevents permission popups between recordings (default: enabled)
+- **Keep Microphone Active**: Prevents permission popups between recordings
 
 ### **Voice Response Settings**
 - **TTS Model**: TTS-1 (fast) vs TTS-1-HD (high quality)
 - **Voice Selection**: 6 professional voices available
 - **Speech Speed**: 0.25x to 4.0x speed control
-
-### **Customer Personas**
-- **Default Personas**: 3 pre-configured customers with realistic data
-- **Custom Personas**: Add unlimited customer profiles
-- **Account Details**: Balance, card numbers, transaction history
-
-## 💡 Usage Tips
-
-### **For Best Speech Recognition**
-- Speak clearly at normal pace
-- Use quiet environment when possible
-- Watch the audio level indicator (aim for green/yellow)
-- Use natural financial terminology
-
-### **Recommended Settings**
-- **Audio Quality**: High (48kHz)
-- **Noise Reduction**: Medium
-- **TTS Voice**: Nova or Shimmer for customer service
-- **Recognition Mode**: Financial Context
 
 ## 📊 Cost Estimation
 
@@ -237,14 +188,15 @@ Based on typical usage patterns:
 
 A 5-minute conversation typically costs **$0.05-0.10** total.
 
-**Streaming Mode**: Costs are similar but provide real-time interaction with immediate responses.
-
 ## 🔒 Security & Privacy
 
-- **API keys stored locally** in browser localStorage
+- **API keys stored in memory only** - not persisted to disk or localStorage
+- **Session-based key storage** - key is requested when needed and cleared on page refresh
 - **No audio data persistence** - processed in real-time
 - **OpenAI API compliance** with their data usage policies
 - **Client-side processing** for maximum privacy
+
+⚠️ **Security Notice**: This project is a prototype and not intended for production use. No data is stored, and no encryption is enforced. Do not use real customer data.
 
 ## 🚀 Deployment Options
 
@@ -274,59 +226,9 @@ Deploy to any static hosting service:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📝 License
+## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **OpenAI** for providing excellent AI APIs
-- **Web Audio API** for real-time audio processing capabilities
-- **Modern browser standards** for MediaRecorder and speech APIs
-
-## 📞 Support
-
-For questions or support, please open an issue in the GitHub repository.
-
----
-
-**Built with ❤️ for the future of voice-enabled financial services**
-##
- 🔧 Development Notes
-
-### **Module Structure**
-```
-📁 Project Root
-├── 📄 index.html                    # Main application interface
-├── 📄 script.js                     # Main app logic and UI coordination
-├── 📄 api-client.js                 # OpenAI API client (Whisper, GPT, TTS)
-├── 📄 token-tracker.js              # Usage tracking and cost calculation
-├── 📄 streaming-manager.js          # Real-time WebSocket streaming
-├── 📄 persona-manager.js            # Customer persona management (NEW!)
-├── 📄 system-prompts-manager.js     # AI system prompts configuration (NEW!)
-├── 📄 personas.json                 # Customer persona data (NEW!)
-├── 📄 system-prompts.json           # AI system prompts configuration (NEW!)
-├── 📄 styles.css                    # Application styling
-├── 📄 test-modules.html             # Module testing utility
-├── 📄 test-personas.html            # Persona manager testing (NEW!)
-├── 📄 test-system-prompts.html      # System prompts testing (NEW!)
-└── 📄 test-streaming-prompts.html   # Streaming integration testing (NEW!)
-```
-
-### **Streaming Mode Implementation**
-- **WebSocket Connection**: Direct connection to OpenAI Realtime API
-- **Authentication**: Uses `openai-insecure-api-key` subprotocol for browser compatibility
-- **Audio Format**: PCM16 at 24kHz sample rate
-- **Voice Activity Detection**: Server-side VAD with configurable thresholds
-- **Real-time Processing**: Immediate audio chunk processing and playback
-- **Persona Context**: Dynamic customer information injection into AI instructions
-
-### **Key Technical Achievements**
-1. **Modular Refactoring**: Reduced main script from 1,513 to 1,405 lines
-2. **Real-time Streaming**: Full bidirectional audio conversation
-3. **Robust Error Handling**: Graceful recovery from connection issues
-4. **Performance Optimization**: Efficient audio buffering and playback
-5. **Developer Experience**: Comprehensive debugging and logging
+This project is licensed under the [MIT License](LICENSE).
 
 ---
 

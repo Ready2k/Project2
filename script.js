@@ -1,6 +1,6 @@
 class SpeechToSpeechApp {
     constructor() {
-        this.openaiApiKey = localStorage.getItem('openai_api_key') || '';
+        this.openaiApiKey = '';
         this.isRecording = false;
         this.mediaRecorder = null;
         this.audioChunks = [];
@@ -305,9 +305,16 @@ class SpeechToSpeechApp {
     async startRecording() {
         this.debug.log('Start recording clicked');
         if (!this.openaiApiKey) {
-            this.updateStatus('Please set your OpenAI API key in Settings first!');
-            this.switchTab('settings');
-            return;
+            const key = prompt("Enter your OpenAI API key:");
+            if (key && key.trim()) {
+                this.openaiApiKey = key.trim();
+                this.apiClient.setApiKey(this.openaiApiKey);
+                this.streamingManager.setApiKey(this.openaiApiKey);
+                this.updateKeyStatus();
+            } else {
+                this.updateStatus('OpenAI API key is required to use this feature');
+                return;
+            }
         }
 
         if (this.currentState !== 'ready') {
@@ -1694,7 +1701,6 @@ class SpeechToSpeechApp {
                 // Ensure token tracker is properly linked
                 this.apiClient.setTokenTracker(this.tokenTracker);
                 this.streamingManager.setApiKey(apiKey);
-                localStorage.setItem('openai_api_key', apiKey);
                 this.updateKeyStatus();
                 alert('API key saved successfully!');
                 console.log('API key saved and updated');
@@ -1707,7 +1713,7 @@ class SpeechToSpeechApp {
     clearApiKey() {
         console.log('Clear API key clicked');
 
-        const confirmed = confirm('Are you sure you want to clear your OpenAI API key?\n\nThis will:\n• Remove the key from local storage\n• Disable all OpenAI features\n• Require re-entering the key to use the app');
+        const confirmed = confirm('Are you sure you want to clear your OpenAI API key?\n\nThis will:\n• Remove the key from memory\n• Disable all OpenAI features\n• Require re-entering the key to use the app');
 
         if (confirmed) {
             // Clear from memory
@@ -1716,9 +1722,6 @@ class SpeechToSpeechApp {
             // Clear from API clients
             this.apiClient.setApiKey('');
             this.streamingManager.setApiKey('');
-
-            // Clear from localStorage
-            localStorage.removeItem('openai_api_key');
 
             // Clear the input field
             const apiKeyInput = document.getElementById('openaiKey');
@@ -1782,9 +1785,16 @@ class SpeechToSpeechApp {
     async connectStreaming() {
         console.log('Connect streaming clicked');
         if (!this.openaiApiKey) {
-            this.updateStatus('Please set your OpenAI API key in Settings first!');
-            this.switchTab('settings');
-            return;
+            const key = prompt("Enter your OpenAI API key:");
+            if (key && key.trim()) {
+                this.openaiApiKey = key.trim();
+                this.apiClient.setApiKey(this.openaiApiKey);
+                this.streamingManager.setApiKey(this.openaiApiKey);
+                this.updateKeyStatus();
+            } else {
+                this.updateStatus('OpenAI API key is required for streaming mode');
+                return;
+            }
         }
 
         if (this.isConnected) {
@@ -2118,8 +2128,16 @@ class SpeechToSpeechApp {
     async testTtsVoice() {
         console.log('Test TTS voice clicked');
         if (!this.openaiApiKey) {
-            alert('Please set your OpenAI API key first!');
-            return;
+            const key = prompt("Enter your OpenAI API key:");
+            if (key && key.trim()) {
+                this.openaiApiKey = key.trim();
+                this.apiClient.setApiKey(this.openaiApiKey);
+                this.streamingManager.setApiKey(this.openaiApiKey);
+                this.updateKeyStatus();
+            } else {
+                alert('OpenAI API key is required to test TTS voice');
+                return;
+            }
         }
 
         const testText = `Hello! I'm your AI voice assistant using the ${this.ttsSettings.voice} voice. This is how I sound with your current settings.`;

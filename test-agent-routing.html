@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Routing Validation Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+        .control-group h4 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            margin: 2px;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .btn-success { background: #27ae60; }
+        .btn-success:hover { background: #229954; }
+        .btn-warning { background: #f39c12; }
+        .btn-warning:hover { background: #e67e22; }
+        .btn-danger { background: #e74c3c; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-secondary { background: #6c757d; }
+        .btn-secondary:hover { background: #5a6268; }
+        .status {
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .test-results {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .metric-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        .agent-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .agent-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .agent-card.enabled {
+            border-left: 4px solid #27ae60;
+        }
+        .agent-card.disabled {
+            border-left: 4px solid #e74c3c;
+            opacity: 0.7;
+        }
+        .agent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .agent-name {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .agent-status-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .status-enabled {
+            background: #27ae60;
+            color: white;
+        }
+        .status-disabled {
+            background: #e74c3c;
+            color: white;
+        }
+        .test-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: inherit;
+            resize: vertical;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .comparison-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        .comparison-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        .performance-chart {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+            min-height: 200px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #3498db;
+            transition: width 0.3s ease;
+        }
+        .validation-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .validation-pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .validation-fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .validation-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Agent Routing Validation Test Suite</h1>
+        <p>Comprehensive testing and validation tools for the agent routing system, including performance metrics, response comparison, and routing accuracy validation.</p>
+        
+        <div id="status" class="status info">
+            Initializing agent routing test environment...
+        </div>
+
+        <!-- Agent System Status -->
+        <div class="test-section">
+            <h2>🤖 Agent System Status</h2>
+            <div id="agent-status" class="agent-status-grid">
+                <!-- Agent status cards will be populated here -->
+            </div>
+            <div class="controls-grid">
+                <div class="control-group">
+                    <h4>System Controls</h4>
+                    <button onclick="refreshAgentStatus()">🔄 Refresh Status</button>
+                    <button onclick="reinitializeSystem()">🚀 Reinitialize System</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agent Type Testing -->
+        <div class="test-section">
+            <h2>🧪 Agent Type Testing</h2>
+            <div class="controls-grid">
+                <div class="control-group">
+                    <h4>IDV Agent Tests</h4>
+                    <button onclick="testIDVAgent('verify my identity')" class="btn-success">Test Identity Verification</button>
+                    <button onclick="testIDVAgent('forgot my password')" class="btn-success">Test Password Reset</button>
+                    <button onclick="testIDVAgent('reset my PIN')" class="btn-success">Test PIN Reset</button>
+                </div>
+                <div class="control-group">
+                    <h4>Banking Info Agent Tests</h4>
+                    <button onclick="testBankingAgent('what is my balance')" class="btn-success">Test Balance Inquiry</button>
+                    <button onclick="testBankingAgent('show recent transactions')" class="btn-success">Test Transaction History</button>
+                    <button onclick="testBankingAgent('account details')" class="btn-success">Test Account Details</button>
+                </div>
+                <div class="control-group">
+                    <h4>Fraud Agent Tests</h4>
+                    <button onclick="testFraudAgent('block my card')" class="btn-danger">Test Card Blocking</button>
+                    <button onclick="testFraudAgent('suspicious activity')" class="btn-danger">Test Fraud Report</button>
+                    <button onclick="testFraudAgent('unauthorised transaction')" class="btn-danger">Test Unauthorized Transaction</button>
+                </div>
+                <div class="control-group">
+                    <h4>Payments Agent Tests</h4>
+                    <button onclick="testPaymentsAgent('send £100 to Alice')" class="btn-warning">Test Money Transfer</button>
+                    <button onclick="testPaymentsAgent('pay my bills')" class="btn-warning">Test Bill Payment</button>
+                    <button onclick="testPaymentsAgent('transfer to savings')" class="btn-warning">Test Account Transfer</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Routing Validation -->
+        <div class="test-section">
+            <h2>🎯 Routing Accuracy Validation</h2>
+            <div class="controls-grid">
+                <div class="control-group">
+                    <h4>Validation Tests</h4>
+                    <button onclick="runRoutingAccuracyTest()" class="btn-success">🎯 Test Routing Accuracy</button>
+                    <button onclick="runFallbackValidation()" class="btn-secondary">🔄 Test Fallback Handler</button>
+                    <button onclick="runEdgeCaseTests()" class="btn-warning">⚠️ Test Edge Cases</button>
+                </div>
+                <div class="control-group">
+                    <h4>Batch Testing</h4>
+                    <button onclick="runBatchRoutingTest()">📊 Batch Routing Test</button>
+                    <button onclick="runStressTest()">⚡ Stress Test</button>
+                    <button onclick="runConcurrencyTest()">🔀 Concurrency Test</button>
+                </div>
+            </div>
+            <div id="validation-results" class="test-results"></div>
+        </div>
+
+        <!-- Response Comparison -->
+        <div class="test-section">
+            <h2>🔍 Agent Response Comparison</h2>
+            <div class="controls-grid">
+                <div class="control-group">
+                    <h4>Comparison Tools</h4>
+                    <button onclick="compareAgentResponses()" class="btn-success">🔍 Compare All Agents</button>
+                    <button onclick="compareResponseQuality()" class="btn-secondary">📊 Quality Analysis</button>
+                    <button onclick="exportComparisonData()" class="btn-secondary">📤 Export Comparison</button>
+                </div>
+            </div>
+            <div id="comparison-results">
+                <table id="comparison-table" class="comparison-table" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Input</th>
+                            <th>Selected Agent</th>
+                            <th>Can Handle</th>
+                            <th>Processing Time</th>
+                            <th>Response Preview</th>
+                            <th>Validation</th>
+                        </tr>
+                    </thead>
+                    <tbody id="comparison-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Performance Metrics -->
+        <div class="test-section">
+            <h2>📊 Performance Metrics</h2>
+            <div id="metrics-display" class="metrics-grid">
+                <!-- Metrics cards will be populated here -->
+            </div>
+            <div class="controls-grid">
+                <div class="control-group">
+                    <h4>Metrics Controls</h4>
+                    <button onclick="updatePerformanceMetrics()">🔄 Update Metrics</button>
+                    <button onclick="resetPerformanceMetrics()">🗑️ Reset Metrics</button>
+                    <button onclick="exportPerformanceData()">📊 Export Data</button>
+                </div>
+                <div class="control-group">
+                    <h4>Performance Tests</h4>
+                    <button onclick="runPerformanceBenchmark()">⚡ Run Benchmark</button>
+                    <button onclick="runLatencyTest()">⏱️ Latency Test</button>
+                    <button onclick="runThroughputTest()">📈 Throughput Test</button>
+                </div>
+            </div>
+            <div id="performance-chart" class="performance-chart">
+                <div id="chart-placeholder" style="text-align: center; color: #7f8c8d; padding: 50px;">
+                    Performance charts will appear here after running tests
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Input Testing -->
+        <div class="test-section">
+            <h2>✏️ Custom Input Testing</h2>
+            <textarea id="custom-input" class="test-input" rows="3" placeholder="Enter custom test input to validate agent routing...">What is my account balance and can you also help me transfer money?</textarea>
+            <div class="controls-grid">
+                <div class="control-group">
+                    <h4>Custom Tests</h4>
+                    <button onclick="testCustomInput()" class="btn-success">🧪 Test Custom Input</button>
+                    <button onclick="testAllAgentsWithCustom()" class="btn-secondary">🔄 Test All Agents</button>
+                    <button onclick="validateCustomRouting()" class="btn-warning">✅ Validate Routing</button>
+                </div>
+                <div class="control-group">
+                    <h4>Quick Tests</h4>
+                    <button onclick="loadSampleInputs()">📝 Load Sample Inputs</button>
+                    <button onclick="clearCustomInput()">🧹 Clear Input</button>
+                </div>
+            </div>
+            <div id="custom-results" class="test-results"></div>
+        </div>
+
+        <!-- Test Results -->
+        <div class="test-section">
+            <h2>📋 Test Results Log</h2>
+            <div class="controls-grid">
+                <div class="control-group">
+                    <h4>Log Controls</h4>
+                    <button onclick="clearTestResults()">🧹 Clear Results</button>
+                    <button onclick="exportTestResults()">📤 Export Results</button>
+                    <button onclick="generateTestReport()">📊 Generate Report</button>
+                </div>
+            </div>
+            <div id="test-results" class="test-results">
+                Test results will appear here...
+            </div>
+        </div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agent-telemetry.js"></script>
+    <script src="persona-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
+    <script src="token-tracker.js"></script>
+    <script src="api-client.js"></script>
+    <script src="agents/security-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        // Test framework and global variables
+        let agentRouter = null;
+        let testContext = null;
+        let testResults = [];
+        let performanceMetrics = {
+            totalTests: 0,
+            totalProcessingTime: 0,
+            averageProcessingTime: 0,
+            routingAccuracy: 0,
+            agentActivations: {},
+            errorCount: 0,
+            successCount: 0
+        };
+
+        // Initialize test environment
+        function initializeTestEnvironment() {
+            try {
+                // Enable debug mode for testing
+                window.debugManager.enable();
+                
+                // Initialize agent telemetry if available
+                if (window.agentTelemetry) {
+                    window.agentTelemetry.enable();
+                }
+
+                // Create mock persona data
+                const mockPersonaData = {
+                    name: 'Test User',
+                    accountType: 'Premium Current Account',
+                    balance: 2500.75,
+                    cardLast4: '1234',
+                    currency: 'GBP',
+                    recentTransactions: [
+                        { date: '2024-01-15', amount: -45.50, description: 'Grocery Store Purchase' },
+                        { date: '2024-01-14', amount: -12.99, description: 'Coffee Shop' },
+                        { date: '2024-01-13', amount: 1500.00, description: 'Salary Deposit' }
+                    ]
+                };
+
+                // Create test context
+                testContext = {
+                    personaManager: {
+                        getCurrentPersonaData: () => mockPersonaData,
+                        formatCurrency: (amount) => `£${Math.abs(amount).toFixed(2)}`
+                    },
+                    systemPromptsManager: {
+                        getSystemPrompt: () => 'You are a helpful banking assistant.',
+                        generateSystemPrompt: (persona, input) => `You are a helpful banking assistant. Customer: ${persona?.name || 'Unknown'}`
+                    },
+                    apiClient: {
+                        generateChatCompletion: async (messages, options) => {
+                            // Mock API response with realistic delay
+                            await new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 200));
+                            return {
+                                success: true,
+                                content: `Mock response for: ${messages[messages.length - 1].content.substring(0, 50)}...`,
+                                tokensUsed: Math.floor(Math.random() * 100) + 50
+                            };
+                        }
+                    },
+                    tokenTracker: {
+                        addTokens: (tokens, source) => {
+                            console.log(`Token tracking: ${tokens} tokens used by ${source}`);
+                        }
+                    }
+                };
+
+                // Initialize agents
+                const agents = [
+                    new PaymentsAgent(),
+                    new FraudAgent(), 
+                    new IDVAgent(),
+                    new BankingInfoAgent()
+                ];
+
+                // Initialize router
+                agentRouter = new AgentRouter(agents);
+
+                updateStatus('Agent routing test environment initialized successfully', 'success');
+                refreshAgentStatus();
+                updatePerformanceMetrics();
+                
+                return true;
+
+            } catch (error) {
+                updateStatus(`Failed to initialize test environment: ${error.message}`, 'error');
+                console.error('Test environment initialization failed:', error);
+                return false;
+            }
+        }
+
+        // Update status message
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            if (statusDiv) {
+                statusDiv.textContent = message;
+                statusDiv.className = `status ${type}`;
+            }
+            logResult(message, type);
+        }
+
+        // Log test results
+        function logResult(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            
+            testResults.push({ message: logEntry, type, timestamp: Date.now() });
+            
+            const resultsDiv = document.getElementById('test-results');
+            if (resultsDiv) {
+                resultsDiv.textContent = testResults.map(r => r.message).join('\n');
+                resultsDiv.scrollTop = resultsDiv.scrollHeight;
+            }
+        }
+
+        // Refresh agent status display
+        function refreshAgentStatus() {
+            if (!agentRouter) {
+                updateStatus('Agent router not initialized', 'error');
+                return;
+            }
+
+            const stats = agentRouter.getStats();
+            const statusDiv = document.getElementById('agent-status');
+            
+            if (statusDiv) {
+                statusDiv.innerHTML = stats.agentDescriptions.map(agent => {
+                    const metrics = agentRouter.getRegisteredAgents()
+                        .find(a => a.name === agent.name)?.getMetrics();
+                    
+                    return `
+                        <div class="agent-card ${agent.enabled ? 'enabled' : 'disabled'}">
+                            <div class="agent-header">
+                                <div class="agent-name">${agent.name}</div>
+                                <div class="agent-status-badge ${agent.enabled ? 'status-enabled' : 'status-disabled'}">
+                                    ${agent.enabled ? 'ENABLED' : 'DISABLED'}
+                                </div>
+                            </div>
+                            <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
+                                ${agent.description}
+                            </div>
+                            <div style="font-size: 11px; color: #888;">
+                                Priority: ${agent.priority} | 
+                                Activations: ${metrics?.activations || 0} |
+                                Success Rate: ${metrics ? ((metrics.successCount / (metrics.completions || 1)) * 100).toFixed(1) : 0}%
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            logResult(`Agent status refreshed - ${stats.enabledAgents}/${stats.totalAgents} agents enabled`);
+        }
+
+        // Reinitialize the system
+        function reinitializeSystem() {
+            updateStatus('Reinitializing agent system...', 'info');
+            if (initializeTestEnvironment()) {
+                updateStatus('System reinitialized successfully', 'success');
+            }
+        }       
+ // Agent-specific testing functions
+        async function testIDVAgent(inputText) {
+            await testSpecificAgent('IDVAgent', inputText);
+        }
+
+        async function testBankingAgent(inputText) {
+            await testSpecificAgent('BankingInfoAgent', inputText);
+        }
+
+        async function testFraudAgent(inputText) {
+            await testSpecificAgent('FraudAgent', inputText);
+        }
+
+        async function testPaymentsAgent(inputText) {
+            await testSpecificAgent('PaymentsAgent', inputText);
+        }
+
+        async function testSpecificAgent(expectedAgentName, inputText) {
+            if (!agentRouter) {
+                updateStatus('Agent router not initialized', 'error');
+                return;
+            }
+
+            try {
+                updateStatus(`Testing ${expectedAgentName} with: "${inputText}"`, 'info');
+                
+                const startTime = Date.now();
+                const result = await agentRouter.route(inputText, testContext);
+                const processingTime = Date.now() - startTime;
+
+                // Update performance metrics
+                performanceMetrics.totalTests++;
+                performanceMetrics.totalProcessingTime += processingTime;
+                performanceMetrics.averageProcessingTime = performanceMetrics.totalProcessingTime / performanceMetrics.totalTests;
+
+                if (!performanceMetrics.agentActivations[result.agentName]) {
+                    performanceMetrics.agentActivations[result.agentName] = 0;
+                }
+                performanceMetrics.agentActivations[result.agentName]++;
+
+                if (result.success) {
+                    performanceMetrics.successCount++;
+                    
+                    // Check if correct agent was selected
+                    if (result.agentName === expectedAgentName) {
+                        performanceMetrics.routingAccuracy = (performanceMetrics.routingAccuracy * (performanceMetrics.totalTests - 1) + 1) / performanceMetrics.totalTests;
+                        updateStatus(`✅ SUCCESS: ${expectedAgentName} correctly handled request (${processingTime}ms)`, 'success');
+                        logResult(`✅ ${expectedAgentName}: "${inputText}" → ${result.response.substring(0, 100)}...`);
+                    } else {
+                        updateStatus(`⚠️ ROUTING ISSUE: Expected ${expectedAgentName}, got ${result.agentName}`, 'warning');
+                        logResult(`⚠️ Routing mismatch: "${inputText}" → Expected: ${expectedAgentName}, Got: ${result.agentName}`);
+                    }
+                } else {
+                    performanceMetrics.errorCount++;
+                    updateStatus(`❌ FAILED: ${result.error}`, 'error');
+                    logResult(`❌ Test failed: "${inputText}" → Error: ${result.error}`);
+                }
+
+                updatePerformanceMetrics();
+
+            } catch (error) {
+                performanceMetrics.errorCount++;
+                updateStatus(`❌ ERROR: ${error.message}`, 'error');
+                logResult(`❌ Exception during test: ${error.message}`);
+            }
+        }
+
+        // Routing validation tests
+        async function runRoutingAccuracyTest() {
+            updateStatus('Running routing accuracy validation...', 'info');
+            
+            const testCases = [
+                { input: 'What is my account balance?', expected: 'BankingInfoAgent' },
+                { input: 'Show me my recent transactions', expected: 'BankingInfoAgent' },
+                { input: 'I need to verify my identity', expected: 'IDVAgent' },
+                { input: 'I forgot my password', expected: 'IDVAgent' },
+                { input: 'Block my card immediately', expected: 'FraudAgent' },
+                { input: 'I see suspicious activity', expected: 'FraudAgent' },
+                { input: 'Send £100 to Alice', expected: 'PaymentsAgent' },
+                { input: 'Transfer money to my savings', expected: 'PaymentsAgent' },
+                { input: 'What is the weather today?', expected: 'FallbackHandler' }
+            ];
+
+            let correctRouting = 0;
+            const validationResults = [];
+
+            for (const testCase of testCases) {
+                try {
+                    const result = await agentRouter.route(testCase.input, testContext);
+                    const isCorrect = result.agentName === testCase.expected;
+                    
+                    if (isCorrect) correctRouting++;
+                    
+                    validationResults.push({
+                        input: testCase.input,
+                        expected: testCase.expected,
+                        actual: result.agentName,
+                        correct: isCorrect,
+                        processingTime: result.processingTime,
+                        success: result.success
+                    });
+
+                    logResult(`${isCorrect ? '✅' : '❌'} "${testCase.input}" → Expected: ${testCase.expected}, Got: ${result.agentName}`);
+                    
+                } catch (error) {
+                    validationResults.push({
+                        input: testCase.input,
+                        expected: testCase.expected,
+                        actual: 'ERROR',
+                        correct: false,
+                        error: error.message
+                    });
+                    logResult(`❌ Error testing "${testCase.input}": ${error.message}`);
+                }
+            }
+
+            const accuracy = (correctRouting / testCases.length) * 100;
+            updateStatus(`Routing accuracy test completed: ${correctRouting}/${testCases.length} (${accuracy.toFixed(1)}%)`, 
+                accuracy >= 80 ? 'success' : 'warning');
+
+            // Display detailed results
+            displayValidationResults(validationResults);
+        }
+
+        function displayValidationResults(results) {
+            const validationDiv = document.getElementById('validation-results');
+            if (!validationDiv) return;
+
+            let output = '\n=== ROUTING VALIDATION RESULTS ===\n\n';
+            
+            results.forEach((result, index) => {
+                output += `${index + 1}. Input: "${result.input}"\n`;
+                output += `   Expected: ${result.expected}\n`;
+                output += `   Actual: ${result.actual}\n`;
+                output += `   Result: ${result.correct ? '✅ PASS' : '❌ FAIL'}\n`;
+                if (result.processingTime) {
+                    output += `   Processing Time: ${result.processingTime}ms\n`;
+                }
+                if (result.error) {
+                    output += `   Error: ${result.error}\n`;
+                }
+                output += '\n';
+            });
+
+            const passCount = results.filter(r => r.correct).length;
+            const accuracy = (passCount / results.length) * 100;
+            output += `\nSUMMARY: ${passCount}/${results.length} tests passed (${accuracy.toFixed(1)}% accuracy)\n`;
+
+            validationDiv.textContent = output;
+        }
+
+        async function runFallbackValidation() {
+            updateStatus('Testing fallback handler...', 'info');
+            
+            const fallbackInputs = [
+                'What is the weather today?',
+                'Tell me a joke',
+                'How do I cook pasta?',
+                'What time is it?',
+                'Random question that no agent should handle'
+            ];
+
+            let fallbackCount = 0;
+            
+            for (const input of fallbackInputs) {
+                try {
+                    const result = await agentRouter.route(input, testContext);
+                    if (result.agentName === 'FallbackHandler') {
+                        fallbackCount++;
+                        logResult(`✅ Fallback: "${input}" → ${result.agentName}`);
+                    } else {
+                        logResult(`⚠️ Unexpected routing: "${input}" → ${result.agentName}`);
+                    }
+                } catch (error) {
+                    logResult(`❌ Fallback test error: ${error.message}`);
+                }
+            }
+
+            updateStatus(`Fallback validation completed: ${fallbackCount}/${fallbackInputs.length} routed to fallback`, 
+                fallbackCount === fallbackInputs.length ? 'success' : 'warning');
+        }
+
+        async function runEdgeCaseTests() {
+            updateStatus('Testing edge cases...', 'info');
+            
+            const edgeCases = [
+                { input: '', description: 'Empty input' },
+                { input: '   ', description: 'Whitespace only' },
+                { input: 'a'.repeat(1000), description: 'Very long input' },
+                { input: '!@#$%^&*()', description: 'Special characters only' },
+                { input: '12345', description: 'Numbers only' },
+                { input: 'balance transfer fraud verify', description: 'Multiple agent keywords' }
+            ];
+
+            for (const testCase of edgeCases) {
+                try {
+                    const result = await agentRouter.route(testCase.input, testContext);
+                    logResult(`✅ Edge case (${testCase.description}): "${testCase.input.substring(0, 50)}..." → ${result.agentName}`);
+                } catch (error) {
+                    logResult(`❌ Edge case error (${testCase.description}): ${error.message}`);
+                }
+            }
+
+            updateStatus('Edge case testing completed', 'success');
+        }
+
+        // Batch and stress testing
+        async function runBatchRoutingTest() {
+            updateStatus('Running batch routing test...', 'info');
+            
+            const batchInputs = [
+                'What is my balance?',
+                'Transfer £50 to John',
+                'Block my card',
+                'Verify my identity',
+                'Show transactions',
+                'Send money to Alice',
+                'Suspicious activity',
+                'Reset password',
+                'Account details',
+                'Freeze account'
+            ];
+
+            const startTime = Date.now();
+            const results = [];
+
+            for (const input of batchInputs) {
+                try {
+                    const result = await agentRouter.route(input, testContext);
+                    results.push({
+                        input,
+                        agent: result.agentName,
+                        success: result.success,
+                        processingTime: result.processingTime
+                    });
+                } catch (error) {
+                    results.push({
+                        input,
+                        agent: 'ERROR',
+                        success: false,
+                        error: error.message
+                    });
+                }
+            }
+
+            const totalTime = Date.now() - startTime;
+            const successCount = results.filter(r => r.success).length;
+            const avgProcessingTime = results.reduce((sum, r) => sum + (r.processingTime || 0), 0) / results.length;
+
+            logResult(`\n=== BATCH TEST RESULTS ===`);
+            logResult(`Total requests: ${batchInputs.length}`);
+            logResult(`Successful: ${successCount}/${batchInputs.length}`);
+            logResult(`Total time: ${totalTime}ms`);
+            logResult(`Average processing time: ${avgProcessingTime.toFixed(2)}ms`);
+            
+            updateStatus(`Batch test completed: ${successCount}/${batchInputs.length} successful in ${totalTime}ms`, 'success');
+        }
+
+        async function runStressTest() {
+            updateStatus('Running stress test...', 'info');
+            
+            const testInput = 'What is my account balance?';
+            const iterations = 50;
+            const startTime = Date.now();
+            
+            let successCount = 0;
+            let totalProcessingTime = 0;
+
+            for (let i = 0; i < iterations; i++) {
+                try {
+                    const result = await agentRouter.route(testInput, testContext);
+                    if (result.success) {
+                        successCount++;
+                        totalProcessingTime += result.processingTime || 0;
+                    }
+                } catch (error) {
+                    logResult(`❌ Stress test iteration ${i + 1} failed: ${error.message}`);
+                }
+            }
+
+            const totalTime = Date.now() - startTime;
+            const avgProcessingTime = totalProcessingTime / successCount;
+            const throughput = (successCount / totalTime) * 1000; // requests per second
+
+            logResult(`\n=== STRESS TEST RESULTS ===`);
+            logResult(`Iterations: ${iterations}`);
+            logResult(`Successful: ${successCount}/${iterations}`);
+            logResult(`Total time: ${totalTime}ms`);
+            logResult(`Average processing time: ${avgProcessingTime.toFixed(2)}ms`);
+            logResult(`Throughput: ${throughput.toFixed(2)} requests/second`);
+
+            updateStatus(`Stress test completed: ${successCount}/${iterations} successful, ${throughput.toFixed(2)} req/s`, 'success');
+        }
+
+        async function runConcurrencyTest() {
+            updateStatus('Running concurrency test...', 'info');
+            
+            const concurrentRequests = [
+                'What is my balance?',
+                'Transfer £100',
+                'Block my card',
+                'Verify identity',
+                'Show transactions'
+            ];
+
+            const startTime = Date.now();
+            
+            try {
+                const promises = concurrentRequests.map(input => 
+                    agentRouter.route(input, testContext)
+                );
+                
+                const results = await Promise.all(promises);
+                const totalTime = Date.now() - startTime;
+                const successCount = results.filter(r => r.success).length;
+
+                logResult(`\n=== CONCURRENCY TEST RESULTS ===`);
+                logResult(`Concurrent requests: ${concurrentRequests.length}`);
+                logResult(`Successful: ${successCount}/${concurrentRequests.length}`);
+                logResult(`Total time: ${totalTime}ms`);
+                
+                results.forEach((result, index) => {
+                    logResult(`${index + 1}. "${concurrentRequests[index]}" → ${result.agentName} (${result.processingTime}ms)`);
+                });
+
+                updateStatus(`Concurrency test completed: ${successCount}/${concurrentRequests.length} successful in ${totalTime}ms`, 'success');
+                
+            } catch (error) {
+                updateStatus(`Concurrency test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Response comparison functions
+        async function compareAgentResponses() {
+            updateStatus('Comparing agent responses...', 'info');
+            
+            const testInputs = [
+                'What is my account balance?',
+                'I need help with my account',
+                'There is a problem with my card',
+                'I want to send money'
+            ];
+
+            const comparisonData = [];
+
+            for (const input of testInputs) {
+                const agents = agentRouter.getRegisteredAgents();
+                const agentResponses = {};
+
+                // Test each agent's canHandle method
+                for (const agent of agents) {
+                    try {
+                        const canHandle = agent.canHandle(input);
+                        const startTime = Date.now();
+                        
+                        let response = null;
+                        if (canHandle) {
+                            try {
+                                response = await agent.handle(input, testContext);
+                            } catch (error) {
+                                response = { success: false, error: error.message };
+                            }
+                        }
+                        
+                        const processingTime = Date.now() - startTime;
+                        
+                        agentResponses[agent.name] = {
+                            canHandle,
+                            response,
+                            processingTime
+                        };
+                    } catch (error) {
+                        agentResponses[agent.name] = {
+                            canHandle: false,
+                            error: error.message
+                        };
+                    }
+                }
+
+                // Get router's selection
+                const routerResult = await agentRouter.route(input, testContext);
+                
+                comparisonData.push({
+                    input,
+                    agentResponses,
+                    routerSelection: routerResult.agentName,
+                    routerSuccess: routerResult.success
+                });
+            }
+
+            displayComparisonResults(comparisonData);
+            updateStatus('Agent response comparison completed', 'success');
+        }
+
+        function displayComparisonResults(comparisonData) {
+            const table = document.getElementById('comparison-table');
+            const tbody = document.getElementById('comparison-tbody');
+            
+            if (!table || !tbody) return;
+
+            tbody.innerHTML = '';
+
+            comparisonData.forEach(data => {
+                const agents = Object.keys(data.agentResponses);
+                
+                agents.forEach(agentName => {
+                    const agentData = data.agentResponses[agentName];
+                    const row = tbody.insertRow();
+                    
+                    row.insertCell(0).textContent = data.input;
+                    row.insertCell(1).textContent = agentName;
+                    row.insertCell(2).textContent = agentData.canHandle ? '✅ Yes' : '❌ No';
+                    row.insertCell(3).textContent = agentData.processingTime ? `${agentData.processingTime}ms` : 'N/A';
+                    
+                    const responseCell = row.insertCell(4);
+                    if (agentData.response && agentData.response.response) {
+                        responseCell.textContent = agentData.response.response.substring(0, 100) + '...';
+                    } else if (agentData.error) {
+                        responseCell.textContent = `Error: ${agentData.error}`;
+                        responseCell.style.color = 'red';
+                    } else {
+                        responseCell.textContent = 'No response';
+                    }
+                    
+                    const validationCell = row.insertCell(5);
+                    const isSelected = data.routerSelection === agentName;
+                    const shouldHandle = agentData.canHandle;
+                    
+                    if (isSelected && shouldHandle) {
+                        validationCell.innerHTML = '<div class="validation-pass">✅ Correct</div>';
+                    } else if (isSelected && !shouldHandle) {
+                        validationCell.innerHTML = '<div class="validation-fail">❌ Wrong Selection</div>';
+                    } else if (!isSelected && shouldHandle) {
+                        validationCell.innerHTML = '<div class="validation-warning">⚠️ Could Handle</div>';
+                    } else {
+                        validationCell.innerHTML = '<div class="validation-pass">✅ Correctly Ignored</div>';
+                    }
+                });
+            });
+
+            table.style.display = 'table';
+        }
+
+        async function compareResponseQuality() {
+            updateStatus('Analyzing response quality...', 'info');
+            
+            const qualityMetrics = {
+                averageResponseLength: 0,
+                averageProcessingTime: 0,
+                successRate: 0,
+                tokenEfficiency: 0
+            };
+
+            // This would typically involve more sophisticated analysis
+            // For now, we'll use basic metrics from our test data
+            
+            logResult('\n=== RESPONSE QUALITY ANALYSIS ===');
+            logResult('Quality metrics analysis completed');
+            logResult('Note: Implement more sophisticated quality metrics as needed');
+            
+            updateStatus('Response quality analysis completed', 'success');
+        }
+
+        function exportComparisonData() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                performanceMetrics,
+                testResults: testResults.slice(-50), // Last 50 results
+                agentStats: agentRouter ? agentRouter.getStats() : null
+            };
+
+            const jsonData = JSON.stringify(data, null, 2);
+            logResult('\n=== COMPARISON DATA EXPORT ===');
+            logResult(jsonData);
+            
+            // Copy to clipboard if possible
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(jsonData).then(() => {
+                    updateStatus('Comparison data exported and copied to clipboard', 'success');
+                });
+            } else {
+                updateStatus('Comparison data exported to console', 'success');
+            }
+        }   
+     // Performance metrics functions
+        function updatePerformanceMetrics() {
+            const metricsDiv = document.getElementById('metrics-display');
+            if (!metricsDiv) return;
+
+            const successRate = performanceMetrics.totalTests > 0 ? 
+                (performanceMetrics.successCount / performanceMetrics.totalTests) * 100 : 0;
+            
+            const routingAccuracy = performanceMetrics.routingAccuracy * 100;
+
+            metricsDiv.innerHTML = `
+                <div class="metric-card">
+                    <div class="metric-value">${performanceMetrics.totalTests}</div>
+                    <div class="metric-label">Total Tests</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${successRate.toFixed(1)}%</div>
+                    <div class="metric-label">Success Rate</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${routingAccuracy.toFixed(1)}%</div>
+                    <div class="metric-label">Routing Accuracy</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${performanceMetrics.averageProcessingTime.toFixed(0)}ms</div>
+                    <div class="metric-label">Avg Processing Time</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${performanceMetrics.successCount}</div>
+                    <div class="metric-label">Successful Requests</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${performanceMetrics.errorCount}</div>
+                    <div class="metric-label">Failed Requests</div>
+                </div>
+            `;
+
+            // Update chart placeholder with basic metrics
+            const chartDiv = document.getElementById('chart-placeholder');
+            if (chartDiv && performanceMetrics.totalTests > 0) {
+                const agentActivations = Object.entries(performanceMetrics.agentActivations)
+                    .map(([name, count]) => `${name}: ${count}`)
+                    .join(', ');
+                
+                chartDiv.innerHTML = `
+                    <div style="text-align: left; padding: 20px;">
+                        <h4>Agent Activation Distribution</h4>
+                        <p>${agentActivations || 'No activations recorded'}</p>
+                        <h4>Performance Summary</h4>
+                        <p>Total Processing Time: ${performanceMetrics.totalProcessingTime}ms</p>
+                        <p>Average per Request: ${performanceMetrics.averageProcessingTime.toFixed(2)}ms</p>
+                        <p>Success Rate: ${successRate.toFixed(1)}%</p>
+                    </div>
+                `;
+            }
+        }
+
+        function resetPerformanceMetrics() {
+            performanceMetrics = {
+                totalTests: 0,
+                totalProcessingTime: 0,
+                averageProcessingTime: 0,
+                routingAccuracy: 0,
+                agentActivations: {},
+                errorCount: 0,
+                successCount: 0
+            };
+
+            // Reset agent metrics if available
+            if (agentRouter) {
+                const agents = agentRouter.getRegisteredAgents();
+                agents.forEach(agent => {
+                    if (agent.resetMetrics) {
+                        agent.resetMetrics();
+                    }
+                });
+            }
+
+            // Reset telemetry if available
+            if (window.agentTelemetry) {
+                window.agentTelemetry.reset();
+            }
+
+            updatePerformanceMetrics();
+            updateStatus('Performance metrics reset', 'success');
+        }
+
+        function exportPerformanceData() {
+            const performanceData = {
+                timestamp: new Date().toISOString(),
+                metrics: performanceMetrics,
+                agentStats: agentRouter ? agentRouter.getStats() : null,
+                telemetryData: window.agentTelemetry ? window.agentTelemetry.exportData() : null
+            };
+
+            const jsonData = JSON.stringify(performanceData, null, 2);
+            logResult('\n=== PERFORMANCE DATA EXPORT ===');
+            logResult(jsonData);
+
+            updateStatus('Performance data exported to console', 'success');
+        }
+
+        async function runPerformanceBenchmark() {
+            updateStatus('Running performance benchmark...', 'info');
+            
+            const benchmarkTests = [
+                { input: 'What is my balance?', iterations: 10 },
+                { input: 'Transfer £100', iterations: 10 },
+                { input: 'Block my card', iterations: 10 },
+                { input: 'Verify identity', iterations: 10 }
+            ];
+
+            const benchmarkResults = [];
+
+            for (const test of benchmarkTests) {
+                const testStartTime = Date.now();
+                let successCount = 0;
+                let totalProcessingTime = 0;
+
+                for (let i = 0; i < test.iterations; i++) {
+                    try {
+                        const result = await agentRouter.route(test.input, testContext);
+                        if (result.success) {
+                            successCount++;
+                            totalProcessingTime += result.processingTime || 0;
+                        }
+                    } catch (error) {
+                        // Count as failure
+                    }
+                }
+
+                const testTotalTime = Date.now() - testStartTime;
+                const avgProcessingTime = totalProcessingTime / successCount;
+                const throughput = (successCount / testTotalTime) * 1000;
+
+                benchmarkResults.push({
+                    input: test.input,
+                    iterations: test.iterations,
+                    successCount,
+                    avgProcessingTime,
+                    throughput,
+                    totalTime: testTotalTime
+                });
+            }
+
+            logResult('\n=== PERFORMANCE BENCHMARK RESULTS ===');
+            benchmarkResults.forEach(result => {
+                logResult(`Input: "${result.input}"`);
+                logResult(`  Success: ${result.successCount}/${result.iterations}`);
+                logResult(`  Avg Processing Time: ${result.avgProcessingTime.toFixed(2)}ms`);
+                logResult(`  Throughput: ${result.throughput.toFixed(2)} req/s`);
+                logResult('');
+            });
+
+            updateStatus('Performance benchmark completed', 'success');
+        }
+
+        async function runLatencyTest() {
+            updateStatus('Running latency test...', 'info');
+            
+            const testInput = 'What is my account balance?';
+            const iterations = 20;
+            const latencies = [];
+
+            for (let i = 0; i < iterations; i++) {
+                const startTime = Date.now();
+                try {
+                    await agentRouter.route(testInput, testContext);
+                    const latency = Date.now() - startTime;
+                    latencies.push(latency);
+                } catch (error) {
+                    // Record as high latency for failed requests
+                    latencies.push(5000);
+                }
+            }
+
+            latencies.sort((a, b) => a - b);
+            const min = latencies[0];
+            const max = latencies[latencies.length - 1];
+            const avg = latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length;
+            const median = latencies[Math.floor(latencies.length / 2)];
+            const p95 = latencies[Math.floor(latencies.length * 0.95)];
+
+            logResult('\n=== LATENCY TEST RESULTS ===');
+            logResult(`Iterations: ${iterations}`);
+            logResult(`Min: ${min}ms`);
+            logResult(`Max: ${max}ms`);
+            logResult(`Average: ${avg.toFixed(2)}ms`);
+            logResult(`Median: ${median}ms`);
+            logResult(`95th Percentile: ${p95}ms`);
+
+            updateStatus(`Latency test completed - Avg: ${avg.toFixed(2)}ms, P95: ${p95}ms`, 'success');
+        }
+
+        async function runThroughputTest() {
+            updateStatus('Running throughput test...', 'info');
+            
+            const testInput = 'What is my balance?';
+            const duration = 5000; // 5 seconds
+            const startTime = Date.now();
+            let requestCount = 0;
+            let successCount = 0;
+
+            while (Date.now() - startTime < duration) {
+                try {
+                    const result = await agentRouter.route(testInput, testContext);
+                    requestCount++;
+                    if (result.success) {
+                        successCount++;
+                    }
+                } catch (error) {
+                    requestCount++;
+                }
+            }
+
+            const actualDuration = Date.now() - startTime;
+            const throughput = (requestCount / actualDuration) * 1000;
+            const successThroughput = (successCount / actualDuration) * 1000;
+
+            logResult('\n=== THROUGHPUT TEST RESULTS ===');
+            logResult(`Duration: ${actualDuration}ms`);
+            logResult(`Total Requests: ${requestCount}`);
+            logResult(`Successful Requests: ${successCount}`);
+            logResult(`Overall Throughput: ${throughput.toFixed(2)} req/s`);
+            logResult(`Success Throughput: ${successThroughput.toFixed(2)} req/s`);
+
+            updateStatus(`Throughput test completed - ${throughput.toFixed(2)} req/s overall, ${successThroughput.toFixed(2)} req/s successful`, 'success');
+        }
+
+        // Custom input testing functions
+        async function testCustomInput() {
+            const input = document.getElementById('custom-input').value.trim();
+            if (!input) {
+                updateStatus('Please enter custom input text', 'warning');
+                return;
+            }
+
+            if (!agentRouter) {
+                updateStatus('Agent router not initialized', 'error');
+                return;
+            }
+
+            try {
+                updateStatus(`Testing custom input: "${input}"`, 'info');
+                
+                const startTime = Date.now();
+                const result = await agentRouter.route(input, testContext);
+                const processingTime = Date.now() - startTime;
+
+                const customResults = document.getElementById('custom-results');
+                if (customResults) {
+                    const resultText = `
+[${new Date().toLocaleTimeString()}] Custom Input Test
+Input: "${input}"
+Selected Agent: ${result.agentName}
+Success: ${result.success}
+Processing Time: ${processingTime}ms
+Response: ${result.response ? result.response.substring(0, 200) + '...' : 'No response'}
+${result.error ? `Error: ${result.error}` : ''}
+
+`;
+                    customResults.textContent = resultText + customResults.textContent;
+                }
+
+                updateStatus(`Custom test completed - routed to ${result.agentName} (${processingTime}ms)`, 
+                    result.success ? 'success' : 'error');
+
+            } catch (error) {
+                updateStatus(`Custom test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAllAgentsWithCustom() {
+            const input = document.getElementById('custom-input').value.trim();
+            if (!input) {
+                updateStatus('Please enter custom input text', 'warning');
+                return;
+            }
+
+            if (!agentRouter) {
+                updateStatus('Agent router not initialized', 'error');
+                return;
+            }
+
+            updateStatus('Testing custom input with all agents...', 'info');
+            
+            const agents = agentRouter.getRegisteredAgents();
+            const customResults = document.getElementById('custom-results');
+            
+            let resultText = `\n[${new Date().toLocaleTimeString()}] All Agents Test\nInput: "${input}"\n\n`;
+
+            for (const agent of agents) {
+                try {
+                    const canHandle = agent.canHandle(input);
+                    resultText += `${agent.name}:\n`;
+                    resultText += `  Can Handle: ${canHandle ? '✅ Yes' : '❌ No'}\n`;
+                    
+                    if (canHandle) {
+                        const startTime = Date.now();
+                        const response = await agent.handle(input, testContext);
+                        const processingTime = Date.now() - startTime;
+                        
+                        resultText += `  Processing Time: ${processingTime}ms\n`;
+                        resultText += `  Success: ${response.success}\n`;
+                        if (response.response) {
+                            resultText += `  Response: ${response.response.substring(0, 100)}...\n`;
+                        }
+                        if (response.error) {
+                            resultText += `  Error: ${response.error}\n`;
+                        }
+                    }
+                    resultText += '\n';
+                    
+                } catch (error) {
+                    resultText += `  Error: ${error.message}\n\n`;
+                }
+            }
+
+            // Test router selection
+            try {
+                const routerResult = await agentRouter.route(input, testContext);
+                resultText += `Router Selection: ${routerResult.agentName}\n`;
+                resultText += `Router Success: ${routerResult.success}\n\n`;
+            } catch (error) {
+                resultText += `Router Error: ${error.message}\n\n`;
+            }
+
+            if (customResults) {
+                customResults.textContent = resultText + customResults.textContent;
+            }
+
+            updateStatus('All agents test completed', 'success');
+        }
+
+        async function validateCustomRouting() {
+            const input = document.getElementById('custom-input').value.trim();
+            if (!input) {
+                updateStatus('Please enter custom input text', 'warning');
+                return;
+            }
+
+            updateStatus('Validating custom input routing...', 'info');
+
+            try {
+                // Test routing decision
+                const selectedAgent = agentRouter.findBestAgent(input);
+                const allAgents = agentRouter.getRegisteredAgents();
+                
+                let validationText = `\n[${new Date().toLocaleTimeString()}] Routing Validation\nInput: "${input}"\n\n`;
+                
+                // Check which agents can handle the input
+                const capableAgents = [];
+                for (const agent of allAgents) {
+                    try {
+                        if (agent.canHandle(input)) {
+                            capableAgents.push(agent);
+                        }
+                    } catch (error) {
+                        validationText += `❌ ${agent.name}: Error in canHandle() - ${error.message}\n`;
+                    }
+                }
+
+                validationText += `Agents that can handle input: ${capableAgents.map(a => a.name).join(', ') || 'None'}\n`;
+                validationText += `Router selected: ${selectedAgent ? selectedAgent.name : 'None (Fallback)'}\n\n`;
+
+                // Validation logic
+                if (capableAgents.length === 0) {
+                    if (!selectedAgent) {
+                        validationText += '✅ VALID: No agents can handle input, router correctly selected fallback\n';
+                    } else {
+                        validationText += '❌ INVALID: Router selected agent but no agents can handle input\n';
+                    }
+                } else if (capableAgents.length === 1) {
+                    if (selectedAgent === capableAgents[0]) {
+                        validationText += '✅ VALID: Router correctly selected the only capable agent\n';
+                    } else {
+                        validationText += '❌ INVALID: Router did not select the only capable agent\n';
+                    }
+                } else {
+                    // Multiple agents can handle - check priority
+                    const sortedCapable = capableAgents.sort((a, b) => (a.priority || 100) - (b.priority || 100));
+                    if (selectedAgent === sortedCapable[0]) {
+                        validationText += '✅ VALID: Router correctly selected highest priority capable agent\n';
+                    } else {
+                        validationText += '⚠️ PRIORITY ISSUE: Router did not select highest priority capable agent\n';
+                        validationText += `Expected: ${sortedCapable[0].name} (priority ${sortedCapable[0].priority || 100})\n`;
+                        validationText += `Selected: ${selectedAgent ? selectedAgent.name : 'None'} (priority ${selectedAgent ? selectedAgent.priority || 100 : 'N/A'})\n`;
+                    }
+                }
+
+                const customResults = document.getElementById('custom-results');
+                if (customResults) {
+                    customResults.textContent = validationText + customResults.textContent;
+                }
+
+                updateStatus('Custom routing validation completed', 'success');
+
+            } catch (error) {
+                updateStatus(`Validation failed: ${error.message}`, 'error');
+            }
+        }
+
+        function loadSampleInputs() {
+            const sampleInputs = [
+                'What is my account balance and recent transactions?',
+                'I need to transfer money but first verify my identity',
+                'Block my card there is suspicious activity',
+                'Send £200 to John Smith for rent payment',
+                'I forgot my password and need to reset it',
+                'Show me all transactions from last month',
+                'There is fraud on my account please help',
+                'Transfer £500 from checking to savings account'
+            ];
+
+            const randomInput = sampleInputs[Math.floor(Math.random() * sampleInputs.length)];
+            document.getElementById('custom-input').value = randomInput;
+            updateStatus(`Loaded sample input: "${randomInput}"`, 'info');
+        }
+
+        function clearCustomInput() {
+            document.getElementById('custom-input').value = '';
+            updateStatus('Custom input cleared', 'info');
+        }
+
+        // Test results management
+        function clearTestResults() {
+            testResults = [];
+            const resultsDiv = document.getElementById('test-results');
+            if (resultsDiv) {
+                resultsDiv.textContent = 'Test results cleared...';
+            }
+            
+            const customResults = document.getElementById('custom-results');
+            if (customResults) {
+                customResults.textContent = '';
+            }
+            
+            const validationResults = document.getElementById('validation-results');
+            if (validationResults) {
+                validationResults.textContent = '';
+            }
+
+            updateStatus('All test results cleared', 'success');
+        }
+
+        function exportTestResults() {
+            const exportData = {
+                timestamp: new Date().toISOString(),
+                testResults,
+                performanceMetrics,
+                agentStats: agentRouter ? agentRouter.getStats() : null,
+                systemInfo: {
+                    userAgent: navigator.userAgent,
+                    timestamp: new Date().toISOString(),
+                    testDuration: testResults.length > 0 ? 
+                        testResults[testResults.length - 1].timestamp - testResults[0].timestamp : 0
+                }
+            };
+
+            const jsonData = JSON.stringify(exportData, null, 2);
+            
+            // Log to console
+            console.log('Test Results Export:', jsonData);
+            
+            // Display in results
+            logResult('\n=== TEST RESULTS EXPORT ===');
+            logResult('Test results exported to browser console');
+            logResult(`Total test entries: ${testResults.length}`);
+            logResult(`Performance metrics included: ${Object.keys(performanceMetrics).length} metrics`);
+
+            updateStatus('Test results exported to console', 'success');
+        }
+
+        function generateTestReport() {
+            const report = {
+                summary: {
+                    totalTests: performanceMetrics.totalTests,
+                    successRate: performanceMetrics.totalTests > 0 ? 
+                        (performanceMetrics.successCount / performanceMetrics.totalTests * 100).toFixed(1) + '%' : '0%',
+                    routingAccuracy: (performanceMetrics.routingAccuracy * 100).toFixed(1) + '%',
+                    averageProcessingTime: performanceMetrics.averageProcessingTime.toFixed(2) + 'ms',
+                    totalProcessingTime: performanceMetrics.totalProcessingTime + 'ms'
+                },
+                agentActivations: performanceMetrics.agentActivations,
+                recentResults: testResults.slice(-10),
+                systemStatus: agentRouter ? agentRouter.getStats() : null
+            };
+
+            logResult('\n=== COMPREHENSIVE TEST REPORT ===');
+            logResult(JSON.stringify(report, null, 2));
+
+            updateStatus('Comprehensive test report generated', 'success');
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateStatus('Initializing agent routing test environment...', 'info');
+            if (initializeTestEnvironment()) {
+                updateStatus('Agent routing test environment ready', 'success');
+            }
+        });
+    </script>
+</body>
+</html>

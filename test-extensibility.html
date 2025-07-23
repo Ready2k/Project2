@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extensibility System Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { margin: 5px; padding: 8px 16px; }
+    </style>
+</head>
+<body>
+    <h1>Extensibility System Test</h1>
+    
+    <div class="test-section">
+        <h2>System Status</h2>
+        <div id="systemStatus">Loading...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>LLM Provider Tests</h2>
+        <button onclick="testLLMProviders()">Test LLM Providers</button>
+        <div id="llmResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Agent Loader Tests</h2>
+        <button onclick="testAgentLoader()">Test Agent Loader</button>
+        <div id="agentResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Telemetry Hooks Tests</h2>
+        <button onclick="testTelemetryHooks()">Test Telemetry Hooks</button>
+        <div id="telemetryResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Integration Test</h2>
+        <button onclick="runIntegrationTest()">Run Full Integration Test</button>
+        <div id="integrationResults"></div>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agent-telemetry.js"></script>
+    
+    <!-- Load extensibility system -->
+    <script src="agents/llm-provider-interface.js"></script>
+    <script src="agents/llm-provider-manager.js"></script>
+    <script src="agents/agent-loader.js"></script>
+    <script src="agents/telemetry-hooks.js"></script>
+    <script src="agents/extensibility-init.js"></script>
+
+    <script>
+        // Initialize debug manager
+        window.debugManager = new DebugManager();
+        
+        // Test functions
+        function updateSystemStatus() {
+            const statusDiv = document.getElementById('systemStatus');
+            const status = getExtensibilityStatus();
+            
+            let html = '<h3>Component Status:</h3><ul>';
+            for (const [component, available] of Object.entries(status.components)) {
+                const className = available ? 'success' : 'error';
+                html += `<li class="${className}">${component}: ${available ? '✓ Available' : '✗ Not Available'}</li>`;
+            }
+            html += '</ul>';
+            
+            if (status.ready) {
+                html += '<p class="success">✓ Extensibility system is ready</p>';
+                if (status.stats) {
+                    html += `<p class="info">Stats: ${status.stats.llmProviders} LLM providers, ${status.stats.loadedAgents} agents, ${status.stats.telemetryHooks} hooks</p>`;
+                }
+            } else {
+                html += '<p class="error">✗ Extensibility system is not ready</p>';
+            }
+            
+            statusDiv.innerHTML = html;
+        }
+        
+        async function testLLMProviders() {
+            const resultsDiv = document.getElementById('llmResults');
+            resultsDiv.innerHTML = '<p>Testing LLM providers...</p>';
+            
+            try {
+                // Initialize extensibility system first
+                const initResult = await initializeExtensibilitySystem({
+                    enablePredefinedHooks: false
+                });
+                
+                if (!initResult.success) {
+                    throw new Error('Failed to initialize extensibility system: ' + initResult.errors.join(', '));
+                }
+                
+                const manager = window.llmProviderManager;
+                if (!manager) {
+                    throw new Error('LLM Provider Manager not available');
+                }
+                
+                const stats = manager.getProviderStats();
+                const providers = manager.getAllProviders();
+                
+                let html = '<h4>LLM Provider Test Results:</h4>';
+                html += `<p class="success">✓ LLM Provider Manager initialized</p>`;
+                html += `<p class="info">Total providers: ${stats.totalProviders}</p>`;
+                html += `<p class="info">Available providers: ${stats.availableProviders}</p>`;
+                html += `<p class="info">Default provider: ${stats.defaultProvider}</p>`;
+                
+                html += '<h5>Provider Details:</h5><ul>';
+                for (const [name, info] of Object.entries(stats.providers)) {
+                    const className = info.available ? 'success' : 'error';
+                    html += `<li class="${className}">${name}: ${info.available ? 'Available' : 'Not Available'}</li>`;
+                    html += `<ul><li>Capabilities: ${JSON.stringify(info.capabilities)}</li></ul>`;
+                }
+                html += '</ul>';
+                
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">✗ LLM Provider test failed: ${error.message}</p>`;
+            }
+        }
+        
+        async function testAgentLoader() {
+            const resultsDiv = document.getElementById('agentResults');
+            resultsDiv.innerHTML = '<p>Testing Agent Loader...</p>';
+            
+            try {
+                // Create a mock agent router for testing
+                const mockRouter = {
+                    registerAgent: (agent, config) => {
+                        console.log('Mock router registering agent:', agent.name);
+                        return true;
+                    },
+                    unregisterAgent: (name) => {
+                        console.log('Mock router unregistering agent:', name);
+                        return true;
+                    }
+                };
+                
+                const loader = new AgentLoader(mockRouter);
+                
+                const factories = loader.getAvailableFactories();
+                const loaded = loader.getLoadedAgents();
+                const stats = loader.getStats();
+                
+                let html = '<h4>Agent Loader Test Results:</h4>';
+                html += `<p class="success">✓ Agent Loader initialized</p>`;
+                html += `<p class="info">Available factories: ${factories.length}</p>`;
+                html += `<p class="info">Loaded agents: ${loaded.length}</p>`;
+                
+                html += '<h5>Available Agent Factories:</h5><ul>';
+                factories.forEach(factory => {
+                    html += `<li>${factory.name} - ${factory.description} (${factory.category})</li>`;
+                });
+                html += '</ul>';
+                
+                html += `<pre>${JSON.stringify(stats, null, 2)}</pre>`;
+                
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">✗ Agent Loader test failed: ${error.message}</p>`;
+            }
+        }
+        
+        async function testTelemetryHooks() {
+            const resultsDiv = document.getElementById('telemetryResults');
+            resultsDiv.innerHTML = '<p>Testing Telemetry Hooks...</p>';
+            
+            try {
+                const manager = window.telemetryHooksManager;
+                if (!manager) {
+                    throw new Error('Telemetry Hooks Manager not available');
+                }
+                
+                // Register a test hook
+                const hookId = manager.registerHook(['agent.activated'], (event) => {
+                    console.log('Test hook received event:', event);
+                }, { metadata: { test: true } });
+                
+                // Emit a test event
+                await manager.emit('agent.activated', {
+                    agentName: 'TestAgent',
+                    testData: 'Hello World'
+                });
+                
+                const stats = manager.getHookStats();
+                const details = manager.getHookDetails();
+                
+                let html = '<h4>Telemetry Hooks Test Results:</h4>';
+                html += `<p class="success">✓ Telemetry Hooks Manager available</p>`;
+                html += `<p class="success">✓ Test hook registered (ID: ${hookId})</p>`;
+                html += `<p class="success">✓ Test event emitted</p>`;
+                html += `<p class="info">Total hooks: ${stats.totalHooks}</p>`;
+                html += `<p class="info">Enabled hooks: ${stats.enabledHooks}</p>`;
+                html += `<p class="info">Total calls: ${stats.totalCalls}</p>`;
+                
+                html += '<h5>Hook Details:</h5>';
+                html += `<pre>${JSON.stringify(details, null, 2)}</pre>`;
+                
+                // Clean up test hook
+                manager.unregisterHook(hookId);
+                
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">✗ Telemetry Hooks test failed: ${error.message}</p>`;
+            }
+        }
+        
+        async function runIntegrationTest() {
+            const resultsDiv = document.getElementById('integrationResults');
+            resultsDiv.innerHTML = '<p>Running integration test...</p>';
+            
+            try {
+                // Initialize the full extensibility system
+                const initResult = await initializeExtensibilitySystem({
+                    enablePredefinedHooks: true
+                });
+                
+                if (!initResult.success) {
+                    throw new Error('Integration test failed during initialization: ' + initResult.errors.join(', '));
+                }
+                
+                // Test extensibility API
+                const api = window.extensibilityAPI;
+                if (!api) {
+                    throw new Error('Extensibility API not available');
+                }
+                
+                const systemInfo = api.utils.getSystemInfo();
+                
+                let html = '<h4>Integration Test Results:</h4>';
+                html += `<p class="success">✓ Extensibility system initialized successfully</p>`;
+                html += `<p class="success">✓ Extensibility API available</p>`;
+                
+                html += '<h5>System Information:</h5>';
+                html += `<pre>${JSON.stringify(systemInfo, null, 2)}</pre>`;
+                
+                html += '<h5>Initialization Results:</h5>';
+                html += `<p class="info">LLM Provider Manager: ${initResult.llmProviderManager ? 'Available' : 'Not Available'}</p>`;
+                html += `<p class="info">Agent Loader: ${initResult.agentLoader ? 'Available' : 'Not Available'}</p>`;
+                html += `<p class="info">Telemetry Hooks: ${initResult.telemetryHooks ? 'Available' : 'Not Available'}</p>`;
+                
+                if (initResult.errors.length > 0) {
+                    html += '<h5>Initialization Errors:</h5><ul>';
+                    initResult.errors.forEach(error => {
+                        html += `<li class="error">${error}</li>`;
+                    });
+                    html += '</ul>';
+                }
+                
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">✗ Integration test failed: ${error.message}</p>`;
+            }
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateSystemStatus();
+            
+            // Update status every 2 seconds
+            setInterval(updateSystemStatus, 2000);
+        });
+    </script>
+</body>
+</html>

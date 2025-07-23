@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Configuration Management Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .agent-card {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+            background: #f9f9f9;
+        }
+        .agent-card.enabled {
+            border-left: 4px solid #4CAF50;
+        }
+        .agent-card.disabled {
+            border-left: 4px solid #f44336;
+            opacity: 0.7;
+        }
+        .agent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .agent-name {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .agent-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .status-enabled {
+            background: #4CAF50;
+            color: white;
+        }
+        .status-disabled {
+            background: #f44336;
+            color: white;
+        }
+        .agent-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .priority-input {
+            width: 60px;
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .config-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        .config-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+        .log-output {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.8em;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .system-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .priority-order {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        .priority-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .priority-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Agent Configuration Management Test</h1>
+    
+    <div class="container">
+        <h2>System Controls</h2>
+        <div class="system-controls">
+            <button class="btn btn-primary" onclick="refreshAgentStatus()">🔄 Refresh Status</button>
+            <button class="btn btn-secondary" onclick="showDebugInfo()">🐛 Show Debug Info</button>
+            <button class="btn btn-secondary" onclick="exportConfigurations()">📤 Export Config</button>
+            <button class="btn btn-secondary" onclick="resetConfigurations()">🔄 Reset to Defaults</button>
+        </div>
+        
+        <div id="systemStatus" class="config-section">
+            <h3>System Status</h3>
+            <div id="systemInfo"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Agent Status & Configuration</h2>
+        <div id="agentList"></div>
+        
+        <div class="priority-order">
+            <h3>Current Priority Order (Enabled Agents Only)</h3>
+            <div id="priorityOrder"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Test Actions</h2>
+        <div class="system-controls">
+            <button class="btn btn-primary" onclick="testAgentRouting()">🧪 Test Agent Routing</button>
+            <button class="btn btn-secondary" onclick="simulateRequests()">🎯 Simulate Requests</button>
+            <button class="btn btn-secondary" onclick="benchmarkPerformance()">⚡ Benchmark Performance</button>
+        </div>
+        
+        <div id="testResults" class="config-section">
+            <h3>Test Results</h3>
+            <div class="log-output" id="testLog"></div>
+        </div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="persona-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        // Enable debug mode for testing
+        window.debugManager.enable();
+        
+        let agentRouter = null;
+        let testLog = [];
+
+        // Initialize the agent system
+        function initializeAgentSystem() {
+            try {
+                // Create agents
+                const agents = [
+                    new PaymentsAgent(),
+                    new FraudAgent(),
+                    new IDVAgent(),
+                    new BankingInfoAgent()
+                ];
+
+                // Initialize router
+                agentRouter = new AgentRouter([]);
+                
+                // Register agents
+                agents.forEach(agent => {
+                    agentRouter.registerAgent(agent);
+                });
+
+                log('✅ Agent system initialized successfully');
+                refreshAgentStatus();
+                
+            } catch (error) {
+                log(`❌ Failed to initialize agent system: ${error.message}`);
+            }
+        }
+
+        // Refresh agent status display
+        function refreshAgentStatus() {
+            if (!agentRouter) {
+                log('❌ Agent router not initialized');
+                return;
+            }
+
+            const stats = agentRouter.getStats();
+            const configManager = agentRouter.getConfigManager();
+            
+            // Update system info
+            document.getElementById('systemInfo').innerHTML = `
+                <div class="config-row">
+                    <span>Total Agents:</span>
+                    <span>${stats.totalAgents}</span>
+                </div>
+                <div class="config-row">
+                    <span>Enabled Agents:</span>
+                    <span>${stats.enabledAgents}</span>
+                </div>
+                <div class="config-row">
+                    <span>Disabled Agents:</span>
+                    <span>${stats.disabledAgents}</span>
+                </div>
+            `;
+
+            // Update agent list
+            const agentListHtml = stats.agentDescriptions.map(agent => {
+                const config = configManager.getAgentConfig(agent.name);
+                const statusClass = agent.enabled ? 'enabled' : 'disabled';
+                const statusText = agent.enabled ? 'ENABLED' : 'DISABLED';
+                const statusBadgeClass = agent.enabled ? 'status-enabled' : 'status-disabled';
+
+                return `
+                    <div class="agent-card ${statusClass}">
+                        <div class="agent-header">
+                            <div class="agent-name">${agent.name}</div>
+                            <div class="agent-status ${statusBadgeClass}">${statusText}</div>
+                        </div>
+                        <div class="config-row">
+                            <span>Description:</span>
+                            <span>${agent.description}</span>
+                        </div>
+                        <div class="config-row">
+                            <span>Priority:</span>
+                            <span>${agent.priority}</span>
+                        </div>
+                        ${config ? `
+                        <div class="config-section">
+                            <div class="config-row">
+                                <span>LLM Model:</span>
+                                <span>${config.llmModel}</span>
+                            </div>
+                            <div class="config-row">
+                                <span>Telemetry:</span>
+                                <span>${config.telemetryEnabled ? 'Enabled' : 'Disabled'}</span>
+                            </div>
+                            <div class="config-row">
+                                <span>Max Retries:</span>
+                                <span>${config.maxRetries}</span>
+                            </div>
+                        </div>
+                        ` : ''}
+                        <div class="agent-controls">
+                            ${agent.enabled ? 
+                                `<button class="btn btn-danger" onclick="disableAgent('${agent.name}')">Disable</button>` :
+                                `<button class="btn btn-success" onclick="enableAgent('${agent.name}')">Enable</button>`
+                            }
+                            <input type="number" class="priority-input" value="${agent.priority}" 
+                                   onchange="setPriority('${agent.name}', this.value)" min="1" max="100">
+                            <button class="btn btn-secondary" onclick="testAgent('${agent.name}')">Test</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('agentList').innerHTML = agentListHtml;
+
+            // Update priority order
+            const priorityHtml = stats.priorityOrder.map((agent, index) => `
+                <div class="priority-item">
+                    <span>${index + 1}. ${agent.name}</span>
+                    <span>Priority: ${agent.priority}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('priorityOrder').innerHTML = priorityHtml || '<p>No enabled agents</p>';
+        }
+
+        // Agent control functions
+        function enableAgent(agentName) {
+            if (agentRouter && agentRouter.enableAgent(agentName)) {
+                log(`✅ Enabled agent: ${agentName}`);
+                refreshAgentStatus();
+            } else {
+                log(`❌ Failed to enable agent: ${agentName}`);
+            }
+        }
+
+        function disableAgent(agentName) {
+            if (agentRouter && agentRouter.disableAgent(agentName)) {
+                log(`✅ Disabled agent: ${agentName}`);
+                refreshAgentStatus();
+            } else {
+                log(`❌ Failed to disable agent: ${agentName}`);
+            }
+        }
+
+        function setPriority(agentName, priority) {
+            const priorityNum = parseInt(priority);
+            if (agentRouter && agentRouter.setAgentPriority(agentName, priorityNum)) {
+                log(`✅ Set priority for ${agentName}: ${priorityNum}`);
+                refreshAgentStatus();
+            } else {
+                log(`❌ Failed to set priority for ${agentName}`);
+            }
+        }
+
+        // Test functions
+        function testAgent(agentName) {
+            if (!agentRouter) return;
+
+            const testInputs = {
+                'PaymentsAgent': 'Send £50 to Alice',
+                'FraudAgent': 'I think my card has been stolen',
+                'IDVAgent': 'I need to verify my identity',
+                'BankingInfoAgent': 'What is my account balance?'
+            };
+
+            const testInput = testInputs[agentName] || 'Test input';
+            const agent = agentRouter.getRegisteredAgents().find(a => a.name === agentName);
+            
+            if (agent) {
+                try {
+                    const canHandle = agent.canHandle(testInput);
+                    log(`🧪 Testing ${agentName} with: "${testInput}"`);
+                    log(`   Can handle: ${canHandle ? '✅ Yes' : '❌ No'}`);
+                    log(`   Enabled: ${agent.enabled !== false ? '✅ Yes' : '❌ No'}`);
+                } catch (error) {
+                    log(`❌ Error testing ${agentName}: ${error.message}`);
+                }
+            }
+        }
+
+        function testAgentRouting() {
+            if (!agentRouter) return;
+
+            const testCases = [
+                'Send £100 to John',
+                'What is my balance?',
+                'I think there is fraud on my account',
+                'I need to reset my password',
+                'Block my card immediately',
+                'Show me my recent transactions'
+            ];
+
+            log('🧪 Testing agent routing...');
+            
+            testCases.forEach(input => {
+                const selectedAgent = agentRouter.findBestAgent(input);
+                log(`Input: "${input}"`);
+                log(`Selected: ${selectedAgent ? selectedAgent.name : 'None (Fallback)'}`);
+                log('---');
+            });
+        }
+
+        function simulateRequests() {
+            if (!agentRouter) return;
+
+            const requests = [
+                'Transfer £200 to savings account',
+                'Freeze my debit card',
+                'Check my account balance',
+                'Reset my PIN number',
+                'Report suspicious activity',
+                'Show transaction history'
+            ];
+
+            log('🎯 Simulating agent requests...');
+            
+            requests.forEach((request, index) => {
+                setTimeout(() => {
+                    const agent = agentRouter.findBestAgent(request);
+                    log(`Request ${index + 1}: "${request}"`);
+                    log(`Routed to: ${agent ? agent.name : 'FallbackHandler'}`);
+                    
+                    if (agent) {
+                        agent.onActivate(request, {});
+                        // Simulate completion
+                        setTimeout(() => {
+                            agent.onComplete({
+                                success: true,
+                                response: 'Simulated response',
+                                processingTime: Math.random() * 1000 + 500,
+                                tokensUsed: Math.floor(Math.random() * 100) + 50
+                            }, request, Date.now() - 1000);
+                        }, 100);
+                    }
+                }, index * 500);
+            });
+        }
+
+        function benchmarkPerformance() {
+            if (!agentRouter) return;
+
+            log('⚡ Running performance benchmark...');
+            
+            const testInput = 'What is my account balance?';
+            const iterations = 1000;
+            const startTime = performance.now();
+            
+            for (let i = 0; i < iterations; i++) {
+                agentRouter.findBestAgent(testInput);
+            }
+            
+            const endTime = performance.now();
+            const totalTime = endTime - startTime;
+            const avgTime = totalTime / iterations;
+            
+            log(`Completed ${iterations} routing operations in ${totalTime.toFixed(2)}ms`);
+            log(`Average time per operation: ${avgTime.toFixed(4)}ms`);
+        }
+
+        // System functions
+        function showDebugInfo() {
+            if (typeof showAgentStatus === 'function') {
+                showAgentStatus();
+            }
+            if (typeof showAgentConfigurations === 'function') {
+                showAgentConfigurations();
+            }
+        }
+
+        function exportConfigurations() {
+            if (agentRouter) {
+                const configManager = agentRouter.getConfigManager();
+                const configJson = configManager.exportConfigurations();
+                log('📤 Configuration exported:');
+                log(configJson);
+                
+                // Also copy to clipboard if possible
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(configJson).then(() => {
+                        log('✅ Configuration copied to clipboard');
+                    });
+                }
+            }
+        }
+
+        function resetConfigurations() {
+            if (agentRouter) {
+                const configManager = agentRouter.getConfigManager();
+                configManager.resetToDefaults();
+                agentRouter.applyConfigurationsToAgents();
+                log('🔄 Configurations reset to defaults');
+                refreshAgentStatus();
+            }
+        }
+
+        // Logging function
+        function log(message) {
+            testLog.push(`[${new Date().toLocaleTimeString()}] ${message}`);
+            const logElement = document.getElementById('testLog');
+            logElement.textContent = testLog.join('\n');
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            log('🚀 Initializing Agent Configuration Test Page...');
+            initializeAgentSystem();
+        });
+    </script>
+</body>
+</html>

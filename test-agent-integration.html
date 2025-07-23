@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        button { margin: 5px; padding: 10px; }
+        #output { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Agent Integration Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Agent Router Integration</h2>
+        <button onclick="testAgentRouting()">Test Agent Routing</button>
+        <button onclick="testFallbackHandler()">Test Fallback Handler</button>
+        <div id="output"></div>
+    </div>
+
+    <!-- Load all dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="token-tracker.js"></script>
+    <script src="api-client.js"></script>
+    <script src="persona-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
+    
+    <!-- Load agent modules -->
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        let agentRouter;
+        let mockContext;
+        
+        // Initialize test environment
+        async function initializeTest() {
+            try {
+                // Initialize debug manager
+                window.debugManager = new DebugManager();
+                
+                // Create mock context
+                const personaManager = new PersonaManager();
+                await personaManager.init();
+                
+                const systemPromptsManager = new SystemPromptsManager();
+                await systemPromptsManager.init();
+                
+                const tokenTracker = new TokenTracker();
+                const apiClient = new OpenAIClient('test-key', tokenTracker);
+                
+                mockContext = {
+                    personaManager,
+                    systemPromptsManager,
+                    apiClient,
+                    tokenTracker,
+                    currentPersona: personaManager.getCurrentPersona(),
+                    sessionData: {},
+                    debugMode: true
+                };
+                
+                // Initialize AgentRouter
+                const idvAgent = new IDVAgent();
+                const bankingInfoAgent = new BankingInfoAgent();
+                const fraudAgent = new FraudAgent();
+                const paymentsAgent = new PaymentsAgent();
+                
+                agentRouter = new AgentRouter([
+                    paymentsAgent,
+                    fraudAgent,
+                    idvAgent,
+                    bankingInfoAgent
+                ]);
+                
+                log('✅ Test environment initialized successfully');
+                return true;
+            } catch (error) {
+                log(`❌ Failed to initialize test environment: ${error.message}`);
+                return false;
+            }
+        }
+        
+        function log(message) {
+            const output = document.getElementById('output');
+            output.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+            console.log(message);
+        }
+        
+        async function testAgentRouting() {
+            log('🧪 Testing agent routing...');
+            
+            if (!agentRouter) {
+                const initialized = await initializeTest();
+                if (!initialized) return;
+            }
+            
+            const testCases = [
+                { input: "What's my account balance?", expectedAgent: "BankingInfoAgent" },
+                { input: "I want to send £100 to John", expectedAgent: "PaymentsAgent" },
+                { input: "My card was stolen, please block it", expectedAgent: "FraudAgent" },
+                { input: "I forgot my password", expectedAgent: "IDVAgent" },
+                { input: "Hello, how are you?", expectedAgent: "FallbackHandler" }
+            ];
+            
+            for (const testCase of testCases) {
+                try {
+                    log(`Testing: "${testCase.input}"`);
+                    
+                    // Find which agent would handle this
+                    const selectedAgent = agentRouter.findBestAgent(testCase.input);
+                    const agentName = selectedAgent ? selectedAgent.name : 'FallbackHandler';
+                    
+                    if (agentName === testCase.expectedAgent) {
+                        log(`✅ Correct agent selected: ${agentName}`);
+                    } else {
+                        log(`❌ Wrong agent selected: ${agentName}, expected: ${testCase.expectedAgent}`);
+                    }
+                } catch (error) {
+                    log(`❌ Error testing "${testCase.input}": ${error.message}`);
+                }
+            }
+        }
+        
+        async function testFallbackHandler() {
+            log('🧪 Testing fallback handler...');
+            
+            if (!agentRouter) {
+                const initialized = await initializeTest();
+                if (!initialized) return;
+            }
+            
+            try {
+                // Mock the API client to avoid actual API calls
+                mockContext.apiClient.generateChatCompletion = async (messages, options) => {
+                    return {
+                        success: true,
+                        content: "This is a mock response from the fallback handler.",
+                        tokensUsed: 50
+                    };
+                };
+                
+                const result = await agentRouter.route("Hello, how are you today?", mockContext);
+                
+                if (result.success && result.agentName === 'FallbackHandler') {
+                    log('✅ Fallback handler working correctly');
+                    log(`Response: ${result.response}`);
+                } else {
+                    log(`❌ Fallback handler failed: ${result.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                log(`❌ Error testing fallback handler: ${error.message}`);
+            }
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', initializeTest);
+    </script>
+</body>
+</html>

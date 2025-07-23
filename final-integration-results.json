@@ -1,0 +1,362 @@
+{
+  "summary": {
+    "totalSuites": 5,
+    "totalTests": 21,
+    "totalPassed": 21,
+    "overallSuccess": true,
+    "duration": 7,
+    "timestamp": "2025-07-23T21:12:33.092Z"
+  },
+  "results": [
+    {
+      "category": "integration",
+      "total": 5,
+      "passed": 5,
+      "results": [
+        {
+          "name": "Banking Info Query Routing",
+          "input": "What is my account balance?",
+          "expected": "BankingInfoAgent",
+          "actual": "BankingInfoAgent",
+          "success": true
+        },
+        {
+          "name": "Payment Request Routing",
+          "input": "Send £100 to Alice",
+          "expected": "PaymentsAgent",
+          "actual": "PaymentsAgent",
+          "success": true
+        },
+        {
+          "name": "Fraud Alert Routing",
+          "input": "Block my card immediately",
+          "expected": "FraudAgent",
+          "actual": "FraudAgent",
+          "success": true
+        },
+        {
+          "name": "Identity Verification Routing",
+          "input": "I forgot my password",
+          "expected": "IDVAgent",
+          "actual": "IDVAgent",
+          "success": true
+        },
+        {
+          "name": "Fallback Handler Test",
+          "input": "What is the weather today?",
+          "expected": "FallbackHandler",
+          "actual": "FallbackHandler",
+          "success": true
+        }
+      ]
+    },
+    {
+      "category": "switching",
+      "total": 5,
+      "passed": 5,
+      "results": [
+        {
+          "step": 1,
+          "input": "What is my balance?",
+          "expected": "BankingInfoAgent",
+          "actual": "BankingInfoAgent",
+          "success": true
+        },
+        {
+          "step": 2,
+          "input": "Now I want to send money",
+          "expected": "PaymentsAgent",
+          "actual": "PaymentsAgent",
+          "success": true
+        },
+        {
+          "step": 3,
+          "input": "Wait, my card might be stolen",
+          "expected": "FraudAgent",
+          "actual": "FraudAgent",
+          "success": true
+        },
+        {
+          "step": 4,
+          "input": "I need to verify my identity",
+          "expected": "IDVAgent",
+          "actual": "IDVAgent",
+          "success": true
+        },
+        {
+          "step": 5,
+          "input": "Back to checking my balance",
+          "expected": "BankingInfoAgent",
+          "actual": "BankingInfoAgent",
+          "success": true
+        }
+      ]
+    },
+    {
+      "category": "streaming",
+      "total": 3,
+      "passed": 3,
+      "results": [
+        {
+          "name": "Chunked Input Processing",
+          "expectedFinal": "What is my account balance?",
+          "actualFinal": "What is my account balance?",
+          "expectedAgent": "BankingInfoAgent",
+          "actualAgent": "BankingInfoAgent",
+          "chunkResults": [
+            {
+              "chunk": "What is",
+              "agent": "FallbackHandler"
+            },
+            {
+              "chunk": "What is my account",
+              "agent": "BankingInfoAgent"
+            },
+            {
+              "chunk": "What is my account balance?",
+              "agent": "BankingInfoAgent"
+            }
+          ],
+          "success": true
+        },
+        {
+          "name": "Payment Request Streaming",
+          "expectedFinal": "Send fifty pounds to Alice",
+          "actualFinal": "Send fifty pounds to Alice",
+          "expectedAgent": "PaymentsAgent",
+          "actualAgent": "PaymentsAgent",
+          "chunkResults": [
+            {
+              "chunk": "Send",
+              "agent": "PaymentsAgent"
+            },
+            {
+              "chunk": "Send fifty pounds",
+              "agent": "PaymentsAgent"
+            },
+            {
+              "chunk": "Send fifty pounds to Alice",
+              "agent": "PaymentsAgent"
+            }
+          ],
+          "success": true
+        },
+        {
+          "name": "Fraud Alert Streaming",
+          "expectedFinal": "Block my card now",
+          "actualFinal": "Block my card now",
+          "expectedAgent": "FraudAgent",
+          "actualAgent": "FraudAgent",
+          "chunkResults": [
+            {
+              "chunk": "Block",
+              "agent": "FraudAgent"
+            },
+            {
+              "chunk": "Block my card",
+              "agent": "FraudAgent"
+            },
+            {
+              "chunk": "Block my card now",
+              "agent": "FraudAgent"
+            }
+          ],
+          "success": true
+        }
+      ]
+    },
+    {
+      "category": "security",
+      "total": 4,
+      "passed": 4,
+      "results": [
+        {
+          "name": "Banking Agent Data Access Boundaries",
+          "agent": "BankingInfoAgent",
+          "allowedDataTests": [
+            {
+              "dataType": "balance",
+              "hasAccess": true,
+              "success": true
+            },
+            {
+              "dataType": "transactions",
+              "hasAccess": true,
+              "success": true
+            },
+            {
+              "dataType": "account_info",
+              "hasAccess": true,
+              "success": true
+            }
+          ],
+          "restrictedDataTests": [
+            {
+              "dataType": "payments",
+              "hasAccess": false,
+              "success": true
+            },
+            {
+              "dataType": "fraud_actions",
+              "hasAccess": false,
+              "success": true
+            },
+            {
+              "dataType": "identity_verification",
+              "hasAccess": false,
+              "success": true
+            }
+          ],
+          "success": true
+        },
+        {
+          "name": "Payments Agent Data Access Boundaries",
+          "agent": "PaymentsAgent",
+          "allowedDataTests": [
+            {
+              "dataType": "payments",
+              "hasAccess": true,
+              "success": true
+            },
+            {
+              "dataType": "transfers",
+              "hasAccess": true,
+              "success": true
+            },
+            {
+              "dataType": "payment_history",
+              "hasAccess": true,
+              "success": true
+            }
+          ],
+          "restrictedDataTests": [
+            {
+              "dataType": "identity_verification",
+              "hasAccess": false,
+              "success": true
+            },
+            {
+              "dataType": "fraud_alerts",
+              "hasAccess": false,
+              "success": true
+            }
+          ],
+          "success": true
+        },
+        {
+          "name": "Fraud Agent Data Access Boundaries",
+          "agent": "FraudAgent",
+          "allowedDataTests": [
+            {
+              "dataType": "fraud_alerts",
+              "hasAccess": true,
+              "success": true
+            },
+            {
+              "dataType": "security_actions",
+              "hasAccess": true,
+              "success": true
+            },
+            {
+              "dataType": "card_status",
+              "hasAccess": true,
+              "success": true
+            }
+          ],
+          "restrictedDataTests": [
+            {
+              "dataType": "payments",
+              "hasAccess": false,
+              "success": true
+            },
+            {
+              "dataType": "balance",
+              "hasAccess": false,
+              "success": true
+            },
+            {
+              "dataType": "identity_verification",
+              "hasAccess": false,
+              "success": true
+            }
+          ],
+          "success": true
+        },
+        {
+          "name": "IDV Agent Data Access Boundaries",
+          "agent": "IDVAgent",
+          "allowedDataTests": [
+            {
+              "dataType": "identity",
+              "hasAccess": true,
+              "success": true
+            },
+            {
+              "dataType": "verification",
+              "hasAccess": true,
+              "success": true
+            },
+            {
+              "dataType": "authentication",
+              "hasAccess": true,
+              "success": true
+            }
+          ],
+          "restrictedDataTests": [
+            {
+              "dataType": "payments",
+              "hasAccess": false,
+              "success": true
+            },
+            {
+              "dataType": "balance",
+              "hasAccess": false,
+              "success": true
+            },
+            {
+              "dataType": "fraud_actions",
+              "hasAccess": false,
+              "success": true
+            }
+          ],
+          "success": true
+        }
+      ]
+    },
+    {
+      "category": "error-handling",
+      "total": 4,
+      "passed": 4,
+      "results": [
+        {
+          "name": "Null Input Handling",
+          "input": "null",
+          "expectedBehavior": "graceful_fallback",
+          "errorHandled": false,
+          "success": true
+        },
+        {
+          "name": "Empty Input Handling",
+          "input": "",
+          "expectedBehavior": "graceful_fallback",
+          "errorHandled": false,
+          "success": true
+        },
+        {
+          "name": "Invalid Input Type Handling",
+          "input": "[object Object]",
+          "expectedBehavior": "graceful_fallback",
+          "errorHandled": false,
+          "success": true
+        },
+        {
+          "name": "Very Long Input Handling",
+          "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expectedBehavior": "graceful_processing",
+          "errorHandled": false,
+          "success": true
+        }
+      ]
+    }
+  ]
+}

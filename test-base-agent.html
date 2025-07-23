@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BaseAgent Test</title>
+</head>
+<body>
+    <h1>Testing BaseAgent Infrastructure</h1>
+    <div id="test-results"></div>
+
+    <script src="debug-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script>
+        // Enable debug mode for testing
+        window.debugManager.enable();
+        
+        console.log('Testing BaseAgent infrastructure...');
+        
+        // Test 1: BaseAgent cannot be instantiated directly
+        let test1Passed = false;
+        try {
+            new BaseAgent('test', 'test description');
+        } catch (error) {
+            if (error.message.includes('abstract')) {
+                test1Passed = true;
+                console.log('✅ Test 1 passed: BaseAgent correctly prevents direct instantiation');
+            }
+        }
+        
+        // Test 2: Create a concrete agent class
+        class TestAgent extends BaseAgent {
+            constructor() {
+                super('TestAgent', 'A test agent for validation');
+            }
+            
+            canHandle(inputText) {
+                return inputText.toLowerCase().includes('test');
+            }
+            
+            async handle(inputText, context) {
+                const startTime = Date.now();
+                const response = `Test agent handled: ${inputText}`;
+                const processingTime = Date.now() - startTime;
+                
+                return this.createResponse(true, response, processingTime);
+            }
+        }
+        
+        // Test 3: Instantiate concrete agent
+        let testAgent;
+        let test3Passed = false;
+        try {
+            testAgent = new TestAgent();
+            test3Passed = true;
+            console.log('✅ Test 3 passed: Concrete agent instantiated successfully');
+        } catch (error) {
+            console.error('❌ Test 3 failed:', error);
+        }
+        
+        // Test 4: Test canHandle method
+        let test4Passed = false;
+        if (testAgent) {
+            const canHandleTest = testAgent.canHandle('this is a test');
+            const cannotHandleTest = !testAgent.canHandle('this is not relevant');
+            
+            if (canHandleTest && cannotHandleTest) {
+                test4Passed = true;
+                console.log('✅ Test 4 passed: canHandle method works correctly');
+            }
+        }
+        
+        // Test 5: Test handle method and response creation
+        let test5Passed = false;
+        if (testAgent) {
+            const mockContext = {
+                personaManager: { getCurrentPersonaData: () => ({ name: 'test' }) },
+                systemPromptsManager: { getSystemPrompt: () => 'test prompt' },
+                apiClient: {}
+            };
+            
+            testAgent.handle('test input', mockContext).then(response => {
+                if (response.success && response.agentName === 'TestAgent' && response.response.includes('test input')) {
+                    test5Passed = true;
+                    console.log('✅ Test 5 passed: handle method and response creation work correctly');
+                    
+                    // Test 6: Test telemetry hooks
+                    testAgent.onActivate();
+                    testAgent.onComplete(response);
+                    console.log('✅ Test 6 passed: telemetry hooks work without errors');
+                    
+                    // Test 7: Test helper methods
+                    const personaData = testAgent.getPersonaData(mockContext);
+                    const systemPrompt = testAgent.generateSystemPrompt(mockContext, 'test');
+                    
+                    if (personaData && systemPrompt.includes('TestAgent')) {
+                        console.log('✅ Test 7 passed: helper methods work correctly');
+                        
+                        // Display results
+                        displayResults(true);
+                    } else {
+                        console.error('❌ Test 7 failed: helper methods not working correctly');
+                        displayResults(false);
+                    }
+                } else {
+                    console.error('❌ Test 5 failed: handle method not working correctly');
+                    displayResults(false);
+                }
+            }).catch(error => {
+                console.error('❌ Test 5 failed with error:', error);
+                displayResults(false);
+            });
+        } else {
+            displayResults(false);
+        }
+        
+        function displayResults(allPassed) {
+            const results = document.getElementById('test-results');
+            
+            if (allPassed && test1Passed && test3Passed && test4Passed) {
+                results.innerHTML = `
+                    <h2>✅ All BaseAgent Tests Passed!</h2>
+                    <ul>
+                        <li><strong>Abstract Class Protection:</strong> ✅ Working</li>
+                        <li><strong>Concrete Agent Creation:</strong> ✅ Working</li>
+                        <li><strong>canHandle Method:</strong> ✅ Working</li>
+                        <li><strong>handle Method:</strong> ✅ Working</li>
+                        <li><strong>Response Creation:</strong> ✅ Working</li>
+                        <li><strong>Telemetry Hooks:</strong> ✅ Working</li>
+                        <li><strong>Helper Methods:</strong> ✅ Working</li>
+                        <li><strong>Debug Integration:</strong> ✅ Working (check console)</li>
+                    </ul>
+                    <p><strong>BaseAgent infrastructure is ready for domain-specific agents!</strong></p>
+                `;
+            } else {
+                results.innerHTML = `
+                    <h2>❌ Some Tests Failed</h2>
+                    <p>Check the console for detailed error information.</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

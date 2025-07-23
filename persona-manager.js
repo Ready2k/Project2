@@ -14,29 +14,71 @@ class PersonaManager {
         if (this.initialized) return;
         
         try {
+            this.debug.log('PersonaManager initialization starting...');
+            
             // Load personas from localStorage first (for custom personas)
             const storedPersonas = localStorage.getItem('personas');
             if (storedPersonas) {
                 this.personas = JSON.parse(storedPersonas);
+                this.debug.log('Loaded personas from localStorage:', Object.keys(this.personas));
+            } else {
+                this.debug.log('No personas found in localStorage');
             }
 
             // Load default personas from JSON file
+            this.debug.log('Attempting to fetch personas.json...');
             const response = await fetch('./personas.json');
+            this.debug.log('Fetch response status:', response.status, response.statusText);
+            
             if (response.ok) {
                 const defaultPersonas = await response.json();
+                this.debug.log('Loaded default personas from JSON:', Object.keys(defaultPersonas));
                 // Merge default personas with stored ones (stored takes precedence)
                 this.personas = { ...defaultPersonas, ...this.personas };
             } else {
-                this.debug.warn('Could not load personas.json, using stored personas only');
+                this.debug.warn('Could not load personas.json, response not ok:', response.status, response.statusText);
+                this.debug.warn('Using stored personas only');
             }
 
             this.initialized = true;
-            this.debug.log('PersonaManager initialized with personas:', Object.keys(this.personas));
+            const personaCount = Object.keys(this.personas).length;
+            this.debug.log('PersonaManager initialized with', personaCount, 'personas:', Object.keys(this.personas));
+            
+            if (personaCount === 0) {
+                this.debug.error('No personas loaded! This will cause issues.');
+                // Add a fallback persona to prevent complete failure
+                this.personas = {
+                    'fallback_user': {
+                        name: 'Test User',
+                        balance: 1000.00,
+                        cardLast4: '0000',
+                        accountType: 'Current Account',
+                        currency: 'GBP',
+                        recentTransactions: [
+                            { date: '2025-01-15', amount: -50.00, description: 'Test Transaction' }
+                        ]
+                    }
+                };
+                this.debug.log('Added fallback persona');
+            }
+            
         } catch (error) {
             this.debug.error('Error initializing PersonaManager:', error);
-            // Fallback to empty personas object
-            this.personas = {};
+            // Fallback to a basic persona object
+            this.personas = {
+                'fallback_user': {
+                    name: 'Test User',
+                    balance: 1000.00,
+                    cardLast4: '0000',
+                    accountType: 'Current Account',
+                    currency: 'GBP',
+                    recentTransactions: [
+                        { date: '2025-01-15', amount: -50.00, description: 'Test Transaction' }
+                    ]
+                }
+            };
             this.initialized = true;
+            this.debug.log('Used fallback persona due to error');
         }
     }
 

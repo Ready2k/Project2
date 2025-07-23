@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Persona Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .debug-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .info {
+            color: #17a2b8;
+            font-weight: bold;
+        }
+        pre {
+            background: #f1f3f4;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        select {
+            padding: 8px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Persona Test</h1>
+    <p>This page helps debug persona loading issues.</p>
+
+    <div class="debug-section">
+        <h3>Step 1: Load Dependencies</h3>
+        <div id="dependencyStatus">Loading...</div>
+        <button onclick="checkDependencies()">Check Dependencies</button>
+    </div>
+
+    <div class="debug-section">
+        <h3>Step 2: Initialize Managers</h3>
+        <div id="managerStatus">Not started</div>
+        <button onclick="initializeManagers()">Initialize Managers</button>
+    </div>
+
+    <div class="debug-section">
+        <h3>Step 3: Load Personas</h3>
+        <div id="personaStatus">Not started</div>
+        <button onclick="loadPersonas()">Load Personas</button>
+        <pre id="personaData"></pre>
+    </div>
+
+    <div class="debug-section">
+        <h3>Step 4: Test Persona Selection</h3>
+        <select id="personaSelect">
+            <option value="">Select a persona...</option>
+        </select>
+        <button onclick="testPersonaSelection()">Test Selection</button>
+        <div id="selectionResult"></div>
+    </div>
+
+    <div class="debug-section">
+        <h3>Step 5: Test Agent Integration</h3>
+        <button onclick="testAgentIntegration()">Test Agent Integration</button>
+        <div id="agentResult"></div>
+    </div>
+
+    <!-- Load dependencies with error handling -->
+    <script>
+        let debugManager, personaManager, systemPromptsManager;
+        let agents = {};
+        let loadErrors = [];
+
+        // Track script loading
+        function loadScript(src, name) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => {
+                    console.log(`✓ Loaded ${name}`);
+                    resolve();
+                };
+                script.onerror = () => {
+                    const error = `✗ Failed to load ${name} (${src})`;
+                    console.error(error);
+                    loadErrors.push(error);
+                    reject(new Error(error));
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        // Load all dependencies
+        async function loadDependencies() {
+            try {
+                await loadScript('debug-manager.js', 'DebugManager');
+                await loadScript('persona-manager.js', 'PersonaManager');
+                await loadScript('system-prompts-manager.js', 'SystemPromptsManager');
+                await loadScript('agents/base-agent.js', 'BaseAgent');
+                await loadScript('agents/idv-agent.js', 'IDVAgent');
+                await loadScript('agents/banking-info-agent.js', 'BankingInfoAgent');
+                await loadScript('agents/fraud-agent.js', 'FraudAgent');
+                await loadScript('agents/payments-agent.js', 'PaymentsAgent');
+                
+                document.getElementById('dependencyStatus').innerHTML = '<span class="success">✓ All dependencies loaded successfully</span>';
+                return true;
+            } catch (error) {
+                document.getElementById('dependencyStatus').innerHTML = `<span class="error">✗ Dependency loading failed: ${error.message}</span>`;
+                return false;
+            }
+        }
+
+        function checkDependencies() {
+            const status = document.getElementById('dependencyStatus');
+            status.innerHTML = 'Checking dependencies...';
+            
+            const checks = [
+                { name: 'DebugManager', exists: typeof DebugManager !== 'undefined' },
+                { name: 'PersonaManager', exists: typeof PersonaManager !== 'undefined' },
+                { name: 'SystemPromptsManager', exists: typeof SystemPromptsManager !== 'undefined' },
+                { name: 'BaseAgent', exists: typeof BaseAgent !== 'undefined' },
+                { name: 'IDVAgent', exists: typeof IDVAgent !== 'undefined' },
+                { name: 'BankingInfoAgent', exists: typeof BankingInfoAgent !== 'undefined' },
+                { name: 'FraudAgent', exists: typeof FraudAgent !== 'undefined' },
+                { name: 'PaymentsAgent', exists: typeof PaymentsAgent !== 'undefined' }
+            ];
+            
+            let html = '<ul>';
+            let allGood = true;
+            
+            checks.forEach(check => {
+                const icon = check.exists ? '✓' : '✗';
+                const className = check.exists ? 'success' : 'error';
+                html += `<li><span class="${className}">${icon} ${check.name}</span></li>`;
+                if (!check.exists) allGood = false;
+            });
+            
+            html += '</ul>';
+            
+            if (loadErrors.length > 0) {
+                html += '<h4>Load Errors:</h4><ul>';
+                loadErrors.forEach(error => {
+                    html += `<li><span class="error">${error}</span></li>`;
+                });
+                html += '</ul>';
+            }
+            
+            status.innerHTML = html;
+            return allGood;
+        }
+
+        async function initializeManagers() {
+            const status = document.getElementById('managerStatus');
+            status.innerHTML = 'Initializing managers...';
+            
+            try {
+                // Initialize debug manager
+                if (typeof DebugManager === 'undefined') {
+                    throw new Error('DebugManager not loaded');
+                }
+                debugManager = new DebugManager();
+                window.debugManager = debugManager;
+                
+                // Initialize persona manager
+                if (typeof PersonaManager === 'undefined') {
+                    throw new Error('PersonaManager not loaded');
+                }
+                personaManager = new PersonaManager();
+                await personaManager.init();
+                
+                // Initialize system prompts manager
+                if (typeof SystemPromptsManager === 'undefined') {
+                    throw new Error('SystemPromptsManager not loaded');
+                }
+                systemPromptsManager = new SystemPromptsManager();
+                await systemPromptsManager.init();
+                systemPromptsManager.setCurrencyFormatter(personaManager.formatCurrency.bind(personaManager));
+                
+                status.innerHTML = '<span class="success">✓ All managers initialized successfully</span>';
+                return true;
+                
+            } catch (error) {
+                status.innerHTML = `<span class="error">✗ Manager initialization failed: ${error.message}</span>`;
+                console.error('Manager initialization error:', error);
+                return false;
+            }
+        }
+
+        async function loadPersonas() {
+            const status = document.getElementById('personaStatus');
+            const dataDiv = document.getElementById('personaData');
+            
+            if (!personaManager) {
+                status.innerHTML = '<span class="error">✗ PersonaManager not initialized</span>';
+                return;
+            }
+            
+            try {
+                status.innerHTML = 'Loading personas...';
+                
+                // First, let's test if we can fetch the personas.json file directly
+                console.log('Testing direct fetch of personas.json...');
+                try {
+                    const testResponse = await fetch('./personas.json');
+                    console.log('Direct fetch response:', testResponse.status, testResponse.statusText);
+                    if (testResponse.ok) {
+                        const testData = await testResponse.json();
+                        console.log('Direct fetch data:', testData);
+                        dataDiv.textContent = 'Direct fetch successful:\n' + JSON.stringify(testData, null, 2);
+                    } else {
+                        console.error('Direct fetch failed:', testResponse.status, testResponse.statusText);
+                        dataDiv.textContent = `Direct fetch failed: ${testResponse.status} ${testResponse.statusText}`;
+                    }
+                } catch (fetchError) {
+                    console.error('Direct fetch error:', fetchError);
+                    dataDiv.textContent = `Direct fetch error: ${fetchError.message}`;
+                }
+                
+                // Now check what PersonaManager has
+                const personas = personaManager.getAllPersonas();
+                const personaIds = Object.keys(personas);
+                
+                console.log('PersonaManager personas:', personas);
+                console.log('Persona IDs:', personaIds);
+                
+                if (personaIds.length === 0) {
+                    status.innerHTML = '<span class="error">✗ No personas found in PersonaManager</span>';
+                    
+                    // Try to reinitialize
+                    console.log('Attempting to reinitialize PersonaManager...');
+                    personaManager.initialized = false;
+                    await personaManager.init();
+                    
+                    const retryPersonas = personaManager.getAllPersonas();
+                    const retryIds = Object.keys(retryPersonas);
+                    
+                    if (retryIds.length > 0) {
+                        status.innerHTML = `<span class="success">✓ Loaded ${retryIds.length} personas after retry</span>`;
+                        dataDiv.textContent += '\n\nAfter retry:\n' + JSON.stringify(retryPersonas, null, 2);
+                        populateSelector(retryPersonas, retryIds);
+                        return true;
+                    } else {
+                        status.innerHTML = '<span class="error">✗ Still no personas after retry</span>';
+                        return false;
+                    }
+                }
+                
+                status.innerHTML = `<span class="success">✓ Loaded ${personaIds.length} personas</span>`;
+                dataDiv.textContent += '\n\nPersonaManager data:\n' + JSON.stringify(personas, null, 2);
+                
+                populateSelector(personas, personaIds);
+                return true;
+                
+            } catch (error) {
+                status.innerHTML = `<span class="error">✗ Persona loading failed: ${error.message}</span>`;
+                console.error('Persona loading error:', error);
+                dataDiv.textContent = `Error: ${error.message}\nStack: ${error.stack}`;
+                return false;
+            }
+        }
+        
+        function populateSelector(personas, personaIds) {
+            const selector = document.getElementById('personaSelect');
+            selector.innerHTML = '<option value="">Select a persona...</option>';
+            
+            personaIds.forEach(personaId => {
+                const persona = personas[personaId];
+                const option = document.createElement('option');
+                option.value = personaId;
+                option.textContent = `${persona.name} (${persona.accountType})`;
+                selector.appendChild(option);
+            });
+        }
+
+        function testPersonaSelection() {
+            const selector = document.getElementById('personaSelect');
+            const result = document.getElementById('selectionResult');
+            
+            const personaId = selector.value;
+            
+            if (!personaId) {
+                result.innerHTML = '<span class="error">Please select a persona</span>';
+                return;
+            }
+            
+            try {
+                const persona = personaManager.getPersona(personaId);
+                const success = personaManager.setCurrentPersona(personaId);
+                const currentPersona = personaManager.getCurrentPersonaData();
+                
+                if (success && currentPersona) {
+                    result.innerHTML = `
+                        <span class="success">✓ Persona selection successful</span>
+                        <pre>${JSON.stringify(currentPersona, null, 2)}</pre>
+                    `;
+                } else {
+                    result.innerHTML = '<span class="error">✗ Persona selection failed</span>';
+                }
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ Persona selection error: ${error.message}</span>`;
+                console.error('Persona selection error:', error);
+            }
+        }
+
+        function testAgentIntegration() {
+            const result = document.getElementById('agentResult');
+            
+            if (!personaManager || !systemPromptsManager) {
+                result.innerHTML = '<span class="error">Managers not initialized</span>';
+                return;
+            }
+            
+            const currentPersona = personaManager.getCurrentPersonaData();
+            if (!currentPersona) {
+                result.innerHTML = '<span class="error">No persona selected</span>';
+                return;
+            }
+            
+            try {
+                // Initialize agents
+                const bankingAgent = new BankingInfoAgent();
+                
+                // Create context
+                const context = {
+                    personaManager: personaManager,
+                    systemPromptsManager: systemPromptsManager,
+                    apiClient: null,
+                    tokenTracker: null,
+                    currentPersona: personaManager.getCurrentPersona(),
+                    sessionData: {},
+                    debugMode: true
+                };
+                
+                // Test system prompt generation
+                const systemPrompt = bankingAgent.generateSystemPrompt(context, 'Test message');
+                const behaviorMods = bankingAgent.generatePersonaBehaviorModifications(currentPersona);
+                
+                result.innerHTML = `
+                    <span class="success">✓ Agent integration successful</span>
+                    <h4>System Prompt (first 500 chars):</h4>
+                    <pre>${systemPrompt.substring(0, 500)}...</pre>
+                    <h4>Behavior Modifications:</h4>
+                    <pre>${behaviorMods}</pre>
+                `;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ Agent integration error: ${error.message}</span>`;
+                console.error('Agent integration error:', error);
+            }
+        }
+
+        // Auto-load dependencies when page loads
+        window.addEventListener('load', async () => {
+            console.log('Page loaded, starting dependency loading...');
+            await loadDependencies();
+            checkDependencies();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Router Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .test-pass {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .test-fail {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .test-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .stats {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Agent Router Unit Tests</h1>
+    
+    <div class="controls">
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="clearResults()">Clear Results</button>
+        <button onclick="runPerformanceTests()">Run Performance Tests</button>
+    </div>
+    
+    <div id="test-results"></div>
+    
+    <div class="stats" id="test-stats" style="display: none;">
+        <h3>Test Statistics</h3>
+        <div id="stats-content"></div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        // Initialize debug manager for testing
+        window.debugManager = new DebugManager();
+        
+        // Test results container
+        let testResults = [];
+        
+        // Mock agents for testing
+        class MockIDVAgent extends BaseAgent {
+            constructor() {
+                super('MockIDV', 'Mock Identity Verification Agent');
+            }
+            
+            canHandle(inputText) {
+                const triggers = ['verify', 'password', 'identity', 'pin'];
+                return triggers.some(trigger => 
+                    inputText.toLowerCase().includes(trigger)
+                );
+            }
+            
+            async handle(inputText, context) {
+                return this.createResponse(
+                    true,
+                    `IDV Agent handled: ${inputText}`,
+                    100,
+                    50
+                );
+            }
+        }
+        
+        class MockBankingAgent extends BaseAgent {
+            constructor() {
+                super('MockBanking', 'Mock Banking Information Agent');
+            }
+            
+            canHandle(inputText) {
+                const triggers = ['balance', 'transaction', 'account', 'statement'];
+                return triggers.some(trigger => 
+                    inputText.toLowerCase().includes(trigger)
+                );
+            }
+            
+            async handle(inputText, context) {
+                return this.createResponse(
+                    true,
+                    `Banking Agent handled: ${inputText}`,
+                    150,
+                    75
+                );
+            }
+        }
+        
+        class MockPaymentsAgent extends BaseAgent {
+            constructor() {
+                super('MockPayments', 'Mock Payments Agent');
+            }
+            
+            canHandle(inputText) {
+                const triggers = ['send', 'transfer', 'pay', '£'];
+                return triggers.some(trigger => 
+                    inputText.toLowerCase().includes(trigger)
+                );
+            }
+            
+            async handle(inputText, context) {
+                return this.createResponse(
+                    true,
+                    `Payments Agent handled: ${inputText}`,
+                    200,
+                    100
+                );
+            }
+        }
+        
+        class MockFraudAgent extends BaseAgent {
+            constructor() {
+                super('MockFraud', 'Mock Fraud Detection Agent');
+            }
+            
+            canHandle(inputText) {
+                const triggers = ['fraud', 'freeze', 'block', 'stolen', 'suspicious', 'unauthorised'];
+                return triggers.some(trigger => 
+                    inputText.toLowerCase().includes(trigger)
+                );
+            }
+            
+            async handle(inputText, context) {
+                return this.createResponse(
+                    true,
+                    `Fraud Agent handled: ${inputText}`,
+                    120,
+                    60
+                );
+            }
+        }
+        
+        class MockFailingAgent extends BaseAgent {
+            constructor() {
+                super('MockFailing', 'Mock Failing Agent');
+            }
+            
+            canHandle(inputText) {
+                return inputText.toLowerCase().includes('fail');
+            }
+            
+            async handle(inputText, context) {
+                throw new Error('Mock agent failure');
+            }
+        }
+        
+        // Mock context for testing
+        const mockContext = {
+            personaManager: {
+                getCurrentPersonaData: () => ({ name: 'TestPersona' })
+            },
+            systemPromptsManager: {
+                getSystemPrompt: () => 'You are a helpful banking assistant.'
+            },
+            apiClient: {
+                generateResponse: async (input, options) => ({
+                    content: `Fallback response for: ${input}`,
+                    tokensUsed: 25
+                })
+            }
+        };
+        
+        // Test helper functions
+        function logTest(name, passed, message = '') {
+            const result = {
+                name,
+                passed,
+                message,
+                timestamp: new Date().toISOString()
+            };
+            testResults.push(result);
+            
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${passed ? 'test-pass' : 'test-fail'}`;
+            resultDiv.innerHTML = `
+                <strong>${passed ? '✓' : '✗'} ${name}</strong>
+                ${message ? `<br><small>${message}</small>` : ''}
+            `;
+            
+            document.getElementById('test-results').appendChild(resultDiv);
+        }
+        
+        function logInfo(message) {
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'test-result test-info';
+            infoDiv.innerHTML = `<strong>INFO:</strong> ${message}`;
+            document.getElementById('test-results').appendChild(infoDiv);
+        }
+        
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+            document.getElementById('test-stats').style.display = 'none';
+            testResults = [];
+        }
+        
+        function showStats() {
+            const passed = testResults.filter(r => r.passed).length;
+            const failed = testResults.filter(r => !r.passed).length;
+            const total = testResults.length;
+            
+            document.getElementById('stats-content').innerHTML = `
+                <p><strong>Total Tests:</strong> ${total}</p>
+                <p><strong>Passed:</strong> ${passed}</p>
+                <p><strong>Failed:</strong> ${failed}</p>
+                <p><strong>Success Rate:</strong> ${total > 0 ? Math.round((passed/total) * 100) : 0}%</p>
+            `;
+            document.getElementById('test-stats').style.display = 'block';
+        }
+        
+        // Test Suite
+        async function testAgentRouterConstruction() {
+            logInfo('Testing AgentRouter Construction...');
+            
+            try {
+                // Test empty constructor
+                const router1 = new AgentRouter();
+                logTest('Empty constructor', router1.agents.length === 0);
+                
+                // Test constructor with agents
+                const agents = [new MockIDVAgent(), new MockBankingAgent()];
+                const router2 = new AgentRouter(agents);
+                logTest('Constructor with agents', router2.agents.length === 2);
+                
+                // Test stats
+                const stats = router2.getStats();
+                logTest('Stats method', stats.totalAgents === 2 && stats.agentNames.length === 2);
+                
+            } catch (error) {
+                logTest('AgentRouter construction', false, error.message);
+            }
+        }
+        
+        async function testAgentRegistration() {
+            logInfo('Testing Agent Registration...');
+            
+            try {
+                const router = new AgentRouter();
+                const agent = new MockIDVAgent();
+                
+                // Test registration
+                router.registerAgent(agent);
+                logTest('Agent registration', router.agents.length === 1);
+                
+                // Test duplicate registration
+                router.registerAgent(agent);
+                logTest('Duplicate registration allowed', router.agents.length === 2);
+                
+                // Test invalid agent registration
+                try {
+                    router.registerAgent({});
+                    logTest('Invalid agent rejection', false, 'Should have thrown error');
+                } catch (e) {
+                    logTest('Invalid agent rejection', true);
+                }
+                
+                // Test unregistration
+                const removed = router.unregisterAgent('MockIDV');
+                logTest('Agent unregistration', removed && router.agents.length === 1);
+                
+                // Test unregistration of non-existent agent
+                const notRemoved = router.unregisterAgent('NonExistent');
+                logTest('Non-existent agent unregistration', !notRemoved);
+                
+            } catch (error) {
+                logTest('Agent registration', false, error.message);
+            }
+        }
+        
+        async function testAgentSelection() {
+            logInfo('Testing Agent Selection...');
+            
+            try {
+                const router = new AgentRouter([
+                    new MockIDVAgent(),
+                    new MockBankingAgent(),
+                    new MockPaymentsAgent(),
+                    new MockFraudAgent()
+                ]);
+                
+                // Test IDV agent selection
+                const idvAgent = router.findBestAgent('I need to verify my identity');
+                logTest('IDV agent selection', idvAgent && idvAgent.name === 'MockIDV');
+                
+                // Test Banking agent selection
+                const bankingAgent = router.findBestAgent('What is my account balance?');
+                logTest('Banking agent selection', bankingAgent && bankingAgent.name === 'MockBanking');
+                
+                // Test Payments agent selection
+                const paymentsAgent = router.findBestAgent('Send £50 to Alice');
+                logTest('Payments agent selection', paymentsAgent && paymentsAgent.name === 'MockPayments');
+                
+                // Test Fraud agent selection
+                const fraudAgent1 = router.findBestAgent('freeze my card');
+                logTest('Fraud agent selection (freeze)', fraudAgent1 && fraudAgent1.name === 'MockFraud');
+                
+                const fraudAgent2 = router.findBestAgent('suspicious activity');
+                logTest('Fraud agent selection (suspicious)', fraudAgent2 && fraudAgent2.name === 'MockFraud');
+                
+                const fraudAgent3 = router.findBestAgent('my card was stolen');
+                logTest('Fraud agent selection (stolen)', fraudAgent3 && fraudAgent3.name === 'MockFraud');
+                
+                // Test no match
+                const noMatch = router.findBestAgent('Random unrelated text');
+                logTest('No agent match', noMatch === null);
+                
+                // Test priority (first registered wins)
+                const priorityRouter = new AgentRouter([
+                    new MockPaymentsAgent(),
+                    new MockIDVAgent()  // This also matches 'pay' but should not be selected
+                ]);
+                const priorityAgent = router.findBestAgent('I want to pay someone');
+                logTest('Priority selection', priorityAgent && priorityAgent.name === 'MockPayments');
+                
+                // Test invalid input
+                const invalidInput = router.findBestAgent(null);
+                logTest('Invalid input handling', invalidInput === null);
+                
+            } catch (error) {
+                logTest('Agent selection', false, error.message);
+            }
+        }
+        
+        async function testRouting() {
+            logInfo('Testing Request Routing...');
+            
+            try {
+                const router = new AgentRouter([
+                    new MockIDVAgent(),
+                    new MockBankingAgent(),
+                    new MockFraudAgent()
+                ]);
+                
+                // Test successful routing
+                const result1 = await router.route('Check my balance', mockContext);
+                logTest('Successful routing', 
+                    result1.success && 
+                    result1.agentName === 'MockBanking' &&
+                    result1.response.includes('Banking Agent handled')
+                );
+                
+                // Test fallback routing
+                const result2 = await router.route('Random question', mockContext);
+                logTest('Fallback routing', 
+                    result2.success && 
+                    result2.agentName === 'FallbackHandler' &&
+                    result2.metadata.fallbackUsed === true
+                );
+                
+                // Test routing with agent failure
+                const failingRouter = new AgentRouter([new MockFailingAgent()]);
+                const result3 = await failingRouter.route('This will fail', mockContext);
+                logTest('Agent failure handling', 
+                    !result3.success && 
+                    result3.error === 'Mock agent failure'
+                );
+                
+            } catch (error) {
+                logTest('Request routing', false, error.message);
+            }
+        }
+        
+        async function testFallbackHandler() {
+            logInfo('Testing Fallback Handler...');
+            
+            try {
+                const fallback = new FallbackHandler();
+                
+                // Test successful fallback
+                const result1 = await fallback.handle('General question', mockContext);
+                logTest('Fallback success', 
+                    result1.success && 
+                    result1.agentName === 'FallbackHandler' &&
+                    result1.response.includes('Fallback response')
+                );
+                
+                // Test fallback with missing context
+                const result2 = await fallback.handle('Question', {});
+                logTest('Fallback error handling', 
+                    !result2.success && 
+                    result2.metadata.fallbackError === true
+                );
+                
+            } catch (error) {
+                logTest('Fallback handler', false, error.message);
+            }
+        }
+        
+        async function testEdgeCases() {
+            logInfo('Testing Edge Cases...');
+            
+            try {
+                const router = new AgentRouter([new MockIDVAgent()]);
+                
+                // Test empty input
+                const result1 = await router.route('', mockContext);
+                logTest('Empty input handling', result1.success);
+                
+                // Test very long input
+                const longInput = 'a'.repeat(10000);
+                const result2 = await router.route(longInput, mockContext);
+                logTest('Long input handling', result2.success);
+                
+                // Test special characters
+                const result3 = await router.route('!@#$%^&*()_+{}|:"<>?', mockContext);
+                logTest('Special characters handling', result3.success);
+                
+                // Test multiple matching triggers
+                const result4 = await router.route('verify my account balance', mockContext);
+                logTest('Multiple triggers (priority)', 
+                    result4.success && result4.agentName === 'MockIDV'
+                );
+                
+            } catch (error) {
+                logTest('Edge cases', false, error.message);
+            }
+        }
+        
+        async function runPerformanceTests() {
+            logInfo('Running Performance Tests...');
+            
+            try {
+                const router = new AgentRouter([
+                    new MockIDVAgent(),
+                    new MockBankingAgent(),
+                    new MockPaymentsAgent(),
+                    new MockFraudAgent()
+                ]);
+                
+                // Test routing performance
+                const startTime = Date.now();
+                const promises = [];
+                
+                for (let i = 0; i < 100; i++) {
+                    promises.push(router.route(`Test request ${i} balance`, mockContext));
+                }
+                
+                await Promise.all(promises);
+                const endTime = Date.now();
+                const avgTime = (endTime - startTime) / 100;
+                
+                logTest('Performance test (100 requests)', 
+                    avgTime < 50, 
+                    `Average time: ${avgTime.toFixed(2)}ms per request`
+                );
+                
+                // Test agent selection performance
+                const selectionStart = Date.now();
+                for (let i = 0; i < 1000; i++) {
+                    router.findBestAgent(`Test input ${i} verify`);
+                }
+                const selectionEnd = Date.now();
+                const avgSelection = (selectionEnd - selectionStart) / 1000;
+                
+                logTest('Agent selection performance (1000 calls)', 
+                    avgSelection < 1, 
+                    `Average time: ${avgSelection.toFixed(3)}ms per selection`
+                );
+                
+            } catch (error) {
+                logTest('Performance tests', false, error.message);
+            }
+        }
+        
+        async function runAllTests() {
+            clearResults();
+            logInfo('Starting Agent Router Test Suite...');
+            
+            await testAgentRouterConstruction();
+            await testAgentRegistration();
+            await testAgentSelection();
+            await testRouting();
+            await testFallbackHandler();
+            await testEdgeCases();
+            
+            logInfo('Test Suite Complete!');
+            showStats();
+        }
+        
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 500);
+        });
+    </script>
+</body>
+</html>

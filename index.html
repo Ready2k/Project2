@@ -583,11 +583,29 @@
 
     <!-- API and utility modules -->
     <script src="debug-manager.js"></script>
+    <script src="agent-telemetry.js"></script>
     <script src="token-tracker.js"></script>
     <script src="api-client.js"></script>
     <script src="streaming-manager.js"></script>
     <script src="persona-manager.js"></script>
     <script src="system-prompts-manager.js"></script>
+    
+    <!-- Agent modules -->
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/agent-router.js"></script>
+    
+    <!-- Extensibility system modules -->
+    <script src="agents/llm-provider-interface.js"></script>
+    <script src="agents/llm-provider-manager.js"></script>
+    <script src="agents/agent-loader.js"></script>
+    <script src="agents/telemetry-hooks.js"></script>
+    <script src="agents/extensibility-init.js"></script>
+    
     <script src="script.js"></script>
 </body>
 

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FraudAgent Integration Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .test-output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .fraud-button {
+            background-color: #dc3545;
+        }
+        .fraud-button:hover {
+            background-color: #c82333;
+        }
+        .scenario-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .agent-info {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        .response-metadata {
+            background-color: #f1f3f4;
+            border-left: 4px solid #4285f4;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>FraudAgent Integration Tests</h1>
+    
+    <div class="test-container">
+        <h2>Test FraudAgent with AgentRouter</h2>
+        <div class="agent-info">
+            <strong>FraudAgent</strong> - Handles fraud detection, card blocking, and security threats
+        </div>
+        
+        <div class="scenario-buttons">
+            <button class="fraud-button" onclick="testScenario('freeze my card')">Freeze Card</button>
+            <button class="fraud-button" onclick="testScenario('block my card immediately')">Block Card</button>
+            <button class="fraud-button" onclick="testScenario('my card was stolen')">Stolen Card</button>
+            <button class="fraud-button" onclick="testScenario('suspicious activity on my account')">Suspicious Activity</button>
+            <button class="fraud-button" onclick="testScenario('unauthorised transaction')">Unauthorised Transaction</button>
+            <button class="fraud-button" onclick="testScenario('report fraud')">Report Fraud</button>
+            <button class="fraud-button" onclick="testScenario('I think someone hacked my account')">Account Hacked</button>
+            <button class="fraud-button" onclick="testScenario('dispute this charge')">Dispute Charge</button>
+        </div>
+        
+        <div>
+            <input type="text" id="customInput" class="test-input" placeholder="Enter custom fraud-related request...">
+            <button onclick="testCustomInput()">Test Custom Input</button>
+            <button onclick="clearOutput()">Clear Output</button>
+        </div>
+        
+        <div id="testOutput" class="test-output"></div>
+    </div>
+
+    <!-- Include dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/agent-router.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+
+    <script>
+        // Mock dependencies for testing
+        const mockDebugManager = {
+            createModuleLogger: (name) => ({
+                info: (msg, data) => {
+                    console.log(`[INFO] ${name}: ${msg}`, data || '');
+                    logToOutput(`[INFO] ${name}: ${msg}`);
+                },
+                warn: (msg, data) => {
+                    console.warn(`[WARN] ${name}: ${msg}`, data || '');
+                    logToOutput(`[WARN] ${name}: ${msg}`);
+                },
+                error: (msg, data) => {
+                    console.error(`[ERROR] ${name}: ${msg}`, data || '');
+                    logToOutput(`[ERROR] ${name}: ${msg}`);
+                }
+            })
+        };
+
+        const mockPersonaManager = {
+            getCurrentPersonaData: () => ({
+                name: 'TestCustomer',
+                role: 'premium_customer',
+                preferences: {
+                    security_level: 'high'
+                }
+            })
+        };
+
+        const mockSystemPromptsManager = {
+            getSystemPrompt: () => 'You are a helpful and secure banking assistant focused on customer safety and fraud prevention.'
+        };
+
+        const mockApiClient = {
+            createChatCompletion: async (params) => {
+                // Simulate API delay
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                const userMessage = params.messages[1].content.toLowerCase();
+                let response = '';
+                
+                if (userMessage.includes('freeze') || userMessage.includes('block')) {
+                    response = `🚨 URGENT ACTION TAKEN 🚨
+
+I have immediately frozen your card to prevent any unauthorized use. Here's what I've done:
+
+✅ Card Status: BLOCKED - No transactions can be processed
+✅ Security Alert: Activated on your account
+✅ Fraud Protection: Enhanced monitoring enabled
+
+NEXT STEPS:
+1. You'll receive a confirmation SMS within 2 minutes
+2. A replacement card will be sent to your registered address (3-5 business days)
+3. Contact our 24/7 Fraud Hotline: 0800-FRAUD-HELP if you need immediate assistance
+
+Your account security is our top priority. Is there anything else I can help you with regarding this security incident?`;
+                
+                } else if (userMessage.includes('stolen') || userMessage.includes('lost')) {
+                    response = `🔒 CARD SECURITY PROTOCOL ACTIVATED 🔒
+
+I understand your card has been lost/stolen. I'm taking immediate protective action:
+
+IMMEDIATE ACTIONS:
+✅ Card permanently blocked - cannot be used by anyone
+✅ Fraud alert placed on your account
+✅ All pending transactions reviewed for authorization
+
+WHAT HAPPENS NEXT:
+• New card ordered automatically (arrives in 3-5 business days)
+• Temporary digital card available in your mobile app within 1 hour
+• All recurring payments will be automatically transferred to your new card
+
+IMPORTANT: If you see any unauthorized transactions, report them immediately. You're protected by our fraud guarantee.
+
+Emergency Contact: 0800-FRAUD-HELP (24/7)`;
+                
+                } else if (userMessage.includes('suspicious') || userMessage.includes('unauthorised') || userMessage.includes('unauthorized')) {
+                    response = `🔍 FRAUD INVESTIGATION INITIATED 🔍
+
+Thank you for reporting suspicious activity. I take this very seriously and am starting an immediate investigation:
+
+INVESTIGATION ACTIONS:
+✅ Account flagged for enhanced monitoring
+✅ Suspicious transactions identified and quarantined
+✅ Fraud investigation case opened (Ref: FRD-${Date.now()})
+
+YOUR PROTECTION:
+• Temporary spending limits applied for security
+• Real-time transaction alerts activated
+• 24/7 fraud monitoring enabled
+
+NEXT STEPS:
+1. Review your recent transactions carefully
+2. Change your online banking password immediately
+3. Monitor your account daily for the next 30 days
+4. Report any additional suspicious activity immediately
+
+You will NOT be liable for any confirmed fraudulent transactions. Our fraud team will contact you within 24 hours with an update.
+
+Fraud Hotline: 0800-FRAUD-HELP`;
+                
+                } else if (userMessage.includes('fraud') || userMessage.includes('report')) {
+                    response = `📋 FRAUD REPORT PROCESSING 📋
+
+I'm processing your fraud report with the highest priority:
+
+REPORT DETAILS:
+✅ Fraud case number: FRD-${Date.now()}
+✅ Investigation status: ACTIVE
+✅ Priority level: HIGH
+
+IMMEDIATE PROTECTIONS:
+• Account security enhanced
+• Transaction monitoring increased
+• Fraud alerts activated
+
+INVESTIGATION PROCESS:
+1. Detailed transaction analysis (24-48 hours)
+2. Merchant verification and dispute filing
+3. Provisional credit issued if applicable (within 2 business days)
+4. Final resolution (up to 10 business days)
+
+IMPORTANT REMINDERS:
+• Keep all receipts and documentation
+• Don't share account details with anyone
+• Monitor your account daily
+• Report any new suspicious activity immediately
+
+You're fully protected under our fraud guarantee. Our specialist fraud team will contact you within 24 hours.`;
+                
+                } else if (userMessage.includes('dispute') || userMessage.includes('chargeback')) {
+                    response = `💳 TRANSACTION DISPUTE INITIATED 💳
+
+I'm helping you dispute this transaction through our secure process:
+
+DISPUTE PROCESS:
+✅ Dispute case opened: DSP-${Date.now()}
+✅ Transaction temporarily credited back to your account
+✅ Merchant notification sent
+
+WHAT HAPPENS NEXT:
+1. Investigation period: 5-10 business days
+2. Evidence collection from merchant
+3. Final decision and permanent resolution
+4. You'll receive updates via SMS and email
+
+YOUR RIGHTS:
+• Provisional credit during investigation
+• No liability for unauthorized transactions
+• Full documentation of the dispute process
+
+REQUIRED ACTIONS:
+• Provide any supporting documentation
+• Respond to any follow-up questions promptly
+• Continue monitoring your account
+
+Dispute Reference: DSP-${Date.now()}
+Status updates: Available 24/7 in your mobile app`;
+                
+                } else {
+                    response = `🛡️ SECURITY ASSISTANCE 🛡️
+
+I'm here to help with your security concern. Based on your request, I can assist with:
+
+AVAILABLE SECURITY SERVICES:
+• Card blocking and replacement
+• Fraud reporting and investigation
+• Suspicious activity monitoring
+• Transaction disputes
+• Account security enhancement
+
+IMMEDIATE ACTIONS I CAN TAKE:
+• Block/freeze cards instantly
+• Activate fraud alerts
+• Enhance account monitoring
+• Process fraud reports
+• Initiate dispute procedures
+
+For your security, please provide more specific details about your concern so I can take the most appropriate protective action.
+
+24/7 Emergency Fraud Hotline: 0800-FRAUD-HELP`;
+                }
+                
+                return {
+                    choices: [{
+                        message: {
+                            content: response
+                        }
+                    }],
+                    usage: {
+                        total_tokens: Math.floor(Math.random() * 200) + 150
+                    }
+                };
+            }
+        };
+
+        const mockTokenTracker = {
+            addTokens: (tokens, source) => {
+                logToOutput(`💰 Token Usage: ${tokens} tokens used by ${source}`);
+            }
+        };
+
+        // Set up global mocks
+        window.debugManager = mockDebugManager;
+
+        // Initialize AgentRouter with FraudAgent
+        const fraudAgent = new FraudAgent();
+        const idvAgent = new IDVAgent();
+        const bankingAgent = new BankingInfoAgent();
+        
+        const agentRouter = new AgentRouter([fraudAgent, idvAgent, bankingAgent]);
+
+        const mockContext = {
+            personaManager: mockPersonaManager,
+            systemPromptsManager: mockSystemPromptsManager,
+            apiClient: mockApiClient,
+            tokenTracker: mockTokenTracker
+        };
+
+        function logToOutput(message) {
+            const output = document.getElementById('testOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            output.textContent += `[${timestamp}] ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            document.getElementById('testOutput').textContent = '';
+        }
+
+        async function testScenario(inputText) {
+            logToOutput(`\n🧪 TESTING SCENARIO: "${inputText}"`);
+            logToOutput('=' .repeat(50));
+            
+            try {
+                const startTime = Date.now();
+                
+                // Test agent selection
+                const selectedAgent = agentRouter.findBestAgent(inputText);
+                logToOutput(`🎯 Selected Agent: ${selectedAgent ? selectedAgent.name : 'None (Fallback)'}`);
+                
+                if (selectedAgent && selectedAgent.name === 'FraudAgent') {
+                    logToOutput('✅ FraudAgent correctly selected for fraud scenario');
+                } else {
+                    logToOutput('❌ FraudAgent was not selected - this may indicate a routing issue');
+                }
+                
+                // Route the request
+                const result = await agentRouter.route(inputText, mockContext);
+                const endTime = Date.now();
+                
+                logToOutput(`\n📝 RESPONSE FROM ${result.agentName}:`);
+                logToOutput('-'.repeat(30));
+                logToOutput(result.response);
+                
+                // Display metadata
+                if (result.metadata) {
+                    logToOutput(`\n📊 RESPONSE METADATA:`);
+                    logToOutput(`   Agent Type: ${result.metadata.agentType}`);
+                    logToOutput(`   Security Level: ${result.metadata.securityLevel || 'N/A'}`);
+                    logToOutput(`   Input Category: ${result.metadata.inputCategory}`);
+                    logToOutput(`   Processing Time: ${result.processingTime}ms`);
+                    logToOutput(`   Tokens Used: ${result.tokensUsed}`);
+                    logToOutput(`   Success: ${result.success ? '✅' : '❌'}`);
+                }
+                
+                logToOutput(`\n⏱️  Total Test Time: ${endTime - startTime}ms`);
+                logToOutput('=' .repeat(50));
+                
+            } catch (error) {
+                logToOutput(`❌ ERROR: ${error.message}`);
+                console.error('Test error:', error);
+            }
+        }
+
+        async function testCustomInput() {
+            const input = document.getElementById('customInput').value.trim();
+            if (!input) {
+                alert('Please enter a test input');
+                return;
+            }
+            
+            await testScenario(input);
+            document.getElementById('customInput').value = '';
+        }
+
+        // Allow Enter key to trigger custom input test
+        document.getElementById('customInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                testCustomInput();
+            }
+        });
+
+        // Initial setup message
+        logToOutput('🚀 FraudAgent Integration Test Suite Ready');
+        logToOutput('Click any scenario button to test FraudAgent routing and responses');
+        logToOutput('Or enter custom fraud-related text in the input field');
+        logToOutput('=' .repeat(50));
+    </script>
+</body>
+</html>

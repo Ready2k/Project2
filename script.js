@@ -17,6 +17,15 @@ class SpeechToSpeechApp {
         this.tokenTracker = new TokenTracker();
         this.apiClient = new OpenAIClient(this.openaiApiKey, this.tokenTracker);
 
+        // Initialize AgentRouter with all domain agents
+        this.initializeAgentRouter();
+
+        // Initialize agent telemetry if available
+        if (window.agentTelemetry) {
+            window.agentTelemetry.enable();
+            this.debug.info('Agent telemetry initialized and enabled');
+        }
+
         // Initialize streaming manager with token tracker
         this.streamingManager = new StreamingManager(this.openaiApiKey, this.debugStreamingMessage.bind(this), this.tokenTracker);
 
@@ -101,6 +110,59 @@ class SpeechToSpeechApp {
         this.init();
     }
 
+    /**
+     * Initialize AgentRouter with all domain-specific agents
+     */
+    initializeAgentRouter() {
+        try {
+            // Check if required classes are available
+            if (typeof BaseAgent === 'undefined' || 
+                typeof IDVAgent === 'undefined' || 
+                typeof BankingInfoAgent === 'undefined' || 
+                typeof FraudAgent === 'undefined' || 
+                typeof PaymentsAgent === 'undefined' || 
+                typeof AgentRouter === 'undefined' ||
+                typeof AgentConfigManager === 'undefined') {
+                throw new Error('Agent classes not loaded - falling back to original behavior');
+            }
+
+            // Initialize AgentRouter first (this creates the configuration manager)
+            this.agentRouter = new AgentRouter([]);
+
+            // Create domain-specific agents and register them with configurations
+            const agents = [
+                { class: PaymentsAgent, name: 'PaymentsAgent' },
+                { class: FraudAgent, name: 'FraudAgent' },
+                { class: IDVAgent, name: 'IDVAgent' },
+                { class: BankingInfoAgent, name: 'BankingInfoAgent' }
+            ];
+
+            // Register each agent with the router
+            agents.forEach(({ class: AgentClass, name }) => {
+                try {
+                    const agent = new AgentClass();
+                    this.agentRouter.registerAgent(agent);
+                    this.debug.info(`${name} registered successfully`);
+                } catch (agentError) {
+                    this.debug.error(`Failed to register ${name}`, { error: agentError.message });
+                }
+            });
+
+            const stats = this.agentRouter.getStats();
+            this.debug.info('AgentRouter initialized successfully with configuration management', {
+                totalAgents: stats.totalAgents,
+                enabledAgents: stats.enabledAgents,
+                disabledAgents: stats.disabledAgents,
+                agentNames: stats.agentNames
+            });
+
+        } catch (error) {
+            this.debug.error('Failed to initialize AgentRouter', { error: error.message });
+            // Set agentRouter to null so we can fall back to original behavior
+            this.agentRouter = null;
+        }
+    }
+
     async init() {
         // Initialize persona manager first
         await this.personaManager.init();
@@ -136,6 +198,9 @@ class SpeechToSpeechApp {
         
         this.initializeStreamingMode();
         this.initializeMuteButtons();
+        
+        // Initialize extensibility system
+        await this.initializeExtensibilitySystem();
         this.updateKeyStatus();
 
         // Switch to Settings tab on startup for configuration
@@ -512,8 +577,8 @@ class SpeechToSpeechApp {
                 this.addMessage(transcript, 'user');
                 this.updateStatus('Generating response...');
 
-                // Generate AI response
-                const response = await this.generateResponse(transcript);
+                // Route through agents or use fallback
+                const response = await this.routeRequestThroughAgents(transcript);
                 this.addMessage(response, 'bot');
 
                 // Convert response to speech using selected TTS mode
@@ -563,6 +628,68 @@ class SpeechToSpeechApp {
             console.error('Speech-to-text error:', error);
             this.updateDebugOutput('sttOutput', `Error: ${error.message}`);
             throw error;
+        }
+    }
+
+    /**
+     * Route user request through AgentRouter or fallback to original behavior
+     * @param {string} userMessage - The user's transcribed message
+     * @returns {Promise<string>} - The response text
+     */
+    async routeRequestThroughAgents(userMessage) {
+        try {
+            // If AgentRouter is available, use it
+            if (this.agentRouter) {
+                this.debug.info('Routing request through AgentRouter', { 
+                    message: userMessage.substring(0, 50) + '...' 
+                });
+
+                // Create context object for agents
+                const agentContext = {
+                    personaManager: this.personaManager,
+                    systemPromptsManager: this.systemPromptsManager,
+                    apiClient: this.apiClient,
+                    tokenTracker: this.tokenTracker,
+                    currentPersona: this.personaManager.getCurrentPersona(),
+                    sessionData: {},
+                    debugMode: window.debugManager.isEnabled()
+                };
+
+                // Route through agents
+                const agentResult = await this.agentRouter.route(userMessage, agentContext);
+
+                if (agentResult.success) {
+                    this.debug.info('Agent routing successful', { 
+                        agentName: agentResult.agentName,
+                        processingTime: agentResult.processingTime 
+                    });
+                    
+                    // Update debug output with agent information
+                    this.updateDebugOutput('gptResponse', 
+                        `Agent: ${agentResult.agentName}\nResponse: ${agentResult.response}`,
+                        'Agent Response:'
+                    );
+                    
+                    return agentResult.response;
+                } else {
+                    this.debug.warn('Agent routing failed, falling back to original method', { 
+                        error: agentResult.error 
+                    });
+                    // Fall through to original method
+                }
+            } else {
+                this.debug.info('AgentRouter not available, using original method');
+            }
+
+            // Fallback to original generateResponse method
+            return await this.generateResponse(userMessage);
+
+        } catch (error) {
+            this.debug.error('Error in agent routing, falling back to original method', { 
+                error: error.message 
+            });
+            // Fallback to original method on any error
+            return await this.generateResponse(userMessage);
         }
     }
 
@@ -984,6 +1111,61 @@ class SpeechToSpeechApp {
         }
 
         console.log('Mute buttons initialized - they will be enabled when you start recording or connect');
+    }
+
+    /**
+     * Initialize the extensibility system with LLM providers, agent loading, and telemetry
+     */
+    async initializeExtensibilitySystem() {
+        try {
+            this.debug.info('Initializing extensibility system');
+            
+            // Check if extensibility components are available
+            if (typeof initializeExtensibilitySystem === 'undefined') {
+                this.debug.warn('Extensibility system not available - skipping initialization');
+                return;
+            }
+            
+            // Initialize with default configuration
+            const config = {
+                enablePredefinedHooks: true,
+                llmProviders: {
+                    openai: {
+                        apiKey: this.openaiApiKey // Use the existing API key
+                    }
+                }
+            };
+            
+            const result = await initializeExtensibilitySystem(config);
+            
+            if (result.success) {
+                this.debug.info('Extensibility system initialized successfully', {
+                    llmProviders: result.llmProviderManager ? 'Available' : 'Not available',
+                    agentLoader: result.agentLoader ? 'Available' : 'Not available',
+                    telemetryHooks: result.telemetryHooks ? 'Available' : 'Not available'
+                });
+                
+                // Update API client to use LLM provider manager if available
+                if (window.llmProviderManager) {
+                    this.debug.info('LLM Provider Manager available - agents can now use multiple providers');
+                }
+                
+                // Log extensibility status
+                if (window.extensibilityAPI) {
+                    const status = window.extensibilityAPI.utils.getSystemInfo();
+                    this.debug.info('Extensibility system status', status);
+                }
+            } else {
+                this.debug.error('Extensibility system initialization failed', {
+                    errors: result.errors
+                });
+            }
+        } catch (error) {
+            this.debug.error('Failed to initialize extensibility system', {
+                error: error.message,
+                stack: error.stack
+            });
+        }
     }
 
     updateRecordingStatus(status) {

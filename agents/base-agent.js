@@ -267,10 +267,13 @@ class BaseAgent {
     buildCustomSystemPrompt(context, personaData, userInput, overrides) {
         const spm = context.systemPromptsManager;
         
-        // Use overrides or fall back to defaults
-        const basePersonality = overrides.basePersonality || spm.getBasePersonality();
-        const financialContext = overrides.financialContext || spm.getFinancialContext();
-        const responseInstructions = overrides.responseInstructions || spm.getResponseInstructions();
+        // Use overrides or fall back to defaults (with defensive checks)
+        const basePersonality = overrides.basePersonality || 
+            (spm.getBasePersonality ? spm.getBasePersonality() : 'You are a helpful banking assistant.');
+        const financialContext = overrides.financialContext || 
+            (spm.getFinancialContext ? spm.getFinancialContext() : 'Provide helpful financial information.');
+        const responseInstructions = overrides.responseInstructions || 
+            (spm.getResponseInstructions ? spm.getResponseInstructions() : 'Keep responses conversational and concise.');
         
         let systemPrompt = basePersonality + '\n\n';
         systemPrompt += financialContext + '\n\n';
@@ -297,7 +300,7 @@ class BaseAgent {
         }
 
         // Add custom prompts if any
-        const customPrompts = spm.getCustomPrompts();
+        const customPrompts = spm.getCustomPrompts ? spm.getCustomPrompts() : [];
         if (customPrompts && customPrompts.length > 0) {
             systemPrompt += '\n\nAdditional Instructions:\n';
             customPrompts.forEach(customPrompt => {

@@ -256,8 +256,8 @@ class AgentRouter {
         try {
             this.debug.info('Routing request', { inputText: inputText.substring(0, 100) });
             
-            // Find the best agent for this input
-            const agent = this.findBestAgent(inputText);
+            // Find the best agent for this input using AI-powered routing
+            const agent = await this.findBestAgent(inputText, context);
             
             // Log agent routing decision for debugging
             if (window.debugManager) {
@@ -322,11 +322,12 @@ class AgentRouter {
     
     /**
      * Find the best agent to handle the given input
-     * Uses priority-based selection - first matching enabled agent wins
+     * Uses AI-powered semantic matching with conversation context
      * @param {string} inputText - The user's input text
-     * @returns {BaseAgent|null} - Best matching agent or null if none found
+     * @param {Object} context - Context object for AI-powered routing
+     * @returns {Promise<BaseAgent|null>} - Best matching agent or null if none found
      */
-    findBestAgent(inputText) {
+    async findBestAgent(inputText, context = null) {
         if (!inputText || typeof inputText !== 'string') {
             this.debug.warn('Invalid input text for agent selection');
             return null;
@@ -335,11 +336,11 @@ class AgentRouter {
         // Get only enabled agents, already sorted by priority
         const enabledAgents = this.getEnabledAgents();
         
-        // Iterate through enabled agents in priority order
+        // First try traditional keyword matching for performance
         for (const agent of enabledAgents) {
             try {
                 if (agent.canHandle(inputText)) {
-                    this.debug.info('Agent match found', { 
+                    this.debug.info('Agent match found via keywords', { 
                         agentName: agent.name,
                         priority: agent.priority || 100,
                         inputPreview: inputText.substring(0, 50)
@@ -351,7 +352,22 @@ class AgentRouter {
                     agentName: agent.name,
                     error: error.message 
                 });
-                // Continue to next agent if this one fails
+            }
+        }
+        
+        // If no keyword match, try AI-powered semantic matching
+        if (context && context.apiClient) {
+            try {
+                const semanticAgent = await this.findAgentWithAI(inputText, enabledAgents, context);
+                if (semanticAgent) {
+                    this.debug.info('Agent match found via AI semantic analysis', { 
+                        agentName: semanticAgent.name,
+                        inputPreview: inputText.substring(0, 50)
+                    });
+                    return semanticAgent;
+                }
+            } catch (error) {
+                this.debug.error('AI-powered agent routing failed', { error: error.message });
             }
         }
         
@@ -362,6 +378,127 @@ class AgentRouter {
         });
         
         return null;
+    }
+
+    /**
+     * Use AI to determine the best agent based on semantic understanding
+     * @param {string} inputText - The user's input text
+     * @param {Array<BaseAgent>} enabledAgents - Available agents
+     * @param {Object} context - Context object with API client
+     * @returns {Promise<BaseAgent|null>} - Best matching agent or null
+     */
+    async findAgentWithAI(inputText, enabledAgents, context) {
+        try {
+            // Get conversation context if available
+            const conversationContext = this.getConversationContext(context);
+            
+            // Create agent descriptions for AI analysis
+            const agentDescriptions = enabledAgents.map(agent => ({
+                name: agent.name,
+                description: agent.description,
+                capabilities: this.getAgentCapabilities(agent)
+            }));
+
+            const systemPrompt = `You are an intelligent agent router for a voice banking system. Your job is to analyze user input and determine which specialized agent should handle the request.
+
+Available Agents:
+${agentDescriptions.map(agent => `- ${agent.name}: ${agent.description}\n  Capabilities: ${agent.capabilities.join(', ')}`).join('\n')}
+
+Context Rules:
+- PaymentsAgent: Handles money transfers, payments, sending money
+- FraudAgent: Handles card blocking, fraud reports, security issues, suspicious activity
+- IDVAgent: Handles identity verification, password resets, account security
+- BankingInfoAgent: Handles balance inquiries, transaction history, account information
+
+Conversation Context:
+${conversationContext}
+
+User Input: "${inputText}"
+
+Analyze the user input considering:
+1. Direct intent (what they're explicitly asking for)
+2. Conversation context (what was discussed recently)
+3. Semantic meaning (understanding "yeah stop it" in fraud context means block card)
+4. Follow-up responses (confirmations, clarifications)
+
+Respond with ONLY the agent name that should handle this request, or "NONE" if no agent is appropriate.
+
+Examples:
+- "What's my balance?" → BankingInfoAgent
+- "Send money to Alice" → PaymentsAgent
+- "Block my card" → FraudAgent
+- "Yeah, block it" (after fraud discussion) → FraudAgent
+- "Yes, stop it now" (after card security question) → FraudAgent
+- "Cancel that" (after payment discussion) → PaymentsAgent
+- "Verify my identity" → IDVAgent`;
+
+            const messages = [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: inputText }
+            ];
+
+            const response = await context.apiClient.generateChatCompletion(messages, {
+                model: 'gpt-3.5-turbo',
+                maxTokens: 50,
+                temperature: 0.1 // Low temperature for consistent routing decisions
+            });
+
+            if (response.success) {
+                const agentName = response.content.trim();
+                const selectedAgent = enabledAgents.find(agent => agent.name === agentName);
+                
+                if (selectedAgent) {
+                    this.debug.info('AI selected agent', { 
+                        agentName,
+                        inputText: inputText.substring(0, 50),
+                        aiResponse: response.content
+                    });
+                    return selectedAgent;
+                }
+            }
+
+            return null;
+
+        } catch (error) {
+            this.debug.error('AI agent routing failed', { error: error.message });
+            return null;
+        }
+    }
+
+    /**
+     * Get conversation context for AI routing
+     * @param {Object} context - Application context
+     * @returns {string} - Formatted conversation context
+     */
+    getConversationContext(context) {
+        // Try to get recent conversation history
+        if (context.conversationHistory && context.conversationHistory.length > 0) {
+            const recentMessages = context.conversationHistory.slice(-4); // Last 2 exchanges
+            return recentMessages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+        }
+
+        // Check if there's a last agent used
+        if (context.lastAgentUsed) {
+            return `Last agent used: ${context.lastAgentUsed}`;
+        }
+
+        return 'No previous conversation context available.';
+    }
+
+    /**
+     * Get agent capabilities for AI analysis
+     * @param {BaseAgent} agent - Agent to analyze
+     * @returns {Array<string>} - List of agent capabilities
+     */
+    getAgentCapabilities(agent) {
+        const capabilityMap = {
+            'PaymentsAgent': ['money transfers', 'payments', 'sending money', 'payment history'],
+            'FraudAgent': ['card blocking', 'fraud reporting', 'security alerts', 'suspicious activity'],
+            'IDVAgent': ['identity verification', 'password reset', 'account security', 'authentication'],
+            'BankingInfoAgent': ['balance inquiry', 'transaction history', 'account information', 'statements']
+        };
+
+        return capabilityMap[agent.name] || ['general banking assistance'];
     }
     
     /**
@@ -434,7 +571,8 @@ class FallbackHandler {
             }
             
             // Generate system prompt using existing system
-            const systemPrompt = context.systemPromptsManager.getSystemPrompt();
+            const personaData = context.personaManager ? context.personaManager.getCurrentPersonaData() : null;
+            const systemPrompt = context.systemPromptsManager.generateSystemPrompt(personaData, inputText);
             
             // Add fallback context
             const fallbackPrompt = systemPrompt + '\n\nYou are handling a general banking inquiry that doesn\'t fit into specific categories.';

@@ -123,7 +123,10 @@ class IDVAgent extends BaseAgent {
             
             // Track tokens if tracker is available
             if (context.tokenTracker) {
-                context.tokenTracker.addTokens(tokensUsed, 'IDVAgent');
+                // Estimate input/output tokens (rough split)
+                const inputTokens = Math.floor(tokensUsed * 0.3);
+                const outputTokens = Math.floor(tokensUsed * 0.7);
+                context.tokenTracker.trackGptUsage(inputTokens, outputTokens);
             }
             
             this.debug.info('IDVAgent successfully processed request with security', {

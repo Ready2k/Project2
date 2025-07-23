@@ -2,9 +2,11 @@ class DebugManager {
     constructor() {
         // Load debug setting from localStorage, default to false (off)
         this.debugEnabled = localStorage.getItem('debug_enabled') === 'true' || false;
+        // Load test mode setting from localStorage, default to 'mock'
+        this.testMode = localStorage.getItem('test_mode') || 'mock';
         this.debugLevels = {
             LOG: 'log',
-            WARN: 'warn', 
+            WARN: 'warn',
             ERROR: 'error',
             INFO: 'info'
         };
@@ -43,7 +45,7 @@ class DebugManager {
 
         const timestamp = new Date().toLocaleTimeString();
         const prefix = `[${timestamp}] ${module}:`;
-        
+
         switch (level) {
             case this.debugLevels.LOG:
                 console.log(prefix, message, data || '');
@@ -123,21 +125,21 @@ class DebugManager {
     // Agent-specific debugging methods
     logAgentRouting(inputText, selectedAgent, availableAgents) {
         if (!this.debugEnabled) return;
-        
+
         this.group(`🤖 Agent Routing: "${inputText.substring(0, 50)}..."`);
         this.info('AgentRouter', `Selected Agent: ${selectedAgent ? selectedAgent.name : 'None (Fallback)'}`);
         this.info('AgentRouter', `Available Agents: ${availableAgents.map(a => a.name).join(', ')}`);
-        
+
         if (selectedAgent) {
             this.info('AgentRouter', `Agent Description: ${selectedAgent.description}`);
         }
-        
+
         this.groupEnd();
     }
 
     logAgentPerformance(agentName, metrics) {
         if (!this.debugEnabled) return;
-        
+
         this.group(`📊 Agent Performance: ${agentName}`);
         this.table({
             'Activations': metrics.activations,
@@ -153,7 +155,7 @@ class DebugManager {
 
     logAgentTelemetryReport() {
         if (!this.debugEnabled || !window.agentTelemetry) return;
-        
+
         const report = window.agentTelemetry.generateDebugReport(10);
         this.group('📈 Agent Telemetry Report');
         console.log(report);
@@ -165,12 +167,12 @@ class DebugManager {
             this.warn('DebugManager', 'Agent telemetry not available');
             return;
         }
-        
+
         const globalMetrics = window.agentTelemetry.getGlobalMetrics();
         const agentMetrics = window.agentTelemetry.getAllAgentMetrics();
-        
+
         this.group('🎯 Agent System Metrics');
-        
+
         // Global metrics
         this.info('Global', 'Session Metrics', {
             'Total Activations': globalMetrics.totalActivations,
@@ -181,7 +183,7 @@ class DebugManager {
             'Session Duration': `${Math.round(globalMetrics.sessionDuration / 1000)}s`,
             'Active Agents': globalMetrics.activeAgents
         });
-        
+
         // Per-agent metrics
         if (agentMetrics.length > 0) {
             this.info('Agents', 'Individual Agent Performance');
@@ -189,7 +191,7 @@ class DebugManager {
                 this.logAgentPerformance(agent.name, agent);
             });
         }
-        
+
         this.groupEnd();
     }
 
@@ -226,13 +228,13 @@ class DebugManager {
             this.warn('DebugManager', 'Agent telemetry not available');
             return null;
         }
-        
+
         const data = window.agentTelemetry.exportData();
         this.info('DebugManager', 'Agent data exported', data);
-        
+
         // Also log to console for easy copying
         console.log('Agent Telemetry Export:', JSON.stringify(data, null, 2));
-        
+
         return data;
     }
 
@@ -242,26 +244,26 @@ class DebugManager {
             this.warn('DebugManager', 'Agent system not available');
             return;
         }
-        
+
         const router = window.speechToSpeechApp.agentRouter;
         const stats = router.getStats();
         const configManager = router.getConfigManager();
-        
+
         this.group('🔧 Agent Configuration Status');
-        
+
         // Overall status
         this.info('System', 'Agent System Overview', {
             'Total Agents': stats.totalAgents,
             'Enabled Agents': stats.enabledAgents,
             'Disabled Agents': stats.disabledAgents
         });
-        
+
         // Individual agent status
         this.info('Agents', 'Individual Agent Status');
         stats.agentDescriptions.forEach(agent => {
             const config = configManager.getAgentConfig(agent.name);
             const status = agent.enabled ? '✅ Enabled' : '❌ Disabled';
-            
+
             console.log(`  ${status} ${agent.name} (Priority: ${agent.priority})`);
             console.log(`    Description: ${agent.description}`);
             if (config) {
@@ -269,7 +271,7 @@ class DebugManager {
                 console.log(`    Telemetry: ${config.telemetryEnabled ? 'On' : 'Off'}`);
             }
         });
-        
+
         // Priority order
         if (stats.priorityOrder.length > 0) {
             this.info('Priority', 'Agent Priority Order (Enabled Only)');
@@ -277,7 +279,7 @@ class DebugManager {
                 console.log(`  ${index + 1}. ${agent.name} (Priority: ${agent.priority})`);
             });
         }
-        
+
         this.groupEnd();
     }
 
@@ -286,12 +288,12 @@ class DebugManager {
             this.warn('DebugManager', 'Agent system not available');
             return;
         }
-        
+
         const configManager = window.speechToSpeechApp.agentRouter.getConfigManager();
         const allConfigs = configManager.getAllConfigs();
-        
+
         this.group('⚙️ Agent Configurations');
-        
+
         Object.entries(allConfigs).forEach(([agentName, config]) => {
             this.info(agentName, 'Configuration Details', {
                 'Enabled': config.enabled,
@@ -304,7 +306,7 @@ class DebugManager {
                 'Custom Settings': Object.keys(config.customSettings || {}).length > 0 ? config.customSettings : 'None'
             });
         });
-        
+
         this.groupEnd();
     }
 
@@ -313,7 +315,7 @@ class DebugManager {
             this.warn('DebugManager', 'Agent system not available');
             return false;
         }
-        
+
         const success = window.speechToSpeechApp.agentRouter.enableAgent(agentName);
         if (success) {
             this.info('DebugManager', `Agent ${agentName} enabled`);
@@ -328,7 +330,7 @@ class DebugManager {
             this.warn('DebugManager', 'Agent system not available');
             return false;
         }
-        
+
         const success = window.speechToSpeechApp.agentRouter.disableAgent(agentName);
         if (success) {
             this.info('DebugManager', `Agent ${agentName} disabled`);
@@ -343,7 +345,7 @@ class DebugManager {
             this.warn('DebugManager', 'Agent system not available');
             return false;
         }
-        
+
         const success = window.speechToSpeechApp.agentRouter.setAgentPriority(agentName, priority);
         if (success) {
             this.info('DebugManager', `Agent ${agentName} priority set to ${priority}`);
@@ -358,13 +360,13 @@ class DebugManager {
             this.warn('DebugManager', 'Agent system not available');
             return null;
         }
-        
+
         const configManager = window.speechToSpeechApp.agentRouter.getConfigManager();
         const configJson = configManager.exportConfigurations();
-        
+
         this.info('DebugManager', 'Agent configurations exported');
         console.log('Agent Configurations Export:', configJson);
-        
+
         return configJson;
     }
 
@@ -373,10 +375,10 @@ class DebugManager {
             this.warn('DebugManager', 'Agent system not available');
             return false;
         }
-        
+
         const configManager = window.speechToSpeechApp.agentRouter.getConfigManager();
         const success = configManager.importConfigurations(configJson);
-        
+
         if (success) {
             this.info('DebugManager', 'Agent configurations imported successfully');
             // Reapply configurations to agents
@@ -384,7 +386,7 @@ class DebugManager {
         } else {
             this.warn('DebugManager', 'Failed to import agent configurations');
         }
-        
+
         return success;
     }
 
@@ -393,15 +395,46 @@ class DebugManager {
             this.warn('DebugManager', 'Agent system not available');
             return false;
         }
-        
+
         const configManager = window.speechToSpeechApp.agentRouter.getConfigManager();
         configManager.resetToDefaults();
-        
+
         // Reapply configurations to agents
         window.speechToSpeechApp.agentRouter.applyConfigurationsToAgents();
-        
+
         this.info('DebugManager', 'Agent configurations reset to defaults');
         return true;
+    }
+
+    // Test mode management
+    getTestMode() {
+        return this.testMode;
+    }
+
+    setTestMode(mode) {
+        if (mode !== 'mock' && mode !== 'real') {
+            this.warn('DebugManager', `Invalid test mode: ${mode}. Use 'mock' or 'real'`);
+            return false;
+        }
+        
+        this.testMode = mode;
+        localStorage.setItem('test_mode', mode);
+        this.info('DebugManager', `Test mode set to: ${mode}`);
+        return true;
+    }
+
+    toggleTestMode() {
+        const newMode = this.testMode === 'mock' ? 'real' : 'mock';
+        this.setTestMode(newMode);
+        return newMode;
+    }
+
+    isRealTestMode() {
+        return this.testMode === 'real';
+    }
+
+    isMockTestMode() {
+        return this.testMode === 'mock';
     }
 
 }
@@ -426,3 +459,8 @@ window.setAgentPriority = (agentName, priority) => window.debugManager.setAgentP
 window.exportAgentConfigurations = () => window.debugManager.exportAgentConfigurations();
 window.importAgentConfigurations = (configJson) => window.debugManager.importAgentConfigurations(configJson);
 window.resetAgentConfigurations = () => window.debugManager.resetAgentConfigurations();
+
+// Test mode management functions
+window.getTestMode = () => window.debugManager.getTestMode();
+window.setTestMode = (mode) => window.debugManager.setTestMode(mode);
+window.toggleTestMode = () => window.debugManager.toggleTestMode();

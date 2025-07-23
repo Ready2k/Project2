@@ -68,6 +68,13 @@ python3 -m http.server 8000
 - **Voice generation details and statistics**
 - **Enhanced audio level monitoring** with quality indicators
 
+### 🧪 **Advanced Testing System**
+- **Mock vs Real API Testing** - Switch between simulated and actual OpenAI API calls
+- **Test Mode Selector** - Visual toggle for development vs production testing
+- **Comprehensive Test Suites** - Agent routing, security boundaries, streaming compatibility
+- **Performance Validation** - Token usage tracking and response time monitoring
+- **Security Testing** - Data access boundary validation and audit logging
+
 ## 🎯 Supported Use Cases
 
 ### **Financial Services Scenarios:**
@@ -89,6 +96,17 @@ python3 -m http.server 8000
   - `persona-manager.js` - Customer persona management
   - `system-prompts-manager.js` - AI system prompts configuration
   - `script.js` - Main application logic and UI coordination
+- **Agent System**: Domain-specific intelligent routing
+  - `agents/agent-router.js` - Central routing and agent management
+  - `agents/base-agent.js` - Abstract base class for all agents
+  - `agents/banking-info-agent.js` - Account information specialist
+  - `agents/payments-agent.js` - Payment processing specialist
+  - `agents/fraud-agent.js` - Security and fraud prevention
+  - `agents/idv-agent.js` - Identity verification specialist
+- **Testing Framework**: Comprehensive test mode system
+  - `test-api-factory.js` - Mock vs Real API client factory
+  - `test-mode-selector.js` - Visual test mode switching UI
+  - `debug-manager.js` - Enhanced debugging with test mode support
 - **APIs**: OpenAI (Whisper, GPT-3.5-turbo, TTS, Realtime API)
 - **Audio**: Web Audio API, MediaRecorder API
 - **Storage**: LocalStorage for settings persistence
@@ -128,6 +146,54 @@ cd Project2
 - Grant microphone permissions
 - Have a natural conversation - AI responds automatically when you stop speaking
 - See responses in chat AND hear them spoken simultaneously
+
+#### **Testing Modes:**
+- **Mock Mode (Default)**: Free testing with simulated API responses - no API key required
+- **Real Mode**: Actual OpenAI API calls for production validation - requires API key and costs money
+- Use the test mode selector in any test page to switch between modes
+- Access comprehensive test suites at:
+  - `test-agent-system-comprehensive.html` - Complete agent system testing
+  - `test-ai-agent-routing.html` - AI-powered semantic routing tests
+  - `test-mode-example.html` - Simple test mode demonstration
+
+## 🧪 Test Mode System
+
+The application includes a comprehensive testing framework that supports both **Mock** and **Real** API testing modes:
+
+### **Mock Mode (Default)**
+- ✅ **Free testing** - No API costs or key required
+- ✅ **Realistic responses** - Simulated banking scenarios with proper delays
+- ✅ **Token tracking simulation** - Practice cost monitoring without charges
+- ✅ **Full functionality** - All features work with mock data
+- ✅ **Development friendly** - Perfect for development and demonstration
+
+### **Real Mode**
+- 🌐 **Production validation** - Actual OpenAI API calls
+- 🌐 **Real cost tracking** - Accurate token usage and billing
+- 🌐 **Live API testing** - Validate against actual OpenAI services
+- ⚠️ **Requires API key** - OpenAI API key needed
+- ⚠️ **Costs money** - Real API usage charges apply
+
+### **Test Mode Controls**
+```javascript
+// Console commands for test mode management
+getTestMode()        // Check current mode ('mock' or 'real')
+setTestMode('real')  // Switch to real API mode
+setTestMode('mock')  // Switch to mock mode
+toggleTestMode()     // Toggle between modes
+```
+
+### **Using Test Mode in Development**
+```javascript
+// Create API client respecting current test mode
+const apiClient = TestAPIFactory.createAPIClient();
+
+// Create complete test context
+const testContext = TestAPIFactory.createTestContext();
+
+// The system automatically uses mock or real APIs based on current mode
+const result = await agentRouter.route(userInput, testContext);
+```
 
 ## 🏗️ JSON-Driven Architecture
 

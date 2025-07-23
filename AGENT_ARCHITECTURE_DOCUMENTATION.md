@@ -446,6 +446,158 @@ const responseCache = new Map();
 const cachedResponse = responseCache.get(queryHash);
 ```
 
+## Test Mode System
+
+The agent architecture includes a comprehensive testing framework that supports both **Mock** and **Real** API testing modes, allowing developers to test without costs during development and validate with real APIs when needed.
+
+### Test Mode Configuration
+
+#### Mock Mode (Default)
+- **Free testing** with simulated API responses
+- **Realistic delays** and response patterns
+- **Token usage simulation** for cost estimation
+- **No API key required**
+- **Perfect for development and CI/CD**
+
+#### Real Mode
+- **Actual OpenAI API calls** for production validation
+- **Real token usage and costs**
+- **Live API response validation**
+- **Requires valid OpenAI API key**
+- **Use for final validation before deployment**
+
+### Using Test Modes
+
+#### Programmatic Control
+```javascript
+// Check current test mode
+const currentMode = window.debugManager.getTestMode(); // 'mock' or 'real'
+
+// Switch test modes
+window.debugManager.setTestMode('mock');  // Switch to mock mode
+window.debugManager.setTestMode('real');  // Switch to real mode
+window.debugManager.toggleTestMode();     // Toggle between modes
+
+// Create API client respecting current mode
+const apiClient = TestAPIFactory.createAPIClient();
+
+// Create complete test context
+const testContext = TestAPIFactory.createTestContext();
+```
+
+#### Visual Test Mode Selector
+```html
+<!-- Add test mode selector to any test page -->
+<div id="test-mode-selector"></div>
+
+<script src="test-mode-selector.js"></script>
+<script>
+    // Selector automatically initializes and provides UI
+    // Callbacks can be added for mode change events
+    if (window.testModeSelector) {
+        window.testModeSelector.onModeChange((newMode) => {
+            console.log(`Switched to ${newMode} mode`);
+            // Reinitialize test environment if needed
+        });
+    }
+</script>
+```
+
+### Test API Factory
+
+The `TestAPIFactory` provides a unified interface for creating API clients that respect the current test mode:
+
+```javascript
+class TestAPIFactory {
+    // Create API client based on current test mode
+    static createAPIClient(testMode = null)
+    
+    // Create real OpenAI API client
+    static createRealAPIClient()
+    
+    // Create mock API client with simulated responses
+    static createMockAPIClient()
+    
+    // Create complete test context with persona data
+    static createTestContext(testMode = null)
+}
+```
+
+### Mock API Behavior
+
+The mock API client provides realistic responses for different banking scenarios:
+
+```javascript
+// Mock responses are contextually appropriate
+const mockClient = TestAPIFactory.createMockAPIClient();
+
+// Balance inquiry
+await mockClient.generateChatCompletion([
+    { role: 'user', content: 'What is my balance?' }
+]);
+// Returns: "Your current account balance is £2,500.75..."
+
+// Payment request
+await mockClient.generateChatCompletion([
+    { role: 'user', content: 'Send £100 to Alice' }
+]);
+// Returns: "I can help you with that transfer. For security..."
+
+// Fraud alert
+await mockClient.generateChatCompletion([
+    { role: 'user', content: 'Block my card' }
+]);
+// Returns: "I understand your concern about potential fraud..."
+```
+
+### Test Mode Integration Examples
+
+#### Basic Test Setup
+```javascript
+// Initialize test environment with current mode
+function initializeTestEnvironment() {
+    const testContext = TestAPIFactory.createTestContext();
+    const agentRouter = new AgentRouter([
+        new PaymentsAgent(),
+        new FraudAgent(),
+        new IDVAgent(),
+        new BankingInfoAgent()
+    ]);
+    
+    return { testContext, agentRouter };
+}
+
+// Test with automatic mode detection
+async function testAgentRouting() {
+    const { testContext, agentRouter } = initializeTestEnvironment();
+    
+    const result = await agentRouter.route('What is my balance?', testContext);
+    console.log(`Mode: ${window.debugManager.getTestMode()}`);
+    console.log(`Agent: ${result.agentName}`);
+    console.log(`Response: ${result.response}`);
+}
+```
+
+#### Mode-Specific Testing
+```javascript
+// Test in both modes for validation
+async function testBothModes() {
+    const testInput = 'Send £50 to Bob';
+    
+    // Test in mock mode
+    window.debugManager.setTestMode('mock');
+    const mockResult = await testAgentRouting(testInput);
+    console.log('Mock result:', mockResult);
+    
+    // Test in real mode (if API key available)
+    if (localStorage.getItem('openai_api_key')) {
+        window.debugManager.setTestMode('real');
+        const realResult = await testAgentRouting(testInput);
+        console.log('Real result:', realResult);
+    }
+}
+```
+
 ## Testing
 
 ### Unit Testing

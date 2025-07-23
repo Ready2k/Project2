@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered Agent Routing Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .test-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .btn-success { background: #27ae60; }
+        .btn-success:hover { background: #229954; }
+        .test-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: inherit;
+        }
+        .test-results {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .conversation-flow {
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI-Powered Agent Routing Test</h1>
+        <p>Test the new semantic understanding and conversation context features for agent routing.</p>
+        
+        <div id="status" class="status info">
+            Ready to test AI-powered agent routing
+        </div>
+
+        <!-- Conversation Flow Test -->
+        <div class="test-section">
+            <h2>Conversation Flow Test</h2>
+            <div class="conversation-flow">
+                <h3>Test Scenario: Fraud Card Blocking</h3>
+                <p><strong>Step 1:</strong> "My card might be stolen" → Should route to FraudAgent</p>
+                <p><strong>Step 2:</strong> "Yeah, stop it now" → Should understand context and route to FraudAgent</p>
+                <p><strong>Step 3:</strong> "Cancel that" → Should understand it's about card blocking</p>
+            </div>
+            <div class="test-controls">
+                <button onclick="testConversationFlow()" class="btn-success">Test Conversation Flow</button>
+                <button onclick="clearConversationHistory()">Clear History</button>
+            </div>
+            <div id="conversation-results" class="test-results"></div>
+        </div>
+
+        <!-- Semantic Understanding Test -->
+        <div class="test-section">
+            <h2>Semantic Understanding Test</h2>
+            <div class="test-controls">
+                <button onclick="testSemanticMatching()">Test Semantic Matching</button>
+            </div>
+            <div id="semantic-results" class="test-results"></div>
+        </div>
+
+        <!-- Custom Input Test -->
+        <div class="test-section">
+            <h2>Custom Input Test</h2>
+            <input type="text" id="custom-input" class="test-input" placeholder="Enter test input..." value="Yeah, block it please">
+            <div class="test-controls">
+                <button onclick="testCustomInput()">Test AI Routing</button>
+                <button onclick="testKeywordRouting()">Test Keyword Routing</button>
+            </div>
+            <div id="custom-results" class="test-results"></div>
+        </div>
+
+        <!-- Conversation History Display -->
+        <div class="test-section">
+            <h2>Conversation History</h2>
+            <div id="conversation-history" class="test-results">
+                No conversation history yet...
+            </div>
+        </div>
+    </div>
+
+    <!-- Include required dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="token-tracker.js"></script>
+    <script src="api-client.js"></script>
+    <script src="persona-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
+    <script src="agents/security-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        let agentRouter = null;
+        let testContext = null;
+        let conversationHistory = [];
+        let lastAgentUsed = null;
+
+        // Initialize test environment
+        async function initializeTestEnvironment() {
+            try {
+                // Initialize components
+                const tokenTracker = new TokenTracker();
+                const apiClient = new OpenAIClient('test-key', tokenTracker);
+                
+                // Mock API client for testing - Enhanced to handle conversation context
+                apiClient.generateChatCompletion = async (messages, options) => {
+                    // Get the system prompt and user input
+                    const systemPrompt = messages.find(m => m.role === 'system')?.content || '';
+                    const userInput = messages[messages.length - 1].content.toLowerCase();
+                    
+                    // Extract conversation context from system prompt
+                    const contextMatch = systemPrompt.match(/Last agent used: (\w+)/);
+                    const lastAgent = contextMatch ? contextMatch[1] : null;
+                    
+                    // Enhanced AI simulation that considers context
+                    
+                    // Handle confirmations and follow-ups based on context
+                    if (userInput.match(/^(yeah|yes|yep|ok|okay|sure|do it|stop it|block it|cancel it|nope|no|don't)/)) {
+                        // These are confirmation/denial responses that depend heavily on context
+                        
+                        if (lastAgent === 'FraudAgent') {
+                            // In fraud context, confirmations usually mean "yes, block the card"
+                            if (userInput.match(/^(yeah|yes|yep|ok|okay|sure|do it|stop it|block it)/)) {
+                                return { success: true, content: 'FraudAgent' };
+                            }
+                            // Denials in fraud context still route to fraud agent
+                            if (userInput.match(/^(nope|no|don't)/)) {
+                                return { success: true, content: 'FraudAgent' };
+                            }
+                        }
+                        
+                        if (lastAgent === 'PaymentsAgent') {
+                            // In payments context, "cancel it" likely means cancel payment
+                            if (userInput.includes('cancel')) {
+                                return { success: true, content: 'PaymentsAgent' };
+                            }
+                            if (userInput.match(/^(yeah|yes|yep|ok|okay|sure|do it)/)) {
+                                return { success: true, content: 'PaymentsAgent' };
+                            }
+                        }
+                        
+                        if (lastAgent === 'IDVAgent') {
+                            // In IDV context, confirmations route to IDV
+                            if (userInput.match(/^(yeah|yes|yep|ok|okay|sure|do it)/)) {
+                                return { success: true, content: 'IDVAgent' };
+                            }
+                        }
+                    }
+                    
+                    // Handle explicit actions regardless of context
+                    if (userInput.includes('send money') || userInput.includes('transfer') || userInput.includes('pay ')) {
+                        return { success: true, content: 'PaymentsAgent' };
+                    }
+                    
+                    if (userInput.includes('block') && (userInput.includes('card') || userInput.includes('fraud'))) {
+                        return { success: true, content: 'FraudAgent' };
+                    }
+                    
+                    if (userInput.includes('balance') || userInput.includes('transaction history')) {
+                        return { success: true, content: 'BankingInfoAgent' };
+                    }
+                    
+                    if (userInput.includes('verify') || userInput.includes('password')) {
+                        return { success: true, content: 'IDVAgent' };
+                    }
+                    
+                    // Handle ambiguous cases with context
+                    if (userInput.includes('stop') || userInput.includes('cancel')) {
+                        if (lastAgent === 'FraudAgent' || systemPrompt.includes('fraud') || systemPrompt.includes('card security')) {
+                            return { success: true, content: 'FraudAgent' };
+                        }
+                        if (lastAgent === 'PaymentsAgent' || systemPrompt.includes('payment')) {
+                            return { success: true, content: 'PaymentsAgent' };
+                        }
+                    }
+                    
+                    // Default fallback
+                    return { success: true, content: 'NONE' };
+                };
+
+                testContext = {
+                    personaManager: {
+                        getCurrentPersonaData: () => ({
+                            name: 'Test User',
+                            accountType: 'Premium Current Account',
+                            balance: 2500.75,
+                            cardLast4: '1234'
+                        }),
+                        formatCurrency: (amount) => `£${amount.toFixed(2)}`
+                    },
+                    systemPromptsManager: {
+                        generateSystemPrompt: (persona, input) => `You are a helpful banking assistant. Customer: ${persona?.name || 'Unknown'}`,
+                        getBasePersonality: () => 'You are a helpful banking assistant.',
+                        getFinancialContext: () => 'Provide helpful financial information.',
+                        getResponseInstructions: () => 'Keep responses conversational.',
+                        getCustomPrompts: () => []
+                    },
+                    apiClient: apiClient,
+                    tokenTracker: tokenTracker,
+                    conversationHistory: conversationHistory,
+                    lastAgentUsed: lastAgentUsed
+                };
+
+                // Initialize agents
+                const agents = [
+                    new PaymentsAgent(),
+                    new FraudAgent(),
+                    new IDVAgent(),
+                    new BankingInfoAgent()
+                ];
+
+                agentRouter = new AgentRouter(agents);
+                
+                updateStatus('AI-powered agent routing test environment initialized', 'success');
+                return true;
+
+            } catch (error) {
+                updateStatus(`Failed to initialize: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        // Test conversation flow
+        async function testConversationFlow() {
+            if (!await initializeTestEnvironment()) return;
+
+            const resultsDiv = document.getElementById('conversation-results');
+            resultsDiv.textContent = 'Testing conversation flow...\n\n';
+
+            const conversationSteps = [
+                { input: 'My card might be stolen', expectedAgent: 'FraudAgent', description: 'Initial fraud report' },
+                { input: 'Yeah, stop it now', expectedAgent: 'FraudAgent', description: 'Confirmation to block (semantic)' },
+                { input: 'Yes, cancel that card', expectedAgent: 'FraudAgent', description: 'Alternative confirmation' },
+                { input: 'Actually, send money to Alice instead', expectedAgent: 'PaymentsAgent', description: 'Context switch to payments' }
+            ];
+
+            for (let i = 0; i < conversationSteps.length; i++) {
+                const step = conversationSteps[i];
+                resultsDiv.textContent += `Step ${i + 1}: ${step.description}\n`;
+                resultsDiv.textContent += `Input: "${step.input}"\n`;
+
+                try {
+                    // Update context with conversation history
+                    testContext.conversationHistory = conversationHistory;
+                    testContext.lastAgentUsed = lastAgentUsed;
+
+                    const agent = await agentRouter.findBestAgent(step.input, testContext);
+                    const actualAgent = agent ? agent.name : 'None';
+
+                    resultsDiv.textContent += `Expected: ${step.expectedAgent}, Got: ${actualAgent}\n`;
+                    
+                    if (actualAgent === step.expectedAgent) {
+                        resultsDiv.textContent += '✅ PASS\n\n';
+                    } else {
+                        resultsDiv.textContent += '❌ FAIL\n\n';
+                    }
+
+                    // Update conversation history and context
+                    conversationHistory.push({ role: 'user', content: step.input });
+                    conversationHistory.push({ role: 'assistant', content: 'Mock response', agent: actualAgent });
+                    
+                    // Update lastAgentUsed for next iteration
+                    if (actualAgent !== 'None') {
+                        lastAgentUsed = actualAgent;
+                    }
+
+                } catch (error) {
+                    resultsDiv.textContent += `❌ ERROR: ${error.message}\n\n`;
+                }
+            }
+
+            updateConversationHistoryDisplay();
+        }
+
+        // Test semantic matching
+        async function testSemanticMatching() {
+            if (!await initializeTestEnvironment()) return;
+
+            const resultsDiv = document.getElementById('semantic-results');
+            resultsDiv.textContent = 'Testing semantic understanding...\n\n';
+
+            const semanticTests = [
+                { input: 'Yeah, block it', context: 'FraudAgent', expected: 'FraudAgent' },
+                { input: 'Stop that now', context: 'FraudAgent', expected: 'FraudAgent' },
+                { input: 'Cancel it please', context: 'PaymentsAgent', expected: 'PaymentsAgent' },
+                { input: 'Yes, do that', context: 'IDVAgent', expected: 'IDVAgent' },
+                { input: 'Nope, don\'t do it', context: 'FraudAgent', expected: 'FraudAgent' }
+            ];
+
+            for (const test of semanticTests) {
+                resultsDiv.textContent += `Input: "${test.input}" (Context: ${test.context})\n`;
+                
+                // Set up context - simulate that the previous agent was used
+                lastAgentUsed = test.context;
+                testContext.lastAgentUsed = lastAgentUsed;
+                
+                // Add some conversation history to simulate context
+                testContext.conversationHistory = [
+                    { role: 'user', content: 'Previous interaction' },
+                    { role: 'assistant', content: 'Previous response', agent: test.context }
+                ];
+
+                try {
+                    const agent = await agentRouter.findBestAgent(test.input, testContext);
+                    const actualAgent = agent ? agent.name : 'None';
+
+                    resultsDiv.textContent += `Expected: ${test.expected}, Got: ${actualAgent}\n`;
+                    
+                    if (actualAgent === test.expected) {
+                        resultsDiv.textContent += '✅ PASS\n\n';
+                    } else {
+                        resultsDiv.textContent += '❌ FAIL\n\n';
+                    }
+
+                } catch (error) {
+                    resultsDiv.textContent += `❌ ERROR: ${error.message}\n\n`;
+                }
+            }
+        }
+
+        // Test custom input
+        async function testCustomInput() {
+            if (!await initializeTestEnvironment()) return;
+
+            const input = document.getElementById('custom-input').value;
+            const resultsDiv = document.getElementById('custom-results');
+            
+            resultsDiv.textContent = `Testing AI routing for: "${input}"\n\n`;
+
+            try {
+                testContext.conversationHistory = conversationHistory;
+                testContext.lastAgentUsed = lastAgentUsed;
+
+                const agent = await agentRouter.findBestAgent(input, testContext);
+                const agentName = agent ? agent.name : 'None (Fallback)';
+
+                resultsDiv.textContent += `Selected Agent: ${agentName}\n`;
+                resultsDiv.textContent += `Conversation Context: ${conversationHistory.length} messages\n`;
+                resultsDiv.textContent += `Last Agent Used: ${lastAgentUsed || 'None'}\n`;
+
+            } catch (error) {
+                resultsDiv.textContent += `❌ ERROR: ${error.message}\n`;
+            }
+        }
+
+        // Test keyword routing (old method)
+        async function testKeywordRouting() {
+            if (!await initializeTestEnvironment()) return;
+
+            const input = document.getElementById('custom-input').value;
+            const resultsDiv = document.getElementById('custom-results');
+            
+            resultsDiv.textContent = `Testing keyword routing for: "${input}"\n\n`;
+
+            try {
+                const agents = agentRouter.getEnabledAgents();
+                let selectedAgent = null;
+
+                for (const agent of agents) {
+                    if (agent.canHandle(input)) {
+                        selectedAgent = agent;
+                        break;
+                    }
+                }
+
+                const agentName = selectedAgent ? selectedAgent.name : 'None (Fallback)';
+                resultsDiv.textContent += `Selected Agent: ${agentName}\n`;
+                resultsDiv.textContent += `Method: Keyword matching only\n`;
+
+            } catch (error) {
+                resultsDiv.textContent += `❌ ERROR: ${error.message}\n`;
+            }
+        }
+
+        // Clear conversation history
+        function clearConversationHistory() {
+            conversationHistory = [];
+            lastAgentUsed = null;
+            updateConversationHistoryDisplay();
+            updateStatus('Conversation history cleared', 'info');
+        }
+
+        // Update conversation history display
+        function updateConversationHistoryDisplay() {
+            const historyDiv = document.getElementById('conversation-history');
+            
+            if (conversationHistory.length === 0) {
+                historyDiv.textContent = 'No conversation history yet...';
+                return;
+            }
+
+            let historyText = '';
+            for (let i = 0; i < conversationHistory.length; i += 2) {
+                const userMsg = conversationHistory[i];
+                const assistantMsg = conversationHistory[i + 1];
+
+                if (userMsg && assistantMsg) {
+                    historyText += `User: ${userMsg.content}\n`;
+                    historyText += `Assistant (${assistantMsg.agent}): ${assistantMsg.content}\n\n`;
+                }
+            }
+
+            historyDiv.textContent = historyText;
+        }
+
+        // Update status
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            if (statusDiv) {
+                statusDiv.textContent = message;
+                statusDiv.className = `status ${type}`;
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            updateStatus('Ready to test AI-powered agent routing', 'info');
+        });
+    </script>
+</body>
+</html>

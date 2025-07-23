@@ -1,122 +1,116 @@
-# 📝 Changelog
+# Changelog
 
-All notable changes to the Voice-to-Voice Financial Services Bot project.
+All notable changes to the Voice Banking Agent Architecture project will be documented in this file.
 
-## [Latest] - 2024-12-22
+## [2.1.0] - 2024-01-23
 
-### 🆕 Added Features
+### 🧪 Added - Advanced Test Mode System
+- **Test Mode Framework**: Complete Mock vs Real API testing system
+- **TestAPIFactory**: Factory class for creating appropriate API clients based on test mode
+- **TestModeSelector**: Visual UI component for switching between test modes
+- **Enhanced DebugManager**: Test mode persistence and management capabilities
+- **Mock API Responses**: Realistic banking scenario simulations with proper delays
+- **Test Mode Documentation**: Comprehensive guides and examples
 
-#### 🔐 Enhanced API Key Security
-- **In-memory API key storage** - keys no longer persisted to localStorage or disk
-- **On-demand key prompting** - users prompted for API key exactly when needed
-- **Session-based security** - API key cleared automatically on page refresh
-- **Improved privacy** - no sensitive data stored locally
-- **Streamlined UX** - eliminates need to visit settings before using features
+### 🔧 Enhanced - Testing Infrastructure
+- **test-agent-system-comprehensive.html**: Updated with test mode selector integration
+- **test-ai-agent-routing.html**: Improved semantic understanding with better mock API
+- **test-mode-example.html**: New demonstration page for test mode functionality
+- **Console Commands**: Added `getTestMode()`, `setTestMode()`, `toggleTestMode()` global functions
 
-#### 💬 Clear Conversation Feature
-- **Clear Chat buttons** added to both batch and streaming mode controls
-- **Confirmation dialog** prevents accidental conversation clearing
-- **Complete state reset** including:
-  - All chat messages (preserves initial greeting)
-  - Streaming conversation state and audio buffers
-  - Text response accumulation and session tracking
-  - Any currently playing audio
-- **Cross-mode compatibility** works in both batch and streaming modes
-- **Preserves token tracking** - conversation clearing doesn't reset cost statistics
+### 📚 Updated - Documentation
+- **README.md**: Added comprehensive test mode system documentation
+- **AGENT_ARCHITECTURE_DOCUMENTATION.md**: Integrated test mode usage examples
+- **FINAL_INTEGRATION_SUMMARY.md**: Updated with new testing capabilities
+- **tasks.md**: Added Task 16 for test mode system implementation
 
-#### 🎤 Improved Microphone Management
-- **Persistent microphone access** eliminates permission popups in batch mode
-- **Smart stream caching** reuses microphone stream between recordings
-- **Robust track validation** checks if cached streams are still active
-- **Intelligent cleanup** only releases microphone when necessary
-- **keepMicActive setting** (defaults to true) controls microphone persistence
-- **Comprehensive resource management** on page unload and tab switches
+### �  Benefits
+- **Cost-Free Development**: Test all functionality without API costs using mock mode
+- **Production Validation**: Switch to real mode for final validation before deployment
+- **Seamless Integration**: Existing code works unchanged with new test mode system
+- **Developer Experience**: Visual indicators and easy mode switching
+- **CI/CD Ready**: Mock mode perfect for automated testing pipelines
 
-#### 🔧 Enhanced User Experience
-- **Visual feedback** with orange-styled clear buttons for visibility
-- **Proper state management** resets app to ready state after clearing
-- **Audio interruption** stops any playing audio when clearing conversation
-- **Browser TTS cancellation** stops speech synthesis when clearing
-- **Improved error handling** for microphone access and stream management
+### 🔄 Technical Details
+- Test mode preference persisted in localStorage
+- Automatic API key validation when switching to real mode
+- Realistic mock responses for different banking scenarios
+- Token usage simulation in mock mode for cost estimation
+- Callback system for test mode change events
 
-### 🛠️ Technical Improvements
+## [2.0.0] - 2024-01-22
 
-#### 📱 StreamingManager Enhancements
-- **clearConversationState()** method for proper streaming state reset
-- **Enhanced session tracking** with conversation-specific data
-- **Improved audio buffer management** with proper cleanup
-- **Better error recovery** for connection and audio issues
+### 🤖 Added - Voice Banking Agent Architecture
+- **Domain-Specific Routing**: Intelligent routing to specialized banking agents
+- **Security Boundaries**: Strict data access controls per agent domain
+- **Agent System**: Complete implementation of 4 specialized agents
+  - BankingInfoAgent: Account information and balance inquiries
+  - PaymentsAgent: Money transfers and payment processing
+  - FraudAgent: Security alerts and card blocking
+  - IDVAgent: Identity verification and authentication
+- **Streaming Compatibility**: Full support for both batch and streaming modes
+- **Telemetry Integration**: Performance monitoring and debugging capabilities
 
-#### 🎯 Code Quality
-- **Modular cleanup methods** for better resource management
-- **Event listener optimization** with proper cleanup on page unload
-- **Consistent state management** across both batch and streaming modes
-- **Enhanced debugging** with detailed logging for troubleshooting
+### 🔒 Security Features
+- **Data Access Boundaries**: Agents restricted to designated data types
+- **API Sandboxing**: Sandboxed API clients per agent domain
+- **Security Audit Logging**: Comprehensive logging of security events
+- **Cross-Domain Prevention**: Automatic blocking of unauthorized access attempts
 
-### 🐛 Bug Fixes
-- **Fixed microphone permission popups** in batch mode repeated recordings
-- **Resolved stream cleanup issues** that caused permission re-requests
-- **Improved audio track lifecycle** management for better performance
-- **Fixed conversation state persistence** between mode switches
+### 📊 Performance & Monitoring
+- **Token Tracking**: Comprehensive cost tracking across all agent interactions
+- **Performance Metrics**: Response time and resource usage monitoring
+- **Debug Integration**: Enhanced debugging with agent-specific logging
+- **Configuration Management**: Runtime agent configuration and priority management
 
-### 📚 Documentation Updates
-- **Updated README.md** with new features and usage instructions
-- **Enhanced TOKEN_TRACKING_GUIDE.md** with clear conversation information
-- **Added comprehensive changelog** for tracking project evolution
-- **Improved setup instructions** with microphone permission details
+### 🧪 Testing Infrastructure
+- **Comprehensive Test Suites**: Complete validation of all agent functionality
+- **Security Testing**: Automated security boundary validation
+- **Integration Testing**: End-to-end voice banking scenario testing
+- **Performance Testing**: Response time and resource usage validation
 
-## Previous Releases
+### 📚 Documentation
+- **Complete API Reference**: Detailed documentation with code examples
+- **Usage Guides**: Step-by-step implementation instructions
+- **Security Documentation**: Security feature explanations and best practices
+- **Troubleshooting Guide**: Common issues and solutions
 
-### [v2.0] - 2024-12-21
-- Full streaming mode implementation with OpenAI Realtime API
-- JSON-driven persona and system prompts management
-- Comprehensive token tracking for all modes
-- Modular architecture with separated concerns
+## [1.0.0] - 2024-01-15
 
-### [v1.0] - 2024-12-20
-- Initial batch mode implementation
-- Basic speech-to-text and text-to-speech functionality
-- Customer persona management
-- OpenAI API integration
+### 🎤 Initial Release - Voice-to-Voice Financial Services Bot
+- **Dual-Mode Operation**: Batch and Streaming voice processing
+- **Speech Recognition**: OpenAI Whisper integration with financial context optimization
+- **Natural Voice Responses**: OpenAI TTS with multiple voice options
+- **Customer Persona Management**: JSON-driven customer profiles
+- **AI System Prompts**: Configurable AI behavior through JSON
+- **Cost Tracking**: Real-time token usage monitoring
+- **Debug Tools**: Comprehensive development and debugging features
 
----
+### 🏗️ Architecture
+- **Modular Design**: Separated concerns with clean interfaces
+- **JSON-Driven Configuration**: No-code customization capabilities
+- **LocalStorage Persistence**: Settings and preferences storage
+- **Web Audio API**: Advanced audio processing capabilities
 
-## 🚀 Upcoming Features
-
-### Planned Enhancements
-- **Conversation history persistence** across browser sessions
-- **Export conversation logs** for analysis and training
-- **Advanced audio settings** with noise gate and compression
-- **Multi-language support** expansion beyond English variants
-- **Custom wake word detection** for hands-free activation
-- **Voice biometrics** for customer authentication
-
-### Technical Roadmap
-- **WebRTC integration** for improved audio quality
-- **Progressive Web App** capabilities for mobile usage
-- **Offline mode** with local speech recognition fallback
-- **Advanced analytics** dashboard for usage patterns
-- **API rate limiting** and quota management
-- **Multi-tenant support** for enterprise deployment
-
----
-
-## 📊 Performance Metrics
-
-### Current Capabilities
-- **Response Time**: < 2 seconds in batch mode, < 500ms in streaming mode
-- **Audio Quality**: 48kHz high-quality recording, 24kHz streaming
-- **Accuracy**: 95%+ speech recognition with financial terminology
-- **Cost Efficiency**: ~$0.05-0.10 per 5-minute conversation
-- **Browser Support**: Chrome, Firefox, Safari, Edge (latest versions)
-
-### Reliability Improvements
-- **99%+ microphone access success** with persistent permissions
-- **Robust error recovery** from network and audio issues
-- **Graceful degradation** with fallback TTS options
-- **Memory leak prevention** with proper resource cleanup
-- **Cross-platform compatibility** tested on Windows, macOS, Linux
+### 🔧 Technical Stack
+- **Frontend**: Vanilla JavaScript (ES6+), HTML5, CSS3
+- **APIs**: OpenAI (Whisper, GPT-3.5-turbo, TTS, Realtime API)
+- **Audio**: Web Audio API, MediaRecorder API
+- **Storage**: LocalStorage for settings persistence
 
 ---
 
-*For detailed technical documentation, see README.md and TOKEN_TRACKING_GUIDE.md*
+## Version Numbering
+
+This project follows [Semantic Versioning](https://semver.org/):
+- **MAJOR** version for incompatible API changes
+- **MINOR** version for backwards-compatible functionality additions
+- **PATCH** version for backwards-compatible bug fixes
+
+## Contributing
+
+When contributing to this project, please:
+1. Update this changelog with your changes
+2. Follow the existing format and categorization
+3. Include the impact and benefits of your changes
+4. Reference any related issues or pull requests

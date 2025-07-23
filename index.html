@@ -339,6 +339,78 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="admin-section">
+                    <h3>🤖 Agent Configuration & Management</h3>
+                    <div class="agent-config-section">
+                        <p class="section-description">
+                            Configure and manage your AI agents. Control which agents are enabled, their priorities, 
+                            and their specific behaviors and capabilities.
+                        </p>
+                        
+                        <div class="agent-config-overview">
+                            <div class="agent-status-summary" id="agentStatusSummary">
+                                <div class="status-item">
+                                    <span class="status-label">Total Agents:</span>
+                                    <span class="status-value" id="totalAgents">-</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Enabled:</span>
+                                    <span class="status-value enabled" id="enabledAgents">-</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Disabled:</span>
+                                    <span class="status-value disabled" id="disabledAgents">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="agent-config-actions">
+                            <button id="openAgentConfig" class="config-btn primary">
+                                🔧 Open Agent Configuration
+                            </button>
+                            <button id="refreshAgentStatus" class="config-btn secondary">
+                                🔄 Refresh Status
+                            </button>
+                            <button id="testAgentRouting" class="config-btn secondary">
+                                🧪 Test AI Agent Routing
+                            </button>
+                            <button id="testBasicRouting" class="config-btn secondary">
+                                🎯 Test Basic Agent Routing
+                            </button>
+                        </div>
+
+                        <div class="agent-quick-actions">
+                            <h4>Quick Actions</h4>
+                            <div class="quick-action-buttons">
+                                <button onclick="toggleAgent('PaymentsAgent')" class="quick-btn">
+                                    💳 Toggle Payments Agent
+                                </button>
+                                <button onclick="toggleAgent('FraudAgent')" class="quick-btn">
+                                    🛡️ Toggle Fraud Agent
+                                </button>
+                                <button onclick="toggleAgent('IDVAgent')" class="quick-btn">
+                                    🔐 Toggle Identity Agent
+                                </button>
+                                <button onclick="toggleAgent('BankingInfoAgent')" class="quick-btn">
+                                    🏦 Toggle Banking Agent
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="agent-config-info">
+                            <h4>Available Tools</h4>
+                            <ul class="feature-list">
+                                <li>🔧 <strong>Agent Configuration</strong> - Enable/disable agents, set priorities, configure LLM models</li>
+                                <li>🧪 <strong>AI Agent Routing</strong> - Test semantic understanding and conversation context</li>
+                                <li>🎯 <strong>Basic Agent Routing</strong> - Test keyword-based routing and agent selection</li>
+                                <li>🔄 <strong>Status Monitoring</strong> - Real-time agent status and performance metrics</li>
+                                <li>⚡ <strong>Quick Actions</strong> - Instantly toggle agents on/off</li>
+                                <li>🛡️ <strong>Security Testing</strong> - Validate agent boundaries and permissions</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -591,6 +663,7 @@
     <script src="system-prompts-manager.js"></script>
     
     <!-- Agent modules -->
+    <script src="agents/security-manager.js"></script>
     <script src="agents/base-agent.js"></script>
     <script src="agents/agent-config-manager.js"></script>
     <script src="agents/idv-agent.js"></script>

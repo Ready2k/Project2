@@ -30,6 +30,30 @@ class TelemetryHooksManager {
     }
     
     /**
+     * Check if telemetry hooks are enabled
+     * @returns {boolean} - True if telemetry hooks are enabled
+     */
+    isEnabled() {
+        return this.enabled;
+    }
+    
+    /**
+     * Enable telemetry hooks
+     */
+    enable() {
+        this.enabled = true;
+        this.debug.info('Telemetry hooks enabled');
+    }
+    
+    /**
+     * Disable telemetry hooks
+     */
+    disable() {
+        this.enabled = false;
+        this.debug.info('Telemetry hooks disabled');
+    }
+    
+    /**
      * Register a telemetry hook for specific events
      * @param {string|Array<string>} events - Event type(s) to hook
      * @param {Function} callback - Callback function to execute

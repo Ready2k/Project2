@@ -143,7 +143,22 @@
         const mockTokenTracker = {
             addTokens: (tokens, source) => {
                 console.log(`Token tracking: ${tokens} tokens used by ${source}`);
-            }
+            },
+            trackGptUsage: (inputTokens, outputTokens) => {
+                console.log(`Token tracking: ${inputTokens} input, ${outputTokens} output tokens`);
+            },
+            trackWhisperUsage: (minutes) => {
+                console.log(`Token tracking: ${minutes} minutes of Whisper usage`);
+            },
+            trackTtsUsage: (characters, model) => {
+                console.log(`Token tracking: ${characters} characters for TTS (${model})`);
+            },
+            getUsage: () => ({
+                whisper: { requests: 0, cost: 0 },
+                gpt: { tokens: 0, cost: 0 },
+                tts: { characters: 0, cost: 0 },
+                total: 0
+            })
         };
 
         // Set up global mocks

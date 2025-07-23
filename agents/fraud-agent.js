@@ -8,7 +8,7 @@ class FraudAgent extends BaseAgent {
             'FraudAgent',
             'Handles fraud detection, card blocking, and security threat responses'
         );
-        
+
         // Keywords that trigger this agent
         this.fraudKeywords = [
             'fraud', 'fraudulent', 'suspicious', 'unauthorised', 'unauthorized',
@@ -17,18 +17,18 @@ class FraudAgent extends BaseAgent {
             'scam', 'phishing', 'suspicious activity', 'unknown transaction',
             'dispute', 'chargeback', 'report fraud', 'security alert'
         ];
-        
+
         // Card-specific keywords for blocking/freezing
         this.cardKeywords = [
             'card', 'debit card', 'credit card', 'bank card', 'payment card'
         ];
-        
-        this.debug.info('FraudAgent initialized with keywords', { 
+
+        this.debug.info('FraudAgent initialized with keywords', {
             fraudKeywords: this.fraudKeywords,
-            cardKeywords: this.cardKeywords 
+            cardKeywords: this.cardKeywords
         });
     }
-    
+
     /**
      * Determines if this agent can handle the given input
      * @param {string} inputText - The user's input text
@@ -38,64 +38,66 @@ class FraudAgent extends BaseAgent {
         if (!inputText || typeof inputText !== 'string') {
             return false;
         }
-        
+
         const lowerInput = inputText.toLowerCase();
-        
+
         // Check for exact phrase matches first (higher priority)
         const exactPhrases = [
             'freeze card', 'block card', 'stop card', 'cancel card',
             'freeze my card', 'block my card', 'stop my card',
+            'block it', 'freeze it', 'stop it', 'cancel it',
+            'yes block', 'yes freeze', 'yeah block', 'yeah freeze',
             'suspicious activity', 'unauthorised transaction', 'unauthorized transaction',
             'report fraud', 'fraud alert', 'security alert', 'card stolen',
             'card lost', 'card compromised', 'unknown transaction'
         ];
-        
+
         for (const phrase of exactPhrases) {
             if (lowerInput.includes(phrase)) {
-                this.debug.info('FraudAgent can handle input - exact phrase match', { 
-                    phrase, 
-                    inputText: inputText.substring(0, 50) + '...' 
+                this.debug.info('FraudAgent can handle input - exact phrase match', {
+                    phrase,
+                    inputText: inputText.substring(0, 50) + '...'
                 });
                 return true;
             }
         }
-        
+
         // Check for fraud keywords combined with card keywords
-        const hasFraudKeyword = this.fraudKeywords.some(keyword => 
+        const hasFraudKeyword = this.fraudKeywords.some(keyword =>
             lowerInput.includes(keyword.toLowerCase())
         );
-        
-        const hasCardKeyword = this.cardKeywords.some(keyword => 
+
+        const hasCardKeyword = this.cardKeywords.some(keyword =>
             lowerInput.includes(keyword.toLowerCase())
         );
-        
+
         // High confidence if both fraud and card keywords are present
         if (hasFraudKeyword && hasCardKeyword) {
-            this.debug.info('FraudAgent can handle input - fraud + card keyword match', { 
-                inputText: inputText.substring(0, 50) + '...' 
+            this.debug.info('FraudAgent can handle input - fraud + card keyword match', {
+                inputText: inputText.substring(0, 50) + '...'
             });
             return true;
         }
-        
+
         // Check for standalone fraud keywords that are security-related
         const securityKeywords = [
             'fraud', 'fraudulent', 'suspicious', 'unauthorised', 'unauthorized',
             'stolen', 'compromised', 'hacked', 'breach', 'scam', 'phishing'
         ];
-        
-        const hasSecurityKeyword = securityKeywords.some(keyword => 
+
+        const hasSecurityKeyword = securityKeywords.some(keyword =>
             lowerInput.includes(keyword.toLowerCase())
         );
-        
+
         if (hasSecurityKeyword) {
-            this.debug.info('FraudAgent can handle input - security keyword match', { 
-                inputText: inputText.substring(0, 50) + '...' 
+            this.debug.info('FraudAgent can handle input - security keyword match', {
+                inputText: inputText.substring(0, 50) + '...'
             });
         }
-        
+
         return hasSecurityKeyword;
     }
-    
+
     /**
      * Handles fraud detection and security requests with security validation
      * @param {string} inputText - The user's input text
@@ -104,48 +106,48 @@ class FraudAgent extends BaseAgent {
      */
     async handle(inputText, context) {
         const startTime = Date.now();
-        
+
         try {
             // Validate required context dependencies
             this.validateContext(context);
-            
-            this.debug.info('FraudAgent processing request with security validation', { 
-                inputText: inputText.substring(0, 100) + '...' 
+
+            this.debug.info('FraudAgent processing request with security validation', {
+                inputText: inputText.substring(0, 100) + '...'
             });
-            
+
             // Validate data access permissions for fraud detection
             this.validateDataAccess(['fraud_alerts', 'security_actions', 'card_status']);
-            
+
             // Generate domain-specific system prompt
             const systemPrompt = this.generateSystemPrompt(context, inputText);
-            
+
             // Get current persona data for context
             const personaData = this.getPersonaData(context);
-            
+
             // Prepare the request for the LLM using sandboxed API client
             const messages = [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: inputText }
             ];
-            
+
             // Call the LLM API through sandboxed client
             const apiResponse = await this.sandboxedApiClient.generateChatCompletion(messages, {
                 model: 'gpt-3.5-turbo',
                 maxTokens: 600,
                 temperature: 0.3 // Lower temperature for more consistent security responses
             });
-            
+
             if (!apiResponse.success) {
                 throw new Error(apiResponse.error);
             }
-            
+
             // Demonstrate secure domain API access for fraud actions
             try {
                 const fraudData = await this.secureDataAccess(['fraud_alerts', 'security_actions']);
                 this.debug.info('FraudAgent accessed fraud data securely', {
                     dataTypes: ['fraud_alerts', 'security_actions']
                 });
-                
+
                 // Test secure API call for card blocking
                 const blockResult = await this.secureApiCall('block_card', { reason: 'fraud_prevention' });
                 this.debug.info('FraudAgent performed secure card blocking', {
@@ -156,7 +158,7 @@ class FraudAgent extends BaseAgent {
                     error: securityError.message
                 });
             }
-            
+
             // Test that agent cannot access restricted data
             try {
                 await this.secureDataAccess(['balance', 'payments']);
@@ -166,22 +168,25 @@ class FraudAgent extends BaseAgent {
                     restrictedData: ['balance', 'payments']
                 });
             }
-            
+
             const response = apiResponse.content;
             const tokensUsed = apiResponse.tokensUsed || 0;
             const processingTime = Date.now() - startTime;
-            
+
             // Track tokens if tracker is available
             if (context.tokenTracker) {
-                context.tokenTracker.addTokens(tokensUsed, 'FraudAgent');
+                // Estimate input/output tokens (rough split)
+                const inputTokens = Math.floor(tokensUsed * 0.3);
+                const outputTokens = Math.floor(tokensUsed * 0.7);
+                context.tokenTracker.trackGptUsage(inputTokens, outputTokens);
             }
-            
+
             this.debug.info('FraudAgent successfully processed request with security', {
                 processingTime,
                 tokensUsed,
                 responseLength: response.length
             });
-            
+
             return this.createResponse(
                 true,
                 response,
@@ -196,16 +201,16 @@ class FraudAgent extends BaseAgent {
                     securityValidated: true
                 }
             );
-            
+
         } catch (error) {
             const processingTime = Date.now() - startTime;
-            
+
             this.debug.error('FraudAgent failed to process request', {
                 error: error.message,
                 processingTime,
                 inputText: inputText.substring(0, 50) + '...'
             });
-            
+
             return this.createResponse(
                 false,
                 'I apologize, but I encountered an issue while processing your security request. For immediate assistance with fraud or security concerns, please contact our fraud hotline directly or visit your nearest branch.',
@@ -221,7 +226,7 @@ class FraudAgent extends BaseAgent {
             );
         }
     }
-    
+
     /**
      * Override system prompt components for fraud detection context
      * @param {Object} context - Context object containing SystemPromptsManager
@@ -245,7 +250,7 @@ class FraudAgent extends BaseAgent {
             ]
         };
     }
-    
+
     /**
      * Generate persona-specific behavior modifications for fraud detection
      * @param {Object} personaData - Current persona data
@@ -253,13 +258,13 @@ class FraudAgent extends BaseAgent {
      */
     generatePersonaBehaviorModifications(personaData) {
         let behaviorMods = super.generatePersonaBehaviorModifications(personaData);
-        
+
         if (!personaData) {
             return behaviorMods;
         }
-        
+
         behaviorMods += `\n\nFRAUD DETECTION PERSONA ADAPTATIONS:`;
-        
+
         // Account type specific security considerations
         if (personaData.accountType) {
             if (personaData.accountType.toLowerCase().includes('business')) {
@@ -268,7 +273,7 @@ class FraudAgent extends BaseAgent {
                 behaviorMods += `\n- Premium Account Security: Provide priority fraud response for premium account holder`;
             }
         }
-        
+
         // Balance-based risk assessment
         if (typeof personaData.balance === 'number') {
             if (personaData.balance > 10000) {
@@ -277,30 +282,30 @@ class FraudAgent extends BaseAgent {
                 behaviorMods += `\n- Limited Exposure: Lower balance reduces financial risk but maintain security protocols`;
             }
         }
-        
+
         // Recent transaction analysis for fraud patterns
         if (personaData.recentTransactions && personaData.recentTransactions.length > 0) {
             const recentTransactions = personaData.recentTransactions.slice(0, 5);
             const hasLargeTransactions = recentTransactions.some(tx => Math.abs(tx.amount) > 500);
             const hasFrequentActivity = recentTransactions.length >= 3;
-            
+
             if (hasLargeTransactions) {
                 behaviorMods += `\n- High-Value Activity: Recent large transactions detected - monitor for unusual patterns`;
             }
-            
+
             if (hasFrequentActivity) {
                 behaviorMods += `\n- Active Account: Frequent recent activity - compare against normal usage patterns`;
             }
         }
-        
+
         // Card information for blocking procedures
         if (personaData.cardLast4) {
             behaviorMods += `\n- Card Reference: Use card ending in ${personaData.cardLast4} for blocking confirmations`;
         }
-        
+
         return behaviorMods;
     }
-    
+
     /**
      * Supplement system prompt with fraud-specific enhancements
      * @param {Object} context - Context object containing SystemPromptsManager
@@ -341,19 +346,19 @@ SECURITY RESPONSE GUIDELINES:
 ACCOUNT SECURITY CONTEXT:
 - Account Holder: ${personaData.name}
 - Account Type: ${personaData.accountType}`;
-            
+
             if (personaData.cardLast4) {
                 fraudEnhancements += `
 - Card Reference: Card ending in ${personaData.cardLast4}`;
             }
-            
+
             fraudEnhancements += `
 - Security Level: ${personaData.accountType?.toLowerCase().includes('premium') ? 'Enhanced' : 'Standard'}`;
         }
 
         return basePrompt + fraudEnhancements;
     }
-    
+
     /**
      * Categorizes the input for metadata tracking
      * @param {string} inputText - The user's input text
@@ -361,7 +366,7 @@ ACCOUNT SECURITY CONTEXT:
      */
     categorizeInput(inputText) {
         const lowerInput = inputText.toLowerCase();
-        
+
         if (lowerInput.includes('freeze') || lowerInput.includes('block') || lowerInput.includes('stop')) {
             return 'card_blocking';
         }
@@ -380,7 +385,7 @@ ACCOUNT SECURITY CONTEXT:
         if (lowerInput.includes('scam') || lowerInput.includes('phishing')) {
             return 'scam_prevention';
         }
-        
+
         return 'general_security';
     }
 }

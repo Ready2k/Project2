@@ -26,6 +26,18 @@ class SpeechToSpeechApp {
             this.debug.info('Agent telemetry initialized and enabled');
         }
 
+        // Initialize telemetry hooks manager for extensibility
+        try {
+            if (typeof TelemetryHooksManager !== 'undefined') {
+                window.telemetryHooksManager = new TelemetryHooksManager();
+                this.debug.info('Telemetry hooks manager initialized');
+            } else {
+                this.debug.warn('TelemetryHooksManager not available');
+            }
+        } catch (error) {
+            this.debug.error('Failed to initialize telemetry hooks manager', { error: error.message });
+        }
+
         // Initialize streaming manager with token tracker
         this.streamingManager = new StreamingManager(this.openaiApiKey, this.debugStreamingMessage.bind(this), this.tokenTracker);
 
@@ -56,6 +68,10 @@ class SpeechToSpeechApp {
 
         // GPT model setting
         this.gptModel = localStorage.getItem('gpt_model') || 'gpt-3.5-turbo';
+
+        // Conversation context for AI-powered agent routing
+        this.conversationHistory = [];
+        this.lastAgentUsed = null;
 
         // TTS settings
         this.ttsMode = localStorage.getItem('tts_mode') || 'openai';
@@ -155,6 +171,9 @@ class SpeechToSpeechApp {
                 disabledAgents: stats.disabledAgents,
                 agentNames: stats.agentNames
             });
+
+            // Make AgentRouter available globally for extensibility system
+            window.agentRouter = this.agentRouter;
 
         } catch (error) {
             this.debug.error('Failed to initialize AgentRouter', { error: error.message });
@@ -325,6 +344,25 @@ class SpeechToSpeechApp {
             debugToggle.addEventListener('change', (e) => this.toggleDebugMode(e.target.checked));
         }
 
+        // Agent configuration controls
+        const openAgentConfig = document.getElementById('openAgentConfig');
+        const refreshAgentStatus = document.getElementById('refreshAgentStatus');
+        const testAgentRouting = document.getElementById('testAgentRouting');
+        const testBasicRouting = document.getElementById('testBasicRouting');
+        
+        if (openAgentConfig) {
+            openAgentConfig.addEventListener('click', () => this.openAgentConfiguration());
+        }
+        if (refreshAgentStatus) {
+            refreshAgentStatus.addEventListener('click', () => this.refreshAgentStatus());
+        }
+        if (testAgentRouting) {
+            testAgentRouting.addEventListener('click', () => this.openAgentRoutingTest());
+        }
+        if (testBasicRouting) {
+            testBasicRouting.addEventListener('click', () => this.openBasicRoutingTest());
+        }
+
         // Token management buttons
         const resetTokens = document.getElementById('resetTokens');
         const updateTokens = document.getElementById('updateTokens');
@@ -364,6 +402,8 @@ class SpeechToSpeechApp {
 
         if (tabName === 'admin') {
             this.loadPersonas();
+            // Refresh agent status when admin tab is opened
+            this.refreshAgentStatus();
         }
     }
 
@@ -652,7 +692,9 @@ class SpeechToSpeechApp {
                     tokenTracker: this.tokenTracker,
                     currentPersona: this.personaManager.getCurrentPersona(),
                     sessionData: {},
-                    debugMode: window.debugManager.isEnabled()
+                    debugMode: window.debugManager.isEnabled(),
+                    conversationHistory: this.conversationHistory,
+                    lastAgentUsed: this.lastAgentUsed
                 };
 
                 // Route through agents
@@ -663,6 +705,9 @@ class SpeechToSpeechApp {
                         agentName: agentResult.agentName,
                         processingTime: agentResult.processingTime 
                     });
+                    
+                    // Update conversation context for future AI routing
+                    this.updateConversationContext(userMessage, agentResult.response, agentResult.agentName);
                     
                     // Update debug output with agent information
                     this.updateDebugOutput('gptResponse', 
@@ -691,6 +736,43 @@ class SpeechToSpeechApp {
             // Fallback to original method on any error
             return await this.generateResponse(userMessage);
         }
+    }
+
+    /**
+     * Update conversation context for AI-powered agent routing
+     * @param {string} userMessage - User's message
+     * @param {string} agentResponse - Agent's response
+     * @param {string} agentName - Name of the agent that handled the request
+     */
+    updateConversationContext(userMessage, agentResponse, agentName) {
+        // Add user message
+        this.conversationHistory.push({
+            role: 'user',
+            content: userMessage,
+            timestamp: new Date().toISOString()
+        });
+
+        // Add agent response
+        this.conversationHistory.push({
+            role: 'assistant',
+            content: agentResponse,
+            agent: agentName,
+            timestamp: new Date().toISOString()
+        });
+
+        // Keep only last 10 messages (5 exchanges) for context
+        if (this.conversationHistory.length > 10) {
+            this.conversationHistory = this.conversationHistory.slice(-10);
+        }
+
+        // Update last agent used
+        this.lastAgentUsed = agentName;
+
+        this.debug.info('Conversation context updated', {
+            agentName,
+            historyLength: this.conversationHistory.length,
+            lastAgent: this.lastAgentUsed
+        });
     }
 
     async generateResponse(userMessage) {
@@ -723,6 +805,10 @@ class SpeechToSpeechApp {
             if (result.success) {
                 console.log('AI response received:', result.content);
                 this.updateDebugOutput('gptResponse', result.content);
+                
+                // Update conversation context for fallback responses too
+                this.updateConversationContext(userMessage, result.content, 'FallbackHandler');
+                
                 return result.content;
             } else {
                 throw new Error(result.error);
@@ -1124,6 +1210,14 @@ class SpeechToSpeechApp {
             if (typeof initializeExtensibilitySystem === 'undefined') {
                 this.debug.warn('Extensibility system not available - skipping initialization');
                 return;
+            }
+
+            // Ensure AgentRouter is available for extensibility system
+            if (!this.agentRouter) {
+                this.debug.warn('AgentRouter not available - extensibility system may have limited functionality');
+            } else {
+                // Make sure it's available globally
+                window.agentRouter = this.agentRouter;
             }
             
             // Initialize with default configuration
@@ -2547,6 +2641,152 @@ class SpeechToSpeechApp {
             }
         } else {
             this.debug.error('Debug panel elements not found');
+        }
+    }
+
+    // Agent Configuration Methods
+    
+    /**
+     * Open the agent configuration page in a new tab
+     */
+    openAgentConfiguration() {
+        this.debug.log('Opening agent configuration page...');
+        
+        // Open the configuration page in a new tab
+        const configUrl = 'test-agent-configuration.html';
+        const configWindow = window.open(configUrl, '_blank');
+        
+        if (configWindow) {
+            this.debug.log('Agent configuration page opened successfully');
+            this.updateStatus('Agent configuration page opened in new tab');
+            
+            // Refresh status after a short delay to show updated info
+            setTimeout(() => {
+                this.refreshAgentStatus();
+                this.updateStatus('Ready to listen');
+            }, 2000);
+        } else {
+            this.debug.error('Failed to open agent configuration page - popup blocked?');
+            this.updateStatus('Failed to open configuration page - check popup blocker');
+        }
+    }
+
+    /**
+     * Refresh the agent status display in the admin panel
+     */
+    refreshAgentStatus() {
+        this.debug.log('Refreshing agent status...');
+        
+        try {
+            if (this.agentRouter) {
+                const stats = this.agentRouter.getStats();
+                
+                // Update status display elements
+                const totalAgentsEl = document.getElementById('totalAgents');
+                const enabledAgentsEl = document.getElementById('enabledAgents');
+                const disabledAgentsEl = document.getElementById('disabledAgents');
+                
+                if (totalAgentsEl) totalAgentsEl.textContent = stats.totalAgents;
+                if (enabledAgentsEl) enabledAgentsEl.textContent = stats.enabledAgents;
+                if (disabledAgentsEl) disabledAgentsEl.textContent = stats.disabledAgents;
+                
+                this.debug.log('Agent status updated', stats);
+                this.updateStatus(`Agent status: ${stats.enabledAgents}/${stats.totalAgents} enabled`);
+                
+                // Brief status message
+                setTimeout(() => {
+                    this.updateStatus('Ready to listen');
+                }, 2000);
+                
+            } else {
+                this.debug.warn('AgentRouter not available');
+                this.updateStatus('Agent system not available');
+            }
+        } catch (error) {
+            this.debug.error('Failed to refresh agent status', { error: error.message });
+            this.updateStatus('Error refreshing agent status');
+        }
+    }
+
+    /**
+     * Open the AI agent routing test page in a new tab
+     */
+    openAgentRoutingTest() {
+        this.debug.log('Opening AI agent routing test page...');
+        
+        // Open the AI routing test page in a new tab
+        const testUrl = 'test-ai-agent-routing.html';
+        const testWindow = window.open(testUrl, '_blank');
+        
+        if (testWindow) {
+            this.debug.log('AI agent routing test page opened successfully');
+            this.updateStatus('AI agent routing test page opened in new tab');
+            
+            setTimeout(() => {
+                this.updateStatus('Ready to listen');
+            }, 2000);
+        } else {
+            this.debug.error('Failed to open AI agent routing test page - popup blocked?');
+            this.updateStatus('Failed to open test page - check popup blocker');
+        }
+    }
+
+    /**
+     * Open the basic agent routing test page in a new tab
+     */
+    openBasicRoutingTest() {
+        this.debug.log('Opening basic agent routing test page...');
+        
+        // Open the basic routing test page in a new tab
+        const testUrl = 'test-agent-routing.html';
+        const testWindow = window.open(testUrl, '_blank');
+        
+        if (testWindow) {
+            this.debug.log('Basic agent routing test page opened successfully');
+            this.updateStatus('Basic agent routing test page opened in new tab');
+            
+            setTimeout(() => {
+                this.updateStatus('Ready to listen');
+            }, 2000);
+        } else {
+            this.debug.error('Failed to open basic agent routing test page - popup blocked?');
+            this.updateStatus('Failed to open test page - check popup blocker');
+        }
+    }
+}
+
+// Global function for quick agent toggle (called from HTML buttons)
+function toggleAgent(agentName) {
+    if (window.app && window.app.agentRouter) {
+        const configManager = window.app.agentRouter.getConfigManager();
+        const currentConfig = configManager.getAgentConfig(agentName);
+        
+        if (currentConfig) {
+            const newStatus = !currentConfig.enabled;
+            
+            if (newStatus) {
+                configManager.enableAgent(agentName);
+                console.log(`${agentName} enabled`);
+                window.app.updateStatus(`${agentName} enabled`);
+            } else {
+                configManager.disableAgent(agentName);
+                console.log(`${agentName} disabled`);
+                window.app.updateStatus(`${agentName} disabled`);
+            }
+            
+            // Refresh the status display
+            setTimeout(() => {
+                window.app.refreshAgentStatus();
+            }, 500);
+            
+        } else {
+            console.error(`Agent ${agentName} not found`);
+            window.app.updateStatus(`Agent ${agentName} not found`);
+        }
+    } else {
+        console.error('Agent system not available');
+        if (window.app) {
+            window.app.updateStatus('Agent system not available');
         }
     }
 }

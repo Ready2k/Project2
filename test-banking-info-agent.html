@@ -58,7 +58,11 @@
         };
         
         const mockTokenTracker = {
-            addTokens: (tokens, agent) => console.log(`Tracked ${tokens} tokens for ${agent}`)
+            addTokens: (tokens, agent) => console.log(`Tracked ${tokens} tokens for ${agent}`),
+            trackGptUsage: (inputTokens, outputTokens) => console.log(`Token tracking: ${inputTokens} input, ${outputTokens} output tokens`),
+            trackWhisperUsage: (minutes) => console.log(`Token tracking: ${minutes} minutes of Whisper usage`),
+            trackTtsUsage: (characters, model) => console.log(`Token tracking: ${characters} characters for TTS (${model})`),
+            getUsage: () => ({ whisper: { requests: 0, cost: 0 }, gpt: { tokens: 0, cost: 0 }, tts: { characters: 0, cost: 0 }, total: 0 })
         };
         
         const mockContext = {

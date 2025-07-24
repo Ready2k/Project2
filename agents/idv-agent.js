@@ -82,6 +82,9 @@ class IDVAgent extends BaseAgent {
             // Validate data access permissions for identity verification
             this.validateDataAccess(['identity', 'verification', 'authentication']);
             
+            // Validate guardrails for identity verification actions
+            this.validateGuardrails('getAccountData', { action: 'identity_verification' });
+            
             // Generate domain-specific system prompt
             const systemPrompt = this.generateSystemPrompt(context, inputText);
             
@@ -105,14 +108,22 @@ class IDVAgent extends BaseAgent {
                 throw new Error(apiResponse.error);
             }
             
-            // Demonstrate secure domain API access
+            // Demonstrate secure domain API access with guardrails
             try {
                 const identityData = await this.secureDataAccess(['identity', 'verification']);
                 this.debug.info('IDVAgent accessed identity data securely', {
                     dataTypes: ['identity', 'verification']
                 });
+                
+                // Test guardrails enforcement for password reset
+                if (inputText.toLowerCase().includes('password') || inputText.toLowerCase().includes('reset')) {
+                    this.validateGuardrails('resetPassword', { 
+                        requiresSecondaryAuth: true,
+                        action: 'password_reset'
+                    });
+                }
             } catch (securityError) {
-                this.debug.warn('IDVAgent security validation working correctly', {
+                this.debug.warn('IDVAgent security/guardrails validation working correctly', {
                     error: securityError.message
                 });
             }

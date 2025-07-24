@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Main Page Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+        }
+        
+        button:hover {
+            opacity: 0.8;
+        }
+        
+        .log-container {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        
+        .log-entry.success {
+            color: #155724;
+        }
+        
+        .log-entry.error {
+            color: #721c24;
+        }
+        
+        .log-entry.info {
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Main Page Integration Test</h1>
+        <p>Testing integration of real-time configuration updates with the main application.</p>
+        
+        <div id="status" class="status info">
+            Initializing integration test...
+        </div>
+    </div>
+
+    <div class="container">
+        <h3>Integration Tests</h3>
+        <button onclick="testScriptLoading()">Test Script Loading</button>
+        <button onclick="testManagerInitialization()">Test Manager Initialization</button>
+        <button onclick="testRealTimeUpdates()">Test Real-Time Updates</button>
+        <button onclick="testMainAppIntegration()">Test Main App Integration</button>
+        <button onclick="clearLog()">Clear Log</button>
+        
+        <div class="log-container" id="testLog"></div>
+    </div>
+
+    <!-- Load core scripts in correct order -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/config-update-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/index.js"></script>
+
+    <script>
+        class MainPageIntegrationTester {
+            constructor() {
+                this.testResults = [];
+                this.initialize();
+            }
+            
+            initialize() {
+                try {
+                    this.updateStatus('Integration test initialized successfully', 'success');
+                    this.logMessage('Integration tester ready', 'success');
+                } catch (error) {
+                    this.updateStatus(`Initialization failed: ${error.message}`, 'error');
+                    this.logMessage(`Initialization error: ${error.message}`, 'error');
+                }
+            }
+            
+            updateStatus(message, type = 'info') {
+                const statusEl = document.getElementById('status');
+                statusEl.textContent = message;
+                statusEl.className = `status ${type}`;
+            }
+            
+            logMessage(message, type = 'info') {
+                const logEl = document.getElementById('testLog');
+                const timestamp = new Date().toLocaleTimeString();
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                entry.textContent = `[${timestamp}] ${message}`;
+                logEl.appendChild(entry);
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+            
+            testScriptLoading() {
+                this.logMessage('Testing script loading...', 'info');
+                
+                const requiredClasses = [
+                    'DebugManager',
+                    'ConfigUpdateManager',
+                    'LLMManager',
+                    'GuardrailsManager',
+                    'VoiceConfigManager',
+                    'BaseAgent'
+                ];
+                
+                let allLoaded = true;
+                
+                requiredClasses.forEach(className => {
+                    if (window[className]) {
+                        this.logMessage(`✅ ${className} loaded successfully`, 'success');
+                    } else {
+                        this.logMessage(`❌ ${className} not found`, 'error');
+                        allLoaded = false;
+                    }
+                });
+                
+                if (allLoaded) {
+                    this.updateStatus('All required scripts loaded successfully', 'success');
+                    this.logMessage('Script loading test completed successfully', 'success');
+                } else {
+                    this.updateStatus('Some scripts failed to load', 'error');
+                    this.logMessage('Script loading test failed', 'error');
+                }
+            }
+            
+            testManagerInitialization() {
+                this.logMessage('Testing manager initialization...', 'info');
+                
+                try {
+                    // Initialize debug manager
+                    if (!window.debugManager) {
+                        window.debugManager = new DebugManager();
+                        this.logMessage('✅ DebugManager initialized', 'success');
+                    }
+                    
+                    // Initialize configuration managers
+                    const configUpdateManager = new ConfigUpdateManager();
+                    const llmManager = new LLMManager();
+                    const guardrailsManager = new GuardrailsManager();
+                    const voiceConfigManager = new VoiceConfigManager();
+                    
+                    // Set up dependencies
+                    llmManager.setManagers(
+                        guardrailsManager,
+                        voiceConfigManager,
+                        null,
+                        configUpdateManager
+                    );
+                    
+                    // Store globally for testing
+                    window.testConfigUpdateManager = configUpdateManager;
+                    window.testLLMManager = llmManager;
+                    window.testGuardrailsManager = guardrailsManager;
+                    window.testVoiceConfigManager = voiceConfigManager;
+                    
+                    this.logMessage('✅ All managers initialized successfully', 'success');
+                    this.updateStatus('Manager initialization completed', 'success');
+                    
+                } catch (error) {
+                    this.logMessage(`❌ Manager initialization failed: ${error.message}`, 'error');
+                    this.updateStatus(`Manager initialization failed: ${error.message}`, 'error');
+                }
+            }
+            
+            async testRealTimeUpdates() {
+                this.logMessage('Testing real-time configuration updates...', 'info');
+                
+                try {
+                    if (!window.testConfigUpdateManager) {
+                        throw new Error('Managers not initialized. Run manager initialization test first.');
+                    }
+                    
+                    // Test subscription
+                    let updateReceived = false;
+                    const unsubscribe = window.testConfigUpdateManager.subscribe('TestAgent', async (updateData) => {
+                        updateReceived = true;
+                        this.logMessage(`✅ Update received for ${updateData.agentName}`, 'success');
+                        return { success: true };
+                    });
+                    
+                    // Test broadcasting update
+                    const result = await window.testConfigUpdateManager.broadcastUpdate('TestAgent', {
+                        type: 'test',
+                        data: { testProperty: 'integrationTest' },
+                        reason: 'Integration test update'
+                    });
+                    
+                    if (result.success && updateReceived) {
+                        this.logMessage('✅ Real-time updates working correctly', 'success');
+                        this.updateStatus('Real-time updates test passed', 'success');
+                    } else {
+                        throw new Error('Update broadcast or subscription failed');
+                    }
+                    
+                    // Clean up
+                    unsubscribe();
+                    
+                } catch (error) {
+                    this.logMessage(`❌ Real-time updates test failed: ${error.message}`, 'error');
+                    this.updateStatus(`Real-time updates test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            async testMainAppIntegration() {
+                this.logMessage('Testing main application integration...', 'info');
+                
+                try {
+                    // Check if main app components are available
+                    const mainAppComponents = [
+                        'debugManager',
+                        'Agents'
+                    ];
+                    
+                    let integrationWorking = true;
+                    
+                    mainAppComponents.forEach(component => {
+                        if (window[component]) {
+                            this.logMessage(`✅ ${component} available for integration`, 'success');
+                        } else {
+                            this.logMessage(`⚠️  ${component} not available (may be normal)`, 'info');
+                        }
+                    });
+                    
+                    // Test that our new managers can be integrated
+                    if (window.testConfigUpdateManager && window.testLLMManager) {
+                        // Test a configuration update that would affect the main app
+                        const testUpdate = {
+                            type: 'agentConfig',
+                            data: {
+                                name: 'IntegrationTestAgent',
+                                enabled: true,
+                                priority: 1,
+                                maxTokens: 1000
+                            },
+                            reason: 'Integration test'
+                        };
+                        
+                        const result = await window.testLLMManager.updateAgentConfiguration(
+                            'IntegrationTestAgent',
+                            testUpdate.data,
+                            { reason: testUpdate.reason }
+                        );
+                        
+                        if (result.success) {
+                            this.logMessage('✅ Configuration update integration working', 'success');
+                            this.updateStatus('Main app integration test passed', 'success');
+                        } else {
+                            throw new Error('Configuration update integration failed');
+                        }
+                    } else {
+                        throw new Error('Test managers not available');
+                    }
+                    
+                } catch (error) {
+                    this.logMessage(`❌ Main app integration test failed: ${error.message}`, 'error');
+                    this.updateStatus(`Main app integration test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            clearLog() {
+                document.getElementById('testLog').innerHTML = '';
+            }
+        }
+        
+        // Global functions for button onclick handlers
+        let tester;
+        
+        function testScriptLoading() {
+            tester.testScriptLoading();
+        }
+        
+        function testManagerInitialization() {
+            tester.testManagerInitialization();
+        }
+        
+        function testRealTimeUpdates() {
+            tester.testRealTimeUpdates();
+        }
+        
+        function testMainAppIntegration() {
+            tester.testMainAppIntegration();
+        }
+        
+        function clearLog() {
+            tester.clearLog();
+        }
+        
+        // Initialize tester when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            tester = new MainPageIntegrationTester();
+        });
+    </script>
+</body>
+</html>

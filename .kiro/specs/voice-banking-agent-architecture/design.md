@@ -39,9 +39,20 @@ graph TD
     H --> J[SystemPromptsManager]
     H --> K[OpenAIClient]
     
+    L[AdminPage] --> M[LLMManager]
+    M --> N[GuardrailsManager]
+    M --> O[VoiceConfigManager]
+    M --> P[AgentConfigManager]
+    
+    N --> H
+    O --> Q[TextToSpeech]
+    P --> B
+    
     style B fill:#e1f5fe
     style H fill:#f3e5f5
     style A fill:#e8f5e8
+    style M fill:#fff3e0
+    style L fill:#f1f8e9
 ```
 
 ## Components and Interfaces
@@ -165,7 +176,75 @@ const AgentConfig = {
     llmProvider: String, // 'openai', 'claude', 'bedrock'
     llmModel: String,
     systemPromptOverride: String | null,
-    telemetryEnabled: Boolean
+    telemetryEnabled: Boolean,
+    guardrails: {
+        allowedActions: Array<String>,
+        restrictedActions: Array<String>,
+        maxTokens: Number,
+        requireConfirmation: Array<String>
+    },
+    voiceConfig: {
+        voice: String, // 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'
+        speed: Number, // 0.25 to 4.0
+        pitch: Number, // -20 to 20 semitones
+        tone: String, // 'professional', 'friendly', 'authoritative'
+        language: String // 'en-US', 'en-GB', etc.
+    }
+};
+```
+
+### LLM Manager Data Models
+
+#### Guardrails Configuration
+```javascript
+const GuardrailsConfig = {
+    agentName: String,
+    allowedCapabilities: {
+        canAccessAccountData: Boolean,
+        canInitiateTransactions: Boolean,
+        canBlockCards: Boolean,
+        canResetPasswords: Boolean,
+        canAccessTransactionHistory: Boolean,
+        canProvideBalanceInfo: Boolean
+    },
+    restrictions: {
+        maxTransactionAmount: Number,
+        requiresSecondaryAuth: Array<String>,
+        blockedKeywords: Array<String>,
+        timeBasedRestrictions: Object
+    },
+    complianceRules: {
+        logAllActions: Boolean,
+        requireAuditTrail: Boolean,
+        dataRetentionDays: Number
+    }
+};
+```
+
+#### Voice Configuration
+```javascript
+const VoiceConfig = {
+    agentName: String,
+    ttsSettings: {
+        provider: String, // 'openai', 'elevenlabs', 'azure'
+        voice: String,
+        speed: Number,
+        pitch: Number,
+        volume: Number,
+        stability: Number, // For ElevenLabs
+        clarity: Number    // For ElevenLabs
+    },
+    personalityTraits: {
+        tone: String,
+        formality: String, // 'casual', 'professional', 'formal'
+        enthusiasm: Number, // 1-10 scale
+        empathy: Number     // 1-10 scale
+    },
+    contextualAdaptation: {
+        errorResponseTone: String,
+        successResponseTone: String,
+        urgentSituationTone: String
+    }
 };
 ```
 
@@ -256,6 +335,66 @@ class AgentTelemetry {
     onAgentError(agentName, error, context) { /* Track failures */ }
 }
 ```
+
+### LLM Manager Components
+
+#### LLMManager Class
+```javascript
+class LLMManager {
+    constructor() {
+        this.guardrailsManager = new GuardrailsManager();
+        this.voiceConfigManager = new VoiceConfigManager();
+        this.agentConfigManager = new AgentConfigManager();
+    }
+    
+    // Main interface methods
+    getAgentConfigurations() { /* Return all agent configs */ }
+    updateAgentConfiguration(agentName, config) { /* Update specific agent */ }
+    validateConfiguration(config) { /* Validate config before saving */ }
+    exportConfiguration() { /* Export all configurations */ }
+    importConfiguration(configData) { /* Import configurations */ }
+}
+```
+
+#### GuardrailsManager Class
+```javascript
+class GuardrailsManager {
+    constructor() {
+        this.guardrails = new Map();
+        this.auditLogger = new AuditLogger();
+    }
+    
+    setGuardrails(agentName, rules) { /* Set guardrails for agent */ }
+    validateAction(agentName, action, context) { /* Check if action is allowed */ }
+    logViolation(agentName, action, reason) { /* Log guardrail violations */ }
+    getViolationHistory(agentName) { /* Get violation history */ }
+}
+```
+
+#### VoiceConfigManager Class
+```javascript
+class VoiceConfigManager {
+    constructor() {
+        this.voiceConfigs = new Map();
+        this.ttsProviders = ['openai', 'elevenlabs', 'azure'];
+    }
+    
+    setVoiceConfig(agentName, config) { /* Set voice config for agent */ }
+    getVoiceConfig(agentName) { /* Get voice config for agent */ }
+    previewVoice(config, sampleText) { /* Generate voice preview */ }
+    validateVoiceConfig(config) { /* Validate voice configuration */ }
+}
+```
+
+### Admin Page Integration
+
+#### LLM Manager UI Components
+- **Agent Overview Panel**: Grid view of all agents with status indicators
+- **Agent Configuration Modal**: Detailed configuration interface for individual agents
+- **Guardrails Editor**: Visual interface for setting capability restrictions
+- **Voice Configuration Panel**: Voice settings with real-time preview
+- **Audit Log Viewer**: Display of guardrail violations and configuration changes
+- **Bulk Operations**: Import/export configurations, bulk enable/disable agents
 
 ### Dynamic Agent Loading
 - Support for loading agents from external modules

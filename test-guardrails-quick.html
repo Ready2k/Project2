@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Guardrails Test</title>
+</head>
+<body>
+    <h1>Quick Guardrails Test</h1>
+    <div id="results"></div>
+
+    <script src="agents/debug-manager.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+
+    <script>
+        // Initialize debug manager
+        if (!window.debugManager) {
+            window.debugManager = {
+                createModuleLogger: (module) => ({
+                    log: (...args) => console.log(`[${module}]`, ...args),
+                    info: (...args) => console.info(`[${module}]`, ...args),
+                    warn: (...args) => console.warn(`[${module}]`, ...args),
+                    error: (...args) => console.error(`[${module}]`, ...args)
+                })
+            };
+        }
+
+        function runQuickTest() {
+            const results = document.getElementById('results');
+            
+            try {
+                // Initialize guardrails manager
+                const guardrailsManager = new GuardrailsManager();
+                guardrailsManager.enableTestMode(); // Disable time restrictions
+                
+                // Create test agents
+                const fraudAgent = new FraudAgent();
+                const paymentsAgent = new PaymentsAgent();
+                
+                // Set guardrails manager
+                fraudAgent.setGuardrailsManager(guardrailsManager);
+                paymentsAgent.setGuardrailsManager(guardrailsManager);
+                
+                results.innerHTML += '<h2>Test Results:</h2>';
+                
+                // Test 1: FraudAgent blockCard without secondary auth (should fail)
+                try {
+                    const validation1 = guardrailsManager.validateAction('FraudAgent', 'blockCard', {});
+                    results.innerHTML += `<p>FraudAgent blockCard (no auth): ${validation1.allowed ? 'ALLOWED' : 'BLOCKED'} - ${validation1.reason}</p>`;
+                } catch (error) {
+                    results.innerHTML += `<p>FraudAgent blockCard (no auth): ERROR - ${error.message}</p>`;
+                }
+                
+                // Test 2: FraudAgent blockCard with secondary auth (should pass)
+                try {
+                    const validation2 = guardrailsManager.validateAction('FraudAgent', 'blockCard', { secondaryAuthCompleted: true });
+                    results.innerHTML += `<p>FraudAgent blockCard (with auth): ${validation2.allowed ? 'ALLOWED' : 'BLOCKED'} - ${validation2.reason}</p>`;
+                } catch (error) {
+                    results.innerHTML += `<p>FraudAgent blockCard (with auth): ERROR - ${error.message}</p>`;
+                }
+                
+                // Test 3: PaymentsAgent initiateTransfer without secondary auth (should fail)
+                try {
+                    const validation3 = guardrailsManager.validateAction('PaymentsAgent', 'initiateTransfer', { amount: 500 });
+                    results.innerHTML += `<p>PaymentsAgent initiateTransfer (no auth): ${validation3.allowed ? 'ALLOWED' : 'BLOCKED'} - ${validation3.reason}</p>`;
+                } catch (error) {
+                    results.innerHTML += `<p>PaymentsAgent initiateTransfer (no auth): ERROR - ${error.message}</p>`;
+                }
+                
+                // Test 4: PaymentsAgent initiateTransfer with secondary auth (should pass)
+                try {
+                    const validation4 = guardrailsManager.validateAction('PaymentsAgent', 'initiateTransfer', { amount: 500, secondaryAuthCompleted: true });
+                    results.innerHTML += `<p>PaymentsAgent initiateTransfer (with auth): ${validation4.allowed ? 'ALLOWED' : 'BLOCKED'} - ${validation4.reason}</p>`;
+                } catch (error) {
+                    results.innerHTML += `<p>PaymentsAgent initiateTransfer (with auth): ERROR - ${error.message}</p>`;
+                }
+                
+                // Test 5: PaymentsAgent initiateTransfer over limit (should fail even with auth)
+                try {
+                    const validation5 = guardrailsManager.validateAction('PaymentsAgent', 'initiateTransfer', { amount: 1500, secondaryAuthCompleted: true });
+                    results.innerHTML += `<p>PaymentsAgent initiateTransfer (over limit): ${validation5.allowed ? 'ALLOWED' : 'BLOCKED'} - ${validation5.reason}</p>`;
+                } catch (error) {
+                    results.innerHTML += `<p>PaymentsAgent initiateTransfer (over limit): ERROR - ${error.message}</p>`;
+                }
+                
+                // Show current time info
+                const now = new Date();
+                results.innerHTML += `<h3>Current Time Info:</h3>`;
+                results.innerHTML += `<p>Current hour: ${now.getHours()}</p>`;
+                results.innerHTML += `<p>Current day: ${now.getDay()} (0=Sunday, 1=Monday, etc.)</p>`;
+                results.innerHTML += `<p>Test mode enabled: Time restrictions disabled</p>`;
+                
+            } catch (error) {
+                results.innerHTML += `<p>ERROR: ${error.message}</p>`;
+                console.error('Test failed:', error);
+            }
+        }
+
+        // Run test on page load
+        document.addEventListener('DOMContentLoaded', runQuickTest);
+    </script>
+</body>
+</html>

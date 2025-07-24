@@ -114,3 +114,36 @@ This feature adds a task-specific AI Agent architecture to the existing Voice-to
 2. WHEN an agent is activated THEN it SHALL optionally trigger onActivate() telemetry hooks
 3. WHEN an agent completes processing THEN it SHALL optionally trigger onComplete() telemetry hooks
 4. WHEN debugging is enabled THEN the system SHALL log which agent handled each input
+
+### Requirement 11
+
+**User Story:** As a system administrator, I want an LLM Manager interface in the admin page, so that I can configure and manage all agents from a central location.
+
+#### Acceptance Criteria
+
+1. WHEN accessing the admin page THEN the system SHALL display an LLM Manager section
+2. WHEN viewing the LLM Manager THEN it SHALL show all available agents with their current status
+3. WHEN selecting an agent THEN the system SHALL display its configuration options
+4. WHEN saving agent configurations THEN the system SHALL persist changes and apply them immediately
+
+### Requirement 12
+
+**User Story:** As a system administrator, I want to configure guardrails for each agent, so that I can control what actions each agent can and cannot perform.
+
+#### Acceptance Criteria
+
+1. WHEN configuring an agent THEN the system SHALL display available guardrail options
+2. WHEN setting guardrails THEN the system SHALL allow enabling/disabling specific capabilities per agent
+3. WHEN an agent attempts a restricted action THEN the system SHALL block the action and log the attempt
+4. WHEN guardrails are updated THEN the system SHALL immediately enforce the new restrictions
+
+### Requirement 13
+
+**User Story:** As a system administrator, I want to configure voice settings for each agent, so that different agents can have distinct speech characteristics.
+
+#### Acceptance Criteria
+
+1. WHEN configuring an agent THEN the system SHALL display voice configuration options
+2. WHEN setting voice parameters THEN the system SHALL allow customization of voice, speed, pitch, and tone
+3. WHEN an agent responds THEN the system SHALL use the agent's configured voice settings for text-to-speech
+4. WHEN voice settings are changed THEN the system SHALL provide a preview of the new voice configuration

@@ -411,6 +411,161 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="admin-section">
+                    <h3>🎛️ LLM Manager Console</h3>
+                    <div class="llm-manager-section">
+                        <p class="section-description">
+                            Advanced agent management with detailed configuration, guardrails, voice settings, and audit logging.
+                        </p>
+                        
+                        <!-- LLM Manager Navigation -->
+                        <div class="llm-manager-nav">
+                            <button class="llm-nav-btn active" data-llm-section="overview">
+                                📊 Overview
+                            </button>
+                            <button class="llm-nav-btn" data-llm-section="configuration">
+                                ⚙️ Configuration
+                            </button>
+                            <button class="llm-nav-btn" data-llm-section="guardrails">
+                                🛡️ Guardrails
+                            </button>
+                            <button class="llm-nav-btn" data-llm-section="voice">
+                                🎤 Voice Settings
+                            </button>
+                            <button class="llm-nav-btn" data-llm-section="audit">
+                                📋 Audit Log
+                            </button>
+                        </div>
+
+                        <!-- LLM Manager Content -->
+                        <div class="llm-manager-content">
+                            <!-- Overview Section -->
+                            <div id="llm-overview-section" class="llm-content-section active">
+                                <div class="llm-overview-grid">
+                                    <div class="llm-overview-card">
+                                        <h4>📊 System Statistics</h4>
+                                        <div class="llm-stats-grid">
+                                            <div class="llm-stat-item">
+                                                <span class="llm-stat-value" id="llmTotalAgents">0</span>
+                                                <span class="llm-stat-label">Total Agents</span>
+                                            </div>
+                                            <div class="llm-stat-item">
+                                                <span class="llm-stat-value" id="llmEnabledAgents">0</span>
+                                                <span class="llm-stat-label">Enabled</span>
+                                            </div>
+                                            <div class="llm-stat-item">
+                                                <span class="llm-stat-value" id="llmDisabledAgents">0</span>
+                                                <span class="llm-stat-label">Disabled</span>
+                                            </div>
+                                            <div class="llm-stat-item">
+                                                <span class="llm-stat-value" id="llmLastUpdated">Never</span>
+                                                <span class="llm-stat-label">Last Updated</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="llm-overview-card">
+                                        <h4>⚡ Quick Actions</h4>
+                                        <div class="llm-quick-actions">
+                                            <button class="llm-btn llm-btn-primary" onclick="refreshLLMData()">
+                                                🔄 Refresh Data
+                                            </button>
+                                            <button class="llm-btn llm-btn-success" onclick="exportLLMConfiguration()">
+                                                📤 Export Config
+                                            </button>
+                                            <button class="llm-btn llm-btn-warning" onclick="importLLMConfiguration()">
+                                                📥 Import Config
+                                            </button>
+                                            <button class="llm-btn llm-btn-info" onclick="openFullLLMManager()">
+                                                🚀 Open Full Manager
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h4>Agent Status Grid</h4>
+                                <div id="llmAgentsGrid" class="llm-agents-grid">
+                                    <!-- Agent cards will be populated here -->
+                                </div>
+                            </div>
+
+                            <!-- Configuration Section -->
+                            <div id="llm-configuration-section" class="llm-content-section">
+                                <h4>Agent Configuration Management</h4>
+                                <p class="llm-section-description">
+                                    Configure individual agent settings, LLM providers, and operational parameters.
+                                </p>
+                                <div id="llmConfigurationContent">
+                                    <!-- Configuration content will be loaded here -->
+                                </div>
+                            </div>
+
+                            <!-- Guardrails Section -->
+                            <div id="llm-guardrails-section" class="llm-content-section">
+                                <h4>Guardrails Management</h4>
+                                <p class="llm-section-description">
+                                    Configure security boundaries and capability restrictions for each agent.
+                                </p>
+                                <div id="llmGuardrailsContent">
+                                    <!-- Guardrails content will be loaded here -->
+                                </div>
+                            </div>
+
+                            <!-- Voice Settings Section -->
+                            <div id="llm-voice-section" class="llm-content-section">
+                                <h4>Voice Configuration</h4>
+                                <p class="llm-section-description">
+                                    Configure TTS settings, voice personalities, and contextual adaptations.
+                                </p>
+                                <div id="llmVoiceContent">
+                                    <!-- Voice content will be loaded here -->
+                                </div>
+                            </div>
+
+                            <!-- Audit Log Section -->
+                            <div id="llm-audit-section" class="llm-content-section">
+                                <h4>Audit Log</h4>
+                                <div class="llm-audit-log">
+                                    <div class="llm-log-header">
+                                        <h5>Configuration Changes</h5>
+                                        <div class="llm-log-filters">
+                                            <select id="llmLogFilter" class="llm-form-select">
+                                                <option value="all">All Events</option>
+                                                <option value="config">Configuration</option>
+                                                <option value="guardrails">Guardrails</option>
+                                                <option value="voice">Voice Settings</option>
+                                            </select>
+                                            <button class="llm-btn llm-btn-secondary" onclick="clearLLMAuditLog()">Clear Log</button>
+                                        </div>
+                                    </div>
+                                    <div id="llmAuditLogEntries" class="llm-log-entries">
+                                        <!-- Log entries will be populated here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bulk Operations -->
+                        <div class="llm-bulk-operations">
+                            <h4>Bulk Operations</h4>
+                            <div class="bulk-operation-buttons">
+                                <button class="llm-btn llm-btn-primary" onclick="enableAllAgents()">
+                                    ✅ Enable All Agents
+                                </button>
+                                <button class="llm-btn llm-btn-warning" onclick="disableAllAgents()">
+                                    ⏸️ Disable All Agents
+                                </button>
+                                <button class="llm-btn llm-btn-info" onclick="resetAllToDefaults()">
+                                    🔄 Reset All to Defaults
+                                </button>
+                                <button class="llm-btn llm-btn-success" onclick="validateAllConfigurations()">
+                                    ✔️ Validate All Configs
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -678,6 +833,11 @@
     <script src="agents/agent-loader.js"></script>
     <script src="agents/telemetry-hooks.js"></script>
     <script src="agents/extensibility-init.js"></script>
+
+    <!-- LLM Manager modules -->
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
     
     <script src="script.js"></script>
 </body>

@@ -16,6 +16,9 @@ class BaseAgent {
         this.securityManager = null;
         this.sandboxedApiClient = null;
         
+        // Initialize guardrails manager reference (will be set by AgentRouter)
+        this.guardrailsManager = null;
+        
         this.debug.info('Agent initialized', { name, description });
     }
     
@@ -468,6 +471,166 @@ class BaseAgent {
     }
     
     /**
+     * Sets the guardrails manager for this agent (called by AgentRouter)
+     * @param {GuardrailsManager} guardrailsManager - Guardrails manager instance
+     */
+    setGuardrailsManager(guardrailsManager) {
+        this.guardrailsManager = guardrailsManager;
+        this.debug.info('Guardrails manager set for agent');
+    }
+    
+    /**
+     * Handle real-time guardrails update (called by GuardrailsManager)
+     * @param {Object} newGuardrails - New guardrails configuration
+     * @param {Object} previousGuardrails - Previous guardrails configuration
+     * @returns {Promise<void>}
+     */
+    async onGuardrailsUpdate(newGuardrails, previousGuardrails) {
+        try {
+            this.debug.info('Received real-time guardrails update', {
+                hasNewGuardrails: !!newGuardrails,
+                hasPreviousGuardrails: !!previousGuardrails
+            });
+            
+            // Validate that the agent can handle the new guardrails
+            const validationResult = await this.validateGuardrailsCompatibility(newGuardrails);
+            if (!validationResult.compatible) {
+                this.debug.warn('New guardrails may not be compatible with agent capabilities', validationResult.warnings);
+            }
+            
+            // Update internal guardrails cache if needed
+            this._cachedGuardrails = newGuardrails;
+            
+            // Notify any active operations about the guardrails change
+            await this.notifyActiveOperationsOfGuardrailsChange(newGuardrails, previousGuardrails);
+            
+            // Allow subclasses to handle guardrails updates
+            if (typeof this.onGuardrailsUpdateCustom === 'function') {
+                await this.onGuardrailsUpdateCustom(newGuardrails, previousGuardrails);
+            }
+            
+            this.debug.info('Successfully processed guardrails update');
+            
+        } catch (error) {
+            this.debug.error('Error handling guardrails update:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Handle real-time voice configuration update
+     * @param {Object} newVoiceConfig - New voice configuration
+     * @param {Object} previousVoiceConfig - Previous voice configuration
+     * @returns {Promise<void>}
+     */
+    async onVoiceConfigUpdate(newVoiceConfig, previousVoiceConfig) {
+        try {
+            this.debug.info('Received real-time voice config update', {
+                hasNewConfig: !!newVoiceConfig,
+                hasPreviousConfig: !!previousVoiceConfig
+            });
+            
+            // Update internal voice config cache if needed
+            this._cachedVoiceConfig = newVoiceConfig;
+            
+            // Allow subclasses to handle voice config updates
+            if (typeof this.onVoiceConfigUpdateCustom === 'function') {
+                await this.onVoiceConfigUpdateCustom(newVoiceConfig, previousVoiceConfig);
+            }
+            
+            this.debug.info('Successfully processed voice config update');
+            
+        } catch (error) {
+            this.debug.error('Error handling voice config update:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Validate guardrails compatibility with agent capabilities
+     * @param {Object} guardrails - Guardrails configuration to validate
+     * @returns {Promise<Object>} Compatibility result
+     */
+    async validateGuardrailsCompatibility(guardrails) {
+        const warnings = [];
+        
+        try {
+            // Check if guardrails restrict capabilities that this agent needs
+            if (guardrails.allowedCapabilities) {
+                const requiredCapabilities = this.getRequiredCapabilities();
+                
+                for (const capability of requiredCapabilities) {
+                    if (!guardrails.allowedCapabilities[capability]) {
+                        warnings.push(`Agent requires capability '${capability}' but it's not allowed in new guardrails`);
+                    }
+                }
+            }
+            
+            // Check transaction limits for payment agents
+            if (this.name === 'PaymentsAgent' && guardrails.restrictions?.maxTransactionAmount !== undefined) {
+                const currentLimit = this.getDefaultTransactionLimit();
+                if (guardrails.restrictions.maxTransactionAmount < currentLimit) {
+                    warnings.push(`New transaction limit (${guardrails.restrictions.maxTransactionAmount}) is lower than agent default (${currentLimit})`);
+                }
+            }
+            
+            return {
+                compatible: warnings.length === 0,
+                warnings
+            };
+            
+        } catch (error) {
+            this.debug.error('Error validating guardrails compatibility:', error);
+            return {
+                compatible: false,
+                warnings: [`Validation error: ${error.message}`]
+            };
+        }
+    }
+    
+    /**
+     * Get required capabilities for this agent (to be overridden by subclasses)
+     * @returns {Array<string>} Array of required capability names
+     */
+    getRequiredCapabilities() {
+        // Default implementation - subclasses should override
+        return [];
+    }
+    
+    /**
+     * Get default transaction limit for this agent (to be overridden by payment agents)
+     * @returns {number} Default transaction limit
+     */
+    getDefaultTransactionLimit() {
+        return 0; // Default for non-payment agents
+    }
+    
+    /**
+     * Notify active operations about guardrails changes
+     * @param {Object} newGuardrails - New guardrails configuration
+     * @param {Object} previousGuardrails - Previous guardrails configuration
+     * @returns {Promise<void>}
+     */
+    async notifyActiveOperationsOfGuardrailsChange(newGuardrails, previousGuardrails) {
+        try {
+            // This would integrate with any active operations/transactions
+            // For now, just log the change
+            this.debug.info('Notifying active operations of guardrails change', {
+                agentName: this.name,
+                hasActiveOperations: false // Would check for active operations
+            });
+            
+            // In a real implementation, this might:
+            // 1. Check for active transactions and validate them against new guardrails
+            // 2. Cancel operations that violate new guardrails
+            // 3. Update operation contexts with new restrictions
+            
+        } catch (error) {
+            this.debug.error('Error notifying active operations of guardrails change:', error);
+        }
+    }
+    
+    /**
      * Validates data access permissions before accessing data
      * @param {Array<string>} dataTypes - Data types the agent wants to access
      * @returns {Object} - Validation result
@@ -550,8 +713,108 @@ class BaseAgent {
         // Validate access permissions first
         this.validateApiAccess([apiCall]);
         
+        // Validate guardrails before making API call
+        this.validateGuardrails(apiCall, parameters);
+        
         // Make API call through sandboxed client
         return await this.sandboxedApiClient.callDomainApi(apiCall, parameters);
+    }
+    
+    /**
+     * Validates action against guardrails configuration
+     * @param {string} action - Action to validate
+     * @param {Object} context - Additional context for validation
+     * @throws {Error} - If guardrails validation fails
+     */
+    validateGuardrails(action, context = {}) {
+        if (!this.guardrailsManager) {
+            this.debug.warn('Guardrails manager not available - skipping guardrails validation');
+            return;
+        }
+        
+        const validation = this.guardrailsManager.validateAction(this.name, action, context);
+        
+        if (!validation.allowed) {
+            const error = `Guardrails violation: ${validation.reason}`;
+            this.debug.error(error, { action, context });
+            throw new Error(error);
+        }
+        
+        this.debug.info('Guardrails validation passed', { action, reason: validation.reason });
+    }
+    
+    /**
+     * Checks if a capability is allowed by guardrails
+     * @param {string} capability - Capability to check
+     * @returns {boolean} - True if capability is allowed
+     */
+    isCapabilityAllowed(capability) {
+        if (!this.guardrailsManager) {
+            this.debug.warn('Guardrails manager not available - allowing capability by default');
+            return true;
+        }
+        
+        const guardrails = this.guardrailsManager.getGuardrails(this.name);
+        if (!guardrails || !guardrails.allowedCapabilities) {
+            return true; // Allow by default if no guardrails defined
+        }
+        
+        return guardrails.allowedCapabilities[capability] === true;
+    }
+    
+    /**
+     * Gets the current guardrails configuration for this agent
+     * @returns {Object|null} - Guardrails configuration or null if not available
+     */
+    getGuardrails() {
+        if (!this.guardrailsManager) {
+            return null;
+        }
+        
+        return this.guardrailsManager.getGuardrails(this.name);
+    }
+    
+    /**
+     * Validates transaction amount against guardrails limits
+     * @param {number} amount - Transaction amount to validate
+     * @throws {Error} - If amount exceeds guardrails limits
+     */
+    validateTransactionAmount(amount) {
+        if (!this.guardrailsManager) {
+            return; // Skip validation if guardrails not available
+        }
+        
+        const guardrails = this.guardrailsManager.getGuardrails(this.name);
+        if (!guardrails || !guardrails.restrictions) {
+            return;
+        }
+        
+        const maxAmount = guardrails.restrictions.maxTransactionAmount;
+        if (maxAmount !== undefined && amount > maxAmount) {
+            const error = `Transaction amount ${amount} exceeds guardrails limit of ${maxAmount}`;
+            this.debug.error(error);
+            throw new Error(error);
+        }
+        
+        this.debug.info('Transaction amount validation passed', { amount, maxAmount });
+    }
+    
+    /**
+     * Checks if secondary authentication is required for an action
+     * @param {string} action - Action to check
+     * @returns {boolean} - True if secondary auth is required
+     */
+    requiresSecondaryAuth(action) {
+        if (!this.guardrailsManager) {
+            return false;
+        }
+        
+        const guardrails = this.guardrailsManager.getGuardrails(this.name);
+        if (!guardrails || !guardrails.restrictions || !guardrails.restrictions.requiresSecondaryAuth) {
+            return false;
+        }
+        
+        return guardrails.restrictions.requiresSecondaryAuth.includes(action);
     }
     
     /**

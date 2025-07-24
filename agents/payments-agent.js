@@ -121,6 +121,12 @@ class PaymentsAgent extends BaseAgent {
             // Validate data access permissions for payment processing (highest security)
             this.validateDataAccess(['payments', 'transfers', 'payment_history']);
             
+            // Validate guardrails for payment processing actions
+            this.validateGuardrails('initiateTransfer', { 
+                action: 'payment_processing',
+                requiresSecondaryAuth: true 
+            });
+            
             // Get current persona data for account validation
             const personaData = this.getPersonaData(context);
             if (!personaData) {
@@ -129,6 +135,13 @@ class PaymentsAgent extends BaseAgent {
             
             // Validate transaction security requirements
             this.validateTransactionSecurity(inputText, personaData);
+            
+            // Extract and validate transaction amount against guardrails
+            const amountMatch = inputText.match(/£(\d+(?:\.\d{2})?)/);
+            if (amountMatch) {
+                const requestedAmount = parseFloat(amountMatch[1]);
+                this.validateTransactionAmount(requestedAmount);
+            }
             
             // Generate domain-specific system prompt with security context
             const systemPrompt = this.generateSystemPrompt(context, inputText, personaData);
@@ -150,23 +163,33 @@ class PaymentsAgent extends BaseAgent {
                 throw new Error(apiResponse.error);
             }
             
-            // Demonstrate secure domain API access for payment processing
+            // Demonstrate secure domain API access for payment processing with guardrails
             try {
                 const paymentData = await this.secureDataAccess(['payments', 'transfers']);
                 this.debug.info('PaymentsAgent accessed payment data securely', {
                     dataTypes: ['payments', 'transfers']
                 });
                 
-                // Test secure API call for payment processing
+                // Test guardrails enforcement for payment capabilities
+                if (!this.isCapabilityAllowed('canInitiateTransactions')) {
+                    throw new Error('Transaction initiation not allowed by guardrails');
+                }
+                
+                // Test secure API call for payment processing with guardrails validation
                 const paymentResult = await this.secureApiCall('process_payment', { 
                     amount: 100, 
                     recipient: 'test_recipient' 
                 });
-                this.debug.info('PaymentsAgent performed secure payment processing', {
+                this.debug.info('PaymentsAgent performed secure payment processing with guardrails', {
                     result: paymentResult
                 });
+                
+                // Test guardrails enforcement for secondary auth requirement
+                if (this.requiresSecondaryAuth('initiateTransfer')) {
+                    this.debug.info('Guardrails correctly require secondary auth for transfers');
+                }
             } catch (securityError) {
-                this.debug.warn('PaymentsAgent security validation working correctly', {
+                this.debug.warn('PaymentsAgent security/guardrails validation working correctly', {
                     error: securityError.message
                 });
             }

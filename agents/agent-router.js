@@ -14,6 +14,16 @@ class AgentRouter {
         // Initialize security manager
         this.securityManager = new SecurityManager();
         
+        // Initialize guardrails manager (if available)
+        this.guardrailsManager = null;
+        try {
+            if (typeof GuardrailsManager !== 'undefined') {
+                this.guardrailsManager = new GuardrailsManager();
+            }
+        } catch (error) {
+            this.debug.warn('GuardrailsManager not available, continuing without guardrails');
+        }
+        
         // Set up security for existing agents
         this.initializeAgentSecurity();
         
@@ -73,7 +83,12 @@ class AgentRouter {
         // Set security manager
         agent.setSecurityManager(this.securityManager);
         
-        this.debug.info('Security initialized for agent', { name: agent.name });
+        // Set guardrails manager (if available)
+        if (this.guardrailsManager) {
+            agent.setGuardrailsManager(this.guardrailsManager);
+        }
+        
+        this.debug.info('Security and guardrails initialized for agent', { name: agent.name });
     }
     
     /**
@@ -405,9 +420,9 @@ Available Agents:
 ${agentDescriptions.map(agent => `- ${agent.name}: ${agent.description}\n  Capabilities: ${agent.capabilities.join(', ')}`).join('\n')}
 
 Context Rules:
-- PaymentsAgent: Handles money transfers, payments, sending money
-- FraudAgent: Handles card blocking, fraud reports, security issues, suspicious activity
-- IDVAgent: Handles identity verification, password resets, account security
+- PaymentsAgent: Handles money transfers, payments, sending money, payment cancellations
+- FraudAgent: Handles card blocking, fraud reports, security issues, suspicious activity, card freezing
+- IDVAgent: Handles identity verification, password resets, account security, authentication
 - BankingInfoAgent: Handles balance inquiries, transaction history, account information
 
 Conversation Context:
@@ -415,11 +430,18 @@ ${conversationContext}
 
 User Input: "${inputText}"
 
+IMPORTANT CONTEXTUAL ROUTING RULES:
+1. If the user gives a confirmation response (yes, yeah, ok, sure, do it, stop it, block it) and the last agent was FraudAgent, route to FraudAgent
+2. If the user gives a denial response (no, nope, don't) and the last agent was FraudAgent, still route to FraudAgent (they're responding about fraud)
+3. If the user says "cancel it" or "stop that" and the last agent was PaymentsAgent, route to PaymentsAgent
+4. If the user gives a confirmation response and the last agent was IDVAgent, route to IDVAgent
+5. Ambiguous responses like "yeah", "stop it", "cancel it" should use the conversation context heavily
+
 Analyze the user input considering:
-1. Direct intent (what they're explicitly asking for)
-2. Conversation context (what was discussed recently)
+1. Conversation context is CRITICAL for ambiguous responses
+2. Direct intent (what they're explicitly asking for)
 3. Semantic meaning (understanding "yeah stop it" in fraud context means block card)
-4. Follow-up responses (confirmations, clarifications)
+4. Follow-up responses (confirmations, clarifications, denials)
 
 Respond with ONLY the agent name that should handle this request, or "NONE" if no agent is appropriate.
 
@@ -430,6 +452,8 @@ Examples:
 - "Yeah, block it" (after fraud discussion) → FraudAgent
 - "Yes, stop it now" (after card security question) → FraudAgent
 - "Cancel that" (after payment discussion) → PaymentsAgent
+- "Yes, do that" (after IDV discussion) → IDVAgent
+- "Nope, don't do it" (after fraud discussion) → FraudAgent
 - "Verify my identity" → IDVAgent`;
 
             const messages = [
@@ -471,18 +495,84 @@ Examples:
      * @returns {string} - Formatted conversation context
      */
     getConversationContext(context) {
+        let contextInfo = [];
+        
+        // Add last agent used information
+        if (context.lastAgentUsed) {
+            contextInfo.push(`Last agent used: ${context.lastAgentUsed}`);
+        }
+        
         // Try to get recent conversation history
         if (context.conversationHistory && context.conversationHistory.length > 0) {
             const recentMessages = context.conversationHistory.slice(-4); // Last 2 exchanges
-            return recentMessages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+            contextInfo.push('Recent conversation:');
+            recentMessages.forEach(msg => {
+                if (msg.agent) {
+                    contextInfo.push(`${msg.role} (${msg.agent}): ${msg.content}`);
+                } else {
+                    contextInfo.push(`${msg.role}: ${msg.content}`);
+                }
+            });
         }
-
-        // Check if there's a last agent used
+        
+        // Add contextual hints based on last agent
         if (context.lastAgentUsed) {
-            return `Last agent used: ${context.lastAgentUsed}`;
+            switch (context.lastAgentUsed) {
+                case 'FraudAgent':
+                    contextInfo.push('Context: User was discussing card security/fraud issues');
+                    break;
+                case 'PaymentsAgent':
+                    contextInfo.push('Context: User was discussing payments/transfers');
+                    break;
+                case 'IDVAgent':
+                    contextInfo.push('Context: User was discussing identity verification');
+                    break;
+                case 'BankingInfoAgent':
+                    contextInfo.push('Context: User was discussing account information');
+                    break;
+            }
         }
+        
+        return contextInfo.length > 0 ? contextInfo.join('\n') : 'No previous conversation context available.';
+    }
 
-        return 'No previous conversation context available.';
+    /**
+     * Find best agent using only keyword matching (synchronous)
+     * @param {string} inputText - User input text
+     * @returns {BaseAgent|null} - Best matching agent or null if none found
+     */
+    findBestAgentSync(inputText) {
+        if (!inputText || typeof inputText !== 'string') {
+            this.debug.warn('Invalid input text for agent selection');
+            return null;
+        }
+        
+        // Get only enabled agents, already sorted by priority
+        const enabledAgents = this.getEnabledAgents();
+        
+        // Try keyword matching only
+        for (const agent of enabledAgents) {
+            try {
+                if (agent.canHandle(inputText)) {
+                    this.debug.info('Agent match found via keywords (sync)', { 
+                        agentName: agent.name,
+                        priority: agent.priority || 100,
+                        inputPreview: inputText.substring(0, 50)
+                    });
+                    return agent;
+                }
+            } catch (error) {
+                this.debug.error('Error in agent canHandle() method', { 
+                    agentName: agent.name,
+                    error: error.message 
+                });
+            }
+        }
+        
+        this.debug.info('No agent match found via keywords (sync)', { 
+            inputPreview: inputText.substring(0, 50)
+        });
+        return null;
     }
 
     /**

@@ -86,6 +86,10 @@ class BankingInfoAgent extends BaseAgent {
             // Validate data access permissions for banking information
             this.validateDataAccess(['balance', 'transactions', 'account_info']);
             
+            // Validate guardrails for banking information access
+            this.validateGuardrails('getBalance', { action: 'balance_inquiry' });
+            this.validateGuardrails('getTransactions', { action: 'transaction_history' });
+            
             // Get current persona data for account information
             const personaData = this.getPersonaData(context);
             if (!personaData) {
@@ -115,19 +119,27 @@ class BankingInfoAgent extends BaseAgent {
                 throw new Error(apiResponse.error);
             }
             
-            // Demonstrate secure domain API access for banking data
+            // Demonstrate secure domain API access for banking data with guardrails
             try {
                 const bankingData = await this.secureDataAccess(['balance', 'transactions']);
                 this.debug.info('BankingInfoAgent accessed banking data securely', {
                     dataTypes: ['balance', 'transactions']
                 });
+                
+                // Test guardrails enforcement for read-only capabilities
+                if (!this.isCapabilityAllowed('canProvideBalanceInfo')) {
+                    throw new Error('Balance information access not allowed by guardrails');
+                }
+                if (!this.isCapabilityAllowed('canAccessTransactionHistory')) {
+                    throw new Error('Transaction history access not allowed by guardrails');
+                }
             } catch (securityError) {
-                this.debug.warn('BankingInfoAgent security validation working correctly', {
+                this.debug.warn('BankingInfoAgent security/guardrails validation working correctly', {
                     error: securityError.message
                 });
             }
             
-            // Test that agent cannot access restricted data
+            // Test that agent cannot access restricted data or capabilities
             try {
                 await this.secureDataAccess(['payments', 'fraud_actions']);
                 this.debug.error('Security violation: BankingInfoAgent accessed restricted data');
@@ -135,6 +147,14 @@ class BankingInfoAgent extends BaseAgent {
                 this.debug.info('Security working: BankingInfoAgent correctly blocked from restricted data', {
                     restrictedData: ['payments', 'fraud_actions']
                 });
+            }
+            
+            // Test guardrails block transaction capabilities
+            try {
+                this.validateGuardrails('initiateTransfer', { amount: 100 });
+                this.debug.error('Guardrails violation: BankingInfoAgent allowed transaction capability');
+            } catch (guardrailsError) {
+                this.debug.info('Guardrails working: BankingInfoAgent correctly blocked from transaction capability');
             }
             
             const response = apiResponse.content;

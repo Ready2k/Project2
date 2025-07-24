@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Features Simple Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .btn {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+        }
+        .btn:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Advanced Features Simple Test</h1>
+    
+    <div class="container">
+        <h2>Test Controls</h2>
+        <button class="btn" onclick="testBasicFunctionality()">Test Basic Functionality</button>
+        <button class="btn" onclick="testConfigurationTemplates()">Test Templates</button>
+        <button class="btn" onclick="testPerformanceMetrics()">Test Metrics</button>
+        <button class="btn" onclick="testEnvironmentManagement()">Test Environments</button>
+        <button class="btn" onclick="runAllTests()">Run All Tests</button>
+        <button class="btn" onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div class="container">
+        <h2>Test Results</h2>
+        <div id="testResults"></div>
+    </div>
+
+    <!-- Load scripts in correct order -->
+    <script>
+        // Initialize debug manager first
+        window.debugManager = {
+            createModuleLogger: (module) => ({
+                log: (...args) => console.log(`[${module}]`, ...args),
+                warn: (...args) => console.warn(`[${module}]`, ...args),
+                error: (...args) => console.error(`[${module}]`, ...args)
+            }),
+            enable: () => {},
+            isEnabled: () => true
+        };
+    </script>
+    
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="llm-manager-advanced-ui.js"></script>
+
+    <script>
+        let llmManager;
+        let advancedUI;
+        let testResults = [];
+
+        function logResult(message, type = 'info') {
+            testResults.push({ message, type, timestamp: new Date().toLocaleTimeString() });
+            updateResultsDisplay();
+        }
+
+        function updateResultsDisplay() {
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = testResults.map(result => 
+                `<div class="test-result ${result.type}">
+                    [${result.timestamp}] ${result.message}
+                </div>`
+            ).join('');
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        function clearResults() {
+            testResults = [];
+            updateResultsDisplay();
+        }
+
+        function testBasicFunctionality() {
+            logResult('🚀 Testing Basic Functionality', 'info');
+            
+            try {
+                // Test LLM Manager initialization
+                llmManager = new LLMManager();
+                logResult('✅ LLM Manager initialized successfully', 'success');
+                
+                // Test Guardrails Manager
+                const guardrailsManager = new GuardrailsManager();
+                logResult('✅ Guardrails Manager initialized successfully', 'success');
+                
+                // Test Voice Config Manager
+                const voiceConfigManager = new VoiceConfigManager();
+                logResult('✅ Voice Config Manager initialized successfully', 'success');
+                
+                // Set up dependencies
+                llmManager.setManagers(guardrailsManager, voiceConfigManager, null);
+                logResult('✅ Manager dependencies set up successfully', 'success');
+                
+                // Test Advanced UI
+                advancedUI = new LLMManagerAdvancedUI(llmManager);
+                logResult('✅ Advanced UI initialized successfully', 'success');
+                
+                // Test basic configuration retrieval
+                const configs = llmManager.getAgentConfigurations();
+                logResult(`✅ Retrieved ${Object.keys(configs).length} agent configurations`, 'success');
+                
+            } catch (error) {
+                logResult(`❌ Basic functionality test failed: ${error.message}`, 'error');
+                console.error('Basic functionality error:', error);
+            }
+        }
+
+        function testConfigurationTemplates() {
+            logResult('📋 Testing Configuration Templates', 'info');
+            
+            try {
+                if (!llmManager) {
+                    throw new Error('LLM Manager not initialized');
+                }
+                
+                // Test getting templates
+                const templates = llmManager.getConfigurationTemplates();
+                const templateCount = Object.keys(templates).length;
+                logResult(`✅ Found ${templateCount} configuration templates`, 'success');
+                
+                // Test template structure
+                const templateKeys = Object.keys(templates);
+                if (templateKeys.length > 0) {
+                    const firstTemplate = templates[templateKeys[0]];
+                    if (firstTemplate.name && firstTemplate.description && firstTemplate.config) {
+                        logResult('✅ Template structure validation passed', 'success');
+                    } else {
+                        logResult('❌ Template structure validation failed', 'error');
+                    }
+                    
+                    // Test template application
+                    llmManager.applyConfigurationTemplate('TestAgent', templateKeys[0], {
+                        description: 'Test agent from template'
+                    }).then(result => {
+                        if (result.success) {
+                            logResult('✅ Template application successful', 'success');
+                        } else {
+                            logResult(`❌ Template application failed: ${result.error}`, 'error');
+                        }
+                    }).catch(error => {
+                        logResult(`❌ Template application error: ${error.message}`, 'error');
+                    });
+                }
+                
+            } catch (error) {
+                logResult(`❌ Configuration templates test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testPerformanceMetrics() {
+            logResult('📊 Testing Performance Metrics', 'info');
+            
+            try {
+                if (!llmManager) {
+                    throw new Error('LLM Manager not initialized');
+                }
+                
+                // Test getting all metrics
+                const allMetrics = llmManager.getAgentPerformanceMetrics();
+                const agentCount = Object.keys(allMetrics).length;
+                logResult(`✅ Retrieved metrics for ${agentCount} agents`, 'success');
+                
+                // Test metrics structure
+                if (agentCount > 0) {
+                    const firstAgentName = Object.keys(allMetrics)[0];
+                    const firstAgentMetrics = allMetrics[firstAgentName];
+                    
+                    const requiredFields = ['totalRequests', 'successfulRequests', 'averageResponseTime', 'totalTokensUsed'];
+                    const hasAllFields = requiredFields.every(field => firstAgentMetrics.hasOwnProperty(field));
+                    
+                    if (hasAllFields) {
+                        logResult('✅ Metrics structure validation passed', 'success');
+                        logResult(`📈 Sample metrics - Requests: ${firstAgentMetrics.totalRequests}, Success Rate: ${((firstAgentMetrics.successfulRequests / firstAgentMetrics.totalRequests) * 100).toFixed(1)}%`, 'info');
+                    } else {
+                        logResult('❌ Metrics structure validation failed', 'error');
+                    }
+                }
+                
+                // Test specific agent metrics
+                const specificMetrics = llmManager.getAgentPerformanceMetrics('IDVAgent');
+                if (specificMetrics['IDVAgent']) {
+                    logResult('✅ Specific agent metrics retrieval successful', 'success');
+                } else {
+                    logResult('❌ Specific agent metrics retrieval failed', 'error');
+                }
+                
+            } catch (error) {
+                logResult(`❌ Performance metrics test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testEnvironmentManagement() {
+            logResult('🌍 Testing Environment Management', 'info');
+            
+            try {
+                if (!llmManager) {
+                    throw new Error('LLM Manager not initialized');
+                }
+                
+                // Test getting environments
+                const environments = llmManager.getEnvironmentConfigurations();
+                const envNames = Object.keys(environments);
+                logResult(`✅ Found ${envNames.length} environments: ${envNames.join(', ')}`, 'success');
+                
+                // Test saving to environment
+                const testConfig = { name: 'TestAgent', priority: 1, enabled: true };
+                const saveResult = llmManager.saveConfigurationToEnvironment('development', 'TestAgent', testConfig);
+                
+                if (saveResult.success) {
+                    logResult('✅ Configuration saved to development environment', 'success');
+                    
+                    // Test loading from environment
+                    const loadedConfig = llmManager.loadConfigurationFromEnvironment('development', 'TestAgent');
+                    if (loadedConfig) {
+                        logResult('✅ Configuration loaded from development environment', 'success');
+                        
+                        // Test promotion
+                        llmManager.promoteConfiguration('development', 'staging', 'TestAgent').then(result => {
+                            if (result.success) {
+                                logResult('✅ Configuration promoted from development to staging', 'success');
+                            } else {
+                                logResult(`❌ Configuration promotion failed: ${result.error}`, 'error');
+                            }
+                        }).catch(error => {
+                            logResult(`❌ Configuration promotion error: ${error.message}`, 'error');
+                        });
+                    } else {
+                        logResult('❌ Configuration loading from environment failed', 'error');
+                    }
+                } else {
+                    logResult(`❌ Configuration save to environment failed: ${saveResult.error}`, 'error');
+                }
+                
+            } catch (error) {
+                logResult(`❌ Environment management test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function runAllTests() {
+            logResult('🧪 Running All Tests', 'info');
+            clearResults();
+            
+            setTimeout(() => testBasicFunctionality(), 100);
+            setTimeout(() => testConfigurationTemplates(), 500);
+            setTimeout(() => testPerformanceMetrics(), 1000);
+            setTimeout(() => testEnvironmentManagement(), 1500);
+            setTimeout(() => logResult('🎉 All tests completed!', 'info'), 2000);
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            logResult('🚀 Advanced Features Simple Test initialized', 'info');
+            logResult('Click "Test Basic Functionality" to start testing', 'info');
+        });
+    </script>
+</body>
+</html>

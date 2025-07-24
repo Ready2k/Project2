@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Manager Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .demo-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .demo-section {
+            margin-bottom: 30px;
+            border-left: 4px solid #28a745;
+            padding-left: 15px;
+        }
+        .config-display {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .action-buttons {
+            margin: 10px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button.success {
+            background: #28a745;
+        }
+        button.warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        button.danger {
+            background: #dc3545;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .status.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .agent-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .agent-name {
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        .agent-status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .agent-status.enabled {
+            background: #d4edda;
+            color: #155724;
+        }
+        .agent-status.disabled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>🤖 LLM Manager Core Infrastructure Demo</h1>
+    
+    <div class="demo-container">
+        <h2>Manager Initialization</h2>
+        <div class="action-buttons">
+            <button onclick="initializeManagers()">Initialize Managers</button>
+            <button onclick="showManagerStatus()">Show Status</button>
+        </div>
+        <div id="managerStatus"></div>
+    </div>
+
+    <div class="grid">
+        <div class="demo-container">
+            <h2>Agent Configurations</h2>
+            <div class="action-buttons">
+                <button onclick="showAgentConfigurations()">Show All Configurations</button>
+                <button onclick="createTestAgent()">Create Test Agent</button>
+                <button onclick="updateAgentConfig()">Update Agent Config</button>
+            </div>
+            <div id="agentConfigs"></div>
+        </div>
+
+        <div class="demo-container">
+            <h2>Guardrails Management</h2>
+            <div class="action-buttons">
+                <button onclick="showGuardrails()">Show Guardrails</button>
+                <button onclick="testActionValidation()">Test Action Validation</button>
+                <button onclick="showViolationHistory()">Show Violations</button>
+            </div>
+            <div id="guardrailsInfo"></div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="demo-container">
+            <h2>Voice Configuration</h2>
+            <div class="action-buttons">
+                <button onclick="showVoiceConfigs()">Show Voice Configs</button>
+                <button onclick="testVoicePreview()">Test Voice Preview</button>
+                <button onclick="showAvailableVoices()">Available Voices</button>
+            </div>
+            <div id="voiceConfigInfo"></div>
+        </div>
+
+        <div class="demo-container">
+            <h2>Configuration Management</h2>
+            <div class="action-buttons">
+                <button onclick="exportConfigurations()">Export All</button>
+                <button onclick="importConfigurations()">Import Test Data</button>
+                <button onclick="resetToDefaults()">Reset to Defaults</button>
+                <button onclick="showStatistics()">Show Statistics</button>
+            </div>
+            <div id="configManagement"></div>
+        </div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
+
+    <script>
+        // Global manager instances
+        let llmManager, guardrailsManager, voiceConfigManager;
+
+        // Initialize debug manager
+        if (!window.debugManager) {
+            window.debugManager = {
+                createModuleLogger: (module) => ({
+                    log: (...args) => console.log(`[${module}]`, ...args),
+                    warn: (...args) => console.warn(`[${module}]`, ...args),
+                    error: (...args) => console.error(`[${module}]`, ...args)
+                })
+            };
+        }
+
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const statusDiv = document.createElement('div');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            element.appendChild(statusDiv);
+        }
+
+        function showConfig(elementId, title, config) {
+            const element = document.getElementById(elementId);
+            const configDiv = document.createElement('div');
+            configDiv.innerHTML = `<h4>${title}</h4><div class="config-display">${JSON.stringify(config, null, 2)}</div>`;
+            element.appendChild(configDiv);
+        }
+
+        function clearElement(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        function initializeManagers() {
+            clearElement('managerStatus');
+            
+            try {
+                llmManager = new LLMManager();
+                guardrailsManager = new GuardrailsManager();
+                voiceConfigManager = new VoiceConfigManager();
+                
+                // Set up dependencies
+                llmManager.setManagers(guardrailsManager, voiceConfigManager, null);
+                
+                showStatus('managerStatus', '✅ All managers initialized successfully', 'success');
+                showStatus('managerStatus', `LLM Manager: ${Object.keys(llmManager.getAgentConfigurations()).length} agents configured`, 'info');
+                showStatus('managerStatus', `Guardrails Manager: ${Object.keys(guardrailsManager.getAllGuardrails()).length} guardrail sets`, 'info');
+                showStatus('managerStatus', `Voice Config Manager: ${Object.keys(voiceConfigManager.getAllVoiceConfigs()).length} voice configurations`, 'info');
+                
+            } catch (error) {
+                showStatus('managerStatus', `❌ Initialization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function showManagerStatus() {
+            if (!llmManager) {
+                showStatus('managerStatus', '⚠️ Managers not initialized. Click "Initialize Managers" first.', 'error');
+                return;
+            }
+            
+            const stats = llmManager.getConfigurationStats();
+            showConfig('managerStatus', 'Manager Statistics', stats);
+        }
+
+        function showAgentConfigurations() {
+            clearElement('agentConfigs');
+            
+            if (!llmManager) {
+                showStatus('agentConfigs', '⚠️ LLM Manager not initialized', 'error');
+                return;
+            }
+            
+            const configs = llmManager.getAgentConfigurations();
+            
+            // Show agent cards
+            const agentCardsHtml = Object.entries(configs).map(([name, config]) => `
+                <div class="agent-card">
+                    <div class="agent-name">${name}</div>
+                    <div class="agent-status ${config.enabled !== false ? 'enabled' : 'disabled'}">
+                        ${config.enabled !== false ? 'Enabled' : 'Disabled'}
+                    </div>
+                    <div><strong>Description:</strong> ${config.description}</div>
+                    <div><strong>Provider:</strong> ${config.llmProvider || 'openai'}</div>
+                    <div><strong>Priority:</strong> ${config.priority || 'N/A'}</div>
+                    <div><strong>Max Tokens:</strong> ${config.maxTokens || 'N/A'}</div>
+                </div>
+            `).join('');
+            
+            document.getElementById('agentConfigs').innerHTML = agentCardsHtml;
+        }
+
+        function createTestAgent() {
+            if (!llmManager) {
+                showStatus('agentConfigs', '⚠️ LLM Manager not initialized', 'error');
+                return;
+            }
+            
+            const testConfig = {
+                name: 'DemoTestAgent',
+                description: 'Demo test agent for showcase',
+                priority: 10,
+                enabled: true,
+                triggers: ['demo', 'test', 'showcase'],
+                llmProvider: 'openai',
+                llmModel: 'gpt-4',
+                maxTokens: 1200,
+                telemetryEnabled: true
+            };
+            
+            const success = llmManager.updateAgentConfiguration('DemoTestAgent', testConfig);
+            if (success) {
+                showStatus('agentConfigs', '✅ Demo test agent created successfully', 'success');
+                showAgentConfigurations(); // Refresh display
+            } else {
+                showStatus('agentConfigs', '❌ Failed to create demo test agent', 'error');
+            }
+        }
+
+        function updateAgentConfig() {
+            if (!llmManager) {
+                showStatus('agentConfigs', '⚠️ LLM Manager not initialized', 'error');
+                return;
+            }
+            
+            // Update an existing agent's configuration
+            const updateConfig = {
+                maxTokens: 2000,
+                llmModel: 'gpt-4-turbo',
+                telemetryEnabled: false
+            };
+            
+            const success = llmManager.updateAgentConfiguration('IDVAgent', updateConfig);
+            if (success) {
+                showStatus('agentConfigs', '✅ IDVAgent configuration updated', 'success');
+                showAgentConfigurations(); // Refresh display
+            } else {
+                showStatus('agentConfigs', '❌ Failed to update IDVAgent configuration', 'error');
+            }
+        }
+
+        function showGuardrails() {
+            clearElement('guardrailsInfo');
+            
+            if (!guardrailsManager) {
+                showStatus('guardrailsInfo', '⚠️ Guardrails Manager not initialized', 'error');
+                return;
+            }
+            
+            const guardrails = guardrailsManager.getAllGuardrails();
+            showConfig('guardrailsInfo', 'All Guardrails', guardrails);
+        }
+
+        function testActionValidation() {
+            if (!guardrailsManager) {
+                showStatus('guardrailsInfo', '⚠️ Guardrails Manager not initialized', 'error');
+                return;
+            }
+            
+            // Test various actions
+            const testActions = [
+                { agent: 'IDVAgent', action: 'getAccountData', expected: true },
+                { agent: 'IDVAgent', action: 'initiateTransfer', expected: false },
+                { agent: 'PaymentsAgent', action: 'initiateTransfer', expected: true },
+                { agent: 'BankingInfoAgent', action: 'transfer money', expected: false }, // blocked keyword
+            ];
+            
+            testActions.forEach(test => {
+                const result = guardrailsManager.validateAction(test.agent, test.action);
+                const status = result.allowed === test.expected ? 'success' : 'error';
+                const icon = result.allowed === test.expected ? '✅' : '❌';
+                showStatus('guardrailsInfo', 
+                    `${icon} ${test.agent}: "${test.action}" - ${result.allowed ? 'Allowed' : 'Blocked'} (${result.reason})`, 
+                    status);
+            });
+        }
+
+        function showViolationHistory() {
+            if (!guardrailsManager) {
+                showStatus('guardrailsInfo', '⚠️ Guardrails Manager not initialized', 'error');
+                return;
+            }
+            
+            // Get violations for all agents
+            const agents = ['IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+            agents.forEach(agent => {
+                const violations = guardrailsManager.getViolationHistory(agent);
+                if (violations.length > 0) {
+                    showConfig('guardrailsInfo', `${agent} Violations (${violations.length})`, violations);
+                }
+            });
+        }
+
+        function showVoiceConfigs() {
+            clearElement('voiceConfigInfo');
+            
+            if (!voiceConfigManager) {
+                showStatus('voiceConfigInfo', '⚠️ Voice Config Manager not initialized', 'error');
+                return;
+            }
+            
+            const configs = voiceConfigManager.getAllVoiceConfigs();
+            showConfig('voiceConfigInfo', 'Voice Configurations', configs);
+        }
+
+        async function testVoicePreview() {
+            if (!voiceConfigManager) {
+                showStatus('voiceConfigInfo', '⚠️ Voice Config Manager not initialized', 'error');
+                return;
+            }
+            
+            const testConfig = {
+                ttsSettings: {
+                    provider: 'openai',
+                    voice: 'nova',
+                    speed: 1.2,
+                    pitch: 2
+                },
+                personalityTraits: {
+                    tone: 'friendly',
+                    enthusiasm: 8
+                }
+            };
+            
+            try {
+                const preview = await voiceConfigManager.previewVoice(testConfig, 'Hello! This is a voice preview test for the banking assistant.');
+                showConfig('voiceConfigInfo', 'Voice Preview Result', preview);
+            } catch (error) {
+                showStatus('voiceConfigInfo', `❌ Voice preview failed: ${error.message}`, 'error');
+            }
+        }
+
+        function showAvailableVoices() {
+            if (!voiceConfigManager) {
+                showStatus('voiceConfigInfo', '⚠️ Voice Config Manager not initialized', 'error');
+                return;
+            }
+            
+            const providers = voiceConfigManager.getAvailableProviders();
+            const voiceData = {};
+            
+            providers.forEach(provider => {
+                voiceData[provider] = voiceConfigManager.getAvailableVoices(provider);
+            });
+            
+            showConfig('voiceConfigInfo', 'Available Voices by Provider', voiceData);
+        }
+
+        function exportConfigurations() {
+            clearElement('configManagement');
+            
+            if (!llmManager) {
+                showStatus('configManagement', '⚠️ LLM Manager not initialized', 'error');
+                return;
+            }
+            
+            const exportData = llmManager.exportConfiguration();
+            showConfig('configManagement', 'Exported Configuration', exportData);
+            showStatus('configManagement', '✅ Configuration exported successfully', 'success');
+        }
+
+        function importConfigurations() {
+            if (!llmManager) {
+                showStatus('configManagement', '⚠️ LLM Manager not initialized', 'error');
+                return;
+            }
+            
+            // Create test import data
+            const testImportData = {
+                version: '1.0.0',
+                timestamp: new Date().toISOString(),
+                configurations: {
+                    ImportedTestAgent: {
+                        name: 'ImportedTestAgent',
+                        description: 'Agent imported from test data',
+                        priority: 5,
+                        enabled: true,
+                        llmProvider: 'openai',
+                        maxTokens: 1500
+                    }
+                },
+                guardrails: {
+                    ImportedTestAgent: {
+                        allowedCapabilities: {
+                            canAccessAccountData: true,
+                            canInitiateTransactions: false
+                        }
+                    }
+                },
+                voiceConfigs: {
+                    ImportedTestAgent: {
+                        ttsSettings: {
+                            provider: 'openai',
+                            voice: 'echo',
+                            speed: 0.9
+                        }
+                    }
+                }
+            };
+            
+            const success = llmManager.importConfiguration(testImportData);
+            if (success) {
+                showStatus('configManagement', '✅ Test configuration imported successfully', 'success');
+                showConfig('configManagement', 'Imported Data', testImportData);
+            } else {
+                showStatus('configManagement', '❌ Failed to import configuration', 'error');
+            }
+        }
+
+        function resetToDefaults() {
+            if (!llmManager) {
+                showStatus('configManagement', '⚠️ LLM Manager not initialized', 'error');
+                return;
+            }
+            
+            llmManager.resetToDefaults();
+            showStatus('configManagement', '✅ All configurations reset to defaults', 'success');
+        }
+
+        function showStatistics() {
+            if (!llmManager) {
+                showStatus('configManagement', '⚠️ LLM Manager not initialized', 'error');
+                return;
+            }
+            
+            const stats = llmManager.getConfigurationStats();
+            showConfig('configManagement', 'Configuration Statistics', stats);
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            initializeManagers();
+        });
+    </script>
+</body>
+</html>

@@ -119,3 +119,67 @@
   - Create comprehensive test mode documentation and examples
   - Update all test files to support both testing modes
   - _Requirements: Enhanced development and testing capabilities_
+
+- [x] 17. Create LLM Manager core infrastructure
+  - Create `LLMManager` class with configuration management methods
+  - Implement `GuardrailsManager` class for capability restrictions
+  - Create `VoiceConfigManager` class for agent voice settings
+  - Add configuration persistence and validation logic
+  - Write unit tests for all manager classes
+  - _Requirements: 11.1, 11.2, 11.3, 11.4_
+
+- [x] 18. Implement Guardrails system for agent restrictions
+  - Create guardrails configuration data structure
+  - Implement action validation logic in BaseAgent class
+  - Add guardrail violation logging and audit trail
+  - Create guardrails enforcement in each domain agent
+  - Write tests for guardrail validation and violation handling
+  - _Requirements: 12.1, 12.2, 12.3, 12.4_
+
+- [x] 19. Implement Voice Configuration system for agents
+  - Create voice configuration data models and validation
+  - Integrate voice settings with existing TTS system
+  - Add voice preview functionality for configuration testing
+  - Implement agent-specific voice application in speech generation
+  - Create voice configuration persistence and loading
+  - _Requirements: 13.1, 13.2, 13.3, 13.4_
+
+- [x] 20. Create LLM Manager Admin UI components
+  - Design and implement Agent Overview Panel with status grid
+  - Create Agent Configuration Modal with tabbed interface
+  - Build Guardrails Editor with visual capability toggles
+  - Implement Voice Configuration Panel with real-time preview
+  - Add Audit Log Viewer for tracking configuration changes
+  - _Requirements: 11.1, 11.2, 11.3, 12.1, 13.1_
+
+- [ ] 21. Integrate LLM Manager with existing admin page
+  - Add LLM Manager section to main admin interface
+  - Implement navigation between different manager components
+  - Add bulk operations for configuration import/export
+  - Create responsive design for mobile admin access
+  - Integrate with existing debug and monitoring systems
+  - _Requirements: 11.1, 11.4_
+
+- [x] 22. Implement real-time configuration updates
+  - Add configuration change broadcasting to active agents
+  - Implement hot-reload of guardrails without system restart
+  - Create voice configuration updates without interrupting conversations
+  - Add configuration validation before applying changes
+  - Implement rollback functionality for failed configuration updates
+  - _Requirements: 11.4, 12.4, 13.4_
+
+- [x] 23. Create comprehensive testing for LLM Manager
+  - Write integration tests for complete configuration workflows
+  - Test guardrail enforcement across all agent types
+  - Validate voice configuration changes in real conversations
+  - Test admin UI responsiveness and error handling
+  - Create end-to-end tests for configuration persistence
+  - _Requirements: 11.1, 11.2, 11.3, 11.4, 12.1, 12.2, 12.3, 12.4, 13.1, 13.2, 13.3, 13.4_
+
+- [x] 24. Add advanced LLM Manager features
+  - Implement configuration templates for quick agent setup
+  - Add agent performance metrics in admin dashboard
+  - Create configuration comparison and diff tools
+  - Implement scheduled configuration changes
+  - Add multi-environment configuration management
+  - _Requirements: 11.1, 11.4_

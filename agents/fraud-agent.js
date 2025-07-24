@@ -117,6 +117,9 @@ class FraudAgent extends BaseAgent {
 
             // Validate data access permissions for fraud detection
             this.validateDataAccess(['fraud_alerts', 'security_actions', 'card_status']);
+            
+            // Validate guardrails for fraud detection actions
+            this.validateGuardrails('blockCard', { action: 'card_blocking', requiresSecondaryAuth: true });
 
             // Generate domain-specific system prompt
             const systemPrompt = this.generateSystemPrompt(context, inputText);
@@ -141,25 +144,32 @@ class FraudAgent extends BaseAgent {
                 throw new Error(apiResponse.error);
             }
 
-            // Demonstrate secure domain API access for fraud actions
+            // Demonstrate secure domain API access for fraud actions with guardrails
             try {
                 const fraudData = await this.secureDataAccess(['fraud_alerts', 'security_actions']);
                 this.debug.info('FraudAgent accessed fraud data securely', {
                     dataTypes: ['fraud_alerts', 'security_actions']
                 });
 
-                // Test secure API call for card blocking
-                const blockResult = await this.secureApiCall('block_card', { reason: 'fraud_prevention' });
-                this.debug.info('FraudAgent performed secure card blocking', {
-                    result: blockResult
-                });
+                // Test secure API call for card blocking with guardrails validation
+                if (this.isCapabilityAllowed('canBlockCards')) {
+                    const blockResult = await this.secureApiCall('block_card', { reason: 'fraud_prevention' });
+                    this.debug.info('FraudAgent performed secure card blocking with guardrails', {
+                        result: blockResult
+                    });
+                }
+                
+                // Test guardrails enforcement for secondary auth requirement
+                if (this.requiresSecondaryAuth('blockCard')) {
+                    this.debug.info('Guardrails correctly require secondary auth for card blocking');
+                }
             } catch (securityError) {
-                this.debug.warn('FraudAgent security validation working correctly', {
+                this.debug.warn('FraudAgent security/guardrails validation working correctly', {
                     error: securityError.message
                 });
             }
 
-            // Test that agent cannot access restricted data
+            // Test that agent cannot access restricted data or capabilities
             try {
                 await this.secureDataAccess(['balance', 'payments']);
                 this.debug.error('Security violation: FraudAgent accessed restricted data');
@@ -167,6 +177,14 @@ class FraudAgent extends BaseAgent {
                 this.debug.info('Security working: FraudAgent correctly blocked from restricted data', {
                     restrictedData: ['balance', 'payments']
                 });
+            }
+            
+            // Test guardrails block payment capabilities
+            try {
+                this.validateGuardrails('initiateTransfer', { amount: 500 });
+                this.debug.error('Guardrails violation: FraudAgent allowed payment capability');
+            } catch (guardrailsError) {
+                this.debug.info('Guardrails working: FraudAgent correctly blocked from payment capability');
             }
 
             const response = apiResponse.content;

@@ -193,40 +193,50 @@
                     const systemPrompt = messages.find(m => m.role === 'system')?.content || '';
                     const userInput = messages[messages.length - 1].content.toLowerCase();
                     
-                    // Extract conversation context from system prompt
+                    // Extract conversation context from system prompt - improved parsing
                     const contextMatch = systemPrompt.match(/Last agent used: (\w+)/);
                     const lastAgent = contextMatch ? contextMatch[1] : null;
+                    
+                    // Also check for context hints in the system prompt
+                    const fraudContext = systemPrompt.includes('Context: User was discussing card security/fraud issues');
+                    const paymentContext = systemPrompt.includes('Context: User was discussing payments/transfers');
+                    const idvContext = systemPrompt.includes('Context: User was discussing identity verification');
                     
                     // Enhanced AI simulation that considers context
                     
                     // Handle confirmations and follow-ups based on context
-                    if (userInput.match(/^(yeah|yes|yep|ok|okay|sure|do it|stop it|block it|cancel it|nope|no|don't)/)) {
-                        // These are confirmation/denial responses that depend heavily on context
+                    const isConfirmation = userInput.match(/^(yeah|yes|yep|ok|okay|sure|do it)/);
+                    const isStopCommand = userInput.match(/(stop it|block it|stop that|stop)/);
+                    const isCancelCommand = userInput.match(/(cancel it|cancel that|cancel)/);
+                    const isDenial = userInput.match(/^(nope|no|don't)/);
+                    
+                    // Context-based routing for ambiguous responses
+                    if (isConfirmation || isStopCommand || isCancelCommand || isDenial) {
                         
-                        if (lastAgent === 'FraudAgent') {
-                            // In fraud context, confirmations usually mean "yes, block the card"
-                            if (userInput.match(/^(yeah|yes|yep|ok|okay|sure|do it|stop it|block it)/)) {
+                        if (lastAgent === 'FraudAgent' || fraudContext) {
+                            // In fraud context, most responses relate to card security
+                            if (isConfirmation || isStopCommand) {
                                 return { success: true, content: 'FraudAgent' };
                             }
-                            // Denials in fraud context still route to fraud agent
-                            if (userInput.match(/^(nope|no|don't)/)) {
+                            // Even denials in fraud context stay with fraud agent
+                            if (isDenial) {
                                 return { success: true, content: 'FraudAgent' };
                             }
                         }
                         
-                        if (lastAgent === 'PaymentsAgent') {
-                            // In payments context, "cancel it" likely means cancel payment
-                            if (userInput.includes('cancel')) {
+                        if (lastAgent === 'PaymentsAgent' || paymentContext) {
+                            // In payments context, handle payment-related responses
+                            if (isCancelCommand) {
                                 return { success: true, content: 'PaymentsAgent' };
                             }
-                            if (userInput.match(/^(yeah|yes|yep|ok|okay|sure|do it)/)) {
+                            if (isConfirmation) {
                                 return { success: true, content: 'PaymentsAgent' };
                             }
                         }
                         
-                        if (lastAgent === 'IDVAgent') {
+                        if (lastAgent === 'IDVAgent' || idvContext) {
                             // In IDV context, confirmations route to IDV
-                            if (userInput.match(/^(yeah|yes|yep|ok|okay|sure|do it)/)) {
+                            if (isConfirmation) {
                                 return { success: true, content: 'IDVAgent' };
                             }
                         }
@@ -249,12 +259,12 @@
                         return { success: true, content: 'IDVAgent' };
                     }
                     
-                    // Handle ambiguous cases with context
+                    // Handle ambiguous cases with context fallback
                     if (userInput.includes('stop') || userInput.includes('cancel')) {
-                        if (lastAgent === 'FraudAgent' || systemPrompt.includes('fraud') || systemPrompt.includes('card security')) {
+                        if (lastAgent === 'FraudAgent' || fraudContext) {
                             return { success: true, content: 'FraudAgent' };
                         }
-                        if (lastAgent === 'PaymentsAgent' || systemPrompt.includes('payment')) {
+                        if (lastAgent === 'PaymentsAgent' || paymentContext) {
                             return { success: true, content: 'PaymentsAgent' };
                         }
                     }

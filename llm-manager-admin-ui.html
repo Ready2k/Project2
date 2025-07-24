@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Manager Admin UI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .admin-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        /* Header */
+        .admin-header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .admin-header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .admin-header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        /* Navigation */
+        .admin-nav {
+            display: flex;
+            background: #34495e;
+            border-bottom: 3px solid #3498db;
+        }
+
+        .nav-btn {
+            flex: 1;
+            padding: 15px 20px;
+            background: none;
+            border: none;
+            color: #bdc3c7;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            background: #2c3e50;
+            color: white;
+        }
+
+        .nav-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        /* Content Area */
+        .admin-content {
+            padding: 20px;
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        /* Agent Overview Panel */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .overview-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #3498db;
+        }
+
+        .overview-card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #3498db;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        /* Agent Cards */
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .agent-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .agent-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .agent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .agent-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .agent-status {
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .agent-status.enabled {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .agent-status.disabled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .agent-description {
+            color: #7f8c8d;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        .agent-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .detail-item {
+            font-size: 0.9em;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .detail-value {
+            color: #7f8c8d;
+        }
+
+        .agent-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            background: #34495e;
+            color: white;
+            padding: 20px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 3px;
+            transition: background 0.3s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        /* Tabbed Interface */
+        .tab-nav {
+            display: flex;
+            border-bottom: 2px solid #ecf0f1;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            color: #7f8c8d;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-btn:hover {
+            color: #2c3e50;
+            background: #f8f9fa;
+        }
+
+        .tab-btn.active {
+            color: #3498db;
+            border-bottom-color: #3498db;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #bdc3c7;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        /* Toggle Switches */
+        .toggle-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .toggle-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .toggle-label {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .toggle-description {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-top: 3px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: #bdc3c7;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .toggle-switch.active {
+            background: #27ae60;
+        }
+
+        .toggle-switch::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .toggle-switch.active::before {
+            transform: translateX(26px);
+        }
+
+        /* Voice Preview */
+        .voice-preview {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .voice-preview h4 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .preview-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .preview-text {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        /* Audit Log */
+        .audit-log {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .log-header {
+            background: #34495e;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-filters {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .log-entries {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 15px 20px;
+            border-bottom: 1px solid #ecf0f1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-entry:hover {
+            background: #f8f9fa;
+        }
+
+        .log-info {
+            flex: 1;
+        }
+
+        .log-action {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .log-details {
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+
+        .log-timestamp {
+            font-size: 0.8em;
+            color: #95a5a6;
+            font-family: monospace;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .admin-nav {
+                flex-direction: column;
+            }
+
+            .overview-grid, .agents-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .agent-details {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 10px;
+            }
+
+            .toggle-group {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Status Indicators */
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.online {
+            background: #27ae60;
+        }
+
+        .status-indicator.offline {
+            background: #e74c3c;
+        }
+
+        .status-indicator.warning {
+            background: #f39c12;
+        }
+
+        /* Loading States */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ecf0f1;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Header -->
+        <div class="admin-header">
+            <h1>🤖 LLM Manager Admin Console</h1>
+            <p>Centralized management for voice banking agent configurations</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="admin-nav">
+            <button class="nav-btn active" data-section="overview">Agent Overview</button>
+            <button class="nav-btn" data-section="configuration">Configuration</button>
+            <button class="nav-btn" data-section="guardrails">Guardrails</button>
+            <button class="nav-btn" data-section="voice">Voice Settings</button>
+            <button class="nav-btn" data-section="audit">Audit Log</button>
+        </nav>
+
+        <!-- Content Area -->
+        <div class="admin-content">
+            <!-- Agent Overview Section -->
+            <div id="overview-section" class="content-section active">
+                <div class="overview-grid">
+                    <div class="overview-card">
+                        <h3>📊 System Statistics</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-value" id="totalAgents">0</span>
+                                <span class="stat-label">Total Agents</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="enabledAgents">0</span>
+                                <span class="stat-label">Enabled</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="disabledAgents">0</span>
+                                <span class="stat-label">Disabled</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="lastUpdated">Never</span>
+                                <span class="stat-label">Last Updated</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overview-card">
+                        <h3>⚡ Quick Actions</h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <button class="btn btn-primary" onclick="refreshAgentData()">
+                                🔄 Refresh Data
+                            </button>
+                            <button class="btn btn-success" onclick="exportConfiguration()">
+                                📤 Export Config
+                            </button>
+                            <button class="btn btn-warning" onclick="importConfiguration()">
+                                📥 Import Config
+                            </button>
+                            <button class="btn btn-danger" onclick="resetToDefaults()">
+                                🔄 Reset to Defaults
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <h2>Agent Status Grid</h2>
+                <div id="agentsGrid" class="agents-grid">
+                    <!-- Agent cards will be populated here -->
+                </div>
+            </div>
+
+            <!-- Configuration Section -->
+            <div id="configuration-section" class="content-section">
+                <h2>Agent Configuration Management</h2>
+                <p style="color: #7f8c8d; margin-bottom: 20px;">
+                    Configure individual agent settings, LLM providers, and operational parameters.
+                </p>
+                <div id="configurationContent">
+                    <!-- Configuration content will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Guardrails Section -->
+            <div id="guardrails-section" class="content-section">
+                <h2>Guardrails Management</h2>
+                <p style="color: #7f8c8d; margin-bottom: 20px;">
+                    Configure security boundaries and capability restrictions for each agent.
+                </p>
+                <div id="guardrailsContent">
+                    <!-- Guardrails content will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Voice Settings Section -->
+            <div id="voice-section" class="content-section">
+                <h2>Voice Configuration</h2>
+                <p style="color: #7f8c8d; margin-bottom: 20px;">
+                    Configure TTS settings, voice personalities, and contextual adaptations.
+                </p>
+                <div id="voiceContent">
+                    <!-- Voice content will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Audit Log Section -->
+            <div id="audit-section" class="content-section">
+                <h2>Audit Log</h2>
+                <div class="audit-log">
+                    <div class="log-header">
+                        <h3>Configuration Changes</h3>
+                        <div class="log-filters">
+                            <select id="logFilter" class="form-select" style="width: auto;">
+                                <option value="all">All Events</option>
+                                <option value="config">Configuration</option>
+                                <option value="guardrails">Guardrails</option>
+                                <option value="voice">Voice Settings</option>
+                            </select>
+                            <button class="btn btn-secondary" onclick="clearAuditLog()">Clear Log</button>
+                        </div>
+                    </div>
+                    <div id="auditLogEntries" class="log-entries">
+                        <!-- Log entries will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Agent Configuration</h2>
+                <button class="close-btn" onclick="closeModal('configModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tab-nav">
+                    <button class="tab-btn active" data-tab="basic">Basic Settings</button>
+                    <button class="tab-btn" data-tab="llm">LLM Configuration</button>
+                    <button class="tab-btn" data-tab="triggers">Triggers</button>
+                    <button class="tab-btn" data-tab="advanced">Advanced</button>
+                </div>
+
+                <div id="basic-tab" class="tab-content active">
+                    <!-- Basic configuration form will be here -->
+                </div>
+
+                <div id="llm-tab" class="tab-content">
+                    <!-- LLM configuration form will be here -->
+                </div>
+
+                <div id="triggers-tab" class="tab-content">
+                    <!-- Triggers configuration form will be here -->
+                </div>
+
+                <div id="advanced-tab" class="tab-content">
+                    <!-- Advanced configuration form will be here -->
+                </div>
+
+                <div style="margin-top: 20px; text-align: right;">
+                    <button class="btn btn-secondary" onclick="closeModal('configModal')">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveAgentConfiguration()">Save Configuration</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+</body>
+</html>

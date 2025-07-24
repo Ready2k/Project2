@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Script Loading Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .success { color: #0f0; }
+        .error { color: #f00; }
+        .warning { color: #ff0; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Script Loading Test</h1>
+    <p>Testing if all scripts load correctly without errors.</p>
+    
+    <div id="log" class="log"></div>
+
+    <script>
+        const log = [];
+        
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const colorClass = type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'success';
+            log.push(`[${timestamp}] ${message}`);
+            
+            const logElement = document.getElementById('log');
+            logElement.innerHTML = log.join('\n');
+            logElement.scrollTop = logElement.scrollHeight;
+            
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // Override console methods to capture errors
+        const originalError = console.error;
+        console.error = function(...args) {
+            addLog(`ERROR: ${args.join(' ')}`, 'error');
+            originalError.apply(console, args);
+        };
+
+        const originalWarn = console.warn;
+        console.warn = function(...args) {
+            addLog(`WARNING: ${args.join(' ')}`, 'warning');
+            originalWarn.apply(console, args);
+        };
+
+        // Initialize debug manager first
+        window.debugManager = {
+            createModuleLogger: (module) => ({
+                log: (...args) => addLog(`[${module}] ${args.join(' ')}`),
+                warn: (...args) => addLog(`[${module}] WARNING: ${args.join(' ')}`, 'warning'),
+                error: (...args) => addLog(`[${module}] ERROR: ${args.join(' ')}`, 'error')
+            }),
+            enable: () => addLog('Debug mode enabled'),
+            isEnabled: () => true
+        };
+
+        addLog('🚀 Starting script loading test');
+        addLog('Debug manager initialized');
+    </script>
+
+    <!-- Load scripts in the same order as the failing test -->
+    <script src="debug-manager.js" onerror="addLog('Failed to load debug-manager.js', 'error')" onload="addLog('✅ debug-manager.js loaded')"></script>
+    <script src="agent-telemetry.js" onerror="addLog('Failed to load agent-telemetry.js', 'error')" onload="addLog('✅ agent-telemetry.js loaded')"></script>
+    <script src="token-tracker.js" onerror="addLog('Failed to load token-tracker.js', 'error')" onload="addLog('✅ token-tracker.js loaded')"></script>
+    <script src="api-client.js" onerror="addLog('Failed to load api-client.js', 'error')" onload="addLog('✅ api-client.js loaded')"></script>
+    <script src="persona-manager.js" onerror="addLog('Failed to load persona-manager.js', 'error')" onload="addLog('✅ persona-manager.js loaded')"></script>
+    <script src="system-prompts-manager.js" onerror="addLog('Failed to load system-prompts-manager.js', 'error')" onload="addLog('✅ system-prompts-manager.js loaded')"></script>
+    <script src="agents/security-manager.js" onerror="addLog('Failed to load security-manager.js', 'error')" onload="addLog('✅ security-manager.js loaded')"></script>
+    <script src="agents/base-agent.js" onerror="addLog('Failed to load base-agent.js', 'error')" onload="addLog('✅ base-agent.js loaded')"></script>
+    <script src="agents/guardrails-manager.js" onerror="addLog('Failed to load guardrails-manager.js', 'error')" onload="addLog('✅ guardrails-manager.js loaded')"></script>
+    <script src="agents/voice-config-manager.js" onerror="addLog('Failed to load voice-config-manager.js', 'error')" onload="addLog('✅ voice-config-manager.js loaded')"></script>
+    <script src="agents/llm-manager.js" onerror="addLog('Failed to load llm-manager.js', 'error')" onload="addLog('✅ llm-manager.js loaded')"></script>
+    <script src="agents/agent-config-manager.js" onerror="addLog('Failed to load agent-config-manager.js', 'error')" onload="addLog('✅ agent-config-manager.js loaded')"></script>
+    <script src="agents/idv-agent.js" onerror="addLog('Failed to load idv-agent.js', 'error')" onload="addLog('✅ idv-agent.js loaded')"></script>
+    <script src="agents/banking-info-agent.js" onerror="addLog('Failed to load banking-info-agent.js', 'error')" onload="addLog('✅ banking-info-agent.js loaded')"></script>
+    <script src="agents/fraud-agent.js" onerror="addLog('Failed to load fraud-agent.js', 'error')" onload="addLog('✅ fraud-agent.js loaded')"></script>
+    <script src="agents/payments-agent.js" onerror="addLog('Failed to load payments-agent.js', 'error')" onload="addLog('✅ payments-agent.js loaded')"></script>
+    <script src="agents/agent-router.js" onerror="addLog('Failed to load agent-router.js', 'error')" onload="addLog('✅ agent-router.js loaded')"></script>
+
+    <script>
+        // Test initialization after all scripts are loaded
+        window.addEventListener('load', function() {
+            addLog('🎯 All scripts loaded, testing initialization...');
+            
+            try {
+                // Test agent creation
+                const agents = [
+                    new PaymentsAgent(),
+                    new FraudAgent(),
+                    new IDVAgent(),
+                    new BankingInfoAgent()
+                ];
+                addLog(`✅ Created ${agents.length} agents successfully`);
+
+                // Test router initialization
+                const agentRouter = new AgentRouter([]);
+                addLog('✅ Agent router initialized successfully');
+                
+                // Register agents
+                agents.forEach(agent => {
+                    agentRouter.registerAgent(agent);
+                });
+                addLog(`✅ Registered ${agents.length} agents with router`);
+
+                addLog('🎉 All tests passed! Script loading is working correctly.');
+                
+            } catch (error) {
+                addLog(`❌ Initialization failed: ${error.message}`, 'error');
+                addLog(`Stack trace: ${error.stack}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

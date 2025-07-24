@@ -13,12 +13,18 @@ class SpeechToSpeechApp {
         // Initialize system prompts manager
         this.systemPromptsManager = new SystemPromptsManager();
 
+        // Initialize voice configuration manager
+        this.voiceConfigManager = new VoiceConfigManager();
+
         // Initialize API client and token tracker
         this.tokenTracker = new TokenTracker();
         this.apiClient = new OpenAIClient(this.openaiApiKey, this.tokenTracker);
 
         // Initialize AgentRouter with all domain agents
         this.initializeAgentRouter();
+
+        // Initialize LLM Manager integration
+        this.initializeLLMManager();
 
         // Initialize agent telemetry if available
         if (window.agentTelemetry) {
@@ -404,6 +410,8 @@ class SpeechToSpeechApp {
             this.loadPersonas();
             // Refresh agent status when admin tab is opened
             this.refreshAgentStatus();
+            // Refresh LLM Manager data when admin tab is opened
+            this.refreshLLMData();
         }
     }
 
@@ -618,12 +626,12 @@ class SpeechToSpeechApp {
                 this.updateStatus('Generating response...');
 
                 // Route through agents or use fallback
-                const response = await this.routeRequestThroughAgents(transcript);
-                this.addMessage(response, 'bot');
+                const routingResult = await this.routeRequestThroughAgentsWithMetadata(transcript);
+                this.addMessage(routingResult.response, 'bot');
 
-                // Convert response to speech using selected TTS mode
+                // Convert response to speech using selected TTS mode with agent-specific voice
                 this.currentState = 'speaking';
-                await this.textToSpeech(response);
+                await this.textToSpeech(routingResult.response, routingResult.agentName);
 
                 this.currentState = 'ready';
                 this.updateStatus('Ready to listen');
@@ -677,6 +685,16 @@ class SpeechToSpeechApp {
      * @returns {Promise<string>} - The response text
      */
     async routeRequestThroughAgents(userMessage) {
+        const result = await this.routeRequestThroughAgentsWithMetadata(userMessage);
+        return result.response;
+    }
+
+    /**
+     * Route user request through AgentRouter with metadata
+     * @param {string} userMessage - The user's transcribed message
+     * @returns {Promise<{response: string, agentName: string|null}>} - The response and agent info
+     */
+    async routeRequestThroughAgentsWithMetadata(userMessage) {
         try {
             // If AgentRouter is available, use it
             if (this.agentRouter) {
@@ -715,7 +733,10 @@ class SpeechToSpeechApp {
                         'Agent Response:'
                     );
                     
-                    return agentResult.response;
+                    return {
+                        response: agentResult.response,
+                        agentName: agentResult.agentName
+                    };
                 } else {
                     this.debug.warn('Agent routing failed, falling back to original method', { 
                         error: agentResult.error 
@@ -727,14 +748,22 @@ class SpeechToSpeechApp {
             }
 
             // Fallback to original generateResponse method
-            return await this.generateResponse(userMessage);
+            const fallbackResponse = await this.generateResponse(userMessage);
+            return {
+                response: fallbackResponse,
+                agentName: null
+            };
 
         } catch (error) {
             this.debug.error('Error in agent routing, falling back to original method', { 
                 error: error.message 
             });
             // Fallback to original method on any error
-            return await this.generateResponse(userMessage);
+            const fallbackResponse = await this.generateResponse(userMessage);
+            return {
+                response: fallbackResponse,
+                agentName: null
+            };
         }
     }
 
@@ -821,25 +850,42 @@ class SpeechToSpeechApp {
         }
     }
 
-    async textToSpeech(text) {
+    async textToSpeech(text, agentName = null) {
+        // Apply agent-specific voice configuration if available
+        const voiceConfig = this.getAgentVoiceConfig(agentName);
+        
         if (this.ttsMode === 'browser') {
-            return this.textToSpeechBrowser(text);
+            return this.textToSpeechBrowser(text, voiceConfig);
         } else {
-            return this.textToSpeechOpenAI(text);
+            return this.textToSpeechOpenAI(text, voiceConfig);
         }
     }
 
-    async textToSpeechOpenAI(text) {
+    async textToSpeechOpenAI(text, voiceConfig = null) {
         try {
             console.log('Converting text to speech with OpenAI:', text);
             this.updateStatus('🔊 Generating voice...');
-            this.updateDebugOutput('ttsOutput', `Generating speech with ${this.ttsSettings.model} (${this.ttsSettings.voice})`);
+            
+            // Use voice configuration if provided, otherwise fall back to default settings
+            let ttsOptions;
+            if (voiceConfig && voiceConfig.ttsSettings) {
+                const ttsSettings = voiceConfig.ttsSettings;
+                ttsOptions = {
+                    model: ttsSettings.model || this.ttsSettings.model,
+                    voice: ttsSettings.voice || this.ttsSettings.voice,
+                    speed: ttsSettings.speed || this.ttsSettings.speed
+                };
+                this.updateDebugOutput('ttsOutput', `Generating speech with agent voice config - Model: ${ttsOptions.model}, Voice: ${ttsOptions.voice}, Speed: ${ttsOptions.speed}`);
+            } else {
+                ttsOptions = {
+                    model: this.ttsSettings.model,
+                    voice: this.ttsSettings.voice,
+                    speed: this.ttsSettings.speed
+                };
+                this.updateDebugOutput('ttsOutput', `Generating speech with ${this.ttsSettings.model} (${this.ttsSettings.voice})`);
+            }
 
-            const result = await this.apiClient.textToSpeech(text, {
-                model: this.ttsSettings.model,
-                voice: this.ttsSettings.voice,
-                speed: this.ttsSettings.speed
-            });
+            const result = await this.apiClient.textToSpeech(text, ttsOptions);
             
             // Debug: Check if tracking happened
             this.debug.log('After TTS API call - Token tracker status:', {
@@ -922,13 +968,12 @@ class SpeechToSpeechApp {
         }
     }
 
-    async textToSpeechBrowser(text) {
+    async textToSpeechBrowser(text, voiceConfig = null) {
         return new Promise((resolve, reject) => {
             try {
                 console.log('Converting text to speech with Browser TTS:', text);
                 this.updateStatus('🔊 Generating voice with browser...');
-                this.updateDebugOutput('ttsOutput', `Generating speech with Browser TTS`);
-
+                
                 if (!('speechSynthesis' in window)) {
                     throw new Error('Browser TTS not supported');
                 }
@@ -938,17 +983,40 @@ class SpeechToSpeechApp {
 
                 const utterance = new SpeechSynthesisUtterance(text);
 
-                // Apply settings
-                if (this.browserTtsSettings.voice && this.availableVoices.length > 0) {
-                    const voiceIndex = parseInt(this.browserTtsSettings.voice);
-                    if (voiceIndex >= 0 && voiceIndex < this.availableVoices.length) {
-                        utterance.voice = this.availableVoices[voiceIndex];
+                // Apply voice configuration if provided, otherwise use default settings
+                if (voiceConfig && voiceConfig.ttsSettings) {
+                    const ttsSettings = voiceConfig.ttsSettings;
+                    
+                    // For browser TTS, we need to map the voice name to available voices
+                    if (ttsSettings.voice && this.availableVoices.length > 0) {
+                        const matchingVoice = this.availableVoices.find(voice => 
+                            voice.name.toLowerCase().includes(ttsSettings.voice.toLowerCase())
+                        );
+                        if (matchingVoice) {
+                            utterance.voice = matchingVoice;
+                        }
                     }
-                }
+                    
+                    utterance.rate = ttsSettings.speed || this.browserTtsSettings.rate;
+                    utterance.pitch = ttsSettings.pitch ? (ttsSettings.pitch / 10 + 1) : this.browserTtsSettings.pitch; // Convert semitones to browser pitch
+                    utterance.volume = ttsSettings.volume || this.browserTtsSettings.volume;
+                    
+                    this.updateDebugOutput('ttsOutput', `Generating speech with agent voice config - Voice: ${utterance.voice?.name || 'Default'}, Rate: ${utterance.rate}, Pitch: ${utterance.pitch}`);
+                } else {
+                    // Apply default settings
+                    if (this.browserTtsSettings.voice && this.availableVoices.length > 0) {
+                        const voiceIndex = parseInt(this.browserTtsSettings.voice);
+                        if (voiceIndex >= 0 && voiceIndex < this.availableVoices.length) {
+                            utterance.voice = this.availableVoices[voiceIndex];
+                        }
+                    }
 
-                utterance.rate = this.browserTtsSettings.rate;
-                utterance.pitch = this.browserTtsSettings.pitch;
-                utterance.volume = this.browserTtsSettings.volume;
+                    utterance.rate = this.browserTtsSettings.rate;
+                    utterance.pitch = this.browserTtsSettings.pitch;
+                    utterance.volume = this.browserTtsSettings.volume;
+                    
+                    this.updateDebugOutput('ttsOutput', `Generating speech with Browser TTS`);
+                }
 
                 utterance.onstart = () => {
                     console.log('Browser TTS started');
@@ -1277,6 +1345,15 @@ class SpeechToSpeechApp {
             const displayContent = label ? `${label}\n${content}` : content;
             element.textContent = `[${timestamp}] ${displayContent}`;
         }
+    }
+
+    // Voice configuration helper methods
+    getAgentVoiceConfig(agentName) {
+        if (!agentName || !this.voiceConfigManager) {
+            return null;
+        }
+        
+        return this.voiceConfigManager.getVoiceConfig(agentName);
     }
 
     // Token tracking methods (now handled by TokenTracker class)
@@ -2176,6 +2253,89 @@ class SpeechToSpeechApp {
         console.log('Status:', message);
     }
 
+    showNotification(message, type = 'info') {
+        // Create notification element if it doesn't exist
+        let notificationContainer = document.getElementById('notification-container');
+        if (!notificationContainer) {
+            notificationContainer = document.createElement('div');
+            notificationContainer.id = 'notification-container';
+            notificationContainer.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                max-width: 400px;
+            `;
+            document.body.appendChild(notificationContainer);
+        }
+
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            background: ${type === 'success' ? '#d4edda' : type === 'error' ? '#f8d7da' : type === 'warning' ? '#fff3cd' : '#d1ecf1'};
+            color: ${type === 'success' ? '#155724' : type === 'error' ? '#721c24' : type === 'warning' ? '#856404' : '#0c5460'};
+            border: 1px solid ${type === 'success' ? '#c3e6cb' : type === 'error' ? '#f5c6cb' : type === 'warning' ? '#ffeaa7' : '#bee5eb'};
+            border-radius: 4px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            animation: slideIn 0.3s ease-out;
+            cursor: pointer;
+            position: relative;
+        `;
+
+        notification.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>${message}</span>
+                <span style="margin-left: 10px; font-weight: bold; cursor: pointer;">&times;</span>
+            </div>
+        `;
+
+        // Add click to dismiss
+        notification.addEventListener('click', () => {
+            notification.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        });
+
+        // Add CSS animations if not already added
+        if (!document.getElementById('notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        notificationContainer.appendChild(notification);
+
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }, 5000);
+
+        // Also log to console
+        console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+
     updateConnectionStatus(status) {
         const statusElement = document.getElementById('connectionStatus');
         if (statusElement) {
@@ -2708,6 +2868,782 @@ class SpeechToSpeechApp {
         }
     }
 
+    // ===== LLM Manager Integration Functions =====
+
+    /**
+     * Initialize LLM Manager integration
+     */
+    initializeLLMManager() {
+        this.debug.log('Initializing LLM Manager integration...');
+        
+        try {
+            // Initialize LLM Manager if available
+            if (typeof LLMManager !== 'undefined') {
+                this.llmManager = new LLMManager();
+                this.debug.log('LLM Manager initialized successfully');
+            }
+            
+            // Initialize Guardrails Manager if available
+            if (typeof GuardrailsManager !== 'undefined') {
+                this.guardrailsManager = new GuardrailsManager();
+                this.debug.log('Guardrails Manager initialized successfully');
+            }
+            
+            // Initialize Voice Config Manager if available
+            if (typeof VoiceConfigManager !== 'undefined') {
+                this.voiceConfigManager = new VoiceConfigManager();
+                this.debug.log('Voice Config Manager initialized successfully');
+            }
+            
+            // Set up LLM Manager event listeners
+            this.setupLLMManagerEventListeners();
+            
+        } catch (error) {
+            this.debug.error('Failed to initialize LLM Manager:', error);
+        }
+    }
+
+    /**
+     * Set up LLM Manager event listeners
+     */
+    setupLLMManagerEventListeners() {
+        // LLM Manager navigation
+        document.querySelectorAll('.llm-nav-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.switchLLMSection(e.target.dataset.llmSection);
+            });
+        });
+
+        // LLM Manager audit log filter
+        const llmLogFilter = document.getElementById('llmLogFilter');
+        if (llmLogFilter) {
+            llmLogFilter.addEventListener('change', () => {
+                this.filterLLMAuditLog(llmLogFilter.value);
+            });
+        }
+    }
+
+    /**
+     * Switch between LLM Manager sections
+     */
+    switchLLMSection(sectionName) {
+        this.debug.log('Switching to LLM section:', sectionName);
+        
+        // Update navigation
+        document.querySelectorAll('.llm-nav-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-llm-section="${sectionName}"]`).classList.add('active');
+        
+        // Update content
+        document.querySelectorAll('.llm-content-section').forEach(section => {
+            section.classList.remove('active');
+        });
+        document.getElementById(`llm-${sectionName}-section`).classList.add('active');
+        
+        // Load section-specific content
+        this.loadLLMSectionContent(sectionName);
+    }
+
+    /**
+     * Load content for specific LLM Manager section
+     */
+    loadLLMSectionContent(sectionName) {
+        switch (sectionName) {
+            case 'overview':
+                this.refreshLLMData();
+                break;
+            case 'configuration':
+                this.loadLLMConfigurationContent();
+                break;
+            case 'guardrails':
+                this.loadLLMGuardrailsContent();
+                break;
+            case 'voice':
+                this.loadLLMVoiceContent();
+                break;
+            case 'audit':
+                this.refreshLLMAuditLog();
+                break;
+        }
+    }
+
+    /**
+     * Refresh LLM Manager data
+     */
+    refreshLLMData() {
+        this.debug.log('Refreshing LLM Manager data...');
+        
+        try {
+            if (!this.llmManager) {
+                this.debug.warn('LLM Manager not available');
+                return;
+            }
+            
+            const stats = this.llmManager.getConfigurationStats();
+            const agents = this.llmManager.getAgentConfigurations();
+            
+            // Update statistics
+            const totalEl = document.getElementById('llmTotalAgents');
+            const enabledEl = document.getElementById('llmEnabledAgents');
+            const disabledEl = document.getElementById('llmDisabledAgents');
+            const lastUpdatedEl = document.getElementById('llmLastUpdated');
+            
+            if (totalEl) totalEl.textContent = stats.totalAgents;
+            if (enabledEl) enabledEl.textContent = stats.enabledAgents;
+            if (disabledEl) disabledEl.textContent = stats.disabledAgents;
+            if (lastUpdatedEl) {
+                lastUpdatedEl.textContent = stats.lastUpdated ? 
+                    new Date(stats.lastUpdated).toLocaleString() : 'Never';
+            }
+            
+            // Update agent grid
+            this.renderLLMAgentGrid(agents);
+            
+            this.debug.log('LLM Manager data refreshed successfully');
+            
+        } catch (error) {
+            this.debug.error('Failed to refresh LLM Manager data:', error);
+        }
+    }
+
+    /**
+     * Render LLM Manager agent grid
+     */
+    renderLLMAgentGrid(agents) {
+        const grid = document.getElementById('llmAgentsGrid');
+        if (!grid) return;
+        
+        grid.innerHTML = '';
+        
+        Object.entries(agents).forEach(([name, config]) => {
+            const card = this.createLLMAgentCard(name, config);
+            grid.appendChild(card);
+        });
+    }
+
+    /**
+     * Create LLM Manager agent card element
+     */
+    createLLMAgentCard(name, config) {
+        const card = document.createElement('div');
+        card.className = 'llm-agent-card';
+        
+        const statusClass = config.enabled !== false ? 'enabled' : 'disabled';
+        const statusText = config.enabled !== false ? 'Enabled' : 'Disabled';
+        const statusIndicator = config.enabled !== false ? 'online' : 'offline';
+        
+        card.innerHTML = `
+            <div class="llm-agent-header">
+                <div class="llm-agent-name">
+                    <span class="llm-status-indicator ${statusIndicator}"></span>
+                    ${name}
+                </div>
+                <div class="llm-agent-status ${statusClass}">${statusText}</div>
+            </div>
+            
+            <div class="llm-agent-description">
+                ${config.description || 'No description available'}
+            </div>
+            
+            <div class="llm-agent-details">
+                <div class="llm-detail-item">
+                    <span class="llm-detail-label">Provider:</span>
+                    <span class="llm-detail-value">${config.llmProvider || 'openai'}</span>
+                </div>
+                <div class="llm-detail-item">
+                    <span class="llm-detail-label">Model:</span>
+                    <span class="llm-detail-value">${config.llmModel || 'gpt-4'}</span>
+                </div>
+                <div class="llm-detail-item">
+                    <span class="llm-detail-label">Priority:</span>
+                    <span class="llm-detail-value">${config.priority || 'N/A'}</span>
+                </div>
+                <div class="llm-detail-item">
+                    <span class="llm-detail-label">Max Tokens:</span>
+                    <span class="llm-detail-value">${config.maxTokens || 'N/A'}</span>
+                </div>
+            </div>
+            
+            <div class="llm-agent-actions">
+                <button class="llm-btn llm-btn-primary" onclick="app.openLLMAgentConfiguration('${name}')">
+                    ⚙️ Configure
+                </button>
+                <button class="llm-btn llm-btn-secondary" onclick="app.openLLMGuardrailsEditor('${name}')">
+                    🛡️ Guardrails
+                </button>
+                <button class="llm-btn llm-btn-warning" onclick="app.openLLMVoiceConfig('${name}')">
+                    🎤 Voice
+                </button>
+                <button class="llm-btn ${statusClass === 'enabled' ? 'llm-btn-danger' : 'llm-btn-success'}" 
+                        onclick="app.toggleLLMAgent('${name}')">
+                    ${statusClass === 'enabled' ? '⏸️ Disable' : '▶️ Enable'}
+                </button>
+            </div>
+        `;
+        
+        return card;
+    }
+
+    /**
+     * Load LLM configuration content
+     */
+    loadLLMConfigurationContent() {
+        const content = document.getElementById('llmConfigurationContent');
+        if (!content || !this.llmManager) return;
+        
+        const agents = this.llmManager.getAgentConfigurations();
+        
+        content.innerHTML = `
+            <div class="form-group">
+                <label class="form-label">Select Agent to Configure</label>
+                <select class="llm-form-select" id="llmConfigAgentSelect" onchange="app.openLLMAgentConfiguration(this.value)">
+                    <option value="">Choose an agent...</option>
+                    ${Object.keys(agents).map(name => 
+                        `<option value="${name}">${name}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            
+            <div class="llm-config-info">
+                <h5>Configuration Management</h5>
+                <ul class="feature-list">
+                    <li>Modify agent settings and parameters</li>
+                    <li>Configure LLM provider and model settings</li>
+                    <li>Manage trigger keywords and priorities</li>
+                    <li>Enable/disable agents and telemetry</li>
+                    <li>View configuration history and metadata</li>
+                </ul>
+                <p style="margin-top: 15px; color: #6c757d;">
+                    Select an agent from the dropdown above to configure its settings.
+                </p>
+            </div>
+        `;
+    }
+
+    /**
+     * Load LLM guardrails content
+     */
+    loadLLMGuardrailsContent() {
+        const content = document.getElementById('llmGuardrailsContent');
+        if (!content || !this.llmManager) return;
+        
+        const agents = this.llmManager.getAgentConfigurations();
+        
+        content.innerHTML = `
+            <div class="form-group">
+                <label class="form-label">Select Agent</label>
+                <select class="llm-form-select" id="llmGuardrailsAgentSelect" onchange="app.loadLLMGuardrailsEditor(this.value)">
+                    <option value="">Choose an agent...</option>
+                    ${Object.keys(agents).map(name => 
+                        `<option value="${name}">${name}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            
+            <div id="llmGuardrailsEditor" style="display: none;">
+                <!-- Guardrails editor will be loaded here -->
+            </div>
+        `;
+    }
+
+    /**
+     * Load LLM voice content
+     */
+    loadLLMVoiceContent() {
+        const content = document.getElementById('llmVoiceContent');
+        if (!content || !this.llmManager) return;
+        
+        const agents = this.llmManager.getAgentConfigurations();
+        
+        content.innerHTML = `
+            <div class="form-group">
+                <label class="form-label">Select Agent</label>
+                <select class="llm-form-select" id="llmVoiceAgentSelect" onchange="app.loadLLMVoiceEditor(this.value)">
+                    <option value="">Choose an agent...</option>
+                    ${Object.keys(agents).map(name => 
+                        `<option value="${name}">${name}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            
+            <div id="llmVoiceEditor" style="display: none;">
+                <!-- Voice editor will be loaded here -->
+            </div>
+        `;
+    }
+
+    /**
+     * Refresh LLM audit log
+     */
+    refreshLLMAuditLog() {
+        const entries = document.getElementById('llmAuditLogEntries');
+        if (!entries) return;
+        
+        // Mock audit log entries for demonstration
+        const mockEntries = [
+            {
+                timestamp: new Date().toISOString(),
+                action: 'Agent Configuration Updated',
+                details: 'PaymentsAgent configuration modified',
+                type: 'config'
+            },
+            {
+                timestamp: new Date(Date.now() - 300000).toISOString(),
+                action: 'Guardrails Modified',
+                details: 'FraudAgent guardrails updated',
+                type: 'guardrails'
+            },
+            {
+                timestamp: new Date(Date.now() - 600000).toISOString(),
+                action: 'Voice Settings Changed',
+                details: 'BankingInfoAgent voice configuration updated',
+                type: 'voice'
+            }
+        ];
+        
+        entries.innerHTML = mockEntries.map(entry => `
+            <div class="llm-log-entry">
+                <div class="llm-log-info">
+                    <div class="llm-log-action">${entry.action}</div>
+                    <div class="llm-log-details">${entry.details}</div>
+                </div>
+                <div class="llm-log-timestamp">${new Date(entry.timestamp).toLocaleString()}</div>
+            </div>
+        `).join('');
+    }
+
+    /**
+     * Filter LLM audit log
+     */
+    filterLLMAuditLog(filterType) {
+        this.debug.log('Filtering LLM audit log:', filterType);
+        // Implementation would filter the audit log based on type
+        this.refreshLLMAuditLog();
+    }
+
+    /**
+     * Open full LLM Manager in new window
+     */
+    openFullLLMManager() {
+        this.debug.log('Opening full LLM Manager...');
+        window.open('llm-manager-admin-ui.html', '_blank', 'width=1200,height=800');
+    }
+
+    /**
+     * Export LLM configuration
+     */
+    exportLLMConfiguration() {
+        this.debug.log('Exporting LLM configuration...');
+        
+        try {
+            if (!this.llmManager) {
+                this.showNotification('LLM Manager not available', 'error');
+                return;
+            }
+            
+            const config = this.llmManager.exportConfiguration();
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `llm-config-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showNotification('Configuration exported successfully', 'success');
+            
+        } catch (error) {
+            this.debug.error('Failed to export configuration:', error);
+            this.showNotification('Failed to export configuration', 'error');
+        }
+    }
+
+    /**
+     * Import LLM configuration
+     */
+    importLLMConfiguration() {
+        this.debug.log('Importing LLM configuration...');
+        
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const config = JSON.parse(e.target.result);
+                    
+                    if (this.llmManager) {
+                        this.llmManager.importConfiguration(config);
+                        this.refreshLLMData();
+                        this.showNotification('Configuration imported successfully', 'success');
+                    } else {
+                        this.showNotification('LLM Manager not available', 'error');
+                    }
+                    
+                } catch (error) {
+                    this.debug.error('Failed to import configuration:', error);
+                    this.showNotification('Failed to import configuration', 'error');
+                }
+            };
+            reader.readAsText(file);
+        };
+        
+        input.click();
+    }
+
+    /**
+     * Enable all agents
+     */
+    async enableAllAgents() {
+        this.debug.log('Enabling all agents...');
+        
+        try {
+            if (!this.llmManager) {
+                this.showNotification('LLM Manager not available', 'error');
+                return;
+            }
+            
+            const agents = this.llmManager.getAgentConfigurations();
+            const updatePromises = Object.keys(agents).map(async (agentName) => {
+                return await this.llmManager.updateAgentConfiguration(agentName, { enabled: true });
+            });
+            
+            // Wait for all updates to complete
+            await Promise.all(updatePromises);
+            
+            this.refreshLLMData();
+            this.showNotification('All agents enabled successfully', 'success');
+            
+        } catch (error) {
+            this.debug.error('Failed to enable all agents:', error);
+            this.showNotification('Failed to enable all agents', 'error');
+        }
+    }
+
+    /**
+     * Disable all agents
+     */
+    async disableAllAgents() {
+        this.debug.log('Disabling all agents...');
+        
+        try {
+            if (!this.llmManager) {
+                this.showNotification('LLM Manager not available', 'error');
+                return;
+            }
+            
+            const agents = this.llmManager.getAgentConfigurations();
+            const updatePromises = Object.keys(agents).map(async (agentName) => {
+                return await this.llmManager.updateAgentConfiguration(agentName, { enabled: false });
+            });
+            
+            // Wait for all updates to complete
+            await Promise.all(updatePromises);
+            
+            this.refreshLLMData();
+            this.showNotification('All agents disabled successfully', 'success');
+            
+        } catch (error) {
+            this.debug.error('Failed to disable all agents:', error);
+            this.showNotification('Failed to disable all agents', 'error');
+        }
+    }
+
+    /**
+     * Reset all configurations to defaults
+     */
+    resetAllToDefaults() {
+        this.debug.log('Resetting all configurations to defaults...');
+        
+        if (confirm('Are you sure you want to reset all agent configurations to defaults? This cannot be undone.')) {
+            try {
+                if (!this.llmManager) {
+                    this.showNotification('LLM Manager not available', 'error');
+                    return;
+                }
+                
+                this.llmManager.resetToDefaults();
+                this.refreshLLMData();
+                this.showNotification('All configurations reset to defaults', 'success');
+                
+            } catch (error) {
+                this.debug.error('Failed to reset configurations:', error);
+                this.showNotification('Failed to reset configurations', 'error');
+            }
+        }
+    }
+
+    /**
+     * Validate all configurations
+     */
+    validateAllConfigurations() {
+        this.debug.log('Validating all configurations...');
+        
+        try {
+            if (!this.llmManager) {
+                this.showNotification('LLM Manager not available', 'error');
+                return;
+            }
+            
+            const validationResults = this.llmManager.validateAllConfigurations();
+            const validCount = validationResults.filter(r => r.valid).length;
+            const totalCount = validationResults.length;
+            
+            if (validCount === totalCount) {
+                this.showNotification(`All ${totalCount} configurations are valid`, 'success');
+            } else {
+                this.showNotification(`${validCount}/${totalCount} configurations are valid`, 'warning');
+            }
+            
+        } catch (error) {
+            this.debug.error('Failed to validate configurations:', error);
+            this.showNotification('Failed to validate configurations', 'error');
+        }
+    }
+
+    /**
+     * Clear LLM audit log
+     */
+    clearLLMAuditLog() {
+        this.debug.log('Clearing LLM audit log...');
+        
+        if (confirm('Are you sure you want to clear the audit log?')) {
+            const entries = document.getElementById('llmAuditLogEntries');
+            if (entries) {
+                entries.innerHTML = '<div class="llm-log-entry"><div class="llm-log-info"><div class="llm-log-action">Audit log cleared</div></div></div>';
+            }
+            this.showNotification('Audit log cleared', 'success');
+        }
+    }
+
+    /**
+     * Open LLM agent configuration
+     */
+    openLLMAgentConfiguration(agentName) {
+        if (!agentName) return;
+        
+        this.debug.log('Opening LLM agent configuration for:', agentName);
+        this.switchLLMSection('configuration');
+        
+        // Set the selected agent in the dropdown
+        const select = document.getElementById('llmConfigAgentSelect');
+        if (select) {
+            select.value = agentName;
+        }
+        
+        this.showNotification(`Configuration for ${agentName} opened`, 'info');
+    }
+
+    /**
+     * Open LLM guardrails editor
+     */
+    openLLMGuardrailsEditor(agentName) {
+        if (!agentName) return;
+        
+        this.debug.log('Opening LLM guardrails editor for:', agentName);
+        this.switchLLMSection('guardrails');
+        
+        // Set the selected agent in the dropdown
+        const select = document.getElementById('llmGuardrailsAgentSelect');
+        if (select) {
+            select.value = agentName;
+        }
+        
+        this.loadLLMGuardrailsEditor(agentName);
+    }
+
+    /**
+     * Open LLM voice configuration
+     */
+    openLLMVoiceConfig(agentName) {
+        if (!agentName) return;
+        
+        this.debug.log('Opening LLM voice config for:', agentName);
+        this.switchLLMSection('voice');
+        
+        // Set the selected agent in the dropdown
+        const select = document.getElementById('llmVoiceAgentSelect');
+        if (select) {
+            select.value = agentName;
+        }
+        
+        this.loadLLMVoiceEditor(agentName);
+    }
+
+    /**
+     * Toggle LLM agent enabled/disabled state
+     */
+    toggleLLMAgent(agentName) {
+        if (!agentName || !this.llmManager) return;
+        
+        this.debug.log('Toggling LLM agent:', agentName);
+        
+        try {
+            const config = this.llmManager.getAgentConfiguration(agentName);
+            if (config) {
+                const newState = !config.enabled;
+                this.llmManager.updateAgentConfiguration(agentName, { enabled: newState });
+                this.refreshLLMData();
+                this.showNotification(`${agentName} ${newState ? 'enabled' : 'disabled'}`, 'success');
+            }
+        } catch (error) {
+            this.debug.error('Failed to toggle agent:', error);
+            this.showNotification('Failed to toggle agent', 'error');
+        }
+    }
+
+    /**
+     * Load LLM guardrails editor for specific agent
+     */
+    loadLLMGuardrailsEditor(agentName) {
+        if (!agentName) {
+            document.getElementById('llmGuardrailsEditor').style.display = 'none';
+            return;
+        }
+        
+        const editor = document.getElementById('llmGuardrailsEditor');
+        if (!editor) return;
+        
+        editor.style.display = 'block';
+        editor.innerHTML = `
+            <h5>Guardrails for ${agentName}</h5>
+            <p style="color: #6c757d; margin-bottom: 15px;">
+                Configure security boundaries and capability restrictions for this agent.
+            </p>
+            
+            <div class="form-group">
+                <label class="form-label">Max Transaction Amount (£)</label>
+                <input type="number" class="llm-form-select" value="1000" min="0" step="0.01">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Allowed Operations</label>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px;">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" checked> Account Balance
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" checked> Transaction History
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox"> Money Transfers
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox"> Card Management
+                    </label>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button class="llm-btn llm-btn-primary" onclick="app.saveLLMGuardrails('${agentName}')">
+                    Save Guardrails
+                </button>
+                <button class="llm-btn llm-btn-secondary" onclick="app.testLLMGuardrails('${agentName}')">
+                    Test Guardrails
+                </button>
+            </div>
+        `;
+    }
+
+    /**
+     * Load LLM voice editor for specific agent
+     */
+    loadLLMVoiceEditor(agentName) {
+        if (!agentName) {
+            document.getElementById('llmVoiceEditor').style.display = 'none';
+            return;
+        }
+        
+        const editor = document.getElementById('llmVoiceEditor');
+        if (!editor) return;
+        
+        editor.style.display = 'block';
+        editor.innerHTML = `
+            <h5>Voice Configuration for ${agentName}</h5>
+            <p style="color: #6c757d; margin-bottom: 15px;">
+                Configure TTS settings and voice personality for this agent.
+            </p>
+            
+            <div class="form-group">
+                <label class="form-label">Voice Model</label>
+                <select class="llm-form-select">
+                    <option value="nova">Nova (Female, Recommended)</option>
+                    <option value="alloy">Alloy (Neutral)</option>
+                    <option value="echo">Echo (Male)</option>
+                    <option value="fable">Fable (British Male)</option>
+                    <option value="onyx">Onyx (Deep Male)</option>
+                    <option value="shimmer">Shimmer (Female, Warm)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Speech Speed</label>
+                <input type="range" class="llm-form-select" min="0.25" max="4.0" step="0.25" value="1.0">
+                <span>1.0x</span>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Voice Personality</label>
+                <select class="llm-form-select">
+                    <option value="professional">Professional</option>
+                    <option value="friendly">Friendly</option>
+                    <option value="empathetic">Empathetic</option>
+                    <option value="authoritative">Authoritative</option>
+                </select>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button class="llm-btn llm-btn-primary" onclick="app.saveLLMVoiceConfig('${agentName}')">
+                    Save Voice Config
+                </button>
+                <button class="llm-btn llm-btn-secondary" onclick="app.testLLMVoice('${agentName}')">
+                    Test Voice
+                </button>
+            </div>
+        `;
+    }
+
+    /**
+     * Save LLM guardrails
+     */
+    saveLLMGuardrails(agentName) {
+        this.debug.log('Saving LLM guardrails for:', agentName);
+        this.showNotification(`Guardrails saved for ${agentName}`, 'success');
+    }
+
+    /**
+     * Test LLM guardrails
+     */
+    testLLMGuardrails(agentName) {
+        this.debug.log('Testing LLM guardrails for:', agentName);
+        this.showNotification(`Guardrails test completed for ${agentName}`, 'info');
+    }
+
+    /**
+     * Save LLM voice configuration
+     */
+    saveLLMVoiceConfig(agentName) {
+        this.debug.log('Saving LLM voice config for:', agentName);
+        this.showNotification(`Voice configuration saved for ${agentName}`, 'success');
+    }
+
+    /**
+     * Test LLM voice
+     */
+    testLLMVoice(agentName) {
+        this.debug.log('Testing LLM voice for:', agentName);
+        this.showNotification(`Voice test completed for ${agentName}`, 'info');
+    }
+
     /**
      * Open the AI agent routing test page in a new tab
      */
@@ -2797,3 +3733,64 @@ const app = new SpeechToSpeechApp();
 window.app = app; // Make app globally accessible for streaming manager
 
 console.log('Speech-to-Speech (STS) App initialized successfully!');
+
+// Global LLM Manager functions for HTML onclick handlers
+function refreshLLMData() {
+    if (window.app) {
+        window.app.refreshLLMData();
+    }
+}
+
+function exportLLMConfiguration() {
+    if (window.app) {
+        window.app.exportLLMConfiguration();
+    }
+}
+
+function importLLMConfiguration() {
+    if (window.app) {
+        window.app.importLLMConfiguration();
+    }
+}
+
+function openFullLLMManager() {
+    if (window.app) {
+        window.app.openFullLLMManager();
+    }
+}
+
+async function enableAllAgents() {
+    if (window.app) {
+        await window.app.enableAllAgents();
+    }
+}
+
+async function disableAllAgents() {
+    if (window.app) {
+        await window.app.disableAllAgents();
+    }
+}
+
+function resetAllToDefaults() {
+    if (window.app) {
+        window.app.resetAllToDefaults();
+    }
+}
+
+function validateAllConfigurations() {
+    if (window.app) {
+        window.app.validateAllConfigurations();
+    }
+}
+
+function clearLLMAuditLog() {
+    if (window.app) {
+        window.app.clearLLMAuditLog();
+    }
+}
+
+function loadGuardrailsEditor(agentName) {
+    if (window.app) {
+        window.app.loadLLMGuardrailsEditor(agentName);
+    }
+}

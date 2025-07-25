@@ -128,14 +128,21 @@ class GuardrailsManager {
         if (guardrails.allowedCapabilities) {
             const capability = this.mapActionToCapability(action);
             if (capability && !guardrails.allowedCapabilities[capability]) {
+                const customPrompt = guardrails.prompts?.restrictionBlocked?.capabilityDisabled;
+                const defaultPrompt = this.getPromptTemplates().restrictionBlocked.capabilityDisabled;
+                
                 this.logViolation(agentName, action, 'Capability not allowed');
-                return { allowed: false, reason: `Capability '${capability}' not allowed` };
+                return { 
+                    allowed: false, 
+                    reason: `Capability '${capability}' not allowed`,
+                    prompt: customPrompt || defaultPrompt
+                };
             }
         }
         
         // Check restrictions
         if (guardrails.restrictions) {
-            const restrictionCheck = this.checkRestrictions(action, context, guardrails.restrictions);
+            const restrictionCheck = this.checkRestrictions(action, context, guardrails.restrictions, guardrails.prompts);
             if (!restrictionCheck.allowed) {
                 this.logViolation(agentName, action, restrictionCheck.reason);
                 return restrictionCheck;
@@ -144,7 +151,7 @@ class GuardrailsManager {
         
         // Check blocked keywords
         if (guardrails.restrictions?.blockedKeywords) {
-            const keywordCheck = this.checkBlockedKeywords(action, guardrails.restrictions.blockedKeywords);
+            const keywordCheck = this.checkBlockedKeywords(action, guardrails.restrictions.blockedKeywords, guardrails.prompts);
             if (!keywordCheck.allowed) {
                 this.logViolation(agentName, action, keywordCheck.reason);
                 return keywordCheck;
@@ -153,7 +160,7 @@ class GuardrailsManager {
         
         // Check time-based restrictions
         if (guardrails.restrictions?.timeBasedRestrictions) {
-            const timeCheck = this.checkTimeRestrictions(guardrails.restrictions.timeBasedRestrictions);
+            const timeCheck = this.checkTimeRestrictions(guardrails.restrictions.timeBasedRestrictions, guardrails.prompts);
             if (!timeCheck.allowed) {
                 this.logViolation(agentName, action, timeCheck.reason);
                 return timeCheck;
@@ -261,12 +268,49 @@ class GuardrailsManager {
                     }
                 }
                 
-                if (restrictions.requiresSecondaryAuth && !Array.isArray(restrictions.requiresSecondaryAuth)) {
-                    errors.push('requiresSecondaryAuth must be an array');
+                // Validate new object-based requiresSecondaryAuth
+                if (restrictions.requiresSecondaryAuth) {
+                    if (Array.isArray(restrictions.requiresSecondaryAuth)) {
+                        // Legacy array format - still supported
+                    } else if (typeof restrictions.requiresSecondaryAuth === 'object') {
+                        // New object format
+                        const authTypes = this.getAuthenticationTypes();
+                        for (const [action, config] of Object.entries(restrictions.requiresSecondaryAuth)) {
+                            if (typeof config !== 'object') {
+                                errors.push(`requiresSecondaryAuth.${action} must be an object`);
+                            } else {
+                                if (config.enabled !== undefined && typeof config.enabled !== 'boolean') {
+                                    errors.push(`requiresSecondaryAuth.${action}.enabled must be a boolean`);
+                                }
+                                if (config.authType && !Object.keys(authTypes).includes(config.authType)) {
+                                    errors.push(`requiresSecondaryAuth.${action}.authType must be one of: ${Object.keys(authTypes).join(', ')}`);
+                                }
+                            }
+                        }
+                    } else {
+                        errors.push('requiresSecondaryAuth must be an array or object');
+                    }
                 }
                 
                 if (restrictions.blockedKeywords && !Array.isArray(restrictions.blockedKeywords)) {
                     errors.push('blockedKeywords must be an array');
+                }
+            }
+        }
+        
+        // Validate prompts
+        if (guardrails.prompts) {
+            if (typeof guardrails.prompts !== 'object') {
+                errors.push('prompts must be an object');
+            } else {
+                const validPromptTypes = ['secondaryAuth', 'restrictionBlocked', 'compliance'];
+                for (const [promptType, prompts] of Object.entries(guardrails.prompts)) {
+                    if (!validPromptTypes.includes(promptType)) {
+                        errors.push(`Invalid prompt type: ${promptType}. Must be one of: ${validPromptTypes.join(', ')}`);
+                    }
+                    if (typeof prompts !== 'object') {
+                        errors.push(`prompts.${promptType} must be an object`);
+                    }
                 }
             }
         }
@@ -401,25 +445,55 @@ class GuardrailsManager {
      * @param {string} action - Action to check
      * @param {Object} context - Action context
      * @param {Object} restrictions - Restriction rules
+     * @param {Object} prompts - Custom prompts configuration
      * @returns {Object} Check result
      */
-    checkRestrictions(action, context, restrictions) {
+    checkRestrictions(action, context, restrictions, prompts = {}) {
         // Check transaction amount limits
         if (action === 'initiateTransfer' && context.amount && restrictions.maxTransactionAmount) {
             if (context.amount > restrictions.maxTransactionAmount) {
+                const prompt = prompts?.restrictionBlocked?.transactionLimit || 
+                              this.getPromptTemplates().restrictionBlocked.transactionLimit.replace('{limit}', restrictions.maxTransactionAmount);
                 return {
                     allowed: false,
-                    reason: `Transaction amount ${context.amount} exceeds limit ${restrictions.maxTransactionAmount}`
+                    reason: `Transaction amount ${context.amount} exceeds limit ${restrictions.maxTransactionAmount}`,
+                    prompt: prompt
                 };
             }
         }
         
-        // Check if secondary auth is required
-        if (restrictions.requiresSecondaryAuth && restrictions.requiresSecondaryAuth.includes(action)) {
+        // Check if secondary auth is required (new structure)
+        if (restrictions.requiresSecondaryAuth && typeof restrictions.requiresSecondaryAuth === 'object') {
+            const authConfig = restrictions.requiresSecondaryAuth[action];
+            if (authConfig && authConfig.enabled) {
+                if (!context.secondaryAuthCompleted) {
+                    const promptKey = authConfig.prompt || 'default';
+                    const customPrompt = prompts?.secondaryAuth?.[action];
+                    const templatePrompt = this.getPromptTemplates().secondaryAuth[promptKey] || 
+                                         this.getPromptTemplates().secondaryAuth.default;
+                    
+                    return {
+                        allowed: false,
+                        reason: `Action ${action} requires secondary authentication`,
+                        prompt: customPrompt || templatePrompt,
+                        authType: authConfig.authType,
+                        requiresAuth: true
+                    };
+                }
+            }
+        }
+        
+        // Legacy support for array-based requiresSecondaryAuth
+        if (Array.isArray(restrictions.requiresSecondaryAuth) && restrictions.requiresSecondaryAuth.includes(action)) {
             if (!context.secondaryAuthCompleted) {
+                const customPrompt = prompts?.secondaryAuth?.[action];
+                const defaultPrompt = this.getPromptTemplates().secondaryAuth.default;
+                
                 return {
                     allowed: false,
-                    reason: `Action ${action} requires secondary authentication`
+                    reason: `Action ${action} requires secondary authentication`,
+                    prompt: customPrompt || defaultPrompt,
+                    requiresAuth: true
                 };
             }
         }
@@ -431,16 +505,21 @@ class GuardrailsManager {
      * Check blocked keywords
      * @param {string} action - Action to check
      * @param {Array} blockedKeywords - List of blocked keywords
+     * @param {Object} prompts - Custom prompts configuration
      * @returns {Object} Check result
      */
-    checkBlockedKeywords(action, blockedKeywords) {
+    checkBlockedKeywords(action, blockedKeywords, prompts = {}) {
         const actionLower = action.toLowerCase();
         
         for (const keyword of blockedKeywords) {
             if (actionLower.includes(keyword.toLowerCase())) {
+                const customPrompt = prompts?.restrictionBlocked?.keywordBlocked;
+                const defaultPrompt = this.getPromptTemplates().restrictionBlocked.keywordBlocked;
+                
                 return {
                     allowed: false,
-                    reason: `Action contains blocked keyword: ${keyword}`
+                    reason: `Action contains blocked keyword: ${keyword}`,
+                    prompt: customPrompt || defaultPrompt
                 };
             }
         }
@@ -451,9 +530,10 @@ class GuardrailsManager {
     /**
      * Check time-based restrictions
      * @param {Object} timeRestrictions - Time-based restriction rules
+     * @param {Object} prompts - Custom prompts configuration
      * @returns {Object} Check result
      */
-    checkTimeRestrictions(timeRestrictions) {
+    checkTimeRestrictions(timeRestrictions, prompts = {}) {
         const now = new Date();
         const currentHour = now.getHours();
         const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
@@ -462,9 +542,13 @@ class GuardrailsManager {
         if (timeRestrictions.allowedHours) {
             const [startHour, endHour] = timeRestrictions.allowedHours;
             if (currentHour < startHour || currentHour >= endHour) {
+                const customPrompt = prompts?.restrictionBlocked?.timeRestriction;
+                const defaultPrompt = this.getPromptTemplates().restrictionBlocked.timeRestriction.replace('{hours}', `${startHour}:00-${endHour}:00`);
+                
                 return {
                     allowed: false,
-                    reason: `Action not allowed outside hours ${startHour}:00-${endHour}:00`
+                    reason: `Action not allowed outside hours ${startHour}:00-${endHour}:00`,
+                    prompt: customPrompt || defaultPrompt
                 };
             }
         }
@@ -472,9 +556,13 @@ class GuardrailsManager {
         // Check allowed days
         if (timeRestrictions.allowedDays) {
             if (!timeRestrictions.allowedDays.includes(currentDay)) {
+                const customPrompt = prompts?.restrictionBlocked?.timeRestriction;
+                const defaultPrompt = this.getPromptTemplates().restrictionBlocked.timeRestriction.replace('{hours}', 'business days');
+                
                 return {
                     allowed: false,
-                    reason: 'Action not allowed on this day of the week'
+                    reason: 'Action not allowed on this day of the week',
+                    prompt: customPrompt || defaultPrompt
                 };
             }
         }
@@ -506,6 +594,47 @@ class GuardrailsManager {
     }
     
     /**
+     * Get predefined prompt templates
+     */
+    getPromptTemplates() {
+        return {
+            secondaryAuth: {
+                cardBlocking: "For your security, I need to verify your identity before blocking your card. Please provide your date of birth and the last 4 digits of your Social Security number.",
+                passwordReset: "To reset your password, I need to verify your identity. Please confirm your registered email address and answer your security question.",
+                largeTransaction: "This transaction requires additional verification. Please confirm the transaction details and provide your authentication code.",
+                accountAccess: "For security purposes, I need to verify your identity before accessing sensitive account information. Please provide your verification details.",
+                default: "Additional authentication is required for this action. Please verify your identity to proceed."
+            },
+            restrictionBlocked: {
+                capabilityDisabled: "I'm unable to perform this action as it's not within my authorized capabilities. Please contact customer service for assistance.",
+                transactionLimit: "This transaction exceeds the maximum allowed amount of £{limit}. Please reduce the amount or contact customer service.",
+                timeRestriction: "This service is not available outside of business hours ({hours}). Please try again during our operating hours.",
+                keywordBlocked: "I cannot process requests containing certain restricted terms. Please rephrase your request or contact customer service.",
+                default: "I'm unable to complete this action due to security restrictions. Please contact customer service for assistance."
+            },
+            compliance: {
+                auditRequired: "This action will be logged for compliance purposes. Do you wish to continue?",
+                dataRetention: "Your request will be retained for {days} days as per our data retention policy.",
+                default: "This action is subject to compliance monitoring."
+            }
+        };
+    }
+
+    /**
+     * Get available authentication types
+     */
+    getAuthenticationTypes() {
+        return {
+            sms: "SMS Verification",
+            email: "Email Verification", 
+            biometric: "Biometric Authentication",
+            securityQuestions: "Security Questions",
+            twoFactor: "Two-Factor Authentication",
+            manualVerification: "Manual Verification"
+        };
+    }
+
+    /**
      * Initialize default guardrails for known agents
      */
     initializeDefaultGuardrails() {
@@ -522,9 +651,24 @@ class GuardrailsManager {
                 },
                 restrictions: {
                     maxTransactionAmount: 0,
-                    requiresSecondaryAuth: ['resetPassword'],
+                    requiresSecondaryAuth: {
+                        resetPassword: {
+                            enabled: true,
+                            authType: 'securityQuestions',
+                            prompt: 'passwordReset'
+                        }
+                    },
                     blockedKeywords: ['transfer', 'payment', 'send money'],
                     timeBasedRestrictions: {}
+                },
+                prompts: {
+                    secondaryAuth: {
+                        resetPassword: "To reset your password, I need to verify your identity. Please confirm your registered email address and answer your security question."
+                    },
+                    restrictionBlocked: {
+                        capabilityDisabled: "I'm unable to perform password resets outside of my authorized capabilities. Please contact customer service for assistance.",
+                        default: "I'm unable to complete this action due to security restrictions. Please contact customer service for assistance."
+                    }
                 },
                 complianceRules: {
                     logAllActions: true,
@@ -544,9 +688,17 @@ class GuardrailsManager {
                 },
                 restrictions: {
                     maxTransactionAmount: 0,
-                    requiresSecondaryAuth: [],
+                    requiresSecondaryAuth: {},
                     blockedKeywords: ['transfer', 'send', 'pay'],
                     timeBasedRestrictions: {}
+                },
+                prompts: {
+                    secondaryAuth: {},
+                    restrictionBlocked: {
+                        capabilityDisabled: "I can only provide account information and transaction history. For other services, please contact customer service.",
+                        keywordBlocked: "I cannot process transaction-related requests. Please contact our payments team for assistance.",
+                        default: "I'm unable to complete this action. Please contact customer service for assistance."
+                    }
                 },
                 complianceRules: {
                     logAllActions: true,
@@ -566,9 +718,24 @@ class GuardrailsManager {
                 },
                 restrictions: {
                     maxTransactionAmount: 0,
-                    requiresSecondaryAuth: ['blockCard'],
+                    requiresSecondaryAuth: {
+                        blockCard: {
+                            enabled: true,
+                            authType: 'twoFactor',
+                            prompt: 'cardBlocking'
+                        }
+                    },
                     blockedKeywords: ['send money', 'transfer'],
                     timeBasedRestrictions: {}
+                },
+                prompts: {
+                    secondaryAuth: {
+                        blockCard: "For your security, I need to verify your identity before blocking your card. Please provide your date of birth and the last 4 digits of your Social Security number."
+                    },
+                    restrictionBlocked: {
+                        keywordBlocked: "I cannot process transaction requests for security reasons. I can help you block cards or report fraud instead.",
+                        default: "I'm unable to complete this action due to security restrictions. Please contact customer service for assistance."
+                    }
                 },
                 complianceRules: {
                     logAllActions: true,
@@ -588,11 +755,27 @@ class GuardrailsManager {
                 },
                 restrictions: {
                     maxTransactionAmount: 1000,
-                    requiresSecondaryAuth: ['initiateTransfer'],
+                    requiresSecondaryAuth: {
+                        initiateTransfer: {
+                            enabled: true,
+                            authType: 'sms',
+                            prompt: 'largeTransaction'
+                        }
+                    },
                     blockedKeywords: [],
                     timeBasedRestrictions: {
                         allowedHours: [6, 22], // 6 AM to 10 PM
                         allowedDays: [1, 2, 3, 4, 5] // Monday to Friday
+                    }
+                },
+                prompts: {
+                    secondaryAuth: {
+                        initiateTransfer: "This transaction requires additional verification. Please confirm the transaction details and provide your SMS authentication code."
+                    },
+                    restrictionBlocked: {
+                        transactionLimit: "This transaction exceeds the maximum allowed amount of £1000. Please reduce the amount or contact customer service.",
+                        timeRestriction: "Payment services are only available Monday-Friday, 6 AM to 10 PM. Please try again during business hours.",
+                        default: "I'm unable to complete this transaction due to security restrictions. Please contact customer service for assistance."
                     }
                 },
                 complianceRules: {
@@ -716,6 +899,84 @@ class GuardrailsManager {
         }
     }
     
+    /**
+     * Get custom prompt for agent and action
+     * @param {string} agentName - Name of the agent
+     * @param {string} promptType - Type of prompt (secondaryAuth, restrictionBlocked, compliance)
+     * @param {string} action - Specific action or scenario
+     * @returns {string|null} Custom prompt or null if not found
+     */
+    getCustomPrompt(agentName, promptType, action) {
+        const guardrails = this.guardrails.get(agentName);
+        if (!guardrails || !guardrails.prompts) {
+            return null;
+        }
+        
+        return guardrails.prompts[promptType]?.[action] || guardrails.prompts[promptType]?.default || null;
+    }
+
+    /**
+     * Set custom prompt for agent
+     * @param {string} agentName - Name of the agent
+     * @param {string} promptType - Type of prompt
+     * @param {string} action - Specific action or scenario
+     * @param {string} prompt - Custom prompt text
+     * @returns {boolean} Success status
+     */
+    setCustomPrompt(agentName, promptType, action, prompt) {
+        try {
+            const guardrails = this.guardrails.get(agentName);
+            if (!guardrails) {
+                this.debug.error(`No guardrails found for agent: ${agentName}`);
+                return false;
+            }
+            
+            if (!guardrails.prompts) {
+                guardrails.prompts = {};
+            }
+            
+            if (!guardrails.prompts[promptType]) {
+                guardrails.prompts[promptType] = {};
+            }
+            
+            guardrails.prompts[promptType][action] = prompt;
+            guardrails.lastUpdated = new Date().toISOString();
+            
+            this.saveGuardrails();
+            this.debug.log(`Set custom prompt for ${agentName}.${promptType}.${action}`);
+            
+            return true;
+            
+        } catch (error) {
+            this.debug.error('Error setting custom prompt:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Get available secondary auth actions for an agent
+     * @param {string} agentName - Name of the agent
+     * @returns {Array} Array of actions that can require secondary auth
+     */
+    getAvailableAuthActions(agentName) {
+        const capabilities = [
+            { action: 'getAccountData', label: 'Access Account Data', capability: 'canAccessAccountData' },
+            { action: 'initiateTransfer', label: 'Initiate Transfer', capability: 'canInitiateTransactions' },
+            { action: 'blockCard', label: 'Block Card', capability: 'canBlockCards' },
+            { action: 'resetPassword', label: 'Reset Password', capability: 'canResetPasswords' },
+            { action: 'getTransactions', label: 'Access Transaction History', capability: 'canAccessTransactionHistory' },
+            { action: 'getBalance', label: 'Provide Balance Info', capability: 'canProvideBalanceInfo' }
+        ];
+        
+        const guardrails = this.guardrails.get(agentName);
+        if (!guardrails || !guardrails.allowedCapabilities) {
+            return capabilities;
+        }
+        
+        // Only return actions for capabilities that are enabled
+        return capabilities.filter(cap => guardrails.allowedCapabilities[cap.capability]);
+    }
+
     /**
      * Get active agents (placeholder - would integrate with agent router)
      * @returns {Array} Array of active agent instances

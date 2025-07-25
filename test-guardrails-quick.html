@@ -50,6 +50,12 @@
                 try {
                     const validation1 = guardrailsManager.validateAction('FraudAgent', 'blockCard', {});
                     results.innerHTML += `<p>FraudAgent blockCard (no auth): ${validation1.allowed ? 'ALLOWED' : 'BLOCKED'} - ${validation1.reason}</p>`;
+                    if (validation1.prompt) {
+                        results.innerHTML += `<p style="margin-left: 20px; font-style: italic; color: #666;">Prompt: "${validation1.prompt}"</p>`;
+                    }
+                    if (validation1.authType) {
+                        results.innerHTML += `<p style="margin-left: 20px; color: #007bff;">Auth Type: ${validation1.authType}</p>`;
+                    }
                 } catch (error) {
                     results.innerHTML += `<p>FraudAgent blockCard (no auth): ERROR - ${error.message}</p>`;
                 }
@@ -58,6 +64,9 @@
                 try {
                     const validation2 = guardrailsManager.validateAction('FraudAgent', 'blockCard', { secondaryAuthCompleted: true });
                     results.innerHTML += `<p>FraudAgent blockCard (with auth): ${validation2.allowed ? 'ALLOWED' : 'BLOCKED'} - ${validation2.reason}</p>`;
+                    if (validation2.prompt) {
+                        results.innerHTML += `<p style="margin-left: 20px; font-style: italic; color: #666;">Prompt: "${validation2.prompt}"</p>`;
+                    }
                 } catch (error) {
                     results.innerHTML += `<p>FraudAgent blockCard (with auth): ERROR - ${error.message}</p>`;
                 }

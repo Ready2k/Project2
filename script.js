@@ -224,6 +224,9 @@ class SpeechToSpeechApp {
         this.initializeStreamingMode();
         this.initializeMuteButtons();
         
+        // Initialize agent indicator
+        this.updateAgentIndicator('Default Agent');
+        
         // Initialize extensibility system
         await this.initializeExtensibilitySystem();
         this.updateKeyStatus();
@@ -627,7 +630,7 @@ class SpeechToSpeechApp {
 
                 // Route through agents or use fallback
                 const routingResult = await this.routeRequestThroughAgentsWithMetadata(transcript);
-                this.addMessage(routingResult.response, 'bot');
+                this.addMessage(routingResult.response, 'bot', routingResult.agentName || 'Default Agent');
 
                 // Convert response to speech using selected TTS mode with agent-specific voice
                 this.currentState = 'speaking';
@@ -1930,7 +1933,7 @@ class SpeechToSpeechApp {
         }, 3000);
     }
     // UI Helper methods
-    addMessage(content, type) {
+    addMessage(content, type, agentName = null) {
         const conversation = document.getElementById('conversation');
         if (!conversation) return;
 
@@ -1945,7 +1948,44 @@ class SpeechToSpeechApp {
 
         conversation.appendChild(messageDiv);
         conversation.scrollTop = conversation.scrollHeight;
-        console.log('Message added:', type, content);
+        
+        // Update agent indicator for bot messages
+        if (type === 'bot' && agentName) {
+            this.updateAgentIndicator(agentName);
+        }
+        
+        console.log('Message added:', type, content, agentName ? `(Agent: ${agentName})` : '');
+    }
+
+    updateAgentIndicator(agentName) {
+        const agentElement = document.getElementById('currentAgent');
+        if (!agentElement) return;
+
+        // Update the agent name
+        agentElement.textContent = agentName;
+        
+        // Remove existing agent classes
+        agentElement.classList.remove('fraud-agent', 'payments-agent', 'idv-agent', 'banking-info-agent', 'default-agent');
+        
+        // Add appropriate class based on agent name
+        const agentClass = this.getAgentClass(agentName);
+        if (agentClass) {
+            agentElement.classList.add(agentClass);
+        }
+        
+        console.log('Agent indicator updated:', agentName);
+    }
+
+    getAgentClass(agentName) {
+        const agentClassMap = {
+            'FraudAgent': 'fraud-agent',
+            'PaymentsAgent': 'payments-agent',
+            'IDVAgent': 'idv-agent',
+            'BankingInfoAgent': 'banking-info-agent',
+            'Default Agent': 'default-agent'
+        };
+        
+        return agentClassMap[agentName] || 'default-agent';
     }
 
     clearConversation() {
@@ -1964,6 +2004,9 @@ class SpeechToSpeechApp {
                     </div>
                 </div>
             `;
+            
+            // Reset agent indicator to default
+            this.updateAgentIndicator('Default Agent');
             
             console.log('Conversation cleared');
             this.updateStatus('Conversation cleared - Ready to listen');

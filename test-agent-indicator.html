@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Indicator Test</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-button {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: #2980b9;
+        }
+        .conversation {
+            min-height: 200px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            background: #f9f9f9;
+        }
+        .user-message, .bot-message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .user-message {
+            background: #e3f2fd;
+            text-align: right;
+        }
+        .bot-message {
+            background: #f1f8e9;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🤖 Agent Indicator Test</h1>
+        <p>This page tests the agent indicator functionality that shows which agent is currently responding.</p>
+        
+        <div class="test-section">
+            <h3>Agent Indicator</h3>
+            <div class="agent-indicator">
+                <span class="agent-label">Current Agent:</span>
+                <span id="currentAgent" class="agent-name default-agent">Default Agent</span>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test Different Agents</h3>
+            <button class="test-button" onclick="testAgent('FraudAgent')">Test Fraud Agent</button>
+            <button class="test-button" onclick="testAgent('PaymentsAgent')">Test Payments Agent</button>
+            <button class="test-button" onclick="testAgent('IDVAgent')">Test IDV Agent</button>
+            <button class="test-button" onclick="testAgent('BankingInfoAgent')">Test Banking Info Agent</button>
+            <button class="test-button" onclick="testAgent('Default Agent')">Test Default Agent</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Simulated Conversation</h3>
+            <div id="conversation" class="conversation">
+                <div class="bot-message">
+                    <div class="message-content">
+                        Hello! I'm your AI voice assistant. How can I help you today?
+                    </div>
+                </div>
+            </div>
+            <button class="test-button" onclick="simulateConversation()">Simulate Fraud Conversation</button>
+            <button class="test-button" onclick="simulatePaymentConversation()">Simulate Payment Conversation</button>
+            <button class="test-button" onclick="clearConversation()">Clear Conversation</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Test Results</h3>
+            <div id="testResults"></div>
+        </div>
+    </div>
+
+    <script>
+        // Mock the agent indicator functions from script.js
+        function updateAgentIndicator(agentName) {
+            const agentElement = document.getElementById('currentAgent');
+            if (!agentElement) return;
+
+            // Update the agent name
+            agentElement.textContent = agentName;
+            
+            // Remove existing agent classes
+            agentElement.classList.remove('fraud-agent', 'payments-agent', 'idv-agent', 'banking-info-agent', 'default-agent');
+            
+            // Add appropriate class based on agent name
+            const agentClass = getAgentClass(agentName);
+            if (agentClass) {
+                agentElement.classList.add(agentClass);
+            }
+            
+            console.log('Agent indicator updated:', agentName);
+            logTest(`Agent indicator updated to: ${agentName}`);
+        }
+
+        function getAgentClass(agentName) {
+            const agentClassMap = {
+                'FraudAgent': 'fraud-agent',
+                'PaymentsAgent': 'payments-agent',
+                'IDVAgent': 'idv-agent',
+                'BankingInfoAgent': 'banking-info-agent',
+                'Default Agent': 'default-agent'
+            };
+            
+            return agentClassMap[agentName] || 'default-agent';
+        }
+
+        function addMessage(content, type, agentName = null) {
+            const conversation = document.getElementById('conversation');
+            if (!conversation) return;
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `${type}-message`;
+
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    ${content}
+                </div>
+            `;
+
+            conversation.appendChild(messageDiv);
+            conversation.scrollTop = conversation.scrollHeight;
+            
+            // Update agent indicator for bot messages
+            if (type === 'bot' && agentName) {
+                updateAgentIndicator(agentName);
+            }
+            
+            console.log('Message added:', type, content, agentName ? `(Agent: ${agentName})` : '');
+        }
+
+        function testAgent(agentName) {
+            updateAgentIndicator(agentName);
+            logTest(`Tested agent: ${agentName} - Check the indicator above!`);
+        }
+
+        function simulateConversation() {
+            clearConversation();
+            
+            setTimeout(() => {
+                addMessage("I think my card has been stolen", 'user');
+            }, 500);
+            
+            setTimeout(() => {
+                addMessage("I understand your concern about your card security. Let me help you block your card immediately to prevent any unauthorized transactions.", 'bot', 'FraudAgent');
+            }, 1000);
+            
+            setTimeout(() => {
+                addMessage("Yes, please block it now", 'user');
+            }, 2000);
+            
+            setTimeout(() => {
+                addMessage("Your card has been successfully blocked. You should receive a confirmation SMS shortly. I'll also arrange for a replacement card to be sent to your registered address.", 'bot', 'FraudAgent');
+            }, 2500);
+        }
+
+        function simulatePaymentConversation() {
+            clearConversation();
+            
+            setTimeout(() => {
+                addMessage("I need to send £100 to my friend Alice", 'user');
+            }, 500);
+            
+            setTimeout(() => {
+                addMessage("I can help you send money to Alice. To process this payment, I'll need to verify some details. What's Alice's account number or phone number for the transfer?", 'bot', 'PaymentsAgent');
+            }, 1000);
+            
+            setTimeout(() => {
+                addMessage("Her phone number is 07123456789", 'user');
+            }, 2000);
+            
+            setTimeout(() => {
+                addMessage("Perfect! I've found Alice in your contacts. I'm preparing to send £100 to Alice at 07123456789. Please confirm this payment by saying 'yes' or 'confirm'.", 'bot', 'PaymentsAgent');
+            }, 2500);
+        }
+
+        function clearConversation() {
+            const conversation = document.getElementById('conversation');
+            if (!conversation) return;
+
+            conversation.innerHTML = `
+                <div class="bot-message">
+                    <div class="message-content">
+                        Hello! I'm your AI voice assistant. How can I help you today?
+                    </div>
+                </div>
+            `;
+            
+            updateAgentIndicator('Default Agent');
+            logTest('Conversation cleared and reset to Default Agent');
+        }
+
+        function logTest(message) {
+            const results = document.getElementById('testResults');
+            const timestamp = new Date().toLocaleTimeString();
+            results.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            logTest('Agent Indicator Test Page loaded successfully');
+            logTest('Current agent should show "Default Agent" with purple styling');
+        });
+    </script>
+</body>
+</html>

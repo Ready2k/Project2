@@ -1,5 +1,30 @@
 # 🧪 LLM Manager Admin UI - Testing Guide
 
+## Agent Indicator Feature Testing
+
+The agent indicator shows which AI agent is currently handling the user's request in the voice chat interface.
+
+### Quick Test Files
+1. **`test-agent-indicator.html`** - Tests the visual indicator functionality
+2. **`test-agent-indicator-integration.html`** - Tests integration with agent routing  
+3. **`index.html`** - Test in the main voice chat application
+
+### Expected Agent Behavior
+- **Default Agent** (Purple): Handles general queries when no specific agent matches
+- **Fraud Agent** (Red): Handles card security, fraud reports, blocking cards  
+- **Payments Agent** (Green): Handles money transfers, payments, sending money
+- **IDV Agent** (Orange): Handles identity verification, password resets
+- **Banking Info Agent** (Blue): Handles balance inquiries, transaction history
+
+### Test Scenarios
+1. **Fraud Detection**: "I've lost my card" → Should show "Fraud Agent" in red
+2. **Payment Request**: "Send £50 to Alice" → Should show "Payments Agent" in green
+3. **Balance Inquiry**: "What's my balance?" → Should show "Banking Info Agent" in blue  
+4. **General Query**: "What's the weather?" → Should show "Default Agent" in purple
+5. **Disabled Agents**: Disable all agents → Should always show "Default Agent"
+
+---
+
 ## Quick Start Testing
 
 ### 1. **Basic Functionality Test**
@@ -48,14 +73,38 @@ python3 -m http.server 8000
 4. Check that all tabs work properly
 5. Click **"Test Configuration Save"** to verify persistence
 
-### **Phase 4: Guardrails Editor Testing**
+### **Phase 4: Enhanced Guardrails Editor Testing**
 1. Click **"Test Guardrails Editor"** button
 2. Verify guardrails data is loaded
 3. Click **"Test Capability Toggles"** button
-4. Test guardrails validation with **"Test Guardrails Validation"**
-5. Click **"Test Guardrails Save"** to verify persistence
+4. **NEW**: Test secondary authentication configuration
+   - Toggle auth requirements for different actions
+   - Select authentication types (SMS, Email, Biometric, etc.)
+   - Verify auth toggles show/hide configuration details
+5. **NEW**: Test custom prompts configuration
+   - Modify secondary auth prompts
+   - Update restriction blocked prompts
+   - Use "Use Template" buttons to apply predefined prompts
+6. Test guardrails validation with **"Test Guardrails Validation"**
+   - Verify custom prompts are displayed in validation results
+   - Check authentication type information is included
+7. Click **"Test Guardrails Save"** to verify persistence
 
-### **Phase 5: Voice Configuration Testing**
+### **Phase 5: Enhanced Guardrails Validation Testing**
+1. Open **"test-enhanced-guardrails.html"** in browser
+2. Click **"Run All Tests"** to execute comprehensive guardrails tests
+3. Verify the following test results:
+   - ✅ Prompt templates are loaded correctly
+   - ✅ Secondary authentication validation works
+   - ✅ Custom prompts can be set and retrieved
+   - ✅ Authentication types are available
+   - ✅ Available auth actions are returned per agent
+4. Test individual components:
+   - Click **"Test Prompt Templates"** - verify all template categories
+   - Click **"Test Secondary Auth"** - check auth requirements and prompts
+   - Click **"Test Custom Prompts"** - verify custom prompt functionality
+
+### **Phase 6: Voice Configuration Testing**
 1. Click **"Test Voice Configuration"** button
 2. Verify voice settings are loaded
 3. Click **"Test Voice Preview"** button
@@ -102,9 +151,17 @@ python3 -m http.server 8000
 - ✅ Toggle switches work for boolean settings
 - ✅ Save functionality persists changes
 
-#### **Guardrails Editor:**
+#### **Enhanced Guardrails Editor:**
 - ✅ Agent selection dropdown works
 - ✅ Capability toggles function properly
+- ✅ **NEW**: Secondary authentication configuration
+  - ✅ Auth action toggles work correctly
+  - ✅ Authentication type selection functions
+  - ✅ Configuration details show/hide properly
+- ✅ **NEW**: Custom prompts configuration
+  - ✅ Prompt text areas accept custom text
+  - ✅ "Use Template" buttons populate default prompts
+  - ✅ Different prompt categories (auth, blocked, compliance)
 - ✅ Restrictions form accepts input
 - ✅ Compliance rules toggles work
 - ✅ Save and test buttons function
@@ -152,7 +209,10 @@ python3 -m http.server 8000
 - ✅ All component status indicators are green
 - ✅ Agent cards display with proper information
 - ✅ Configuration modal opens and saves successfully
-- ✅ Guardrails toggles work and save properly
+- ✅ Enhanced guardrails system works and saves properly
+  - ✅ Custom prompts are saved and retrieved correctly
+  - ✅ Secondary auth configuration persists
+  - ✅ Validation includes custom prompts and auth types
 - ✅ Voice configuration loads and previews work
 - ✅ Audit log captures all events
 - ✅ Export/import functionality works

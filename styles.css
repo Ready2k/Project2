@@ -211,6 +211,63 @@ header p {
     color: #2c3e50;
 }
 
+/* Agent Indicator */
+.agent-indicator {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.agent-label {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.agent-name {
+    color: #2c3e50;
+    font-weight: bold;
+    padding: 2px 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.agent-name.fraud-agent {
+    background: #ffebee;
+    color: #c62828;
+    border-left: 3px solid #f44336;
+}
+
+.agent-name.payments-agent {
+    background: #e8f5e8;
+    color: #2e7d32;
+    border-left: 3px solid #4caf50;
+}
+
+.agent-name.idv-agent {
+    background: #fff3e0;
+    color: #ef6c00;
+    border-left: 3px solid #ff9800;
+}
+
+.agent-name.banking-info-agent {
+    background: #e3f2fd;
+    color: #1565c0;
+    border-left: 3px solid #2196f3;
+}
+
+.agent-name.default-agent {
+    background: #f3e5f5;
+    color: #7b1fa2;
+    border-left: 3px solid #9c27b0;
+}
+
 /* Features */
 .features {
     background: white;

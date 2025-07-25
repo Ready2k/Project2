@@ -89,6 +89,18 @@ class LLMManagerAdminUI {
                 this.switchTab(e.target);
             }
         });
+
+        // Auth toggle handling
+        document.addEventListener('click', (e) => {
+            if (e.target.dataset.authAction) {
+                const detailsDiv = e.target.closest('.auth-action-config').querySelector('.auth-action-details');
+                if (e.target.classList.contains('active')) {
+                    detailsDiv.style.display = 'block';
+                } else {
+                    detailsDiv.style.display = 'none';
+                }
+            }
+        });
         
         // Audit log filter
         const logFilter = document.getElementById('logFilter');
@@ -624,6 +636,16 @@ class LLMManagerAdminUI {
                           placeholder="Enter blocked keywords, one per line">${(guardrails.restrictions?.blockedKeywords || []).join('\n')}</textarea>
             </div>
             
+            <h4>Secondary Authentication</h4>
+            <div id="secondaryAuthConfig">
+                ${this.renderSecondaryAuthConfig(agentName, guardrails)}
+            </div>
+            
+            <h4>Custom Prompts</h4>
+            <div id="customPromptsConfig">
+                ${this.renderCustomPromptsConfig(agentName, guardrails)}
+            </div>
+            
             <h4>Compliance Rules</h4>
             <div class="toggle-group">
                 <div class="toggle-item">
@@ -683,6 +705,39 @@ class LLMManagerAdminUI {
                 complianceRules[rule] = toggle.classList.contains('active');
             });
             
+            // Collect secondary auth configuration
+            const requiresSecondaryAuth = {};
+            document.querySelectorAll('[data-auth-action]').forEach(toggle => {
+                const action = toggle.dataset.authAction;
+                const enabled = toggle.classList.contains('active');
+                
+                if (enabled) {
+                    const authTypeSelect = document.querySelector(`[data-auth-type="${action}"]`);
+                    requiresSecondaryAuth[action] = {
+                        enabled: true,
+                        authType: authTypeSelect ? authTypeSelect.value : 'sms',
+                        prompt: 'default'
+                    };
+                }
+            });
+            
+            // Collect custom prompts
+            const prompts = {
+                secondaryAuth: {},
+                restrictionBlocked: {},
+                compliance: {}
+            };
+            
+            document.querySelectorAll('.prompt-textarea').forEach(textarea => {
+                const category = textarea.dataset.promptCategory;
+                const key = textarea.dataset.promptKey;
+                const value = textarea.value.trim();
+                
+                if (value && prompts[category]) {
+                    prompts[category][key] = value;
+                }
+            });
+            
             // Collect other restrictions
             const blockedKeywords = document.getElementById('blockedKeywords').value
                 .split('\n')
@@ -693,9 +748,11 @@ class LLMManagerAdminUI {
                 allowedCapabilities: capabilities,
                 restrictions: {
                     maxTransactionAmount: parseFloat(document.getElementById('maxTransactionAmount').value) || 0,
+                    requiresSecondaryAuth: requiresSecondaryAuth,
                     blockedKeywords: blockedKeywords,
                     timeBasedRestrictions: {}
                 },
+                prompts: prompts,
                 complianceRules: {
                     ...complianceRules,
                     dataRetentionDays: parseInt(document.getElementById('dataRetentionDays').value) || 90
@@ -718,6 +775,102 @@ class LLMManagerAdminUI {
     }
     
     /**
+     * Render secondary authentication configuration
+     */
+    renderSecondaryAuthConfig(agentName, guardrails) {
+        const availableActions = this.guardrailsManager.getAvailableAuthActions(agentName);
+        const authTypes = this.guardrailsManager.getAuthenticationTypes();
+        const currentAuth = guardrails.restrictions?.requiresSecondaryAuth || {};
+        
+        return `
+            <div class="auth-config-container">
+                ${availableActions.map(action => {
+                    const config = currentAuth[action.action] || { enabled: false, authType: 'sms', prompt: 'default' };
+                    return `
+                        <div class="auth-action-config">
+                            <div class="auth-action-header">
+                                <div class="toggle-switch ${config.enabled ? 'active' : ''}" 
+                                     onclick="this.classList.toggle('active'); toggleAuthAction(this);" 
+                                     data-auth-action="${action.action}"></div>
+                                <span class="auth-action-label">${action.label}</span>
+                            </div>
+                            <div class="auth-action-details" style="display: ${config.enabled ? 'block' : 'none'}">
+                                <div class="form-group">
+                                    <label class="form-label">Authentication Type</label>
+                                    <select class="form-select" data-auth-type="${action.action}">
+                                        ${Object.entries(authTypes).map(([key, label]) => 
+                                            `<option value="${key}" ${config.authType === key ? 'selected' : ''}>${label}</option>`
+                                        ).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    /**
+     * Render custom prompts configuration
+     */
+    renderCustomPromptsConfig(agentName, guardrails) {
+        const promptTemplates = this.guardrailsManager.getPromptTemplates();
+        const currentPrompts = guardrails.prompts || {};
+        
+        return `
+            <div class="prompts-config-container">
+                <div class="prompt-section">
+                    <h5>Secondary Authentication Prompts</h5>
+                    ${this.renderPromptCategory('secondaryAuth', promptTemplates.secondaryAuth, currentPrompts.secondaryAuth || {}, agentName)}
+                </div>
+                
+                <div class="prompt-section">
+                    <h5>Restriction Blocked Prompts</h5>
+                    ${this.renderPromptCategory('restrictionBlocked', promptTemplates.restrictionBlocked, currentPrompts.restrictionBlocked || {}, agentName)}
+                </div>
+                
+                <div class="prompt-section">
+                    <h5>Compliance Prompts</h5>
+                    ${this.renderPromptCategory('compliance', promptTemplates.compliance, currentPrompts.compliance || {}, agentName)}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render prompt category
+     */
+    renderPromptCategory(category, templates, currentPrompts, agentName) {
+        return Object.entries(templates).map(([key, defaultPrompt]) => `
+            <div class="prompt-config-item">
+                <label class="form-label">${this.formatPromptLabel(key)}</label>
+                <div class="prompt-input-group">
+                    <textarea class="form-textarea prompt-textarea" 
+                              data-prompt-category="${category}" 
+                              data-prompt-key="${key}"
+                              rows="2" 
+                              placeholder="${defaultPrompt}">${currentPrompts[key] || ''}</textarea>
+                    <button class="btn btn-small btn-secondary" 
+                            onclick="usePromptTemplate(this);"
+                            data-template="${defaultPrompt.replace(/"/g, '&quot;')}">
+                        Use Template
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    /**
+     * Format prompt label for display
+     */
+    formatPromptLabel(key) {
+        return key.replace(/([A-Z])/g, ' $1')
+                  .replace(/^./, str => str.toUpperCase())
+                  .replace(/([a-z])([A-Z])/g, '$1 $2');
+    }
+
+    /**
      * Test guardrails
      */
     testGuardrails(agentName) {
@@ -734,6 +887,12 @@ class LLMManagerAdminUI {
             const result = this.guardrailsManager.validateAction(agentName, test.action, test.context);
             const status = result.allowed ? '✅ ALLOWED' : '❌ BLOCKED';
             results += `${status}: "${test.action}" - ${result.reason}\n`;
+            if (result.prompt) {
+                results += `   Prompt: "${result.prompt}"\n`;
+            }
+            if (result.authType) {
+                results += `   Auth Type: ${result.authType}\n`;
+            }
         });
         
         alert(results);
@@ -1403,6 +1562,25 @@ window.previewVoice = (agentName) => adminUI?.previewVoice(agentName);
 // Content loading functions
 window.loadGuardrailsEditor = (agentName) => adminUI?.loadGuardrailsEditor(agentName);
 window.loadVoiceEditor = (agentName) => adminUI?.loadVoiceEditor(agentName);
+
+// Enhanced guardrails functions
+window.toggleAuthAction = (element) => {
+    const detailsDiv = element.closest('.auth-action-config').querySelector('.auth-action-details');
+    if (element.classList.contains('active')) {
+        detailsDiv.style.display = 'block';
+    } else {
+        detailsDiv.style.display = 'none';
+    }
+};
+
+window.usePromptTemplate = (button) => {
+    const textarea = button.previousElementSibling;
+    const template = button.dataset.template;
+    if (template) {
+        textarea.value = template;
+        textarea.placeholder = '';
+    }
+};
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {

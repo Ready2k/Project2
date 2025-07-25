@@ -688,7 +688,7 @@ class FallbackHandler {
             return {
                 success: true,
                 response: response.content,
-                agentName: 'FallbackHandler',
+                agentName: 'Default Agent',
                 processingTime,
                 tokensUsed: response.tokensUsed || 0,
                 error: null,
@@ -705,7 +705,7 @@ class FallbackHandler {
             return {
                 success: false,
                 response: 'I apologize, but I\'m having trouble processing your request right now. Please try again later.',
-                agentName: 'FallbackHandler',
+                agentName: 'Default Agent',
                 processingTime,
                 tokensUsed: 0,
                 error: error.message,

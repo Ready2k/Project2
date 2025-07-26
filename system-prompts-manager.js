@@ -213,3 +213,8 @@ class SystemPromptsManager {
         this.formatCurrency = formatFunction;
     }
 }
+
+// Export to global scope for browser usage
+if (typeof window !== 'undefined') {
+    window.SystemPromptsManager = SystemPromptsManager;
+}

@@ -239,3 +239,8 @@ class OpenAIClient {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = OpenAIClient;
 }
+
+// Export to global scope for browser usage
+if (typeof window !== 'undefined') {
+    window.OpenAIClient = OpenAIClient;
+}

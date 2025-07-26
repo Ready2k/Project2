@@ -13,8 +13,8 @@ class SpeechToSpeechApp {
         // Initialize system prompts manager
         this.systemPromptsManager = new SystemPromptsManager();
 
-        // Initialize voice configuration manager
-        this.voiceConfigManager = new VoiceConfigManager();
+        // Voice configuration manager will be initialized in initializeLLMManager
+        this.voiceConfigManager = null;
 
         // Initialize API client and token tracker
         this.tokenTracker = new TokenTracker();
@@ -144,7 +144,8 @@ class SpeechToSpeechApp {
                 typeof FraudAgent === 'undefined' || 
                 typeof PaymentsAgent === 'undefined' || 
                 typeof AgentRouter === 'undefined' ||
-                typeof AgentConfigManager === 'undefined') {
+                typeof AgentConfigManager === 'undefined' ||
+                typeof SecurityManager === 'undefined') {
                 throw new Error('Agent classes not loaded - falling back to original behavior');
             }
 
@@ -1348,6 +1349,13 @@ class SpeechToSpeechApp {
             const displayContent = label ? `${label}\n${content}` : content;
             element.textContent = `[${timestamp}] ${displayContent}`;
         }
+        
+        // Update new interface if available
+        if (window.mainInterface) {
+            const timestamp = new Date().toLocaleTimeString();
+            const displayContent = label ? `${label}\n${content}` : content;
+            window.mainInterface.updateDebugOutput(elementId, `[${timestamp}] ${displayContent}`);
+        }
     }
 
     // Voice configuration helper methods
@@ -1940,7 +1948,12 @@ class SpeechToSpeechApp {
         const messageDiv = document.createElement('div');
         messageDiv.className = `${type}-message`;
 
+        // Use new interface structure with avatars
+        const avatarIcon = type === 'bot' ? 'fas fa-robot' : 'fas fa-user';
         messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <i class="${avatarIcon}"></i>
+            </div>
             <div class="message-content">
                 ${content}
             </div>
@@ -1971,6 +1984,11 @@ class SpeechToSpeechApp {
         const agentClass = this.getAgentClass(agentName);
         if (agentClass) {
             agentElement.classList.add(agentClass);
+        }
+        
+        // Update new interface if available
+        if (window.mainInterface) {
+            window.mainInterface.updateAgentIndicator(agentName);
         }
         
         console.log('Agent indicator updated:', agentName);
@@ -2294,6 +2312,11 @@ class SpeechToSpeechApp {
         const statusElement = document.getElementById('status');
         if (statusElement) statusElement.textContent = message;
         console.log('Status:', message);
+        
+        // Update new interface if available
+        if (window.mainInterface) {
+            window.mainInterface.updateStatus(message);
+        }
     }
 
     showNotification(message, type = 'info') {
@@ -2385,6 +2408,55 @@ class SpeechToSpeechApp {
             statusElement.className = `status-indicator ${status}`;
             statusElement.textContent = status.charAt(0).toUpperCase() + status.slice(1);
         }
+        
+        // Update new interface if available
+        if (window.mainInterface) {
+            window.mainInterface.updateConnectionStatus(status);
+        }
+    }
+
+    // New interface integration methods
+    setApiKey(apiKey) {
+        this.openaiApiKey = apiKey;
+        localStorage.setItem('openai_api_key', apiKey);
+        this.apiClient.setApiKey(apiKey);
+        this.streamingManager.setApiKey(apiKey);
+        this.updateKeyStatus();
+    }
+
+    addUserMessage(message) {
+        this.addMessage(message, 'user');
+    }
+
+    processTextInput(text) {
+        // Process text input as if it came from speech
+        this.processAudioResult(text);
+    }
+
+    clearConversation() {
+        const conversation = document.getElementById('conversation');
+        if (conversation) {
+            // Keep the initial bot message
+            conversation.innerHTML = `
+                <div class="bot-message">
+                    <div class="message-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-content">
+                        Hello! I'm your AI voice assistant. How can I help you today?
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Clear conversation history
+        this.conversationHistory = [];
+        this.lastAgentUsed = null;
+        
+        // Update status
+        this.updateStatus('Conversation cleared - Ready to listen');
+        
+        console.log('Conversation cleared');
     }
 
     updatePersonaSelector() {
@@ -3774,6 +3846,7 @@ function toggleAgent(agentName) {
 console.log('Initializing Speech-to-Speech (STS) App...');
 const app = new SpeechToSpeechApp();
 window.app = app; // Make app globally accessible for streaming manager
+window.speechApp = app; // Make app accessible for new interface
 
 console.log('Speech-to-Speech (STS) App initialized successfully!');
 

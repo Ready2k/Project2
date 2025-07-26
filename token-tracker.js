@@ -106,3 +106,8 @@ class TokenTracker {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = TokenTracker;
 }
+
+// Export to global scope for browser usage
+if (typeof window !== 'undefined') {
+    window.TokenTracker = TokenTracker;
+}

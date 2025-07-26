@@ -230,3 +230,8 @@ class PersonaManager {
         return this.formatCurrency(persona.balance);
     }
 }
+
+// Export to global scope for browser usage
+if (typeof window !== 'undefined') {
+    window.PersonaManager = PersonaManager;
+}

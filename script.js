@@ -4,21 +4,71 @@ class SpeechToSpeechApp {
         this.isRecording = false;
         this.mediaRecorder = null;
         this.audioChunks = [];
-        // Initialize debug logger for this module
-        this.debug = window.debugManager.createModuleLogger('SpeechToSpeechApp');
+        
+        // Initialize debug logger for this module with safety check
+        if (window.debugManager) {
+            this.debug = window.debugManager.createModuleLogger('SpeechToSpeechApp');
+        } else {
+            // Fallback debug logger if debugManager isn't available yet
+            this.debug = {
+                log: (...args) => console.log('[SpeechToSpeechApp]', ...args),
+                warn: (...args) => console.warn('[SpeechToSpeechApp]', ...args),
+                error: (...args) => console.error('[SpeechToSpeechApp]', ...args),
+                info: (...args) => console.info('[SpeechToSpeechApp]', ...args)
+            };
+            console.warn('[SpeechToSpeechApp] debugManager not available, using fallback logger');
+        }
 
-        // Initialize persona manager
-        this.personaManager = new PersonaManager();
+        // Initialize persona manager with safety check
+        if (typeof PersonaManager !== 'undefined') {
+            this.personaManager = new PersonaManager();
+        } else {
+            console.warn('[SpeechToSpeechApp] PersonaManager not available, using fallback');
+            this.personaManager = {
+                getCurrentPersona: () => 'default',
+                getCurrentPersonaData: () => ({ name: 'default', description: 'Default persona' }),
+                setPersona: () => {},
+                getPersonas: () => ({})
+            };
+        }
 
-        // Initialize system prompts manager
-        this.systemPromptsManager = new SystemPromptsManager();
+        // Initialize system prompts manager with safety check
+        if (typeof SystemPromptsManager !== 'undefined') {
+            this.systemPromptsManager = new SystemPromptsManager();
+        } else {
+            console.warn('[SpeechToSpeechApp] SystemPromptsManager not available, using fallback');
+            this.systemPromptsManager = {
+                generateSystemPrompt: () => 'You are a helpful AI assistant.',
+                getPrompts: () => ({}),
+                setPrompt: () => {}
+            };
+        }
 
-        // Initialize voice configuration manager
-        this.voiceConfigManager = new VoiceConfigManager();
+        // Voice configuration manager will be initialized in initializeLLMManager
+        this.voiceConfigManager = null;
 
-        // Initialize API client and token tracker
-        this.tokenTracker = new TokenTracker();
-        this.apiClient = new OpenAIClient(this.openaiApiKey, this.tokenTracker);
+        // Initialize API client and token tracker with safety checks
+        if (typeof TokenTracker !== 'undefined') {
+            this.tokenTracker = new TokenTracker();
+        } else {
+            console.warn('[SpeechToSpeechApp] TokenTracker not available, using fallback');
+            this.tokenTracker = {
+                trackTokens: () => {},
+                getUsage: () => ({ totalTokens: 0, totalCost: 0 }),
+                reset: () => {}
+            };
+        }
+
+        if (typeof OpenAIClient !== 'undefined') {
+            this.apiClient = new OpenAIClient(this.openaiApiKey, this.tokenTracker);
+        } else {
+            console.warn('[SpeechToSpeechApp] OpenAIClient not available, using fallback');
+            this.apiClient = {
+                generateChatCompletion: () => Promise.resolve({ success: false, error: 'API client not available' }),
+                transcribeAudio: () => Promise.resolve({ success: false, error: 'API client not available' }),
+                generateSpeech: () => Promise.resolve({ success: false, error: 'API client not available' })
+            };
+        }
 
         // Initialize AgentRouter with all domain agents
         this.initializeAgentRouter();
@@ -104,7 +154,8 @@ class SpeechToSpeechApp {
             noiseReduction: localStorage.getItem('noise_reduction') || 'medium',
             whisperLanguage: localStorage.getItem('whisper_language') || 'en',
             recognitionMode: localStorage.getItem('recognition_mode') || 'financial',
-            keepMicActive: localStorage.getItem('keep_mic_active') === 'true' || true // Default to true to avoid permission popups
+            keepMicActive: localStorage.getItem('keep_mic_active') === 'true' || true, // Default to true to avoid permission popups
+            micSensitivity: parseFloat(localStorage.getItem('mic_sensitivity')) || 50 // Default to 50%
         };
 
         // Fix for old localStorage data - force reset to 'en' if it's 'en-US'
@@ -144,7 +195,8 @@ class SpeechToSpeechApp {
                 typeof FraudAgent === 'undefined' || 
                 typeof PaymentsAgent === 'undefined' || 
                 typeof AgentRouter === 'undefined' ||
-                typeof AgentConfigManager === 'undefined') {
+                typeof AgentConfigManager === 'undefined' ||
+                typeof SecurityManager === 'undefined') {
                 throw new Error('Agent classes not loaded - falling back to original behavior');
             }
 
@@ -313,6 +365,10 @@ class SpeechToSpeechApp {
         if (browserPitch) browserPitch.addEventListener('input', (e) => this.updateBrowserPitch(e));
         if (browserVolume) browserVolume.addEventListener('input', (e) => this.updateBrowserVolume(e));
         if (testBrowserVoice) testBrowserVoice.addEventListener('click', () => this.testBrowserVoice());
+
+        // Speech settings
+        const micSensitivity = document.getElementById('micSensitivity');
+        if (micSensitivity) micSensitivity.addEventListener('input', (e) => this.updateMicSensitivity(e));
 
         // Streaming mode controls
         const streamingMode = document.getElementById('streamingMode');
@@ -713,7 +769,7 @@ class SpeechToSpeechApp {
                     tokenTracker: this.tokenTracker,
                     currentPersona: this.personaManager.getCurrentPersona(),
                     sessionData: {},
-                    debugMode: window.debugManager.isEnabled(),
+                    debugMode: window.debugManager ? window.debugManager.isEnabled() : false,
                     conversationHistory: this.conversationHistory,
                     lastAgentUsed: this.lastAgentUsed
                 };
@@ -1348,6 +1404,13 @@ class SpeechToSpeechApp {
             const displayContent = label ? `${label}\n${content}` : content;
             element.textContent = `[${timestamp}] ${displayContent}`;
         }
+        
+        // Update new interface if available
+        if (window.mainInterface) {
+            const timestamp = new Date().toLocaleTimeString();
+            const displayContent = label ? `${label}\n${content}` : content;
+            window.mainInterface.updateDebugOutput(elementId, `[${timestamp}] ${displayContent}`);
+        }
     }
 
     // Voice configuration helper methods
@@ -1940,7 +2003,12 @@ class SpeechToSpeechApp {
         const messageDiv = document.createElement('div');
         messageDiv.className = `${type}-message`;
 
+        // Use new interface structure with avatars
+        const avatarIcon = type === 'bot' ? 'fas fa-robot' : 'fas fa-user';
         messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <i class="${avatarIcon}"></i>
+            </div>
             <div class="message-content">
                 ${content}
             </div>
@@ -1971,6 +2039,11 @@ class SpeechToSpeechApp {
         const agentClass = this.getAgentClass(agentName);
         if (agentClass) {
             agentElement.classList.add(agentClass);
+        }
+        
+        // Update new interface if available
+        if (window.mainInterface) {
+            window.mainInterface.updateAgentIndicator(agentName);
         }
         
         console.log('Agent indicator updated:', agentName);
@@ -2294,6 +2367,11 @@ class SpeechToSpeechApp {
         const statusElement = document.getElementById('status');
         if (statusElement) statusElement.textContent = message;
         console.log('Status:', message);
+        
+        // Update new interface if available
+        if (window.mainInterface) {
+            window.mainInterface.updateStatus(message);
+        }
     }
 
     showNotification(message, type = 'info') {
@@ -2385,23 +2463,91 @@ class SpeechToSpeechApp {
             statusElement.className = `status-indicator ${status}`;
             statusElement.textContent = status.charAt(0).toUpperCase() + status.slice(1);
         }
+        
+        // Update new interface if available
+        if (window.mainInterface) {
+            window.mainInterface.updateConnectionStatus(status);
+        }
+    }
+
+    // New interface integration methods
+    setApiKey(apiKey) {
+        this.openaiApiKey = apiKey;
+        localStorage.setItem('openai_api_key', apiKey);
+        this.apiClient.setApiKey(apiKey);
+        this.streamingManager.setApiKey(apiKey);
+        this.updateKeyStatus();
+    }
+
+    addUserMessage(message) {
+        this.addMessage(message, 'user');
+    }
+
+    processTextInput(text) {
+        // Process text input as if it came from speech
+        this.processAudioResult(text);
+    }
+
+    clearConversation() {
+        const conversation = document.getElementById('conversation');
+        if (conversation) {
+            // Keep the initial bot message
+            conversation.innerHTML = `
+                <div class="bot-message">
+                    <div class="message-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-content">
+                        Hello! I'm your AI voice assistant. How can I help you today?
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Clear conversation history
+        this.conversationHistory = [];
+        this.lastAgentUsed = null;
+        
+        // Update status
+        this.updateStatus('Conversation cleared - Ready to listen');
+        
+        console.log('Conversation cleared');
     }
 
     updatePersonaSelector() {
+        this.debug.log('Updating persona selector...');
         const selector = document.getElementById('personaSelect');
-        if (selector) {
-            selector.innerHTML = '';
-            const personas = this.personaManager.getAllPersonas();
-            Object.keys(personas).forEach(personaId => {
-                const option = document.createElement('option');
-                option.value = personaId;
-                option.textContent = personas[personaId].name;
-                selector.appendChild(option);
-            });
-
-            // Set current selection
-            selector.value = this.personaManager.getCurrentPersona();
+        if (!selector) {
+            this.debug.error('Persona selector element not found');
+            return;
         }
+
+        const personas = this.personaManager.getAllPersonas();
+        const personaCount = Object.keys(personas).length;
+        this.debug.log('Found personas for selector:', { count: personaCount, personas: Object.keys(personas) });
+
+        if (personaCount === 0) {
+            this.debug.warn('No personas available for selector');
+            selector.innerHTML = '<option value="">No personas available</option>';
+            return;
+        }
+
+        // Clear existing options
+        selector.innerHTML = '';
+        
+        // Add personas to selector
+        Object.keys(personas).forEach(personaId => {
+            const option = document.createElement('option');
+            option.value = personaId;
+            option.textContent = personas[personaId].name;
+            selector.appendChild(option);
+            this.debug.log('Added persona to selector:', { id: personaId, name: personas[personaId].name });
+        });
+
+        // Set current selection
+        const currentPersona = this.personaManager.getCurrentPersona();
+        selector.value = currentPersona;
+        this.debug.log('Set current persona selection:', currentPersona);
     }
 
     initializeGptSettings() {
@@ -2516,6 +2662,14 @@ class SpeechToSpeechApp {
         if (ttsSpeedValue) ttsSpeedValue.textContent = this.ttsSettings.speed + 'x';
         localStorage.setItem('tts_speed', this.ttsSettings.speed);
         console.log('TTS speed updated:', this.ttsSettings.speed);
+    }
+
+    updateMicSensitivity(e) {
+        this.speechSettings.micSensitivity = parseFloat(e.target.value);
+        const sensitivityValue = document.getElementById('sensitivityValue');
+        if (sensitivityValue) sensitivityValue.textContent = this.speechSettings.micSensitivity + '%';
+        localStorage.setItem('mic_sensitivity', this.speechSettings.micSensitivity);
+        console.log('Microphone sensitivity updated:', this.speechSettings.micSensitivity);
     }
 
     updateGptModel(e) {
@@ -2636,6 +2790,19 @@ class SpeechToSpeechApp {
 
     initializeSpeechSettings() {
         console.log('Initializing speech settings...');
+        
+        // Initialize microphone sensitivity slider
+        const micSensitivity = document.getElementById('micSensitivity');
+        const sensitivityValue = document.getElementById('sensitivityValue');
+        
+        if (micSensitivity) {
+            micSensitivity.value = this.speechSettings.micSensitivity;
+        }
+        if (sensitivityValue) {
+            sensitivityValue.textContent = this.speechSettings.micSensitivity + '%';
+        }
+        
+        console.log('Microphone sensitivity initialized to:', this.speechSettings.micSensitivity);
     }
 
     initializeStreamingSettings() {
@@ -2732,12 +2899,17 @@ class SpeechToSpeechApp {
         const debugDescription = document.getElementById('debugDescription');
 
         if (debugToggle) {
-            debugToggle.checked = window.debugManager.isEnabled();
+            debugToggle.checked = window.debugManager ? window.debugManager.isEnabled() : false;
             this.updateDebugDescription();
         }
     }
 
     toggleDebugMode(enabled) {
+        if (!window.debugManager) {
+            console.warn('debugManager not available');
+            return;
+        }
+        
         if (enabled) {
             window.debugManager.enable();
         } else {
@@ -2751,7 +2923,7 @@ class SpeechToSpeechApp {
     updateDebugDescription() {
         const debugDescription = document.getElementById('debugDescription');
         if (debugDescription) {
-            const isEnabled = window.debugManager.isEnabled();
+            const isEnabled = window.debugManager ? window.debugManager.isEnabled() : false;
             debugDescription.textContent = isEnabled
                 ? 'Debug logging is enabled (detailed console output active)'
                 : 'Debug logging is disabled (recommended for normal use)';
@@ -2856,7 +3028,7 @@ class SpeechToSpeechApp {
         this.debug.log('Opening agent configuration page...');
         
         // Open the configuration page in a new tab
-        const configUrl = 'test-agent-configuration.html';
+        const configUrl = 'test/test-agent-configuration.html';
         const configWindow = window.open(configUrl, '_blank');
         
         if (configWindow) {
@@ -3694,7 +3866,7 @@ class SpeechToSpeechApp {
         this.debug.log('Opening AI agent routing test page...');
         
         // Open the AI routing test page in a new tab
-        const testUrl = 'test-ai-agent-routing.html';
+        const testUrl = 'test/test-ai-agent-routing.html';
         const testWindow = window.open(testUrl, '_blank');
         
         if (testWindow) {
@@ -3717,7 +3889,7 @@ class SpeechToSpeechApp {
         this.debug.log('Opening basic agent routing test page...');
         
         // Open the basic routing test page in a new tab
-        const testUrl = 'test-agent-routing.html';
+        const testUrl = 'test/test-agent-routing.html';
         const testWindow = window.open(testUrl, '_blank');
         
         if (testWindow) {
@@ -3774,6 +3946,7 @@ function toggleAgent(agentName) {
 console.log('Initializing Speech-to-Speech (STS) App...');
 const app = new SpeechToSpeechApp();
 window.app = app; // Make app globally accessible for streaming manager
+window.speechApp = app; // Make app accessible for new interface
 
 console.log('Speech-to-Speech (STS) App initialized successfully!');
 

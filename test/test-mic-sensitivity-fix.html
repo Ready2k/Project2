@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microphone Sensitivity Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .setting-group {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .setting-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+        .value-display {
+            font-size: 18px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 Microphone Sensitivity Fix Test</h1>
+    
+    <div class="test-container">
+        <h2>Test Case: Microphone Sensitivity Slider</h2>
+        <p>This test verifies that the microphone sensitivity slider updates the percentage display correctly.</p>
+        
+        <div class="setting-group">
+            <label>Microphone Sensitivity:</label>
+            <input type="range" id="micSensitivity" min="0" max="100" value="50">
+            <span id="sensitivityValue" class="value-display">50%</span>
+        </div>
+        
+        <div id="testResults"></div>
+        
+        <button onclick="runTests()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Run Tests</button>
+        <button onclick="resetSlider()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">Reset to 50%</button>
+    </div>
+
+    <div class="test-container">
+        <h2>Manual Test Instructions</h2>
+        <ol>
+            <li>Move the slider to different positions (0, 25, 50, 75, 100)</li>
+            <li>Verify that the percentage display updates immediately</li>
+            <li>Check that the value persists when you refresh the page</li>
+            <li>Verify that localStorage is updated correctly</li>
+        </ol>
+    </div>
+
+    <script>
+        // Mock the SpeechToSpeechApp class structure for testing
+        class MockSpeechApp {
+            constructor() {
+                this.speechSettings = {
+                    micSensitivity: parseFloat(localStorage.getItem('mic_sensitivity')) || 50
+                };
+                this.initializeSpeechSettings();
+                this.setupEventListeners();
+            }
+
+            initializeSpeechSettings() {
+                console.log('Initializing speech settings...');
+                
+                // Initialize microphone sensitivity slider
+                const micSensitivity = document.getElementById('micSensitivity');
+                const sensitivityValue = document.getElementById('sensitivityValue');
+                
+                if (micSensitivity) {
+                    micSensitivity.value = this.speechSettings.micSensitivity;
+                }
+                if (sensitivityValue) {
+                    sensitivityValue.textContent = this.speechSettings.micSensitivity + '%';
+                }
+                
+                console.log('Microphone sensitivity initialized to:', this.speechSettings.micSensitivity);
+            }
+
+            setupEventListeners() {
+                const micSensitivity = document.getElementById('micSensitivity');
+                if (micSensitivity) {
+                    micSensitivity.addEventListener('input', (e) => this.updateMicSensitivity(e));
+                }
+            }
+
+            updateMicSensitivity(e) {
+                this.speechSettings.micSensitivity = parseFloat(e.target.value);
+                const sensitivityValue = document.getElementById('sensitivityValue');
+                if (sensitivityValue) {
+                    sensitivityValue.textContent = this.speechSettings.micSensitivity + '%';
+                }
+                localStorage.setItem('mic_sensitivity', this.speechSettings.micSensitivity);
+                console.log('Microphone sensitivity updated:', this.speechSettings.micSensitivity);
+            }
+        }
+
+        // Initialize the mock app
+        let mockApp;
+        document.addEventListener('DOMContentLoaded', () => {
+            mockApp = new MockSpeechApp();
+        });
+
+        function runTests() {
+            const results = document.getElementById('testResults');
+            results.innerHTML = '';
+            
+            const tests = [
+                testSliderInitialization,
+                testSliderUpdate,
+                testLocalStoragePersistence,
+                testEdgeCases
+            ];
+            
+            tests.forEach(test => {
+                try {
+                    const result = test();
+                    results.appendChild(createTestResult(result.name, result.success, result.message));
+                } catch (error) {
+                    results.appendChild(createTestResult(test.name, false, `Error: ${error.message}`));
+                }
+            });
+        }
+
+        function testSliderInitialization() {
+            const slider = document.getElementById('micSensitivity');
+            const display = document.getElementById('sensitivityValue');
+            
+            const sliderValue = parseFloat(slider.value);
+            const displayValue = parseFloat(display.textContent.replace('%', ''));
+            
+            return {
+                name: 'Slider Initialization',
+                success: sliderValue === displayValue,
+                message: `Slider: ${sliderValue}%, Display: ${displayValue}%`
+            };
+        }
+
+        function testSliderUpdate() {
+            const slider = document.getElementById('micSensitivity');
+            const display = document.getElementById('sensitivityValue');
+            
+            // Test updating to 75%
+            slider.value = 75;
+            slider.dispatchEvent(new Event('input'));
+            
+            const displayValue = parseFloat(display.textContent.replace('%', ''));
+            
+            return {
+                name: 'Slider Update',
+                success: displayValue === 75,
+                message: `Updated to 75%, Display shows: ${displayValue}%`
+            };
+        }
+
+        function testLocalStoragePersistence() {
+            const slider = document.getElementById('micSensitivity');
+            
+            // Set to 30%
+            slider.value = 30;
+            slider.dispatchEvent(new Event('input'));
+            
+            const storedValue = parseFloat(localStorage.getItem('mic_sensitivity'));
+            
+            return {
+                name: 'LocalStorage Persistence',
+                success: storedValue === 30,
+                message: `Set to 30%, LocalStorage: ${storedValue}%`
+            };
+        }
+
+        function testEdgeCases() {
+            const slider = document.getElementById('micSensitivity');
+            const display = document.getElementById('sensitivityValue');
+            
+            // Test minimum value
+            slider.value = 0;
+            slider.dispatchEvent(new Event('input'));
+            let displayValue = parseFloat(display.textContent.replace('%', ''));
+            
+            if (displayValue !== 0) {
+                return {
+                    name: 'Edge Cases',
+                    success: false,
+                    message: `Minimum test failed: Expected 0%, got ${displayValue}%`
+                };
+            }
+            
+            // Test maximum value
+            slider.value = 100;
+            slider.dispatchEvent(new Event('input'));
+            displayValue = parseFloat(display.textContent.replace('%', ''));
+            
+            return {
+                name: 'Edge Cases',
+                success: displayValue === 100,
+                message: `Min: 0% ✓, Max: ${displayValue}%`
+            };
+        }
+
+        function createTestResult(name, success, message) {
+            const div = document.createElement('div');
+            div.className = `test-result ${success ? 'success' : 'error'}`;
+            div.innerHTML = `<strong>${name}:</strong> ${success ? '✅ PASS' : '❌ FAIL'} - ${message}`;
+            return div;
+        }
+
+        function resetSlider() {
+            const slider = document.getElementById('micSensitivity');
+            slider.value = 50;
+            slider.dispatchEvent(new Event('input'));
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(runTests, 500);
+        });
+    </script>
+</body>
+</html>

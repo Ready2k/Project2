@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Errors Fixed Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        .log-entry { margin: 5px 0; padding: 5px; border-left: 3px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>CORS Errors Fixed Test</h1>
+    <p>This test verifies that CORS errors no longer appear in the console when using file:// protocol.</p>
+    
+    <div id="results"></div>
+    
+    <h2>Console Log Monitor</h2>
+    <div id="console-logs"></div>
+
+    <!-- Include dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../persona-manager.js"></script>
+    <script src="../system-prompts-manager.js"></script>
+
+    <script>
+        // Capture console errors to monitor for CORS issues
+        const originalError = console.error;
+        const capturedErrors = [];
+        
+        console.error = function(...args) {
+            capturedErrors.push(args.join(' '));
+            originalError.apply(console, args);
+        };
+
+        async function testCORSErrorsFix() {
+            const results = document.getElementById('results');
+            const consoleLogs = document.getElementById('console-logs');
+            let html = '<h2>CORS Fix Test Results:</h2>';
+
+            try {
+                // Clear captured errors
+                capturedErrors.length = 0;
+                
+                html += `<p class="info">Protocol: ${window.location.protocol}</p>`;
+                html += '<p class="info">Test 1: Testing PersonaManager initialization...</p>';
+                
+                // Test PersonaManager
+                const personaManager = new PersonaManager();
+                await personaManager.init();
+                
+                const personas = personaManager.getAllPersonas();
+                const personaCount = Object.keys(personas).length;
+                
+                if (personaCount > 0) {
+                    html += `<p class="success">✅ PersonaManager loaded ${personaCount} personas successfully</p>`;
+                } else {
+                    html += '<p class="error">❌ PersonaManager failed to load personas</p>';
+                }
+
+                html += '<p class="info">Test 2: Testing SystemPromptsManager initialization...</p>';
+                
+                // Test SystemPromptsManager
+                const systemPromptsManager = new SystemPromptsManager();
+                await systemPromptsManager.init();
+                
+                html += '<p class="success">✅ SystemPromptsManager initialized successfully</p>';
+
+                // Check for CORS errors
+                html += '<p class="info">Test 3: Checking for CORS errors...</p>';
+                
+                const corsErrors = capturedErrors.filter(error => 
+                    error.includes('Cross origin') || 
+                    error.includes('CORS') || 
+                    error.includes('access control checks')
+                );
+                
+                if (corsErrors.length === 0) {
+                    html += '<p class="success">✅ No CORS errors detected!</p>';
+                } else {
+                    html += `<p class="error">❌ Found ${corsErrors.length} CORS errors:</p>`;
+                    corsErrors.forEach(error => {
+                        html += `<p class="error">- ${error}</p>`;
+                    });
+                }
+
+                // Show all captured errors for debugging
+                if (capturedErrors.length > 0) {
+                    html += '<h3>All Captured Errors:</h3>';
+                    capturedErrors.forEach(error => {
+                        const isCORS = error.includes('Cross origin') || error.includes('CORS') || error.includes('access control');
+                        const className = isCORS ? 'error' : 'warning';
+                        html += `<div class="log-entry ${className}">❌ ${error}</div>`;
+                    });
+                } else {
+                    html += '<p class="success">✅ No errors captured during initialization!</p>';
+                }
+
+                html += '<h3 class="success">🎉 CORS Fix Test Complete!</h3>';
+
+            } catch (error) {
+                html += `<p class="error">❌ Test failed: ${error.message}</p>`;
+                console.error('Test failed:', error);
+            }
+
+            results.innerHTML = html;
+        }
+
+        // Run test when page loads
+        window.addEventListener('load', () => {
+            setTimeout(testCORSErrorsFix, 100);
+        });
+    </script>
+</body>
+</html>

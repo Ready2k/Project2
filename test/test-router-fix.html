@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Router Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Agent Router Fix Test</h1>
+    <div id="results"></div>
+
+    <!-- Include dependencies in correct order -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agent-telemetry.js"></script>
+    <script src="../persona-manager.js"></script>
+    <script src="../system-prompts-manager.js"></script>
+    <script src="../token-tracker.js"></script>
+    <script src="../api-client.js"></script>
+    <script src="test-api-factory.js"></script>
+    <script src="test-mode-selector.js"></script>
+    <script src="../agents/security-manager.js"></script>
+    <script src="../agents/agent-config-manager.js"></script>
+    <script src="../agents/guardrails-manager.js"></script>
+    <script src="../agents/base-agent.js"></script>
+    <script src="../agents/idv-agent.js"></script>
+    <script src="../agents/banking-info-agent.js"></script>
+    <script src="../agents/fraud-agent.js"></script>
+    <script src="../agents/payments-agent.js"></script>
+    <script src="../agents/agent-router.js"></script>
+    <script src="../streaming-manager.js"></script>
+
+    <script>
+        function runTest() {
+            const results = document.getElementById('results');
+            let html = '<h2>Test Results:</h2>';
+
+            try {
+                // Test 1: Check if AgentConfigManager is available
+                html += '<p class="info">Test 1: Checking AgentConfigManager availability...</p>';
+                if (typeof AgentConfigManager === 'undefined') {
+                    throw new Error('AgentConfigManager is not defined');
+                }
+                html += '<p class="success">✅ AgentConfigManager is available</p>';
+
+                // Test 2: Try to instantiate AgentConfigManager
+                html += '<p class="info">Test 2: Instantiating AgentConfigManager...</p>';
+                const configManager = new AgentConfigManager();
+                html += '<p class="success">✅ AgentConfigManager instantiated successfully</p>';
+
+                // Test 3: Check if AgentRouter is available
+                html += '<p class="info">Test 3: Checking AgentRouter availability...</p>';
+                if (typeof AgentRouter === 'undefined') {
+                    throw new Error('AgentRouter is not defined');
+                }
+                html += '<p class="success">✅ AgentRouter is available</p>';
+
+                // Test 4: Try to instantiate AgentRouter with empty agents array
+                html += '<p class="info">Test 4: Instantiating AgentRouter...</p>';
+                const router = new AgentRouter([]);
+                html += '<p class="success">✅ AgentRouter instantiated successfully</p>';
+
+                // Test 5: Try to instantiate agents and add them to router
+                html += '<p class="info">Test 5: Creating and registering agents...</p>';
+                const idvAgent = new IDVAgent();
+                const bankingAgent = new BankingInfoAgent();
+                const fraudAgent = new FraudAgent();
+                const paymentsAgent = new PaymentsAgent();
+
+                router.registerAgent(idvAgent);
+                router.registerAgent(bankingAgent);
+                router.registerAgent(fraudAgent);
+                router.registerAgent(paymentsAgent);
+
+                html += '<p class="success">✅ All agents registered successfully</p>';
+
+                // Test 6: Check router stats
+                html += '<p class="info">Test 6: Checking router statistics...</p>';
+                const stats = router.getStats();
+                html += `<p class="success">✅ Router stats: ${stats.totalAgents} total agents, ${stats.enabledAgents} enabled</p>`;
+
+                html += '<h3 class="success">🎉 All tests passed! The AgentRouter fix is working correctly.</h3>';
+
+            } catch (error) {
+                html += `<p class="error">❌ Test failed: ${error.message}</p>`;
+                html += `<p class="error">Stack trace: ${error.stack}</p>`;
+                console.error('Test failed:', error);
+            }
+
+            results.innerHTML = html;
+        }
+
+        // Run test when page loads
+        window.addEventListener('load', () => {
+            setTimeout(runTest, 100); // Small delay to ensure all scripts are loaded
+        });
+    </script>
+</body>
+</html>

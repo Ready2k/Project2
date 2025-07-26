@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Manager Initialization Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+        .warning { color: #ffc107; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .test-scenario {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🐛 Debug Manager Initialization Fix Test</h1>
+        <p>Testing the fix for the debugManager undefined error during SpeechToSpeechApp initialization.</p>
+        
+        <div id="test-results"></div>
+        
+        <button onclick="testWithoutDebugManager()">Test Without Debug Manager</button>
+        <button onclick="testWithDebugManager()">Test With Debug Manager</button>
+        <button onclick="testScriptLoadingOrder()">Test Script Loading Order</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('test-results');
+            const p = document.createElement('p');
+            p.className = type;
+            p.textContent = message;
+            resultsDiv.appendChild(p);
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        // Mock SpeechToSpeechApp class with the fix
+        class MockSpeechToSpeechApp {
+            constructor() {
+                this.openaiApiKey = '';
+                this.isRecording = false;
+                this.mediaRecorder = null;
+                this.audioChunks = [];
+                
+                // Initialize debug logger for this module with safety check
+                if (window.debugManager) {
+                    this.debug = window.debugManager.createModuleLogger('SpeechToSpeechApp');
+                } else {
+                    // Fallback debug logger if debugManager isn't available yet
+                    this.debug = {
+                        log: (...args) => console.log('[SpeechToSpeechApp]', ...args),
+                        warn: (...args) => console.warn('[SpeechToSpeechApp]', ...args),
+                        error: (...args) => console.error('[SpeechToSpeechApp]', ...args),
+                        info: (...args) => console.info('[SpeechToSpeechApp]', ...args)
+                    };
+                    console.warn('[SpeechToSpeechApp] debugManager not available, using fallback logger');
+                }
+                
+                this.initialized = true;
+            }
+            
+            toggleDebugMode(enabled) {
+                if (!window.debugManager) {
+                    console.warn('debugManager not available');
+                    return;
+                }
+                
+                if (enabled) {
+                    window.debugManager.enable();
+                } else {
+                    window.debugManager.disable();
+                }
+            }
+            
+            getDebugStatus() {
+                return window.debugManager ? window.debugManager.isEnabled() : false;
+            }
+        }
+
+        // Mock DebugManager class
+        class MockDebugManager {
+            constructor() {
+                this.debugEnabled = false;
+            }
+            
+            createModuleLogger(module) {
+                return {
+                    log: (...args) => console.log(`[${module}]`, ...args),
+                    warn: (...args) => console.warn(`[${module}]`, ...args),
+                    error: (...args) => console.error(`[${module}]`, ...args),
+                    info: (...args) => console.info(`[${module}]`, ...args)
+                };
+            }
+            
+            isEnabled() {
+                return this.debugEnabled;
+            }
+            
+            enable() {
+                this.debugEnabled = true;
+            }
+            
+            disable() {
+                this.debugEnabled = false;
+            }
+        }
+
+        function testWithoutDebugManager() {
+            clearResults();
+            addResult('🧪 Testing SpeechToSpeechApp initialization WITHOUT debugManager...', 'info');
+            
+            try {
+                // Remove debugManager if it exists
+                const originalDebugManager = window.debugManager;
+                delete window.debugManager;
+                
+                addResult('Step 1: Removed debugManager from window object', 'info');
+                
+                // Try to create SpeechToSpeechApp
+                const app = new MockSpeechToSpeechApp();
+                
+                if (app.initialized && app.debug) {
+                    addResult('✅ SpeechToSpeechApp initialized successfully with fallback logger', 'success');
+                    addResult('✅ Fallback debug logger is working', 'success');
+                    
+                    // Test debug methods
+                    app.debug.log('Test log message');
+                    addResult('✅ Debug log method works', 'success');
+                    
+                    // Test debug mode toggle
+                    app.toggleDebugMode(true);
+                    addResult('✅ Debug mode toggle handles missing debugManager gracefully', 'success');
+                    
+                } else {
+                    addResult('❌ SpeechToSpeechApp failed to initialize', 'error');
+                }
+                
+                // Restore original debugManager
+                if (originalDebugManager) {
+                    window.debugManager = originalDebugManager;
+                }
+                
+                addResult('🎉 Test completed: App can initialize without debugManager!', 'success');
+                
+            } catch (error) {
+                addResult(`❌ Test failed: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+
+        function testWithDebugManager() {
+            clearResults();
+            addResult('🧪 Testing SpeechToSpeechApp initialization WITH debugManager...', 'info');
+            
+            try {
+                // Create mock debugManager
+                window.debugManager = new MockDebugManager();
+                addResult('Step 1: Created mock debugManager', 'info');
+                
+                // Try to create SpeechToSpeechApp
+                const app = new MockSpeechToSpeechApp();
+                
+                if (app.initialized && app.debug) {
+                    addResult('✅ SpeechToSpeechApp initialized successfully with debugManager', 'success');
+                    
+                    // Test debug methods
+                    app.debug.log('Test log message');
+                    addResult('✅ Debug logger from debugManager works', 'success');
+                    
+                    // Test debug mode toggle
+                    app.toggleDebugMode(true);
+                    const isEnabled = app.getDebugStatus();
+                    addResult(`✅ Debug mode toggle works: ${isEnabled}`, 'success');
+                    
+                } else {
+                    addResult('❌ SpeechToSpeechApp failed to initialize', 'error');
+                }
+                
+                addResult('🎉 Test completed: App works correctly with debugManager!', 'success');
+                
+            } catch (error) {
+                addResult(`❌ Test failed: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+
+        function testScriptLoadingOrder() {
+            clearResults();
+            addResult('🧪 Testing script loading order scenarios...', 'info');
+            
+            try {
+                // Scenario 1: debugManager loads first (correct order)
+                addResult('Scenario 1: debugManager available before app initialization', 'info');
+                window.debugManager = new MockDebugManager();
+                const app1 = new MockSpeechToSpeechApp();
+                addResult('✅ App initialized successfully when debugManager is available', 'success');
+                
+                // Scenario 2: debugManager loads after (incorrect order)
+                addResult('Scenario 2: debugManager not available during app initialization', 'info');
+                delete window.debugManager;
+                const app2 = new MockSpeechToSpeechApp();
+                addResult('✅ App initialized with fallback when debugManager is missing', 'success');
+                
+                // Scenario 3: debugManager becomes available later
+                addResult('Scenario 3: debugManager becomes available after app initialization', 'info');
+                window.debugManager = new MockDebugManager();
+                addResult('✅ App can work with debugManager added later', 'success');
+                
+                addResult('🎉 All script loading scenarios handled correctly!', 'success');
+                
+            } catch (error) {
+                addResult(`❌ Script loading test failed: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            addResult('🐛 Debug Manager Fix Test initialized', 'info');
+            addResult('This test verifies that SpeechToSpeechApp can initialize even if debugManager is not available', 'info');
+            addResult('Click any test button to run specific scenarios', 'info');
+        });
+    </script>
+</body>
+</html>

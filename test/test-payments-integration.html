@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaymentsAgent Integration Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .test-pass {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .test-fail {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .test-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .test-warn {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .summary {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .summary.pass {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .summary.fail {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .scenario-section {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #28a745;
+        }
+        .response-preview {
+            background-color: #f1f3f4;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>PaymentsAgent Integration Tests</h1>
+    
+    <div class="test-container">
+        <h2>Integration Test Controls</h2>
+        <button onclick="runAllIntegrationTests()">Run All Integration Tests</button>
+        <button onclick="runAgentRouterTests()">Test Agent Router Integration</button>
+        <button onclick="runPersonaIntegrationTests()">Test Persona Integration</button>
+        <button onclick="runSecurityBoundaryTests()">Test Security Boundaries</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="test-results"></div>
+
+    <!-- Load dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/base-agent.js"></script>
+    <script src="../agents/payments-agent.js"></script>
+    <script src="../agents/banking-info-agent.js"></script>
+    <script src="../agents/fraud-agent.js"></script>
+    <script src="../agents/agent-router.js"></script>
+
+    <script>
+        // Integration Test Framework
+        class IntegrationTestFramework {
+            constructor() {
+                this.results = [];
+                this.currentSuite = '';
+            }
+
+            suite(name) {
+                this.currentSuite = name;
+                this.log(`\n=== ${name} ===`, 'info');
+            }
+
+            test(description, testFn) {
+                try {
+                    const result = testFn();
+                    if (result === true || result === undefined) {
+                        this.results.push({ suite: this.currentSuite, test: description, status: 'pass' });
+                        this.log(`✓ ${description}`, 'pass');
+                    } else {
+                        this.results.push({ suite: this.currentSuite, test: description, status: 'fail', error: 'Test returned false' });
+                        this.log(`✗ ${description} - Test returned false`, 'fail');
+                    }
+                } catch (error) {
+                    this.results.push({ suite: this.currentSuite, test: description, status: 'fail', error: error.message });
+                    this.log(`✗ ${description} - ${error.message}`, 'fail');
+                }
+            }
+
+            async asyncTest(description, testFn) {
+                try {
+                    const result = await testFn();
+                    if (result === true || result === undefined) {
+                        this.results.push({ suite: this.currentSuite, test: description, status: 'pass' });
+                        this.log(`✓ ${description}`, 'pass');
+                    } else {
+                        this.results.push({ suite: this.currentSuite, test: description, status: 'fail', error: 'Test returned false' });
+                        this.log(`✗ ${description} - Test returned false`, 'fail');
+                    }
+                } catch (error) {
+                    this.results.push({ suite: this.currentSuite, test: description, status: 'fail', error: error.message });
+                    this.log(`✗ ${description} - ${error.message}`, 'fail');
+                }
+            }
+
+            log(message, type = 'info') {
+                const resultsDiv = document.getElementById('test-results');
+                const div = document.createElement('div');
+                div.className = `test-result test-${type}`;
+                div.textContent = message;
+                resultsDiv.appendChild(div);
+            }
+
+            logResponse(title, response) {
+                const resultsDiv = document.getElementById('test-results');
+                const container = document.createElement('div');
+                container.className = 'scenario-section';
+                
+                const titleDiv = document.createElement('div');
+                titleDiv.textContent = title;
+                titleDiv.style.fontWeight = 'bold';
+                titleDiv.style.marginBottom = '10px';
+                
+                const responseDiv = document.createElement('div');
+                responseDiv.className = 'response-preview';
+                responseDiv.textContent = JSON.stringify(response, null, 2);
+                
+                container.appendChild(titleDiv);
+                container.appendChild(responseDiv);
+                resultsDiv.appendChild(container);
+            }
+
+            getSummary() {
+                const total = this.results.length;
+                const passed = this.results.filter(r => r.status === 'pass').length;
+                const failed = total - passed;
+                return { total, passed, failed };
+            }
+
+            displaySummary() {
+                const summary = this.getSummary();
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = `summary ${summary.failed === 0 ? 'pass' : 'fail'}`;
+                summaryDiv.textContent = `Integration Tests completed: ${summary.total} total, ${summary.passed} passed, ${summary.failed} failed`;
+                document.getElementById('test-results').appendChild(summaryDiv);
+            }
+
+            clear() {
+                this.results = [];
+                document.getElementById('test-results').innerHTML = '';
+            }
+        }
+
+        // Initialize test framework
+        const integrationTestFramework = new IntegrationTestFramework();
+
+        // Mock dependencies with more realistic behavior
+        const mockDebugManager = {
+            createModuleLogger: (name) => ({
+                info: (msg, data) => console.log(`[${name}] INFO:`, msg, data || ''),
+                warn: (msg, data) => console.warn(`[${name}] WARN:`, msg, data || ''),
+                error: (msg, data) => console.error(`[${name}] ERROR:`, msg, data || '')
+            })
+        };
+
+        // Multiple persona scenarios for testing
+        const personaScenarios = {
+            highBalance: {
+                name: 'Sarah Johnson',
+                accountType: 'Premium Account',
+                balance: 5000.00,
+                cardLast4: '5678',
+                currency: 'GBP',
+                accountStatus: 'active'
+            },
+            lowBalance: {
+                name: 'Mike Wilson',
+                accountType: 'Basic Account',
+                balance: 25.00,
+                cardLast4: '9012',
+                currency: 'GBP',
+                accountStatus: 'active'
+            },
+            frozenAccount: {
+                name: 'Jane Doe',
+                accountType: 'Current Account',
+                balance: 1000.00,
+                cardLast4: '3456',
+                currency: 'GBP',
+                accountStatus: 'frozen'
+            }
+        };
+
+        function createMockPersonaManager(scenario = 'highBalance') {
+            return {
+                getCurrentPersonaData: () => personaScenarios[scenario],
+                formatCurrency: (amount) => `£${amount.toFixed(2)}`
+            };
+        }
+
+        const mockSystemPromptsManager = {
+            getSystemPrompt: () => 'You are a helpful banking assistant.'
+        };
+
+        const mockApiClient = {
+            createChatCompletion: async (params) => {
+                // Simulate different responses based on input
+                const userMessage = params.messages.find(m => m.role === 'user')?.content || '';
+                let responseContent = 'I can help you with that payment request.';
+                
+                if (userMessage.includes('£50')) {
+                    responseContent = 'I can help you send £50. Please confirm the recipient details and I\'ll process this transfer for you.';
+                } else if (userMessage.includes('wire')) {
+                    responseContent = 'For international wire transfers, I\'ll need additional information including the recipient\'s bank details and SWIFT code.';
+                } else if (userMessage.includes('transfer')) {
+                    responseContent = 'I can process that transfer for you. Let me verify the details and check your available balance.';
+                }
+                
+                return {
+                    choices: [{
+                        message: { content: responseContent }
+                    }],
+                    usage: { total_tokens: Math.floor(Math.random() * 200) + 100 }
+                };
+            }
+        };
+
+        const mockTokenTracker = {
+            addTokens: (tokens, agent) => console.log(`Token tracking: ${tokens} tokens for ${agent}`),
+            trackGptUsage: (inputTokens, outputTokens) => console.log(`Token tracking: ${inputTokens} input, ${outputTokens} output tokens`),
+            trackWhisperUsage: (minutes) => console.log(`Token tracking: ${minutes} minutes of Whisper usage`),
+            trackTtsUsage: (characters, model) => console.log(`Token tracking: ${characters} characters for TTS (${model})`),
+            getUsage: () => ({ whisper: { requests: 0, cost: 0 }, gpt: { tokens: 0, cost: 0 }, tts: { characters: 0, cost: 0 }, total: 0 })
+        };
+
+        function createMockContext(personaScenario = 'highBalance') {
+            return {
+                personaManager: createMockPersonaManager(personaScenario),
+                systemPromptsManager: mockSystemPromptsManager,
+                apiClient: mockApiClient,
+                tokenTracker: mockTokenTracker
+            };
+        }
+
+        // Set up global dependencies
+        window.debugManager = mockDebugManager;
+
+        // Integration test functions
+        async function runAgentRouterTests() {
+            integrationTestFramework.clear();
+            integrationTestFramework.suite('PaymentsAgent - Agent Router Integration');
+
+            // Create agent router with multiple agents
+            const paymentsAgent = new PaymentsAgent();
+            const bankingInfoAgent = new BankingInfoAgent();
+            const fraudAgent = new FraudAgent();
+            
+            const router = new AgentRouter([paymentsAgent, bankingInfoAgent, fraudAgent]);
+            const context = createMockContext('highBalance');
+
+            // Test payment routing
+            await integrationTestFramework.asyncTest('Router should route payment request to PaymentsAgent', async () => {
+                const result = await router.route('send £100 to Alice', context);
+                integrationTestFramework.logResponse('Payment Request Response', result);
+                return result.success === true && 
+                       result.agentName === 'PaymentsAgent' &&
+                       result.metadata.agentType === 'payment_processing';
+            });
+
+            await integrationTestFramework.asyncTest('Router should route transfer request to PaymentsAgent', async () => {
+                const result = await router.route('transfer £50 to my savings account', context);
+                integrationTestFramework.logResponse('Transfer Request Response', result);
+                return result.success === true && result.agentName === 'PaymentsAgent';
+            });
+
+            await integrationTestFramework.asyncTest('Router should route wire transfer to PaymentsAgent', async () => {
+                const result = await router.route('wire money internationally', context);
+                integrationTestFramework.logResponse('Wire Transfer Response', result);
+                return result.success === true && result.agentName === 'PaymentsAgent';
+            });
+
+            // Test that non-payment requests don't go to PaymentsAgent
+            await integrationTestFramework.asyncTest('Router should NOT route balance inquiry to PaymentsAgent', async () => {
+                const result = await router.route('what is my account balance', context);
+                integrationTestFramework.logResponse('Balance Inquiry Response', result);
+                return result.agentName !== 'PaymentsAgent';
+            });
+
+            await integrationTestFramework.asyncTest('Router should NOT route fraud report to PaymentsAgent', async () => {
+                const result = await router.route('report fraudulent transaction', context);
+                integrationTestFramework.logResponse('Fraud Report Response', result);
+                return result.agentName !== 'PaymentsAgent';
+            });
+
+            integrationTestFramework.displaySummary();
+        }
+
+        async function runPersonaIntegrationTests() {
+            integrationTestFramework.clear();
+            integrationTestFramework.suite('PaymentsAgent - Persona Integration');
+
+            const agent = new PaymentsAgent();
+
+            // Test with high balance persona
+            await integrationTestFramework.asyncTest('Should process payment with high balance persona', async () => {
+                const context = createMockContext('highBalance');
+                const result = await agent.handle('send £100 to Alice', context);
+                integrationTestFramework.logResponse('High Balance Payment Response', result);
+                return result.success === true && 
+                       result.metadata.personaUsed === 'Sarah Johnson';
+            });
+
+            // Test with low balance persona
+            await integrationTestFramework.asyncTest('Should reject payment with low balance persona', async () => {
+                const context = createMockContext('lowBalance');
+                const result = await agent.handle('send £100 to Alice', context);
+                integrationTestFramework.logResponse('Low Balance Payment Response', result);
+                return result.success === false && 
+                       result.error.includes('amount exceeds available balance');
+            });
+
+            // Test with frozen account persona
+            await integrationTestFramework.asyncTest('Should reject payment with frozen account', async () => {
+                const context = createMockContext('frozenAccount');
+                const result = await agent.handle('send £50 to Alice', context);
+                integrationTestFramework.logResponse('Frozen Account Payment Response', result);
+                return result.success === false && 
+                       result.error.includes('Account is not active');
+            });
+
+            // Test persona data integration in system prompt
+            await integrationTestFramework.asyncTest('Should include persona data in system prompt', async () => {
+                const context = createMockContext('highBalance');
+                const personaData = context.personaManager.getCurrentPersonaData();
+                const prompt = agent.generateSystemPrompt(context, 'send £100', personaData);
+                
+                return prompt.includes('Sarah Johnson') && 
+                       prompt.includes('£5000.00') &&
+                       prompt.includes('Premium Account');
+            });
+
+            integrationTestFramework.displaySummary();
+        }
+
+        async function runSecurityBoundaryTests() {
+            integrationTestFramework.clear();
+            integrationTestFramework.suite('PaymentsAgent - Security Boundary Tests');
+
+            const agent = new PaymentsAgent();
+            const context = createMockContext('highBalance');
+
+            // Test security validation scenarios
+            await integrationTestFramework.asyncTest('Should validate transaction amount against balance', async () => {
+                const result = await agent.handle('send £4500 to Alice', context); // Within balance
+                integrationTestFramework.logResponse('Valid Amount Response', result);
+                return result.success === true;
+            });
+
+            await integrationTestFramework.asyncTest('Should reject amount exceeding balance', async () => {
+                const result = await agent.handle('send £6000 to Alice', context); // Exceeds balance
+                integrationTestFramework.logResponse('Exceeding Amount Response', result);
+                return result.success === false;
+            });
+
+            // Test system prompt security boundaries
+            await integrationTestFramework.asyncTest('System prompt should enforce payment-only access', async () => {
+                const personaData = context.personaManager.getCurrentPersonaData();
+                const prompt = agent.generateSystemPrompt(context, 'send £100', personaData);
+                
+                return prompt.includes('ONLY access payment and transfer functions') &&
+                       prompt.includes('CANNOT access identity verification') &&
+                       prompt.includes('CANNOT access read-only banking information') &&
+                       prompt.includes('HIGHEST SECURITY');
+            });
+
+            // Test metadata security tracking
+            await integrationTestFramework.asyncTest('Should track highest security level in metadata', async () => {
+                const result = await agent.handle('send £100 to Alice', context);
+                integrationTestFramework.logResponse('Security Metadata Response', result);
+                return result.metadata.securityLevel === 'highest' &&
+                       result.metadata.transactionValidated === true;
+            });
+
+            // Test error handling maintains security
+            await integrationTestFramework.asyncTest('Should maintain security in error responses', async () => {
+                const contextWithError = {
+                    ...context,
+                    apiClient: {
+                        createChatCompletion: async () => {
+                            throw new Error('API Error');
+                        }
+                    }
+                };
+                
+                const result = await agent.handle('send £100 to Alice', contextWithError);
+                integrationTestFramework.logResponse('Error Security Response', result);
+                return result.success === false &&
+                       result.metadata.securityLevel === 'highest' &&
+                       result.response.includes('security reasons');
+            });
+
+            integrationTestFramework.displaySummary();
+        }
+
+        async function runAllIntegrationTests() {
+            integrationTestFramework.clear();
+            
+            integrationTestFramework.log('Starting PaymentsAgent Integration Tests...', 'info');
+            
+            // Run all integration test suites
+            await runAgentRouterTests();
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            await runPersonaIntegrationTests();
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            await runSecurityBoundaryTests();
+            
+            // Display final summary
+            integrationTestFramework.log('\n=== FINAL INTEGRATION TEST SUMMARY ===', 'info');
+            integrationTestFramework.displaySummary();
+        }
+
+        function clearResults() {
+            integrationTestFramework.clear();
+        }
+
+        // Auto-run initialization
+        window.addEventListener('load', () => {
+            integrationTestFramework.log('PaymentsAgent Integration Tests Initialized', 'info');
+            integrationTestFramework.log('Click "Run All Integration Tests" to begin comprehensive testing', 'info');
+        });
+    </script>
+</body>
+</html>

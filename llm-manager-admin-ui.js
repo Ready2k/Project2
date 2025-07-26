@@ -22,6 +22,17 @@ class LLMManagerAdminUI {
     initialize() {
         this.debug.log('Initializing LLM Manager Admin UI');
         
+        // Check if we're in the standalone LLM Manager interface
+        const isStandaloneLLMInterface = document.querySelector('.llm-manager-container') || 
+                                       document.querySelector('[data-section]');
+        
+        if (!isStandaloneLLMInterface) {
+            this.debug.warn('LLM Manager Admin UI loaded in new interface - limited functionality');
+            // Only initialize managers, skip UI setup
+            this.initializeManagers();
+            return;
+        }
+        
         // Initialize debug manager if not available
         if (!window.debugManager) {
             window.debugManager = {
@@ -50,6 +61,22 @@ class LLMManagerAdminUI {
      */
     initializeManagers() {
         try {
+            // Check if required classes are available
+            if (typeof LLMManager === 'undefined') {
+                this.debug.warn('LLMManager not available, skipping initialization');
+                return;
+            }
+            
+            if (typeof GuardrailsManager === 'undefined') {
+                this.debug.warn('GuardrailsManager not available, skipping initialization');
+                return;
+            }
+            
+            if (typeof VoiceConfigManager === 'undefined') {
+                this.debug.warn('VoiceConfigManager not available, skipping initialization');
+                return;
+            }
+            
             this.llmManager = new LLMManager();
             this.guardrailsManager = new GuardrailsManager();
             this.voiceConfigManager = new VoiceConfigManager();
@@ -69,12 +96,20 @@ class LLMManagerAdminUI {
      * Set up event listeners
      */
     setupEventListeners() {
-        // Navigation
-        document.querySelectorAll('.nav-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.switchSection(e.target.dataset.section);
+        // Navigation - only set up if elements exist
+        const navBtns = document.querySelectorAll('.nav-btn[data-section]');
+        if (navBtns.length > 0) {
+            navBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const section = e.target.dataset.section;
+                    if (section) {
+                        this.switchSection(section);
+                    }
+                });
             });
-        });
+        } else {
+            this.debug.warn('No navigation buttons with data-section found - likely in new interface');
+        }
         
         // Modal close events
         document.addEventListener('click', (e) => {
@@ -123,11 +158,21 @@ class LLMManagerAdminUI {
      * Switch between main sections
      */
     switchSection(sectionName) {
+        // Check if we're in the new interface structure
+        if (!document.querySelector(`[data-section="${sectionName}"]`)) {
+            this.debug.warn('switchSection called but elements not found - likely in new interface');
+            return;
+        }
+        
         // Update navigation
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.classList.remove('active');
         });
-        document.querySelector(`[data-section="${sectionName}"]`).classList.add('active');
+        
+        const targetNavBtn = document.querySelector(`[data-section="${sectionName}"]`);
+        if (targetNavBtn) {
+            targetNavBtn.classList.add('active');
+        }
         
         // Update content
         document.querySelectorAll('.content-section').forEach(section => {
@@ -208,11 +253,16 @@ class LLMManagerAdminUI {
             const stats = this.llmManager.getConfigurationStats();
             const agents = this.llmManager.getAgentConfigurations();
             
-            // Update statistics
-            document.getElementById('totalAgents').textContent = stats.totalAgents;
-            document.getElementById('enabledAgents').textContent = stats.enabledAgents;
-            document.getElementById('disabledAgents').textContent = stats.disabledAgents;
-            document.getElementById('lastUpdated').textContent = 
+            // Update statistics (safely)
+            const totalAgentsEl = document.getElementById('totalAgents');
+            const enabledAgentsEl = document.getElementById('enabledAgents');
+            const disabledAgentsEl = document.getElementById('disabledAgents');
+            const lastUpdatedEl = document.getElementById('lastUpdated');
+            
+            if (totalAgentsEl) totalAgentsEl.textContent = stats.totalAgents;
+            if (enabledAgentsEl) enabledAgentsEl.textContent = stats.enabledAgents;
+            if (disabledAgentsEl) disabledAgentsEl.textContent = stats.disabledAgents;
+            if (lastUpdatedEl) lastUpdatedEl.textContent = 
                 stats.lastUpdated ? new Date(stats.lastUpdated).toLocaleString() : 'Never';
             
             // Update agent grid
@@ -1356,7 +1406,8 @@ class LLMManagerAdminUI {
         localStorage.setItem('llm_manager_audit_log', JSON.stringify(this.auditLog));
         
         // Update UI if audit section is visible
-        if (document.getElementById('audit-section').classList.contains('active')) {
+        const auditSection = document.getElementById('audit-section');
+        if (auditSection && auditSection.classList.contains('active')) {
             this.renderAuditLog();
         }
     }
@@ -1528,6 +1579,11 @@ class LLMManagerAdminUI {
             document.head.appendChild(style);
         }
     }
+}
+
+// Export to global scope for browser usage
+if (typeof window !== 'undefined') {
+    window.LLMManagerAdminUI = LLMManagerAdminUI;
 }
 
 // Global functions for HTML onclick handlers

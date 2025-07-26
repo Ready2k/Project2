@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings Panel Test</title>
+    <link rel="stylesheet" href="../main-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .test-info {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 10000;
+            font-family: monospace;
+            font-size: 12px;
+            max-width: 300px;
+        }
+        .test-result {
+            margin: 5px 0;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .info { color: #2196F3; }
+    </style>
+</head>
+<body>
+    <div class="test-info">
+        <div><strong>🔧 Settings Panel Test</strong></div>
+        <div id="panelTest" class="test-result info">Click Settings button to test</div>
+        <div id="errorTest" class="test-result">No errors detected</div>
+    </div>
+
+    <div class="app-container">
+        <!-- Top Navigation Bar -->
+        <nav class="top-nav">
+            <div class="nav-brand">
+                <i class="fas fa-microphone-alt"></i>
+                <span>AI Voice Assistant</span>
+            </div>
+            <div class="nav-controls">
+                <button class="nav-btn" id="settingsBtn" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button class="nav-btn" id="adminBtn" title="Administration">
+                    <i class="fas fa-user-shield"></i>
+                </button>
+                <button class="nav-btn" id="debugBtn" title="Debug Tools">
+                    <i class="fas fa-bug"></i>
+                </button>
+                <button class="nav-btn" id="helpBtn" title="Help">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <section class="voice-interface">
+                <div class="interface-header">
+                    <h1>Settings Panel Test</h1>
+                    <p>Click the settings button (gear icon) in the top navigation to test the panel functionality.</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Settings Panel (Slide-out) -->
+        <div id="settingsPanel" class="side-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-cog"></i> Settings</h2>
+                <button class="close-panel" data-panel="settingsPanel">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="panel-content">
+                <!-- Voice Settings -->
+                <div class="settings-section">
+                    <h3>Voice Configuration</h3>
+                    <div class="setting-group">
+                        <label>TTS Provider:</label>
+                        <select id="ttsMode">
+                            <option value="openai">OpenAI TTS</option>
+                            <option value="browser">Browser TTS</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>Voice:</label>
+                        <select id="ttsVoice">
+                            <option value="nova">Nova</option>
+                            <option value="alloy">Alloy</option>
+                            <option value="echo">Echo</option>
+                            <option value="fable">Fable</option>
+                            <option value="onyx">Onyx</option>
+                            <option value="shimmer">Shimmer</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>Speed:</label>
+                        <input type="range" id="voiceSpeed" min="0.25" max="4.0" step="0.25" value="1.0">
+                        <span id="speedValue">1.0x</span>
+                    </div>
+                </div>
+
+                <!-- AI Model Settings -->
+                <div class="settings-section">
+                    <h3>AI Model Configuration</h3>
+                    <div class="setting-group">
+                        <label>GPT Model:</label>
+                        <select id="gptModel">
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                            <option value="gpt-4">GPT-4</option>
+                            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>API Key:</label>
+                        <div class="api-key-input">
+                            <input type="password" id="apiKey" placeholder="Enter OpenAI API Key">
+                            <button id="saveKey" class="save-btn">Save</button>
+                        </div>
+                        <div class="api-status" id="apiStatus">
+                            <span class="status-indicator">No API key set</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Audio Settings -->
+                <div class="settings-section">
+                    <h3>Audio Configuration</h3>
+                    <div class="setting-group">
+                        <label>Microphone Sensitivity:</label>
+                        <input type="range" id="micSensitivity" min="0" max="100" value="50">
+                        <span id="sensitivityValue">50%</span>
+                    </div>
+                    <div class="setting-group">
+                        <label>Auto-stop Recording:</label>
+                        <input type="checkbox" id="autoStop" checked>
+                        <span>Stop recording after silence</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Overlay -->
+        <div id="panelOverlay" class="panel-overlay"></div>
+    </div>
+
+    <!-- Load scripts -->
+    <script src="../debug-manager.js"></script>
+    <script src="../llm-manager-admin-ui.js"></script>
+    <script src="../main-interface.js"></script>
+
+    <script>
+        // Test functionality
+        let errorCount = 0;
+        let panelOpened = false;
+
+        // Capture errors
+        window.addEventListener('error', (event) => {
+            errorCount++;
+            document.getElementById('errorTest').innerHTML = 
+                `<span class="error">❌ ${errorCount} error(s) detected</span>`;
+            console.error('Test caught error:', event.error);
+        });
+
+        // Test panel functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            const settingsBtn = document.getElementById('settingsBtn');
+            const settingsPanel = document.getElementById('settingsPanel');
+            
+            if (settingsBtn) {
+                settingsBtn.addEventListener('click', () => {
+                    panelOpened = true;
+                    document.getElementById('panelTest').innerHTML = 
+                        '<span class="success">✅ Settings button clicked</span>';
+                    
+                    // Check if panel opens
+                    setTimeout(() => {
+                        if (settingsPanel.classList.contains('open')) {
+                            document.getElementById('panelTest').innerHTML = 
+                                '<span class="success">✅ Settings panel opened successfully</span>';
+                        } else {
+                            document.getElementById('panelTest').innerHTML = 
+                                '<span class="error">❌ Settings panel failed to open</span>';
+                        }
+                    }, 100);
+                });
+            }
+
+            // Update error status
+            setTimeout(() => {
+                if (errorCount === 0) {
+                    document.getElementById('errorTest').innerHTML = 
+                        '<span class="success">✅ No JavaScript errors</span>';
+                }
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

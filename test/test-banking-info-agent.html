@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BankingInfoAgent Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .test-result { margin: 10px 0; }
+        .test-input { background: #f5f5f5; padding: 10px; margin: 5px 0; border-radius: 3px; }
+        .test-output { background: #e8f4fd; padding: 10px; margin: 5px 0; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>Testing BankingInfoAgent</h1>
+    <div id="test-results"></div>
+
+    <script src="../debug-manager.js"></script>
+    <script src="../persona-manager.js"></script>
+    <script src="../agents/base-agent.js"></script>
+    <script src="../agents/banking-info-agent.js"></script>
+    <script>
+        // Enable debug mode for testing
+        window.debugManager.enable();
+        
+        console.log('Testing BankingInfoAgent...');
+        
+        // Mock dependencies
+        const mockPersonaManager = {
+            getCurrentPersonaData: () => ({
+                name: 'John Doe',
+                balance: 2450.75,
+                cardLast4: '1234',
+                accountType: 'checking',
+                currency: 'GBP',
+                recentTransactions: [
+                    { date: '2025-01-15', amount: -45.67, description: 'Coffee Shop' },
+                    { date: '2025-01-14', amount: -120.00, description: 'Tesco Groceries' },
+                    { date: '2025-01-13', amount: 1500.00, description: 'Salary Deposit' }
+                ]
+            }),
+            formatCurrency: (amount) => new Intl.NumberFormat('en-GB', {
+                style: 'currency',
+                currency: 'GBP'
+            }).format(amount)
+        };
+        
+        const mockSystemPromptsManager = {
+            getSystemPrompt: () => 'You are a helpful banking assistant.'
+        };
+        
+        const mockApiClient = {
+            createChatCompletion: async (params) => ({
+                choices: [{ message: { content: 'Mock banking response based on account data' } }],
+                usage: { total_tokens: 150 }
+            })
+        };
+        
+        const mockTokenTracker = {
+            addTokens: (tokens, agent) => console.log(`Tracked ${tokens} tokens for ${agent}`),
+            trackGptUsage: (inputTokens, outputTokens) => console.log(`Token tracking: ${inputTokens} input, ${outputTokens} output tokens`),
+            trackWhisperUsage: (minutes) => console.log(`Token tracking: ${minutes} minutes of Whisper usage`),
+            trackTtsUsage: (characters, model) => console.log(`Token tracking: ${characters} characters for TTS (${model})`),
+            getUsage: () => ({ whisper: { requests: 0, cost: 0 }, gpt: { tokens: 0, cost: 0 }, tts: { characters: 0, cost: 0 }, total: 0 })
+        };
+        
+        const mockContext = {
+            personaManager: mockPersonaManager,
+            systemPromptsManager: mockSystemPromptsManager,
+            apiClient: mockApiClient,
+            tokenTracker: mockTokenTracker
+        };
+        
+        // Test results storage
+        const testResults = [];
+        
+        // Test 1: Agent instantiation
+        function testInstantiation() {
+            try {
+                const agent = new BankingInfoAgent();
+                testResults.push({
+                    name: 'Agent Instantiation',
+                    passed: agent.name === 'BankingInfoAgent' && agent.description.includes('account balance'),
+                    details: `Agent name: ${agent.name}, Description: ${agent.description.substring(0, 50)}...`
+                });
+            } catch (error) {
+                testResults.push({
+                    name: 'Agent Instantiation',
+                    passed: false,
+                    details: `Error: ${error.message}`
+                });
+            }
+        }
+        
+        // Test 2: canHandle method - positive cases
+        function testCanHandlePositive() {
+            const agent = new BankingInfoAgent();
+            const positiveInputs = [
+                'What is my account balance?',
+                'Check balance',
+                'Show me my recent transactions',
+                'Transaction history',
+                'Account statement',
+                'How much money do I have?',
+                'Account details',
+                'What have I spent recently?'
+            ];
+            
+            const results = positiveInputs.map(input => ({
+                input,
+                result: agent.canHandle(input)
+            }));
+            
+            const allPassed = results.every(r => r.result === true);
+            
+            testResults.push({
+                name: 'canHandle - Positive Cases',
+                passed: allPassed,
+                details: results.map(r => `"${r.input}": ${r.result ? '✅' : '❌'}`).join('<br>')
+            });
+        }
+        
+        // Test 3: canHandle method - negative cases
+        function testCanHandleNegative() {
+            const agent = new BankingInfoAgent();
+            const negativeInputs = [
+                'Transfer money to Alice',
+                'Send £50 to Bob',
+                'Block my card',
+                'Report fraud',
+                'Verify my identity',
+                'Reset my password',
+                'Hello there',
+                'What\'s the weather?'
+            ];
+            
+            const results = negativeInputs.map(input => ({
+                input,
+                result: agent.canHandle(input)
+            }));
+            
+            const allPassed = results.every(r => r.result === false);
+            
+            testResults.push({
+                name: 'canHandle - Negative Cases',
+                passed: allPassed,
+                details: results.map(r => `"${r.input}": ${r.result ? '❌' : '✅'}`).join('<br>')
+            });
+        }
+        
+        // Test 4: Read-only access validation
+        function testReadOnlyValidation() {
+            const agent = new BankingInfoAgent();
+            const writeOperationInputs = [
+                'Transfer £100 to Alice',
+                'Send money to Bob',
+                'Pay the electricity bill',
+                'Block my card',
+                'Change my PIN'
+            ];
+            
+            let validationWorks = true;
+            const results = [];
+            
+            writeOperationInputs.forEach(input => {
+                try {
+                    agent.validateReadOnlyAccess(input);
+                    validationWorks = false;
+                    results.push(`"${input}": ❌ Should have been rejected`);
+                } catch (error) {
+                    results.push(`"${input}": ✅ Correctly rejected`);
+                }
+            });
+            
+            // Test valid read-only operations
+            const readOnlyInputs = ['Check my balance', 'Show transactions'];
+            readOnlyInputs.forEach(input => {
+                try {
+                    agent.validateReadOnlyAccess(input);
+                    results.push(`"${input}": ✅ Correctly allowed`);
+                } catch (error) {
+                    validationWorks = false;
+                    results.push(`"${input}": ❌ Should have been allowed`);
+                }
+            });
+            
+            testResults.push({
+                name: 'Read-Only Access Validation',
+                passed: validationWorks,
+                details: results.join('<br>')
+            });
+        }
+        
+        // Test 5: Handle method with balance inquiry
+        async function testHandleBalanceInquiry() {
+            const agent = new BankingInfoAgent();
+            const input = 'What is my account balance?';
+            
+            try {
+                const response = await agent.handle(input, mockContext);
+                
+                const passed = response.success && 
+                              response.agentName === 'BankingInfoAgent' &&
+                              response.metadata.agentType === 'banking_information' &&
+                              response.metadata.inputCategory === 'balance_inquiry' &&
+                              response.metadata.dataAccess === 'read_only';
+                
+                testResults.push({
+                    name: 'Handle Balance Inquiry',
+                    passed,
+                    details: `Success: ${response.success}, Agent: ${response.agentName}, Category: ${response.metadata.inputCategory}, Tokens: ${response.tokensUsed}`
+                });
+            } catch (error) {
+                testResults.push({
+                    name: 'Handle Balance Inquiry',
+                    passed: false,
+                    details: `Error: ${error.message}`
+                });
+            }
+        }
+        
+        // Test 6: Handle method with transaction history
+        async function testHandleTransactionHistory() {
+            const agent = new BankingInfoAgent();
+            const input = 'Show me my recent transactions';
+            
+            try {
+                const response = await agent.handle(input, mockContext);
+                
+                const passed = response.success && 
+                              response.metadata.inputCategory === 'transaction_history';
+                
+                testResults.push({
+                    name: 'Handle Transaction History',
+                    passed,
+                    details: `Success: ${response.success}, Category: ${response.metadata.inputCategory}, Processing Time: ${response.processingTime}ms`
+                });
+            } catch (error) {
+                testResults.push({
+                    name: 'Handle Transaction History',
+                    passed: false,
+                    details: `Error: ${error.message}`
+                });
+            }
+        }
+        
+        // Test 7: Input categorization
+        function testInputCategorization() {
+            const agent = new BankingInfoAgent();
+            const testCases = [
+                { input: 'What is my balance?', expected: 'balance_inquiry' },
+                { input: 'Show transaction history', expected: 'transaction_history' },
+                { input: 'Account statement please', expected: 'account_statement' },
+                { input: 'Account details', expected: 'account_information' },
+                { input: 'How much have I spent?', expected: 'spending_analysis' },
+                { input: 'General banking question', expected: 'general_banking_info' }
+            ];
+            
+            const results = testCases.map(test => ({
+                input: test.input,
+                expected: test.expected,
+                actual: agent.categorizeInput(test.input),
+                passed: agent.categorizeInput(test.input) === test.expected
+            }));
+            
+            const allPassed = results.every(r => r.passed);
+            
+            testResults.push({
+                name: 'Input Categorization',
+                passed: allPassed,
+                details: results.map(r => `"${r.input}": ${r.actual} ${r.passed ? '✅' : '❌'}`).join('<br>')
+            });
+        }
+        
+        // Test 8: System prompt generation
+        function testSystemPromptGeneration() {
+            const agent = new BankingInfoAgent();
+            const personaData = mockPersonaManager.getCurrentPersonaData();
+            
+            try {
+                const prompt = agent.generateSystemPrompt(mockContext, 'Check balance', personaData);
+                
+                const hasPersonaInfo = prompt.includes(personaData.name) && 
+                                     prompt.includes('£2,450.75') &&
+                                     prompt.includes(personaData.cardLast4);
+                
+                const hasSecurityBoundaries = prompt.includes('READ-ONLY') && 
+                                            prompt.includes('CANNOT perform transactions');
+                
+                const hasCapabilities = prompt.includes('account balance') && 
+                                      prompt.includes('transaction history');
+                
+                const passed = hasPersonaInfo && hasSecurityBoundaries && hasCapabilities;
+                
+                testResults.push({
+                    name: 'System Prompt Generation',
+                    passed,
+                    details: `Persona Info: ${hasPersonaInfo ? '✅' : '❌'}, Security: ${hasSecurityBoundaries ? '✅' : '❌'}, Capabilities: ${hasCapabilities ? '✅' : '❌'}`
+                });
+            } catch (error) {
+                testResults.push({
+                    name: 'System Prompt Generation',
+                    passed: false,
+                    details: `Error: ${error.message}`
+                });
+            }
+        }
+        
+        // Test 9: Error handling
+        async function testErrorHandling() {
+            const agent = new BankingInfoAgent();
+            const invalidContext = {}; // Missing required dependencies
+            
+            try {
+                const response = await agent.handle('Check balance', invalidContext);
+                
+                const passed = !response.success && 
+                              response.error && 
+                              response.agentName === 'BankingInfoAgent';
+                
+                testResults.push({
+                    name: 'Error Handling',
+                    passed,
+                    details: `Success: ${response.success}, Has Error: ${!!response.error}, Agent: ${response.agentName}`
+                });
+            } catch (error) {
+                testResults.push({
+                    name: 'Error Handling',
+                    passed: false,
+                    details: `Unexpected error: ${error.message}`
+                });
+            }
+        }
+        
+        // Run all tests
+        async function runAllTests() {
+            console.log('Running BankingInfoAgent tests...');
+            
+            testInstantiation();
+            testCanHandlePositive();
+            testCanHandleNegative();
+            testReadOnlyValidation();
+            await testHandleBalanceInquiry();
+            await testHandleTransactionHistory();
+            testInputCategorization();
+            testSystemPromptGeneration();
+            await testErrorHandling();
+            
+            displayResults();
+        }
+        
+        function displayResults() {
+            const resultsDiv = document.getElementById('test-results');
+            const passedTests = testResults.filter(t => t.passed).length;
+            const totalTests = testResults.length;
+            
+            let html = `<h2>Test Results: ${passedTests}/${totalTests} Passed</h2>`;
+            
+            testResults.forEach(test => {
+                const statusClass = test.passed ? 'pass' : 'fail';
+                const statusIcon = test.passed ? '✅' : '❌';
+                
+                html += `
+                    <div class="test-section">
+                        <h3 class="${statusClass}">${statusIcon} ${test.name}</h3>
+                        <div class="test-result">${test.details}</div>
+                    </div>
+                `;
+            });
+            
+            if (passedTests === totalTests) {
+                html += `
+                    <div class="test-section" style="background-color: #d4edda; border-color: #c3e6cb;">
+                        <h3 class="pass">🎉 All Tests Passed!</h3>
+                        <p>BankingInfoAgent is working correctly and ready for integration.</p>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="test-section" style="background-color: #f8d7da; border-color: #f5c6cb;">
+                        <h3 class="fail">⚠️ Some Tests Failed</h3>
+                        <p>Please review the failed tests and fix the issues before proceeding.</p>
+                    </div>
+                `;
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        // Start testing
+        runAllTests();
+    </script>
+</body>
+</html>

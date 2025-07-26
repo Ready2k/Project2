@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Manager Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            border-left: 4px solid #007bff;
+            padding-left: 15px;
+        }
+        .test-case {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .test-result {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>LLM Manager Core Infrastructure Tests</h1>
+    
+    <div class="stats">
+        <div class="stat-item">
+            <div class="stat-number" id="totalTests">0</div>
+            <div>Total Tests</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" id="passedTests">0</div>
+            <div>Passed</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" id="failedTests">0</div>
+            <div>Failed</div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="clearResults()">Clear Results</button>
+        <button onclick="runLLMManagerTests()">Test LLM Manager</button>
+        <button onclick="runGuardrailsManagerTests()">Test Guardrails Manager</button>
+        <button onclick="runVoiceConfigManagerTests()">Test Voice Config Manager</button>
+    </div>
+
+    <div id="testResults"></div>
+
+    <!-- Load dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/llm-manager.js"></script>
+    <script src="../agents/guardrails-manager.js"></script>
+    <script src="../agents/voice-config-manager.js"></script>
+
+    <script>
+        // Test framework
+        let testStats = {
+            total: 0,
+            passed: 0,
+            failed: 0
+        };
+
+        function updateStats() {
+            document.getElementById('totalTests').textContent = testStats.total;
+            document.getElementById('passedTests').textContent = testStats.passed;
+            document.getElementById('failedTests').textContent = testStats.failed;
+        }
+
+        function logResult(testName, success, message, details = null) {
+            testStats.total++;
+            if (success) {
+                testStats.passed++;
+            } else {
+                testStats.failed++;
+            }
+            updateStats();
+
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${success ? 'success' : 'error'}`;
+            
+            let content = `${success ? '✓' : '✗'} ${testName}: ${message}`;
+            if (details) {
+                content += `\n${JSON.stringify(details, null, 2)}`;
+            }
+            
+            resultDiv.textContent = content;
+            document.getElementById('testResults').appendChild(resultDiv);
+        }
+
+        function logInfo(message) {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'test-result info';
+            resultDiv.textContent = `ℹ ${message}`;
+            document.getElementById('testResults').appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+            testStats = { total: 0, passed: 0, failed: 0 };
+            updateStats();
+        }
+
+        // Initialize debug manager for testing
+        if (!window.debugManager) {
+            window.debugManager = {
+                createModuleLogger: (module) => ({
+                    log: (...args) => console.log(`[${module}]`, ...args),
+                    warn: (...args) => console.warn(`[${module}]`, ...args),
+                    error: (...args) => console.error(`[${module}]`, ...args)
+                })
+            };
+        }
+
+        // LLM Manager Tests
+        function runLLMManagerTests() {
+            logInfo('Starting LLM Manager Tests...');
+            
+            // Test 1: LLM Manager Initialization
+            try {
+                const llmManager = new LLMManager();
+                logResult('LLM Manager Initialization', true, 'LLM Manager created successfully');
+                
+                // Test default configurations
+                const configs = llmManager.getAgentConfigurations();
+                const hasDefaultAgents = Object.keys(configs).length > 0;
+                logResult('Default Configurations', hasDefaultAgents, 
+                    `Found ${Object.keys(configs).length} default agent configurations`);
+                
+            } catch (error) {
+                logResult('LLM Manager Initialization', false, 'Failed to create LLM Manager', error.message);
+                return;
+            }
+
+            // Test 2: Configuration Management
+            try {
+                const llmManager = new LLMManager();
+                
+                const testConfig = {
+                    name: 'TestAgent',
+                    description: 'Test Agent Description',
+                    priority: 1,
+                    enabled: true,
+                    triggers: ['test', 'demo'],
+                    llmProvider: 'openai',
+                    llmModel: 'gpt-4',
+                    maxTokens: 1000
+                };
+                
+                const updateResult = llmManager.updateAgentConfiguration('TestAgent', testConfig);
+                logResult('Update Agent Configuration', updateResult, 'Successfully updated agent configuration');
+                
+                const retrievedConfig = llmManager.getAgentConfiguration('TestAgent');
+                const configMatches = retrievedConfig && retrievedConfig.name === 'TestAgent';
+                logResult('Retrieve Agent Configuration', configMatches, 'Successfully retrieved agent configuration');
+                
+            } catch (error) {
+                logResult('Configuration Management', false, 'Configuration management failed', error.message);
+            }
+
+            // Test 3: Configuration Validation
+            try {
+                const llmManager = new LLMManager();
+                
+                // Valid configuration
+                const validConfig = {
+                    name: 'ValidAgent',
+                    description: 'Valid Agent Description',
+                    priority: 1,
+                    enabled: true
+                };
+                
+                const validResult = llmManager.validateConfiguration(validConfig);
+                logResult('Valid Configuration Validation', validResult.valid, 'Valid configuration passed validation');
+                
+                // Invalid configuration
+                const invalidConfig = {
+                    name: '', // Invalid empty name
+                    priority: -1, // Invalid negative priority
+                    llmProvider: 'invalid' // Invalid provider
+                };
+                
+                const invalidResult = llmManager.validateConfiguration(invalidConfig);
+                logResult('Invalid Configuration Validation', !invalidResult.valid, 
+                    `Invalid configuration rejected with ${invalidResult.errors.length} errors`);
+                
+            } catch (error) {
+                logResult('Configuration Validation', false, 'Validation testing failed', error.message);
+            }
+
+            // Test 4: Export/Import Functionality
+            try {
+                const llmManager = new LLMManager();
+                
+                // Export configurations
+                const exportData = llmManager.exportConfiguration();
+                const hasExportStructure = exportData.version && exportData.configurations;
+                logResult('Export Configuration', hasExportStructure, 'Successfully exported configurations');
+                
+                // Import configurations
+                const importResult = llmManager.importConfiguration(exportData);
+                logResult('Import Configuration', importResult, 'Successfully imported configurations');
+                
+            } catch (error) {
+                logResult('Export/Import Functionality', false, 'Export/import failed', error.message);
+            }
+
+            // Test 5: Configuration Statistics
+            try {
+                const llmManager = new LLMManager();
+                
+                const stats = llmManager.getConfigurationStats();
+                const hasValidStats = stats.totalAgents >= 0 && stats.enabledAgents >= 0;
+                logResult('Configuration Statistics', hasValidStats, 
+                    `Stats: ${stats.totalAgents} total, ${stats.enabledAgents} enabled agents`);
+                
+            } catch (error) {
+                logResult('Configuration Statistics', false, 'Statistics generation failed', error.message);
+            }
+
+            // Test 6: Reset to Defaults
+            try {
+                const llmManager = new LLMManager();
+                
+                llmManager.resetToDefaults();
+                const configs = llmManager.getAgentConfigurations();
+                const hasDefaultAgents = Object.keys(configs).length > 0;
+                logResult('Reset to Defaults', hasDefaultAgents, 'Successfully reset to default configurations');
+                
+            } catch (error) {
+                logResult('Reset to Defaults', false, 'Reset to defaults failed', error.message);
+            }
+        }
+
+        // Guardrails Manager Tests
+        function runGuardrailsManagerTests() {
+            logInfo('Starting Guardrails Manager Tests...');
+            
+            // Test 1: Guardrails Manager Initialization
+            try {
+                const guardrailsManager = new GuardrailsManager();
+                logResult('Guardrails Manager Initialization', true, 'Guardrails Manager created successfully');
+                
+                const guardrails = guardrailsManager.getAllGuardrails();
+                const hasDefaultGuardrails = Object.keys(guardrails).length > 0;
+                logResult('Default Guardrails', hasDefaultGuardrails, 
+                    `Found ${Object.keys(guardrails).length} default guardrail configurations`);
+                
+            } catch (error) {
+                logResult('Guardrails Manager Initialization', false, 'Failed to create Guardrails Manager', error.message);
+                return;
+            }
+
+            // Test 2: Set and Get Guardrails
+            try {
+                const guardrailsManager = new GuardrailsManager();
+                
+                const testGuardrails = {
+                    allowedCapabilities: {
+                        canAccessAccountData: true,
+                        canInitiateTransactions: false
+                    },
+                    restrictions: {
+                        maxTransactionAmount: 500,
+                        blockedKeywords: ['test', 'demo']
+                    },
+                    complianceRules: {
+                        logAllActions: true,
+                        requireAuditTrail: true
+                    }
+                };
+                
+                const setResult = guardrailsManager.setGuardrails('TestAgent', testGuardrails);
+                logResult('Set Guardrails', setResult, 'Successfully set guardrails for test agent');
+                
+                const retrievedGuardrails = guardrailsManager.getGuardrails('TestAgent');
+                const guardrailsMatch = retrievedGuardrails && retrievedGuardrails.allowedCapabilities.canAccessAccountData === true;
+                logResult('Get Guardrails', guardrailsMatch, 'Successfully retrieved guardrails');
+                
+            } catch (error) {
+                logResult('Set and Get Guardrails', false, 'Guardrails management failed', error.message);
+            }
+
+            // Test 3: Action Validation
+            try {
+                const guardrailsManager = new GuardrailsManager();
+                
+                // Set up test guardrails
+                const testGuardrails = {
+                    allowedCapabilities: {
+                        canAccessAccountData: true,
+                        canInitiateTransactions: false
+                    },
+                    restrictions: {
+                        blockedKeywords: ['forbidden']
+                    }
+                };
+                
+                guardrailsManager.setGuardrails('TestAgent', testGuardrails);
+                
+                // Test allowed action
+                const allowedResult = guardrailsManager.validateAction('TestAgent', 'getAccountData');
+                logResult('Allowed Action Validation', allowedResult.allowed, 'Allowed action passed validation');
+                
+                // Test blocked action with keyword
+                const blockedResult = guardrailsManager.validateAction('TestAgent', 'forbidden action');
+                logResult('Blocked Action Validation', !blockedResult.allowed, 'Blocked action correctly rejected');
+                
+            } catch (error) {
+                logResult('Action Validation', false, 'Action validation failed', error.message);
+            }
+
+            // Test 4: Guardrails Validation
+            try {
+                const guardrailsManager = new GuardrailsManager();
+                
+                // Valid guardrails
+                const validGuardrails = {
+                    allowedCapabilities: {
+                        canAccessAccountData: true
+                    },
+                    restrictions: {
+                        maxTransactionAmount: 1000
+                    }
+                };
+                
+                const validResult = guardrailsManager.validateGuardrails(validGuardrails);
+                logResult('Valid Guardrails Validation', validResult.valid, 'Valid guardrails passed validation');
+                
+                // Invalid guardrails
+                const invalidGuardrails = {
+                    allowedCapabilities: {
+                        invalidCapability: true // Invalid capability
+                    },
+                    restrictions: {
+                        maxTransactionAmount: -100 // Invalid negative amount
+                    }
+                };
+                
+                const invalidResult = guardrailsManager.validateGuardrails(invalidGuardrails);
+                logResult('Invalid Guardrails Validation', !invalidResult.valid, 
+                    `Invalid guardrails rejected with ${invalidResult.errors.length} errors`);
+                
+            } catch (error) {
+                logResult('Guardrails Validation', false, 'Guardrails validation failed', error.message);
+            }
+
+            // Test 5: Violation Logging
+            try {
+                const guardrailsManager = new GuardrailsManager();
+                
+                guardrailsManager.logViolation('TestAgent', 'testAction', 'Test violation');
+                
+                const violations = guardrailsManager.getViolationHistory('TestAgent');
+                const hasViolation = violations.length > 0 && violations[violations.length - 1].action === 'testAction';
+                logResult('Violation Logging', hasViolation, 'Successfully logged and retrieved violation');
+                
+            } catch (error) {
+                logResult('Violation Logging', false, 'Violation logging failed', error.message);
+            }
+        }
+
+        // Voice Config Manager Tests
+        function runVoiceConfigManagerTests() {
+            logInfo('Starting Voice Config Manager Tests...');
+            
+            // Test 1: Voice Config Manager Initialization
+            try {
+                const voiceConfigManager = new VoiceConfigManager();
+                logResult('Voice Config Manager Initialization', true, 'Voice Config Manager created successfully');
+                
+                const configs = voiceConfigManager.getAllVoiceConfigs();
+                const hasDefaultConfigs = Object.keys(configs).length > 0;
+                logResult('Default Voice Configurations', hasDefaultConfigs, 
+                    `Found ${Object.keys(configs).length} default voice configurations`);
+                
+            } catch (error) {
+                logResult('Voice Config Manager Initialization', false, 'Failed to create Voice Config Manager', error.message);
+                return;
+            }
+
+            // Test 2: Set and Get Voice Configuration
+            try {
+                const voiceConfigManager = new VoiceConfigManager();
+                
+                const testVoiceConfig = {
+                    ttsSettings: {
+                        provider: 'openai',
+                        voice: 'alloy',
+                        speed: 1.0,
+                        pitch: 0,
+                        volume: 0.8
+                    },
+                    personalityTraits: {
+                        tone: 'friendly',
+                        formality: 'professional',
+                        enthusiasm: 7,
+                        empathy: 6
+                    }
+                };
+                
+                const setResult = voiceConfigManager.setVoiceConfig('TestAgent', testVoiceConfig);
+                logResult('Set Voice Configuration', setResult, 'Successfully set voice configuration');
+                
+                const retrievedConfig = voiceConfigManager.getVoiceConfig('TestAgent');
+                const configMatches = retrievedConfig && retrievedConfig.ttsSettings.voice === 'alloy';
+                logResult('Get Voice Configuration', configMatches, 'Successfully retrieved voice configuration');
+                
+            } catch (error) {
+                logResult('Set and Get Voice Configuration', false, 'Voice configuration management failed', error.message);
+            }
+
+            // Test 3: Voice Configuration Validation
+            try {
+                const voiceConfigManager = new VoiceConfigManager();
+                
+                // Valid configuration
+                const validConfig = {
+                    ttsSettings: {
+                        provider: 'openai',
+                        voice: 'alloy',
+                        speed: 1.0
+                    },
+                    personalityTraits: {
+                        tone: 'professional',
+                        formality: 'professional'
+                    }
+                };
+                
+                const validResult = voiceConfigManager.validateVoiceConfig(validConfig);
+                logResult('Valid Voice Config Validation', validResult.valid, 'Valid voice config passed validation');
+                
+                // Invalid configuration
+                const invalidConfig = {
+                    ttsSettings: {
+                        provider: 'invalid', // Invalid provider
+                        speed: 10.0 // Invalid speed
+                    },
+                    personalityTraits: {
+                        enthusiasm: 15 // Invalid enthusiasm level
+                    }
+                };
+                
+                const invalidResult = voiceConfigManager.validateVoiceConfig(invalidConfig);
+                logResult('Invalid Voice Config Validation', !invalidResult.valid, 
+                    `Invalid voice config rejected with ${invalidResult.errors.length} errors`);
+                
+            } catch (error) {
+                logResult('Voice Configuration Validation', false, 'Voice config validation failed', error.message);
+            }
+
+            // Test 4: Voice Preview
+            try {
+                const voiceConfigManager = new VoiceConfigManager();
+                
+                const testConfig = {
+                    ttsSettings: {
+                        provider: 'openai',
+                        voice: 'alloy',
+                        speed: 1.0
+                    }
+                };
+                
+                voiceConfigManager.previewVoice(testConfig, 'Test preview text').then(previewResult => {
+                    logResult('Voice Preview', previewResult.success, 'Successfully generated voice preview');
+                }).catch(error => {
+                    logResult('Voice Preview', false, 'Voice preview failed', error.message);
+                });
+                
+            } catch (error) {
+                logResult('Voice Preview', false, 'Voice preview failed', error.message);
+            }
+
+            // Test 5: TTS Request Building
+            try {
+                const voiceConfigManager = new VoiceConfigManager();
+                
+                // Set up test configuration
+                const testConfig = {
+                    ttsSettings: {
+                        provider: 'openai',
+                        voice: 'echo',
+                        speed: 0.9
+                    },
+                    personalityTraits: {
+                        tone: 'friendly'
+                    }
+                };
+                
+                voiceConfigManager.setVoiceConfig('TestAgent', testConfig);
+                
+                const ttsRequest = voiceConfigManager.applyVoiceConfig('TestAgent', 'Hello world');
+                const hasCorrectSettings = ttsRequest.voice === 'echo' && ttsRequest.speed === 0.9;
+                logResult('TTS Request Building', hasCorrectSettings, 'Successfully built TTS request with agent configuration');
+                
+            } catch (error) {
+                logResult('TTS Request Building', false, 'TTS request building failed', error.message);
+            }
+
+            // Test 6: Available Voices and Providers
+            try {
+                const voiceConfigManager = new VoiceConfigManager();
+                
+                const providers = voiceConfigManager.getAvailableProviders();
+                const hasProviders = providers.length > 0 && providers.includes('openai');
+                logResult('Available Providers', hasProviders, `Found ${providers.length} TTS providers`);
+                
+                const openaiVoices = voiceConfigManager.getAvailableVoices('openai');
+                const hasVoices = openaiVoices.length > 0 && openaiVoices.includes('alloy');
+                logResult('Available Voices', hasVoices, `Found ${openaiVoices.length} OpenAI voices`);
+                
+            } catch (error) {
+                logResult('Available Voices and Providers', false, 'Provider/voice enumeration failed', error.message);
+            }
+        }
+
+        // Run all tests
+        function runAllTests() {
+            clearResults();
+            logInfo('Running all LLM Manager Core Infrastructure tests...');
+            
+            runLLMManagerTests();
+            runGuardrailsManagerTests();
+            runVoiceConfigManagerTests();
+            
+            logInfo(`Test run completed. ${testStats.passed}/${testStats.total} tests passed.`);
+        }
+
+        // Initialize
+        updateStats();
+    </script>
+</body>
+</html>

@@ -4,38 +4,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Speech-to-Speech (STS)</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>AI Voice Assistant - Professional Edition</title>
+    <link rel="stylesheet" href="main-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 
 <body>
     <div class="app-container">
-        <!-- Navigation -->
-        <nav class="nav-tabs">
-            <button class="tab-btn active" data-tab="chat">Voice Chat</button>
-            <button class="tab-btn" data-tab="admin">Admin Panel</button>
-            <button class="tab-btn" data-tab="settings">Settings</button>
+        <!-- Top Navigation Bar -->
+        <nav class="top-nav">
+            <div class="nav-brand">
+                <i class="fas fa-microphone-alt"></i>
+                <span>AI Voice Assistant</span>
+            </div>
+            <div class="nav-controls">
+                <button class="nav-btn" id="settingsBtn" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button class="nav-btn" id="adminBtn" title="Administration">
+                    <i class="fas fa-user-shield"></i>
+                </button>
+                <button class="nav-btn" id="debugBtn" title="Debug Tools">
+                    <i class="fas fa-bug"></i>
+                </button>
+                <button class="nav-btn" id="helpBtn" title="Help">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+            </div>
         </nav>
 
-        <!-- Chat Interface -->
-        <div id="chat-tab" class="tab-content active">
-            <div class="container">
-                <header>
-                    <h1>� Speech-to-Speech (STS)</h1>
-                    <p>AI Voice Conversation Demo</p>
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Voice Interface Section -->
+            <section class="voice-interface">
+                <div class="interface-header">
+                    <h1>Voice Conversation</h1>
                     <div class="persona-selector">
-                        <label>Customer: </label>
+                        <label>Customer Profile:</label>
                         <select id="personaSelect">
-                            <option value="john_doe">John Doe</option>
-                            <option value="sarah_smith">Sarah Smith</option>
-                            <option value="mike_johnson">Mike Johnson</option>
+                            <option value="">Loading personas...</option>
                         </select>
                     </div>
-                </header>
+                </div>
 
-                <div class="chat-container">
+                <!-- Conversation Display -->
+                <div class="conversation-container">
                     <div id="conversation" class="conversation">
                         <div class="bot-message">
+                            <div class="message-avatar">
+                                <i class="fas fa-robot"></i>
+                            </div>
                             <div class="message-content">
                                 Hello! I'm your AI voice assistant. How can I help you today?
                             </div>
@@ -43,809 +61,619 @@
                     </div>
                 </div>
 
-                <div class="controls">
+                <!-- Voice Controls -->
+                <div class="voice-controls">
                     <!-- Mode Toggle -->
-                    <div class="mode-toggle">
-                        <label class="toggle-label">
+                    <div class="mode-selector">
+                        <div class="mode-toggle">
                             <input type="checkbox" id="streamingMode" class="mode-checkbox">
-                            <span class="toggle-slider"></span>
-                            <span class="toggle-text">Streaming Mode</span>
-                        </label>
+                            <label for="streamingMode" class="toggle-label">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-text">Streaming Mode</span>
+                            </label>
+                        </div>
                         <div class="mode-description">
                             <span id="modeDescription">Batch Mode: Click to record, then process</span>
                         </div>
                     </div>
 
-                    <!-- Batch Mode Controls -->
-                    <div id="batchControls" class="control-group">
-                        <button id="startBtn" class="voice-btn">
-                            🎤 Start Speaking
-                        </button>
-                        <button id="stopBtn" class="voice-btn" disabled>
-                            ⏹️ Stop
-                        </button>
-                        <button id="batchMuteBtn" class="voice-btn mute-btn" disabled>
-                            🎤 Mute
-                        </button>
-                        <button id="clearConversationBtn" class="voice-btn clear-btn">
-                            🗑️ Clear Chat
+                    <!-- Control Buttons -->
+                    <div class="control-buttons">
+                        <!-- Batch Mode Controls -->
+                        <div id="batchControls" class="control-group">
+                            <button id="startBtn" class="primary-btn">
+                                <i class="fas fa-microphone"></i>
+                                <span>Start Speaking</span>
+                            </button>
+                            <button id="stopBtn" class="secondary-btn" disabled>
+                                <i class="fas fa-stop"></i>
+                                <span>Stop</span>
+                            </button>
+                            <button id="batchMuteBtn" class="mute-btn" disabled>
+                                <i class="fas fa-microphone-slash"></i>
+                                <span>Mute</span>
+                            </button>
+                        </div>
+
+                        <!-- Streaming Mode Controls -->
+                        <div id="streamingControls" class="control-group hidden">
+                            <button id="connectBtn" class="primary-btn">
+                                <i class="fas fa-phone"></i>
+                                <span>Connect</span>
+                            </button>
+                            <button id="disconnectBtn" class="secondary-btn" disabled>
+                                <i class="fas fa-phone-slash"></i>
+                                <span>Disconnect</span>
+                            </button>
+                            <button id="muteBtn" class="mute-btn" disabled>
+                                <i class="fas fa-microphone-slash"></i>
+                                <span>Mute</span>
+                            </button>
+                        </div>
+
+                        <!-- Clear Button -->
+                        <button id="clearConversationBtn" class="clear-btn">
+                            <i class="fas fa-trash"></i>
+                            <span>Clear Chat</span>
                         </button>
                     </div>
 
-                    <!-- Streaming Mode Controls -->
-                    <div id="streamingControls" class="control-group hidden">
-                        <button id="connectBtn" class="voice-btn streaming-btn">
-                            📞 Connect
-                        </button>
-                        <button id="disconnectBtn" class="voice-btn streaming-btn" disabled>
-                            📞 Disconnect
-                        </button>
-                        <button id="muteBtn" class="voice-btn mute-btn" disabled>
-                            🎤 Mute
-                        </button>
-                        <button id="clearStreamingConversationBtn" class="voice-btn clear-btn">
-                            🗑️ Clear Chat
-                        </button>
-                        <div class="streaming-status">
-                            <span id="connectionStatus" class="status-indicator disconnected">Disconnected</span>
-                            <span id="speakingIndicator" class="speaking-indicator">🔇</span>
-                            <span id="muteStatus" class="mute-indicator">🎤 Live</span>
+                    <!-- Status Indicators -->
+                    <div class="status-indicators">
+                        <div class="connection-status">
+                            <span id="connectionStatus" class="status-badge disconnected">
+                                <i class="fas fa-circle"></i>
+                                Disconnected
+                            </span>
                         </div>
-                    </div>
-                    <div class="audio-feedback">
-                        <div class="audio-level-container">
-                            <label>Audio Level:</label>
-                            <div class="audio-level-bar">
-                                <div id="audioLevel" class="audio-level-fill"></div>
+                        <div class="agent-indicator">
+                            <span class="agent-label">Active Agent:</span>
+                            <span id="currentAgent" class="agent-name">Default Agent</span>
+                        </div>
+                        <div class="audio-level">
+                            <span class="level-label">Audio Level:</span>
+                            <div class="level-bar">
+                                <div id="audioLevel" class="level-fill"></div>
                             </div>
                             <span id="audioLevelText">0%</span>
                         </div>
-                        <div class="recording-quality">
-                            <span id="recordingQuality" class="quality-indicator">🔴 Not Recording</span>
-                        </div>
                     </div>
-                    <div class="status" id="status">Ready to listen</div>
-                    
-                    <!-- Agent Indicator -->
-                    <div class="agent-indicator">
-                        <span class="agent-label">Current Agent:</span>
-                        <span id="currentAgent" class="agent-name">Default Agent</span>
-                    </div>
-                </div>
 
-                <div class="features">
-                    <h3>Try saying:</h3>
-                    <ul>
-                        <li>"Hello, how are you today?"</li>
-                        <li>"Tell me a joke"</li>
-                        <li>"What's the weather like?"</li>
-                        <li>"Explain artificial intelligence"</li>
-                        <li>"Help me with a question"</li>
-                    </ul>
+                    <!-- Main Status -->
+                    <div class="main-status">
+                        <div id="status" class="status-text">Ready to listen</div>
+                        <div id="recordingQuality" class="quality-indicator">
+                            <i class="fas fa-circle"></i>
+                            Not Recording
+                        </div>
+                    </div>
                 </div>
+            </section>
 
-                <!-- Token Usage Panel -->
-                <div class="token-panel">
-                    <div class="token-header">
-                        <h3>💰 API Usage Tracker</h3>
-                        <div class="token-buttons">
-                            <button id="updateTokens" class="update-btn">Update</button>
-                            <button id="testTokens" class="test-btn">Test</button>
-                            <button id="resetTokens" class="reset-btn">Reset</button>
-                        </div>
-                    </div>
-                    <div class="token-content">
-                        <div class="token-stats">
-                            <div class="token-stat">
-                                <span class="token-label">Whisper (STT):</span>
-                                <span id="whisperTokens" class="token-value">0 requests</span>
-                                <span id="whisperCost" class="token-cost">$0.00</span>
-                            </div>
-                            <div class="token-stat">
-                                <span class="token-label"><span id="gptModelLabel">GPT-3.5 Turbo</span>:</span>
-                                <span id="gptTokens" class="token-value">0 tokens</span>
-                                <span id="gptCost" class="token-cost">$0.00</span>
-                            </div>
-                            <div class="token-stat">
-                                <span class="token-label">TTS (Voice):</span>
-                                <span id="ttsTokens" class="token-value">0 chars</span>
-                                <span id="ttsCost" class="token-cost">$0.00</span>
-                            </div>
-                            <div class="token-stat total">
-                                <span class="token-label">Total Cost:</span>
-                                <span id="totalCost" class="token-value">$0.00</span>
-                            </div>
-                        </div>
-                    </div>
+            <!-- Quick Actions Panel -->
+            <section class="quick-actions">
+                <h3>Quick Actions</h3>
+                <div class="action-grid">
+                    <button class="action-btn" onclick="suggestPhrase('Hello, how are you today?')">
+                        <i class="fas fa-comment"></i>
+                        <span>Greeting</span>
+                    </button>
+                    <button class="action-btn" onclick="suggestPhrase('What\'s my account balance?')">
+                        <i class="fas fa-wallet"></i>
+                        <span>Balance</span>
+                    </button>
+                    <button class="action-btn" onclick="suggestPhrase('I need help with a transaction')">
+                        <i class="fas fa-exchange-alt"></i>
+                        <span>Transaction</span>
+                    </button>
+                    <button class="action-btn" onclick="suggestPhrase('I think there\'s fraud on my account')">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Fraud Alert</span>
+                    </button>
                 </div>
+            </section>
 
-                <!-- Debug Panel -->
-                <div class="debug-panel">
-                    <div class="debug-header">
-                        <h3>🔍 AI Communication Debug</h3>
-                        <button id="toggleDebug" class="toggle-btn">Hide</button>
-                    </div>
-                    <div id="debugContent" class="debug-content">
-                        <div class="debug-section">
-                            <h4>Speech-to-Text (Whisper):</h4>
-                            <div id="sttOutput" class="debug-output">Waiting for speech input...</div>
-                        </div>
-                        <div class="debug-section">
-                            <h4>System Prompt to GPT:</h4>
-                            <div id="systemPrompt" class="debug-output">System prompt will appear here...</div>
-                        </div>
-                        <div class="debug-section">
-                            <h4>GPT Response:</h4>
-                            <div id="gptResponse" class="debug-output">AI response will appear here...</div>
-                        </div>
-                        <div class="debug-section">
-                            <h4>OpenAI TTS:</h4>
-                            <div id="ttsOutput" class="debug-output">TTS information will appear here...</div>
-                        </div>
-                        <div class="debug-section">
-                            <h4>Streaming Connection:</h4>
-                            <div id="streamingOutput" class="debug-output">Streaming debug info will appear here...
-                            </div>
-                        </div>
+            <!-- Usage Statistics -->
+            <section class="usage-stats">
+                <div class="stats-header">
+                    <h3><i class="fas fa-chart-line"></i> Usage Statistics</h3>
+                    <div class="stats-controls">
+                        <button id="updateTokens" class="stats-btn">
+                            <i class="fas fa-sync"></i>
+                        </button>
+                        <button id="resetTokens" class="stats-btn">
+                            <i class="fas fa-undo"></i>
+                        </button>
                     </div>
                 </div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="whisperTokens">0</div>
+                        <div class="stat-label">Speech Requests</div>
+                        <div class="stat-cost" id="whisperCost">$0.00</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="gptTokens">0</div>
+                        <div class="stat-label">AI Tokens</div>
+                        <div class="stat-cost" id="gptCost">$0.00</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="ttsTokens">0</div>
+                        <div class="stat-label">Voice Characters</div>
+                        <div class="stat-cost" id="ttsCost">$0.00</div>
+                    </div>
+                    <div class="stat-item total">
+                        <div class="stat-value" id="totalCost">$0.00</div>
+                        <div class="stat-label">Total Cost</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Settings Panel (Slide-out) -->
+        <div id="settingsPanel" class="side-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-cog"></i> Settings</h2>
+                <button class="close-panel" data-panel="settingsPanel">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-        </div>
-
-        <!-- Admin Panel -->
-        <div id="admin-tab" class="tab-content">
-            <div class="container">
-                <h2>Customer Personas Management</h2>
-
-                <div class="admin-section">
-                    <h3>Add New Persona</h3>
-                    <form id="personaForm">
-                        <div class="form-group">
-                            <label>Name:</label>
-                            <input type="text" id="personaName" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Account Balance (£):</label>
-                            <input type="number" id="personaBalance" step="0.01" required placeholder="e.g., 1500.00">
-                        </div>
-                        <div class="form-group">
-                            <label>Card Number (last 4 digits):</label>
-                            <input type="text" id="personaCard" maxlength="4" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Account Type:</label>
-                            <select id="personaAccountType">
-                                <option value="checking">Checking</option>
-                                <option value="savings">Savings</option>
-                                <option value="premium">Premium</option>
-                            </select>
-                        </div>
-                        <button type="submit">Add Persona</button>
-                    </form>
-                </div>
-
-                <div class="admin-section">
-                    <h3>Existing Personas</h3>
-                    <div id="personaList" class="persona-list"></div>
-                </div>
-
-                <div class="admin-section">
-                    <h3>Transaction Management</h3>
-                    <div class="transaction-management">
-                        <div class="form-group">
-                            <label>Select Persona:</label>
-                            <select id="transactionPersonaSelect">
-                                <option value="">Select a persona...</option>
-                            </select>
-                        </div>
-                        
-                        <div id="transactionForm" style="display: none;">
-                            <h4>Add New Transaction</h4>
-                            <form id="addTransactionForm">
-                                <div class="form-group">
-                                    <label>Date:</label>
-                                    <input type="date" id="transactionDate" required>
-                                </div>
-                                <div class="form-group">
-                                    <label>Amount (£):</label>
-                                    <input type="number" id="transactionAmount" step="0.01" required placeholder="Use negative for debits">
-                                </div>
-                                <div class="form-group">
-                                    <label>Description:</label>
-                                    <input type="text" id="transactionDescription" required placeholder="e.g., Tesco Groceries">
-                                </div>
-                                <button type="submit">Add Transaction</button>
-                            </form>
-                            
-                            <div id="transactionHistory" class="transaction-history">
-                                <h4>Recent Transactions</h4>
-                                <div id="transactionList"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="admin-section">
-                    <h3>AI System Prompts Configuration</h3>
-                    <div class="prompt-tabs">
-                        <button class="prompt-tab-btn active" data-prompt="base">Base Personality</button>
-                        <button class="prompt-tab-btn" data-prompt="financial">Financial Context</button>
-                        <button class="prompt-tab-btn" data-prompt="instructions">Instructions</button>
-                        <button class="prompt-tab-btn" data-prompt="custom">Custom Prompts</button>
-                    </div>
-
-                    <div class="prompt-content">
-                        <!-- Base Personality -->
-                        <div id="base-prompt" class="prompt-section active">
-                            <h4>Base AI Personality</h4>
-                            <p class="prompt-description">Define the core personality and tone of your AI assistant</p>
-                            <textarea id="basePersonality" class="prompt-textarea" rows="6"
-                                placeholder="You are a helpful, professional, and friendly financial services AI assistant...">You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.</textarea>
-                        </div>
-
-                        <!-- Financial Context -->
-                        <div id="financial-prompt" class="prompt-section">
-                            <h4>Financial Services Context</h4>
-                            <p class="prompt-description">Specific instructions for handling financial services
-                                scenarios</p>
-                            <textarea id="financialContext" class="prompt-textarea" rows="8"
-                                placeholder="When handling financial requests...">When handling financial requests:
-1. Always verify customer identity through account details
-2. For lost cards, immediately offer to block the card and arrange replacement
-3. For balance inquiries, provide current balance and recent transactions
-4. For disputes, guide customers through the dispute process step-by-step
-5. For transfers, ask for necessary details (amount, recipient, account)
-6. Always prioritize security and fraud prevention
-7. Offer additional relevant services when appropriate</textarea>
-                        </div>
-
-                        <!-- Instructions -->
-                        <div id="instructions-prompt" class="prompt-section">
-                            <h4>Response Instructions</h4>
-                            <p class="prompt-description">How the AI should structure and deliver responses</p>
-                            <textarea id="responseInstructions" class="prompt-textarea" rows="8"
-                                placeholder="Response guidelines...">Response Guidelines:
-1. Keep responses conversational and concise (suitable for voice)
-2. Use natural speech patterns with contractions (I'll, you're, we'll)
-3. Address customers by name when appropriate
-4. Provide specific information based on their account data
-5. Sound human and empathetic, not robotic
-6. Use clear, simple language avoiding jargon
-7. Always end with asking if there's anything else you can help with
-8. Maximum response length: 2-3 sentences for voice clarity</textarea>
-                        </div>
-
-                        <!-- Custom Prompts -->
-                        <div id="custom-prompt" class="prompt-section">
-                            <h4>Custom Scenario Prompts</h4>
-                            <p class="prompt-description">Add custom prompts for specific scenarios or industries</p>
-                            <div class="custom-prompts-list" id="customPromptsList">
-                                <div class="custom-prompt-item">
-                                    <input type="text" placeholder="Scenario name (e.g., 'Loan Inquiries')"
-                                        class="scenario-name">
-                                    <textarea placeholder="Custom prompt for this scenario..."
-                                        class="custom-prompt-text" rows="4"></textarea>
-                                    <button class="remove-custom-prompt">Remove</button>
-                                </div>
-                            </div>
-                            <button id="addCustomPrompt" class="add-prompt-btn">+ Add Custom Prompt</button>
-                        </div>
-                    </div>
-
-                    <div class="prompt-actions">
-                        <button id="savePrompts" class="save-prompts-btn">💾 Save All Prompts</button>
-                        <button id="resetPrompts" class="reset-prompts-btn">🔄 Reset to Defaults</button>
-                        <button id="testPrompts" class="test-prompts-btn">🧪 Test Current Setup</button>
-                    </div>
-
-                    <div class="prompt-preview">
-                        <h4>Generated System Prompt Preview:</h4>
-                        <div id="promptPreview" class="prompt-preview-content">
-                            Click "Test Current Setup" to see the complete system prompt that will be sent to the AI.
-                        </div>
-                    </div>
-                </div>
-
-                <div class="admin-section">
-                    <h3>🤖 Agent Configuration & Management</h3>
-                    <div class="agent-config-section">
-                        <p class="section-description">
-                            Configure and manage your AI agents. Control which agents are enabled, their priorities, 
-                            and their specific behaviors and capabilities.
-                        </p>
-                        
-                        <div class="agent-config-overview">
-                            <div class="agent-status-summary" id="agentStatusSummary">
-                                <div class="status-item">
-                                    <span class="status-label">Total Agents:</span>
-                                    <span class="status-value" id="totalAgents">-</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="status-label">Enabled:</span>
-                                    <span class="status-value enabled" id="enabledAgents">-</span>
-                                </div>
-                                <div class="status-item">
-                                    <span class="status-label">Disabled:</span>
-                                    <span class="status-value disabled" id="disabledAgents">-</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="agent-config-actions">
-                            <button id="openAgentConfig" class="config-btn primary">
-                                🔧 Open Agent Configuration
-                            </button>
-                            <button id="refreshAgentStatus" class="config-btn secondary">
-                                🔄 Refresh Status
-                            </button>
-                            <button id="testAgentRouting" class="config-btn secondary">
-                                🧪 Test AI Agent Routing
-                            </button>
-                            <button id="testBasicRouting" class="config-btn secondary">
-                                🎯 Test Basic Agent Routing
-                            </button>
-                        </div>
-
-                        <div class="agent-quick-actions">
-                            <h4>Quick Actions</h4>
-                            <div class="quick-action-buttons">
-                                <button onclick="toggleAgent('PaymentsAgent')" class="quick-btn">
-                                    💳 Toggle Payments Agent
-                                </button>
-                                <button onclick="toggleAgent('FraudAgent')" class="quick-btn">
-                                    🛡️ Toggle Fraud Agent
-                                </button>
-                                <button onclick="toggleAgent('IDVAgent')" class="quick-btn">
-                                    🔐 Toggle Identity Agent
-                                </button>
-                                <button onclick="toggleAgent('BankingInfoAgent')" class="quick-btn">
-                                    🏦 Toggle Banking Agent
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="agent-config-info">
-                            <h4>Available Tools</h4>
-                            <ul class="feature-list">
-                                <li>🔧 <strong>Agent Configuration</strong> - Enable/disable agents, set priorities, configure LLM models</li>
-                                <li>🧪 <strong>AI Agent Routing</strong> - Test semantic understanding and conversation context</li>
-                                <li>🎯 <strong>Basic Agent Routing</strong> - Test keyword-based routing and agent selection</li>
-                                <li>🔄 <strong>Status Monitoring</strong> - Real-time agent status and performance metrics</li>
-                                <li>⚡ <strong>Quick Actions</strong> - Instantly toggle agents on/off</li>
-                                <li>🛡️ <strong>Security Testing</strong> - Validate agent boundaries and permissions</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="admin-section">
-                    <h3>🎛️ LLM Manager Console</h3>
-                    <div class="llm-manager-section">
-                        <p class="section-description">
-                            Advanced agent management with detailed configuration, guardrails, voice settings, and audit logging.
-                        </p>
-                        
-                        <!-- LLM Manager Navigation -->
-                        <div class="llm-manager-nav">
-                            <button class="llm-nav-btn active" data-llm-section="overview">
-                                📊 Overview
-                            </button>
-                            <button class="llm-nav-btn" data-llm-section="configuration">
-                                ⚙️ Configuration
-                            </button>
-                            <button class="llm-nav-btn" data-llm-section="guardrails">
-                                🛡️ Guardrails
-                            </button>
-                            <button class="llm-nav-btn" data-llm-section="voice">
-                                🎤 Voice Settings
-                            </button>
-                            <button class="llm-nav-btn" data-llm-section="audit">
-                                📋 Audit Log
-                            </button>
-                        </div>
-
-                        <!-- LLM Manager Content -->
-                        <div class="llm-manager-content">
-                            <!-- Overview Section -->
-                            <div id="llm-overview-section" class="llm-content-section active">
-                                <div class="llm-overview-grid">
-                                    <div class="llm-overview-card">
-                                        <h4>📊 System Statistics</h4>
-                                        <div class="llm-stats-grid">
-                                            <div class="llm-stat-item">
-                                                <span class="llm-stat-value" id="llmTotalAgents">0</span>
-                                                <span class="llm-stat-label">Total Agents</span>
-                                            </div>
-                                            <div class="llm-stat-item">
-                                                <span class="llm-stat-value" id="llmEnabledAgents">0</span>
-                                                <span class="llm-stat-label">Enabled</span>
-                                            </div>
-                                            <div class="llm-stat-item">
-                                                <span class="llm-stat-value" id="llmDisabledAgents">0</span>
-                                                <span class="llm-stat-label">Disabled</span>
-                                            </div>
-                                            <div class="llm-stat-item">
-                                                <span class="llm-stat-value" id="llmLastUpdated">Never</span>
-                                                <span class="llm-stat-label">Last Updated</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="llm-overview-card">
-                                        <h4>⚡ Quick Actions</h4>
-                                        <div class="llm-quick-actions">
-                                            <button class="llm-btn llm-btn-primary" onclick="refreshLLMData()">
-                                                🔄 Refresh Data
-                                            </button>
-                                            <button class="llm-btn llm-btn-success" onclick="exportLLMConfiguration()">
-                                                📤 Export Config
-                                            </button>
-                                            <button class="llm-btn llm-btn-warning" onclick="importLLMConfiguration()">
-                                                📥 Import Config
-                                            </button>
-                                            <button class="llm-btn llm-btn-info" onclick="openFullLLMManager()">
-                                                🚀 Open Full Manager
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <h4>Agent Status Grid</h4>
-                                <div id="llmAgentsGrid" class="llm-agents-grid">
-                                    <!-- Agent cards will be populated here -->
-                                </div>
-                            </div>
-
-                            <!-- Configuration Section -->
-                            <div id="llm-configuration-section" class="llm-content-section">
-                                <h4>Agent Configuration Management</h4>
-                                <p class="llm-section-description">
-                                    Configure individual agent settings, LLM providers, and operational parameters.
-                                </p>
-                                <div id="llmConfigurationContent">
-                                    <!-- Configuration content will be loaded here -->
-                                </div>
-                            </div>
-
-                            <!-- Guardrails Section -->
-                            <div id="llm-guardrails-section" class="llm-content-section">
-                                <h4>Guardrails Management</h4>
-                                <p class="llm-section-description">
-                                    Configure security boundaries and capability restrictions for each agent.
-                                </p>
-                                <div id="llmGuardrailsContent">
-                                    <!-- Guardrails content will be loaded here -->
-                                </div>
-                            </div>
-
-                            <!-- Voice Settings Section -->
-                            <div id="llm-voice-section" class="llm-content-section">
-                                <h4>Voice Configuration</h4>
-                                <p class="llm-section-description">
-                                    Configure TTS settings, voice personalities, and contextual adaptations.
-                                </p>
-                                <div id="llmVoiceContent">
-                                    <!-- Voice content will be loaded here -->
-                                </div>
-                            </div>
-
-                            <!-- Audit Log Section -->
-                            <div id="llm-audit-section" class="llm-content-section">
-                                <h4>Audit Log</h4>
-                                <div class="llm-audit-log">
-                                    <div class="llm-log-header">
-                                        <h5>Configuration Changes</h5>
-                                        <div class="llm-log-filters">
-                                            <select id="llmLogFilter" class="llm-form-select">
-                                                <option value="all">All Events</option>
-                                                <option value="config">Configuration</option>
-                                                <option value="guardrails">Guardrails</option>
-                                                <option value="voice">Voice Settings</option>
-                                            </select>
-                                            <button class="llm-btn llm-btn-secondary" onclick="clearLLMAuditLog()">Clear Log</button>
-                                        </div>
-                                    </div>
-                                    <div id="llmAuditLogEntries" class="llm-log-entries">
-                                        <!-- Log entries will be populated here -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Bulk Operations -->
-                        <div class="llm-bulk-operations">
-                            <h4>Bulk Operations</h4>
-                            <div class="bulk-operation-buttons">
-                                <button class="llm-btn llm-btn-primary" onclick="enableAllAgents()">
-                                    ✅ Enable All Agents
-                                </button>
-                                <button class="llm-btn llm-btn-warning" onclick="disableAllAgents()">
-                                    ⏸️ Disable All Agents
-                                </button>
-                                <button class="llm-btn llm-btn-info" onclick="resetAllToDefaults()">
-                                    🔄 Reset All to Defaults
-                                </button>
-                                <button class="llm-btn llm-btn-success" onclick="validateAllConfigurations()">
-                                    ✔️ Validate All Configs
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Settings -->
-        <div id="settings-tab" class="tab-content">
-            <div class="container">
-                <h2>Settings</h2>
-
+            <div class="panel-content">
+                <!-- Voice Settings -->
                 <div class="settings-section">
-                    <h3>OpenAI Configuration</h3>
-                    <div class="form-group">
-                        <label>API Key:</label>
-                        <div class="api-key-controls">
-                            <input type="password" id="openaiKey" placeholder="sk-...">
-                            <button id="saveKey">Save Key</button>
-                            <button id="clearKey" class="clear-key-btn">Clear Key</button>
-                        </div>
-                        <div class="api-key-status">
-                            <span id="keyStatus" class="key-status">No API key set</span>
-                        </div>
+                    <h3>Voice Configuration</h3>
+                    <div class="setting-group">
+                        <label>TTS Provider:</label>
+                        <select id="ttsMode">
+                            <option value="openai">OpenAI TTS</option>
+                            <option value="browser">Browser TTS</option>
+                        </select>
                     </div>
-                    
-                    <div class="form-group">
+                    <div class="setting-group">
+                        <label>Voice:</label>
+                        <select id="ttsVoice">
+                            <option value="nova">Nova</option>
+                            <option value="alloy">Alloy</option>
+                            <option value="echo">Echo</option>
+                            <option value="fable">Fable</option>
+                            <option value="onyx">Onyx</option>
+                            <option value="shimmer">Shimmer</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>Speed:</label>
+                        <input type="range" id="voiceSpeed" min="0.25" max="4.0" step="0.25" value="1.0">
+                        <span id="speedValue">1.0x</span>
+                    </div>
+                </div>
+
+                <!-- AI Model Settings -->
+                <div class="settings-section">
+                    <h3>AI Model Configuration</h3>
+                    <div class="setting-group">
                         <label>GPT Model:</label>
                         <select id="gptModel">
-                            <option value="gpt-3.5-turbo" selected>GPT-3.5 Turbo (Fast, Cost-effective)</option>
-                            <option value="gpt-4o-mini">GPT-4o Mini (Better quality, Low cost)</option>
-                            <option value="gpt-4o">GPT-4o (High quality, Moderate cost)</option>
-                            <option value="gpt-4-turbo">GPT-4 Turbo (Premium quality, Higher cost)</option>
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                            <option value="gpt-4">GPT-4</option>
+                            <option value="gpt-4-turbo">GPT-4 Turbo</option>
                         </select>
-                        <div class="model-info">
-                            <span id="modelDescription" class="model-description">Fast and cost-effective for basic financial conversations</span>
+                    </div>
+                    <div class="setting-group">
+                        <label>API Key:</label>
+                        <div class="api-key-input">
+                            <input type="password" id="apiKey" placeholder="Enter OpenAI API Key">
+                            <button id="saveKey" class="save-btn">Save</button>
+                        </div>
+                        <div class="api-status" id="apiStatus">
+                            <span class="status-indicator">No API key set</span>
                         </div>
                     </div>
                 </div>
 
-                <div class="voice-settings">
-                    <h3>🎤 Text-to-Speech Settings</h3>
-
-                    <!-- TTS Mode Selection -->
-                    <div class="tts-mode-selection">
-                        <div class="voice-control">
-                            <label>TTS Mode:</label>
-                            <select id="ttsMode">
-                                <option value="openai">OpenAI TTS (High Quality, Requires API)</option>
-                                <option value="browser">Browser TTS (Free, Local)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- OpenAI TTS Settings -->
-                    <div id="openaiTtsSettings" class="tts-settings-group">
-                        <h4>OpenAI TTS Settings</h4>
-                        <div class="voice-controls">
-                            <div class="voice-control">
-                                <label>TTS Model:</label>
-                                <select id="ttsModel">
-                                    <option value="tts-1">TTS-1 (Standard, Faster)</option>
-                                    <option value="tts-1-hd">TTS-1-HD (High Quality, Slower)</option>
-                                </select>
-                            </div>
-                            <div class="voice-control">
-                                <label>Voice:</label>
-                                <select id="ttsVoice">
-                                    <option value="alloy">Alloy (Neutral)</option>
-                                    <option value="echo">Echo (Male)</option>
-                                    <option value="fable">Fable (British Male)</option>
-                                    <option value="onyx">Onyx (Deep Male)</option>
-                                    <option value="nova" selected>Nova (Female, Recommended)</option>
-                                    <option value="shimmer">Shimmer (Female, Warm)</option>
-                                </select>
-                            </div>
-                            <div class="voice-control">
-                                <label>Speech Speed:</label>
-                                <input type="range" id="ttsSpeed" min="0.25" max="4.0" step="0.25" value="1.0">
-                                <span id="ttsSpeedValue">1.0x</span>
-                            </div>
-                        </div>
-                        <div class="voice-preview">
-                            <button id="testTtsVoice">🔊 Test OpenAI Voice</button>
-                        </div>
-                        <div class="voice-info">
-                            <p><strong>OpenAI TTS:</strong> Premium quality, natural-sounding voices. Requires API key
-                                and costs per character.</p>
-                        </div>
-                    </div>
-
-                    <!-- Browser TTS Settings -->
-                    <div id="browserTtsSettings" class="tts-settings-group hidden">
-                        <h4>Browser TTS Settings</h4>
-                        <div class="voice-controls">
-                            <div class="voice-control">
-                                <label>Voice:</label>
-                                <select id="browserVoice">
-                                    <option value="">Loading voices...</option>
-                                </select>
-                            </div>
-                            <div class="voice-control">
-                                <label>Speech Rate:</label>
-                                <input type="range" id="browserRate" min="0.1" max="2.0" step="0.1" value="1.0">
-                                <span id="browserRateValue">1.0x</span>
-                            </div>
-                            <div class="voice-control">
-                                <label>Pitch:</label>
-                                <input type="range" id="browserPitch" min="0" max="2" step="0.1" value="1.0">
-                                <span id="browserPitchValue">1.0</span>
-                            </div>
-                            <div class="voice-control">
-                                <label>Volume:</label>
-                                <input type="range" id="browserVolume" min="0" max="1" step="0.1" value="1.0">
-                                <span id="browserVolumeValue">100%</span>
-                            </div>
-                        </div>
-                        <div class="voice-preview">
-                            <button id="testBrowserVoice">🔊 Test Browser Voice</button>
-                        </div>
-                        <div class="voice-info">
-                            <p><strong>Browser TTS:</strong> Free local text-to-speech using your system's voices.
-                                Quality varies by device and browser.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="speech-settings">
-                    <h3>🎙️ Speech Recognition Enhancement</h3>
-                    <div class="speech-controls">
-                        <div class="speech-control">
-                            <label>Audio Quality:</label>
-                            <select id="audioQuality">
-                                <option value="standard">Standard (16kHz)</option>
-                                <option value="high" selected>High (48kHz)</option>
-                            </select>
-                        </div>
-                        <div class="speech-control">
-                            <label>Noise Reduction:</label>
-                            <select id="noiseReduction">
-                                <option value="off">Off</option>
-                                <option value="low">Low</option>
-                                <option value="medium" selected>Medium</option>
-                                <option value="high">High</option>
-                            </select>
-                        </div>
-                        <div class="speech-control">
-                            <label>Language Model:</label>
-                            <select id="whisperLanguage">
-                                <option value="en" selected>English (Auto-detect)</option>
-                                <option value="en-US">English (US)</option>
-                                <option value="en-GB">English (UK)</option>
-                                <option value="en-AU">English (AU)</option>
-                            </select>
-                        </div>
-                        <div class="speech-control">
-                            <label>Recognition Mode:</label>
-                            <select id="recognitionMode">
-                                <option value="standard">Standard</option>
-                                <option value="financial" selected>Financial Context</option>
-                                <option value="precise">Precise Mode</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="speech-tips">
-                        <h4>💡 Tips for Better Recognition:</h4>
-                        <ul>
-                            <li>Speak clearly and at normal pace</li>
-                            <li>Use a quiet environment with minimal background noise</li>
-                            <li>Hold the microphone 6-8 inches from your mouth</li>
-                            <li>Pause briefly between sentences</li>
-                            <li>Use financial terms naturally (e.g., "account balance", "credit card")</li>
-                            <li>Watch the audio level indicator - aim for green/yellow range</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="streaming-settings">
-                    <h3>📞 Streaming Mode Settings</h3>
-                    <div class="streaming-controls">
-                        <div class="streaming-control">
-                            <label>Response Delay (silence threshold):</label>
-                            <input type="range" id="responseDelay" min="0.5" max="3.0" step="0.1" value="1.0">
-                            <span id="responseDelayValue">1.0s</span>
-                        </div>
-                        <div class="streaming-control">
-                            <label>Voice Activity Detection:</label>
-                            <select id="vadSensitivity">
-                                <option value="low">Low Sensitivity</option>
-                                <option value="medium" selected>Medium Sensitivity</option>
-                                <option value="high">High Sensitivity</option>
-                            </select>
-                        </div>
-                        <div class="streaming-control">
-                            <label>Audio Buffer Size:</label>
-                            <select id="audioBufferSize">
-                                <option value="small">Small (Low Latency)</option>
-                                <option value="medium" selected>Medium (Balanced)</option>
-                                <option value="large">Large (High Quality)</option>
-                            </select>
-                        </div>
-                        <div class="streaming-control">
-                            <label>Connection Quality:</label>
-                            <select id="connectionQuality">
-                                <option value="auto" selected>Auto (Adaptive)</option>
-                                <option value="low">Low Bandwidth</option>
-                                <option value="high">High Bandwidth</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="streaming-info">
-                        <h4>🔄 Streaming Mode Features:</h4>
-                        <ul>
-                            <li><strong>Real-time conversation:</strong> Continuous audio connection like a phone call
-                            </li>
-                            <li><strong>Voice Activity Detection:</strong> AI responds when you pause speaking</li>
-                            <li><strong>Full Duplex:</strong> Both parties can speak and listen simultaneously</li>
-                            <li><strong>Lower latency:</strong> Faster response times than batch mode</li>
-                            <li><strong>Natural flow:</strong> More conversational interaction</li>
-                        </ul>
-                    </div>
-                </div>
-
+                <!-- Audio Settings -->
                 <div class="settings-section">
-                    <h3>🐛 Debug Settings</h3>
-                    <div class="debug-controls">
-                        <div class="debug-control">
-                            <label class="toggle-label">
-                                <input type="checkbox" id="debugToggle" class="debug-checkbox">
-                                <span class="toggle-slider"></span>
-                                <span class="toggle-text">Enable Debug Logging</span>
-                            </label>
-                            <div class="debug-description">
-                                <span id="debugDescription">Debug logging is disabled (recommended for normal use)</span>
+                    <h3>Audio Configuration</h3>
+                    <div class="setting-group">
+                        <label>Microphone Sensitivity:</label>
+                        <input type="range" id="micSensitivity" min="0" max="100" value="50">
+                        <span id="sensitivityValue">50%</span>
+                    </div>
+                    <div class="setting-group">
+                        <label>Auto-stop Recording:</label>
+                        <input type="checkbox" id="autoStop" checked>
+                        <span>Stop recording after silence</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel (Slide-out) -->
+        <div id="adminPanel" class="side-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-user-shield"></i> Administration</h2>
+                <button class="close-panel" data-panel="adminPanel">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="panel-content">
+                <!-- Admin Navigation -->
+                <div class="admin-nav">
+                    <button class="admin-nav-btn active" data-admin-section="personas">
+                        <i class="fas fa-users"></i>
+                        Customer Personas
+                    </button>
+                    <button class="admin-nav-btn" data-admin-section="agents">
+                        <i class="fas fa-robot"></i>
+                        Agent Management
+                    </button>
+                    <button class="admin-nav-btn" data-admin-section="prompts">
+                        <i class="fas fa-comment-dots"></i>
+                        System Prompts
+                    </button>
+                    <button class="admin-nav-btn" data-admin-section="llm">
+                        <i class="fas fa-brain"></i>
+                        LLM Console
+                    </button>
+                </div>
+
+                <!-- Admin Content Sections -->
+                <div class="admin-content">
+                    <!-- Personas Section -->
+                    <div id="personas-section" class="admin-section active">
+                        <h3>Customer Personas Management</h3>
+                        
+                        <!-- Add New Persona -->
+                        <div class="admin-card">
+                            <h4>Add New Persona</h4>
+                            <form id="personaForm" class="admin-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Name:</label>
+                                        <input type="text" id="personaName" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Account Balance (£):</label>
+                                        <input type="number" id="personaBalance" step="0.01" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Card Number (last 4):</label>
+                                        <input type="text" id="personaCard" maxlength="4" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Account Type:</label>
+                                        <select id="personaAccountType">
+                                            <option value="checking">Checking</option>
+                                            <option value="savings">Savings</option>
+                                            <option value="premium">Premium</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <button type="submit" class="submit-btn">
+                                    <i class="fas fa-plus"></i>
+                                    Add Persona
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Existing Personas -->
+                        <div class="admin-card">
+                            <h4>Existing Personas</h4>
+                            <div id="personaList" class="persona-grid"></div>
+                        </div>
+                    </div>
+
+                    <!-- Agents Section -->
+                    <div id="agents-section" class="admin-section">
+                        <h3>Agent Management</h3>
+                        
+                        <div class="admin-card">
+                            <h4>Agent Status Overview</h4>
+                            <div class="agent-overview">
+                                <div class="overview-stats">
+                                    <div class="stat-card">
+                                        <div class="stat-number" id="totalAgents">0</div>
+                                        <div class="stat-title">Total Agents</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-number enabled" id="enabledAgents">0</div>
+                                        <div class="stat-title">Enabled</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-number disabled" id="disabledAgents">0</div>
+                                        <div class="stat-title">Disabled</div>
+                                    </div>
+                                </div>
+                                <div class="agent-actions">
+                                    <button class="action-btn primary" id="openAgentConfig">
+                                        <i class="fas fa-cog"></i>
+                                        Configure Agents
+                                    </button>
+                                    <button class="action-btn secondary" id="refreshAgentStatus">
+                                        <i class="fas fa-sync"></i>
+                                        Refresh Status
+                                    </button>
+                                    <button class="action-btn secondary" id="testAgentRouting">
+                                        <i class="fas fa-vial"></i>
+                                        Test Routing
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div class="debug-info">
-                            <p><strong>Debug Mode:</strong> Shows detailed console logs for troubleshooting</p>
-                            <p><strong>Note:</strong> Only enable when investigating issues - can impact performance</p>
+                    </div>
+
+                    <!-- System Prompts Section -->
+                    <div id="prompts-section" class="admin-section">
+                        <h3>System Prompts Configuration</h3>
+                        
+                        <div class="admin-card">
+                            <div class="prompt-tabs">
+                                <button class="prompt-tab active" data-prompt="base">Base Personality</button>
+                                <button class="prompt-tab" data-prompt="financial">Financial Context</button>
+                                <button class="prompt-tab" data-prompt="instructions">Instructions</button>
+                                <button class="prompt-tab" data-prompt="custom">Custom Prompts</button>
+                            </div>
+                            
+                            <div class="prompt-content">
+                                <div id="base-prompt" class="prompt-panel active">
+                                    <h4>Base AI Personality</h4>
+                                    <textarea id="basePersonality" rows="6" placeholder="Define the core personality...">You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction.</textarea>
+                                </div>
+                                
+                                <div id="financial-prompt" class="prompt-panel">
+                                    <h4>Financial Services Context</h4>
+                                    <textarea id="financialContext" rows="8" placeholder="Financial service instructions...">When handling financial requests:
+1. Always verify customer identity
+2. For lost cards, offer immediate blocking
+3. Provide balance and recent transactions
+4. Guide through dispute processes
+5. Prioritize security and fraud prevention</textarea>
+                                </div>
+                                
+                                <div id="instructions-prompt" class="prompt-panel">
+                                    <h4>Response Instructions</h4>
+                                    <textarea id="responseInstructions" rows="8" placeholder="Response guidelines...">Response Guidelines:
+1. Keep responses conversational and concise
+2. Use natural speech patterns
+3. Address customers by name
+4. Sound human and empathetic
+5. Maximum 2-3 sentences for voice clarity</textarea>
+                                </div>
+                                
+                                <div id="custom-prompt" class="prompt-panel">
+                                    <h4>Custom Scenario Prompts</h4>
+                                    <div id="customPromptsList" class="custom-prompts">
+                                        <!-- Custom prompts will be added here -->
+                                    </div>
+                                    <button id="addCustomPrompt" class="add-btn">
+                                        <i class="fas fa-plus"></i>
+                                        Add Custom Prompt
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="prompt-actions">
+                                <button id="savePrompts" class="save-btn">
+                                    <i class="fas fa-save"></i>
+                                    Save All Prompts
+                                </button>
+                                <button id="resetPrompts" class="reset-btn">
+                                    <i class="fas fa-undo"></i>
+                                    Reset to Defaults
+                                </button>
+                                <button id="testPrompts" class="test-btn">
+                                    <i class="fas fa-vial"></i>
+                                    Test Setup
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LLM Console Section -->
+                    <div id="llm-section" class="admin-section">
+                        <h3>LLM Manager Console</h3>
+                        
+                        <div class="admin-card">
+                            <div class="llm-overview">
+                                <div class="llm-stats">
+                                    <div class="llm-stat">
+                                        <span class="stat-value" id="llmTotalAgents">0</span>
+                                        <span class="stat-label">Total Agents</span>
+                                    </div>
+                                    <div class="llm-stat">
+                                        <span class="stat-value" id="llmEnabledAgents">0</span>
+                                        <span class="stat-label">Enabled</span>
+                                    </div>
+                                    <div class="llm-stat">
+                                        <span class="stat-value" id="llmLastUpdated">Never</span>
+                                        <span class="stat-label">Last Updated</span>
+                                    </div>
+                                </div>
+                                <div class="llm-actions">
+                                    <button class="llm-btn primary" onclick="openFullLLMManager()">
+                                        <i class="fas fa-external-link-alt"></i>
+                                        Open Full Manager
+                                    </button>
+                                    <button class="llm-btn secondary" onclick="refreshLLMData()">
+                                        <i class="fas fa-sync"></i>
+                                        Refresh Data
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Debug Panel (Slide-out) -->
+        <div id="debugPanel" class="side-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-bug"></i> Debug Tools</h2>
+                <button class="close-panel" data-panel="debugPanel">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="panel-content">
+                <!-- Debug Navigation -->
+                <div class="debug-nav">
+                    <button class="debug-nav-btn active" data-debug-section="communication">
+                        <i class="fas fa-comments"></i>
+                        Communication
+                    </button>
+                    <button class="debug-nav-btn" data-debug-section="testing">
+                        <i class="fas fa-vial"></i>
+                        Testing Tools
+                    </button>
+                    <button class="debug-nav-btn" data-debug-section="logs">
+                        <i class="fas fa-file-alt"></i>
+                        System Logs
+                    </button>
+                </div>
+
+                <!-- Debug Content -->
+                <div class="debug-content">
+                    <!-- Communication Debug -->
+                    <div id="communication-section" class="debug-section active">
+                        <div class="debug-card">
+                            <h4>Speech-to-Text (Whisper)</h4>
+                            <div id="sttOutput" class="debug-output">Waiting for speech input...</div>
+                        </div>
+                        <div class="debug-card">
+                            <h4>System Prompt to GPT</h4>
+                            <div id="systemPrompt" class="debug-output">System prompt will appear here...</div>
+                        </div>
+                        <div class="debug-card">
+                            <h4>GPT Response</h4>
+                            <div id="gptResponse" class="debug-output">AI response will appear here...</div>
+                        </div>
+                        <div class="debug-card">
+                            <h4>Text-to-Speech</h4>
+                            <div id="ttsOutput" class="debug-output">TTS information will appear here...</div>
+                        </div>
+                    </div>
+
+                    <!-- Testing Tools -->
+                    <div id="testing-section" class="debug-section">
+                        <div class="debug-card">
+                            <h4>Quick Tests</h4>
+                            <div class="test-buttons">
+                                <button class="test-btn" onclick="window.open('test/test-agent-system-comprehensive.html', '_blank')">
+                                    <i class="fas fa-robot"></i>
+                                    Agent System Test
+                                </button>
+                                <button class="test-btn" onclick="window.open('test/test-guardrails-system.html', '_blank')">
+                                    <i class="fas fa-shield-alt"></i>
+                                    Guardrails Test
+                                </button>
+                                <button class="test-btn" onclick="window.open('test/test-streaming-integration.html', '_blank')">
+                                    <i class="fas fa-stream"></i>
+                                    Streaming Test
+                                </button>
+                                <button class="test-btn" onclick="window.open('test/test-llm-manager-comprehensive.html', '_blank')">
+                                    <i class="fas fa-brain"></i>
+                                    LLM Manager Test
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Logs -->
+                    <div id="logs-section" class="debug-section">
+                        <div class="debug-card">
+                            <h4>System Logs</h4>
+                            <div class="log-controls">
+                                <button class="log-btn" onclick="clearDebugLogs()">
+                                    <i class="fas fa-trash"></i>
+                                    Clear Logs
+                                </button>
+                                <button class="log-btn" onclick="exportDebugLogs()">
+                                    <i class="fas fa-download"></i>
+                                    Export Logs
+                                </button>
+                            </div>
+                            <div id="systemLogs" class="debug-output">System logs will appear here...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Panel (Slide-out) -->
+        <div id="helpPanel" class="side-panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-question-circle"></i> Help & Documentation</h2>
+                <button class="close-panel" data-panel="helpPanel">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="panel-content">
+                <div class="help-section">
+                    <h3>Getting Started</h3>
+                    <div class="help-card">
+                        <h4>Basic Usage</h4>
+                        <ul>
+                            <li>Click "Start Speaking" to begin voice interaction</li>
+                            <li>Speak clearly into your microphone</li>
+                            <li>The AI will respond with voice and text</li>
+                            <li>Use "Streaming Mode" for real-time conversation</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="help-card">
+                        <h4>Sample Phrases</h4>
+                        <ul>
+                            <li>"What's my account balance?"</li>
+                            <li>"I need help with a transaction"</li>
+                            <li>"I think there's fraud on my account"</li>
+                            <li>"Can you help me transfer money?"</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="help-card">
+                        <h4>Troubleshooting</h4>
+                        <ul>
+                            <li>Ensure microphone permissions are granted</li>
+                            <li>Check your internet connection</li>
+                            <li>Verify API key is set in Settings</li>
+                            <li>Use Debug Tools for detailed diagnostics</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overlay for panels -->
+        <div id="panelOverlay" class="panel-overlay"></div>
     </div>
 
-    <!-- API and utility modules -->
+    <!-- Scripts -->
     <script src="debug-manager.js"></script>
-    <script src="agent-telemetry.js"></script>
+    <script src="persona-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
     <script src="token-tracker.js"></script>
     <script src="api-client.js"></script>
     <script src="streaming-manager.js"></script>
-    <script src="persona-manager.js"></script>
-    <script src="system-prompts-manager.js"></script>
-    
-    <!-- Agent modules -->
-    <script src="agents/security-manager.js"></script>
+    <!-- Agent system scripts (must load before main script) -->
     <script src="agents/base-agent.js"></script>
-    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
     <script src="agents/idv-agent.js"></script>
     <script src="agents/banking-info-agent.js"></script>
-    <script src="agents/fraud-agent.js"></script>
-    <script src="agents/payments-agent.js"></script>
-    <script src="agents/agent-router.js"></script>
-    
-    <!-- Extensibility system modules -->
-    <script src="agents/llm-provider-interface.js"></script>
-    <script src="agents/llm-provider-manager.js"></script>
-    <script src="agents/agent-loader.js"></script>
-    <script src="agents/telemetry-hooks.js"></script>
-    <script src="agents/extensibility-init.js"></script>
-
-    <!-- LLM Manager modules -->
-    <script src="agents/llm-manager.js"></script>
     <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/security-manager.js"></script>
     <script src="agents/voice-config-manager.js"></script>
-    
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/agent-router.js"></script>
+    <script src="agent-telemetry.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+    <!-- Dependency check (optional, for debugging) -->
+    <script src="dependency-check.js"></script>
+    <!-- Main application scripts -->
     <script src="script.js"></script>
+    <script src="main-interface.js"></script>
 </body>
 
 </html>

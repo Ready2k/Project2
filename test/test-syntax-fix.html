@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syntax Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Syntax Fix Test</h1>
+    <div id="results"></div>
+
+    <!-- Include dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../system-prompts-manager.js"></script>
+
+    <script>
+        function testSyntaxFix() {
+            const results = document.getElementById('results');
+            let html = '<h2>Syntax Fix Test Results:</h2>';
+
+            try {
+                // Test 1: Check if SystemPromptsManager loads without syntax errors
+                html += '<p class="info">Test 1: Loading SystemPromptsManager...</p>';
+                
+                if (typeof SystemPromptsManager === 'undefined') {
+                    throw new Error('SystemPromptsManager is not defined - syntax error prevented loading');
+                }
+                
+                html += '<p class="success">✅ SystemPromptsManager loaded successfully</p>';
+
+                // Test 2: Try to instantiate SystemPromptsManager
+                html += '<p class="info">Test 2: Creating SystemPromptsManager instance...</p>';
+                const systemPromptsManager = new SystemPromptsManager();
+                html += '<p class="success">✅ SystemPromptsManager instance created</p>';
+
+                // Test 3: Try to call resetToDefaults method (this had the syntax error)
+                html += '<p class="info">Test 3: Testing resetToDefaults method...</p>';
+                const resetPromise = systemPromptsManager.resetToDefaults();
+                
+                if (resetPromise && typeof resetPromise.then === 'function') {
+                    html += '<p class="success">✅ resetToDefaults method works and returns a Promise</p>';
+                } else {
+                    html += '<p class="success">✅ resetToDefaults method works</p>';
+                }
+
+                html += '<h3 class="success">🎉 All syntax errors fixed!</h3>';
+                html += '<p class="info">The SystemPromptsManager should now work without syntax errors.</p>';
+
+            } catch (error) {
+                html += `<p class="error">❌ Test failed: ${error.message}</p>`;
+                html += `<p class="error">Stack trace: ${error.stack}</p>`;
+                console.error('Syntax test failed:', error);
+            }
+
+            results.innerHTML = html;
+        }
+
+        // Run test when page loads
+        window.addEventListener('load', () => {
+            setTimeout(testSyntaxFix, 100);
+        });
+    </script>
+</body>
+</html>

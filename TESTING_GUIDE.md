@@ -5,8 +5,8 @@
 The agent indicator shows which AI agent is currently handling the user's request in the voice chat interface.
 
 ### Quick Test Files
-1. **`test-agent-indicator.html`** - Tests the visual indicator functionality
-2. **`test-agent-indicator-integration.html`** - Tests integration with agent routing  
+1. **`test/test-agent-indicator.html`** - Tests the visual indicator functionality
+2. **`test/test-agent-indicator-integration.html`** - Tests integration with agent routing  
 3. **`index.html`** - Test in the main voice chat application
 
 ### Expected Agent Behavior
@@ -32,11 +32,11 @@ Open `test-llm-manager-admin-ui.html` in your browser:
 
 ```bash
 # Option 1: Direct file open
-open test-llm-manager-admin-ui.html
+open test/test-llm-manager-admin-ui.html
 
 # Option 2: Using a local server (recommended)
 python3 -m http.server 8000
-# Then visit: http://localhost:8000/test-llm-manager-admin-ui.html
+# Then visit: http://localhost:8000/test/test-llm-manager-admin-ui.html
 ```
 
 ### 2. **Main Admin UI Test**
@@ -54,7 +54,7 @@ python3 -m http.server 8000
 ## 🔧 Step-by-Step Testing Process
 
 ### **Phase 1: Component Initialization**
-1. Open `test-llm-manager-admin-ui.html`
+1. Open `test/test-llm-manager-admin-ui.html`
 2. Click **"Initialize All Components"** button
 3. Verify all status indicators turn green ✅
 4. Check console for any error messages
@@ -91,7 +91,7 @@ python3 -m http.server 8000
 7. Click **"Test Guardrails Save"** to verify persistence
 
 ### **Phase 5: Enhanced Guardrails Validation Testing**
-1. Open **"test-enhanced-guardrails.html"** in browser
+1. Open **"test/test-enhanced-guardrails.html"** in browser
 2. Click **"Run All Tests"** to execute comprehensive guardrails tests
 3. Verify the following test results:
    - ✅ Prompt templates are loaded correctly

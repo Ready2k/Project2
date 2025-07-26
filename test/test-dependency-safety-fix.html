@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dependency Safety Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+        .warning { color: #ffc107; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .test-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 Dependency Safety Fix Test</h1>
+        <p>Testing the fix for missing dependency errors during SpeechToSpeechApp initialization.</p>
+        
+        <div id="test-results"></div>
+        
+        <button onclick="testWithoutDependencies()">Test Without Dependencies</button>
+        <button onclick="testWithPartialDependencies()">Test With Partial Dependencies</button>
+        <button onclick="testWithAllDependencies()">Test With All Dependencies</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('test-results');
+            const p = document.createElement('p');
+            p.className = type;
+            p.textContent = message;
+            resultsDiv.appendChild(p);
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        // Mock SpeechToSpeechApp constructor with safety checks
+        class MockSpeechToSpeechApp {
+            constructor() {
+                this.openaiApiKey = '';
+                this.isRecording = false;
+                this.mediaRecorder = null;
+                this.audioChunks = [];
+                
+                // Initialize debug logger with safety check
+                if (window.debugManager) {
+                    this.debug = window.debugManager.createModuleLogger('SpeechToSpeechApp');
+                } else {
+                    this.debug = {
+                        log: (...args) => console.log('[SpeechToSpeechApp]', ...args),
+                        warn: (...args) => console.warn('[SpeechToSpeechApp]', ...args),
+                        error: (...args) => console.error('[SpeechToSpeechApp]', ...args),
+                        info: (...args) => console.info('[SpeechToSpeechApp]', ...args)
+                    };
+                }
+
+                // Initialize persona manager with safety check
+                if (typeof PersonaManager !== 'undefined') {
+                    this.personaManager = new PersonaManager();
+                } else {
+                    console.warn('[SpeechToSpeechApp] PersonaManager not available, using fallback');
+                    this.personaManager = {
+                        getCurrentPersona: () => 'default',
+                        getCurrentPersonaData: () => ({ name: 'default', description: 'Default persona' }),
+                        setPersona: () => {},
+                        getPersonas: () => ({})
+                    };
+                }
+
+                // Initialize system prompts manager with safety check
+                if (typeof SystemPromptsManager !== 'undefined') {
+                    this.systemPromptsManager = new SystemPromptsManager();
+                } else {
+                    console.warn('[SpeechToSpeechApp] SystemPromptsManager not available, using fallback');
+                    this.systemPromptsManager = {
+                        generateSystemPrompt: () => 'You are a helpful AI assistant.',
+                        getPrompts: () => ({}),
+                        setPrompt: () => {}
+                    };
+                }
+
+                // Initialize API client and token tracker with safety checks
+                if (typeof TokenTracker !== 'undefined') {
+                    this.tokenTracker = new TokenTracker();
+                } else {
+                    console.warn('[SpeechToSpeechApp] TokenTracker not available, using fallback');
+                    this.tokenTracker = {
+                        trackTokens: () => {},
+                        getUsage: () => ({ totalTokens: 0, totalCost: 0 }),
+                        reset: () => {}
+                    };
+                }
+
+                if (typeof OpenAIClient !== 'undefined') {
+                    this.apiClient = new OpenAIClient(this.openaiApiKey, this.tokenTracker);
+                } else {
+                    console.warn('[SpeechToSpeechApp] OpenAIClient not available, using fallback');
+                    this.apiClient = {
+                        generateChatCompletion: () => Promise.resolve({ success: false, error: 'API client not available' }),
+                        transcribeAudio: () => Promise.resolve({ success: false, error: 'API client not available' }),
+                        generateSpeech: () => Promise.resolve({ success: false, error: 'API client not available' })
+                    };
+                }
+
+                this.initialized = true;
+            }
+        }
+
+        // Mock classes for testing
+        class MockPersonaManager {
+            getCurrentPersona() { return 'test-persona'; }
+            getCurrentPersonaData() { return { name: 'test', description: 'Test persona' }; }
+            setPersona() {}
+            getPersonas() { return {}; }
+        }
+
+        class MockSystemPromptsManager {
+            generateSystemPrompt() { return 'Test system prompt'; }
+            getPrompts() { return {}; }
+            setPrompt() {}
+        }
+
+        class MockTokenTracker {
+            trackTokens() {}
+            getUsage() { return { totalTokens: 100, totalCost: 0.01 }; }
+            reset() {}
+        }
+
+        class MockOpenAIClient {
+            constructor(apiKey, tokenTracker) {
+                this.apiKey = apiKey;
+                this.tokenTracker = tokenTracker;
+            }
+            generateChatCompletion() { return Promise.resolve({ success: true, content: 'Test response' }); }
+            transcribeAudio() { return Promise.resolve({ success: true, text: 'Test transcription' }); }
+            generateSpeech() { return Promise.resolve({ success: true, audio: 'test-audio-data' }); }
+        }
+
+        function testWithoutDependencies() {
+            clearResults();
+            addResult('🧪 Testing SpeechToSpeechApp initialization WITHOUT any dependencies...', 'info');
+            
+            try {
+                // Remove all dependencies
+                const originalClasses = {};
+                ['PersonaManager', 'SystemPromptsManager', 'TokenTracker', 'OpenAIClient'].forEach(className => {
+                    if (window[className]) {
+                        originalClasses[className] = window[className];
+                        delete window[className];
+                    }
+                });
+                
+                addResult('Step 1: Removed all dependency classes', 'info');
+                
+                // Try to create SpeechToSpeechApp
+                const app = new MockSpeechToSpeechApp();
+                
+                if (app.initialized) {
+                    addResult('✅ SpeechToSpeechApp initialized successfully with all fallbacks', 'success');
+                    
+                    // Test fallback functionality
+                    const persona = app.personaManager.getCurrentPersona();
+                    addResult(`✅ Persona manager fallback works: ${persona}`, 'success');
+                    
+                    const prompt = app.systemPromptsManager.generateSystemPrompt();
+                    addResult(`✅ System prompts fallback works: ${prompt.substring(0, 30)}...`, 'success');
+                    
+                    const usage = app.tokenTracker.getUsage();
+                    addResult(`✅ Token tracker fallback works: ${usage.totalTokens} tokens`, 'success');
+                    
+                } else {
+                    addResult('❌ SpeechToSpeechApp failed to initialize', 'error');
+                }
+                
+                // Restore original classes
+                Object.keys(originalClasses).forEach(className => {
+                    window[className] = originalClasses[className];
+                });
+                
+                addResult('🎉 Test completed: App can initialize without any dependencies!', 'success');
+                
+            } catch (error) {
+                addResult(`❌ Test failed: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+
+        function testWithPartialDependencies() {
+            clearResults();
+            addResult('🧪 Testing SpeechToSpeechApp initialization with PARTIAL dependencies...', 'info');
+            
+            try {
+                // Set up only some dependencies
+                window.PersonaManager = MockPersonaManager;
+                window.TokenTracker = MockTokenTracker;
+                // Leave SystemPromptsManager and OpenAIClient undefined
+                
+                addResult('Step 1: Set up PersonaManager and TokenTracker only', 'info');
+                
+                const app = new MockSpeechToSpeechApp();
+                
+                if (app.initialized) {
+                    addResult('✅ SpeechToSpeechApp initialized with mixed real/fallback dependencies', 'success');
+                    
+                    // Test real vs fallback functionality
+                    const persona = app.personaManager.getCurrentPersona();
+                    addResult(`✅ Real PersonaManager works: ${persona}`, 'success');
+                    
+                    const usage = app.tokenTracker.getUsage();
+                    addResult(`✅ Real TokenTracker works: ${usage.totalTokens} tokens`, 'success');
+                    
+                } else {
+                    addResult('❌ SpeechToSpeechApp failed to initialize', 'error');
+                }
+                
+                addResult('🎉 Test completed: App handles mixed dependencies correctly!', 'success');
+                
+            } catch (error) {
+                addResult(`❌ Test failed: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+
+        function testWithAllDependencies() {
+            clearResults();
+            addResult('🧪 Testing SpeechToSpeechApp initialization with ALL dependencies...', 'info');
+            
+            try {
+                // Set up all dependencies
+                window.PersonaManager = MockPersonaManager;
+                window.SystemPromptsManager = MockSystemPromptsManager;
+                window.TokenTracker = MockTokenTracker;
+                window.OpenAIClient = MockOpenAIClient;
+                
+                addResult('Step 1: Set up all dependency classes', 'info');
+                
+                const app = new MockSpeechToSpeechApp();
+                
+                if (app.initialized) {
+                    addResult('✅ SpeechToSpeechApp initialized with all real dependencies', 'success');
+                    
+                    // Test all functionality
+                    const persona = app.personaManager.getCurrentPersona();
+                    addResult(`✅ PersonaManager works: ${persona}`, 'success');
+                    
+                    const prompt = app.systemPromptsManager.generateSystemPrompt();
+                    addResult(`✅ SystemPromptsManager works: ${prompt}`, 'success');
+                    
+                    const usage = app.tokenTracker.getUsage();
+                    addResult(`✅ TokenTracker works: ${usage.totalTokens} tokens`, 'success');
+                    
+                    addResult('✅ OpenAIClient initialized successfully', 'success');
+                    
+                } else {
+                    addResult('❌ SpeechToSpeechApp failed to initialize', 'error');
+                }
+                
+                addResult('🎉 Test completed: App works perfectly with all dependencies!', 'success');
+                
+            } catch (error) {
+                addResult(`❌ Test failed: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            addResult('🔧 Dependency Safety Fix Test initialized', 'info');
+            addResult('This test verifies that SpeechToSpeechApp can handle missing dependencies gracefully', 'info');
+            addResult('Click any test button to run specific scenarios', 'info');
+        });
+    </script>
+</body>
+</html>

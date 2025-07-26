@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dependency Check Test</title>
+</head>
+<body>
+    <h1>Dependency Check Test</h1>
+    <div id="results"></div>
+
+    <!-- Include required dependencies in correct order -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agent-telemetry.js"></script>
+    <script src="../persona-manager.js"></script>
+    <script src="../system-prompts-manager.js"></script>
+    <script src="../token-tracker.js"></script>
+    <script src="../api-client.js"></script>
+    <script src="test-api-factory.js"></script>
+    <script src="test-mode-selector.js"></script>
+    <script src="../agents/security-manager.js"></script>
+    <script src="../agents/agent-config-manager.js"></script>
+    <script src="../agents/guardrails-manager.js"></script>
+    <script src="../agents/base-agent.js"></script>
+    <script src="../agents/idv-agent.js"></script>
+    <script src="../agents/banking-info-agent.js"></script>
+    <script src="../agents/fraud-agent.js"></script>
+    <script src="../agents/payments-agent.js"></script>
+    <script src="../agents/agent-router.js"></script>
+    <script src="../streaming-manager.js"></script>
+
+    <script>
+        function checkDependencies() {
+            const results = document.getElementById('results');
+            const dependencies = [
+                'debugManager',
+                'agentTelemetry', 
+                'PersonaManager',
+                'SystemPromptsManager',
+                'TokenTracker',
+                'APIClient',
+                'TestAPIFactory',
+                'SecurityManager',
+                'AgentConfigManager',
+                'GuardrailsManager',
+                'BaseAgent',
+                'IDVAgent',
+                'BankingInfoAgent',
+                'FraudAgent',
+                'PaymentsAgent',
+                'AgentRouter',
+                'FallbackHandler',
+                'StreamingManager'
+            ];
+
+            let html = '<h2>Dependency Check Results:</h2><ul>';
+            let allGood = true;
+
+            dependencies.forEach(dep => {
+                const exists = window[dep] !== undefined;
+                const status = exists ? '✅' : '❌';
+                html += `<li>${status} ${dep}: ${exists ? 'Available' : 'Missing'}</li>`;
+                if (!exists) allGood = false;
+            });
+
+            html += '</ul>';
+
+            if (allGood) {
+                html += '<h3 style="color: green;">✅ All dependencies loaded successfully!</h3>';
+                
+                // Test AgentRouter instantiation
+                try {
+                    const router = new AgentRouter();
+                    html += '<p style="color: green;">✅ AgentRouter instantiation successful!</p>';
+                } catch (error) {
+                    html += `<p style="color: red;">❌ AgentRouter instantiation failed: ${error.message}</p>`;
+                    allGood = false;
+                }
+            } else {
+                html += '<h3 style="color: red;">❌ Some dependencies are missing!</h3>';
+            }
+
+            results.innerHTML = html;
+        }
+
+        // Run check when page loads
+        window.addEventListener('load', checkDependencies);
+    </script>
+</body>
+</html>

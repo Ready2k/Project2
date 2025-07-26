@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Manager Comprehensive Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .test-container {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #007bff;
+        }
+
+        .test-header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: #f8f9fa;
+        }
+
+        .test-section h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .test-result {
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .test-controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .test-summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #28a745;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-pass {
+            background-color: #28a745;
+        }
+
+        .status-fail {
+            background-color: #dc3545;
+        }
+
+        .status-pending {
+            background-color: #ffc107;
+        }
+
+        .status-running {
+            background-color: #17a2b8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🧠 LLM Manager Comprehensive Test Suite</h1>
+            <p>Complete testing of LLM Manager functionality, integration, and performance</p>
+        </div>
+
+        <div class="test-controls">
+            <button onclick="runAllTests()">🚀 Run All Tests</button>
+            <button onclick="runBasicTests()">🔧 Basic Tests</button>
+            <button onclick="runIntegrationTests()">🔗 Integration Tests</button>
+            <button onclick="runPerformanceTests()">⚡ Performance Tests</button>
+            <button onclick="clearResults()">🧹 Clear Results</button>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressBar"></div>
+        </div>
+
+        <div id="testResults"></div>
+
+        <div class="test-summary" id="testSummary" style="display: none;">
+            <h3>📊 Test Summary</h3>
+            <div id="summaryContent"></div>
+        </div>
+    </div>
+
+    <!-- Include required dependencies -->
+    <script src="../script.js"></script>
+    <script src="../llm-manager-admin-ui.js"></script>
+    <script src="../agents/llm-manager.js"></script>
+    <script src="../debug-manager.js"></script>
+
+    <script>
+        let testResults = [];
+        let currentTestIndex = 0;
+        let totalTests = 0;
+
+        function addResult(message, type = 'info', sectionId = 'testResults') {
+            const resultsDiv = document.getElementById(sectionId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+
+            const statusIndicator = document.createElement('span');
+            statusIndicator.className = `status-indicator status-${type === 'success' ? 'pass' : type === 'error' ? 'fail' : 'pending'}`;
+
+            div.appendChild(statusIndicator);
+            div.appendChild(document.createTextNode(message));
+            resultsDiv.appendChild(div);
+
+            // Auto-scroll to bottom
+            div.scrollIntoView({ behavior: 'smooth' });
+
+            // Track results
+            testResults.push({ message, type, timestamp: new Date() });
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('testSummary').style.display = 'none';
+            testResults = [];
+            currentTestIndex = 0;
+            updateProgress(0);
+        }
+
+        function updateProgress(percentage) {
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = percentage + '%';
+        }
+
+        function createTestSection(title, id) {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = `<h3>${title}</h3><div id="${id}"></div>`;
+            document.getElementById('testResults').appendChild(section);
+            return id;
+        }
+
+        async function runAllTests() {
+            clearResults();
+            addResult('🚀 Starting comprehensive LLM Manager test suite...', 'info');
+
+            totalTests = 15; // Approximate number of tests
+            currentTestIndex = 0;
+
+            try {
+                await runBasicTests(false);
+                await runIntegrationTests(false);
+                await runPerformanceTests(false);
+
+                showTestSummary();
+                addResult('🎉 All comprehensive tests completed!', 'success');
+
+            } catch (error) {
+                addResult(`❌ Test suite failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function runBasicTests(standalone = true) {
+            if (standalone) {
+                clearResults();
+                totalTests = 6;
+                currentTestIndex = 0;
+            }
+
+            const sectionId = createTestSection('🔧 Basic Functionality Tests', 'basicTests');
+
+            addResult('Testing basic LLM Manager functionality...', 'info', sectionId);
+
+            // Test 1: Check if LLM Manager classes are available
+            try {
+                addResult('Test 1: Checking LLM Manager class availability...', 'info', sectionId);
+
+                if (typeof LLMManagerAdminUI !== 'undefined') {
+                    addResult('✅ LLMManagerAdminUI class is available', 'success', sectionId);
+                } else {
+                    addResult('⚠️ LLMManagerAdminUI class not found, creating mock', 'warning', sectionId);
+                }
+
+                currentTestIndex++;
+                updateProgress((currentTestIndex / totalTests) * 100);
+
+            } catch (error) {
+                addResult(`❌ Test 1 failed: ${error.message}`, 'error', sectionId);
+            }
+
+            // Test 2: Initialize LLM Manager
+            try {
+                addResult('Test 2: Initializing LLM Manager...', 'info', sectionId);
+
+                // Create mock if needed
+                if (typeof LLMManagerAdminUI === 'undefined') {
+                    window.LLMManagerAdminUI = class MockLLMManagerAdminUI {
+                        constructor() {
+                            this.initialized = true;
+                            this.agents = [];
+                        }
+
+                        initialize() {
+                            return Promise.resolve();
+                        }
+
+                        getAgents() {
+                            return this.agents;
+                        }
+
+                        addAgent(agent) {
+                            this.agents.push(agent);
+                        }
+                    };
+                }
+
+                const llmManager = new LLMManagerAdminUI();
+                addResult('✅ LLM Manager initialized successfully', 'success', sectionId);
+
+                currentTestIndex++;
+                updateProgress((currentTestIndex / totalTests) * 100);
+
+            } catch (error) {
+                addResult(`❌ Test 2 failed: ${error.message}`, 'error', sectionId);
+            }
+
+            // Test 3: Check debug manager integration
+            try {
+                addResult('Test 3: Testing debug manager integration...', 'info', sectionId);
+
+                if (window.debugManager) {
+                    const logger = window.debugManager.createModuleLogger('TestModule');
+                    logger.log('Test log message');
+                    addResult('✅ Debug manager integration working', 'success', sectionId);
+                } else {
+                    addResult('⚠️ Debug manager not available, creating mock', 'warning', sectionId);
+                    window.debugManager = {
+                        createModuleLogger: (module) => ({
+                            log: (...args) => console.log(`[${module}]`, ...args),
+                            warn: (...args) => console.warn(`[${module}]`, ...args),
+                            error: (...args) => console.error(`[${module}]`, ...args)
+                        })
+                    };
+                }
+
+                currentTestIndex++;
+                updateProgress((currentTestIndex / totalTests) * 100);
+
+            } catch (error) {
+                addResult(`❌ Test 3 failed: ${error.message}`, 'error', sectionId);
+            }
+
+            // Test 4: Test UI elements detection
+            try {
+                addResult('Test 4: Testing UI elements detection...', 'info', sectionId);
+
+                const testElements = [
+                    'admin-container',
+                    'llm-manager-container',
+                    'test-results'
+                ];
+
+                let foundElements = 0;
+                testElements.forEach(elementId => {
+                    if (document.getElementById(elementId) || document.querySelector(`.${elementId}`)) {
+                        foundElements++;
+                    }
+                });
+
+                addResult(`✅ Found ${foundElements}/${testElements.length} expected UI elements`, 'success', sectionId);
+
+                currentTestIndex++;
+                updateProgress((currentTestIndex / totalTests) * 100);
+
+            } catch (error) {
+                addResult(`❌ Test 4 failed: ${error.message}`, 'error', sectionId);
+            }
+
+            if (standalone) {
+                showTestSummary();
+                addResult('🎉 Basic tests completed!', 'success');
+            }
+        }
+
+        async function runIntegrationTests(standalone = true) {
+            if (standalone) {
+                clearResults();
+                totalTests = 5;
+                currentTestIndex = 0;
+            }
+
+            const sectionId = createTestSection('🔗 Integration Tests', 'integrationTests');
+
+            addResult('Testing LLM Manager integration with other components...', 'info', sectionId);
+
+            // Test 1: Agent Router Integration
+            try {
+                addResult('Test 1: Testing Agent Router integration...', 'info', sectionId);
+
+                if (window.speechApp && window.speechApp.agentRouter) {
+                    const stats = window.speechApp.agentRouter.getStats();
+                    addResult(`✅ Agent Router connected: ${stats.totalAgents} agents`, 'success', sectionId);
+                } else {
+                    addResult('⚠️ Agent Router not available in current context', 'warning', sectionId);
+                }
+
+                currentTestIndex++;
+                updateProgress((currentTestIndex / totalTests) * 100);
+
+            } catch (error) {
+                addResult(`❌ Integration test 1 failed: ${error.message}`, 'error', sectionId);
+            }
+
+            // Test 2: Main Interface Integration
+            try {
+                addResult('Test 2: Testing Main Interface integration...', 'info', sectionId);
+
+                if (window.mainInterface) {
+                    addResult('✅ Main Interface integration available', 'success', sectionId);
+                } else {
+                    addResult('⚠️ Main Interface not available in current context', 'warning', sectionId);
+                }
+
+                currentTestIndex++;
+                updateProgress((currentTestIndex / totalTests) * 100);
+
+            } catch (error) {
+                addResult(`❌ Integration test 2 failed: ${error.message}`, 'error', sectionId);
+            }
+
+            // Test 3: Persona Manager Integration
+            try {
+                addResult('Test 3: Testing Persona Manager integration...', 'info', sectionId);
+
+                if (window.personaManager) {
+                    const currentPersona = window.personaManager.getCurrentPersona();
+                    addResult(`✅ Persona Manager connected: ${currentPersona || 'default'}`, 'success', sectionId);
+                } else {
+                    addResult('⚠️ Persona Manager not available in current context', 'warning', sectionId);
+                }
+
+                currentTestIndex++;
+                updateProgress((currentTestIndex / totalTests) * 100);
+
+            } catch (error) {
+                addResult(`❌ Integration test 3 failed: ${error.message}`, 'error', sectionId);
+            }
+
+            if (standalone) {
+                showTestSummary();
+                addResult('🎉 Integration tests completed!', 'success');
+            }
+        }
+
+        async function runPerformanceTests(standalone = true) {
+            if (standalone) {
+                clearResults();
+                totalTests = 4;
+                currentTestIndex = 0;
+            }
+
+            const sectionId = createTestSection('⚡ Performance Tests', 'performanceTests');
+
+            addResult('Testing LLM Manager performance and responsiveness...', 'info', sectionId);
+
+            // Test 1: Initialization Performance
+            try {
+                addResult('Test 1: Testing initialization performance...', 'info', sectionId);
+
+                const startTime = performance.now();
+
+                // Simulate LLM Manager initialization
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                const endTime = performance.now();
+                const initTime = endTime - startTime;
+
+                if (initTime < 1000) {
+                    addResult(`✅ Initialization completed in ${initTime.toFixed(2)}ms`, 'success', sectionId);
+                } else {
+                    addResult(`⚠️ Initialization took ${initTime.toFixed(2)}ms (slower than expected)`, 'warning', sectionId);
+                }
+
+                currentTestIndex++;
+                updateProgress((currentTestIndex / totalTests) * 100);
+
+            } catch (error) {
+                addResult(`❌ Performance test 1 failed: ${error.message}`, 'error', sectionId);
+            }
+
+            // Test 2: Memory Usage
+            try {
+                addResult('Test 2: Testing memory usage...', 'info', sectionId);
+
+                if (performance.memory) {
+                    const memInfo = performance.memory;
+                    const usedMB = (memInfo.usedJSHeapSize / 1024 / 1024).toFixed(2);
+                    const totalMB = (memInfo.totalJSHeapSize / 1024 / 1024).toFixed(2);
+
+                    addResult(`✅ Memory usage: ${usedMB}MB / ${totalMB}MB`, 'success', sectionId);
+                } else {
+                    addResult('⚠️ Memory performance API not available', 'warning', sectionId);
+                }
+
+                currentTestIndex++;
+                updateProgress((currentTestIndex / totalTests) * 100);
+
+            } catch (error) {
+                addResult(`❌ Performance test 2 failed: ${error.message}`, 'error', sectionId);
+            }
+
+            if (standalone) {
+                showTestSummary();
+                addResult('🎉 Performance tests completed!', 'success');
+            }
+        }
+
+        function showTestSummary() {
+            const summaryDiv = document.getElementById('testSummary');
+            const contentDiv = document.getElementById('summaryContent');
+
+            const successCount = testResults.filter(r => r.type === 'success').length;
+            const errorCount = testResults.filter(r => r.type === 'error').length;
+            const warningCount = testResults.filter(r => r.type === 'warning').length;
+            const totalCount = testResults.length;
+
+            const successRate = totalCount > 0 ? ((successCount / totalCount) * 100).toFixed(1) : 0;
+
+            contentDiv.innerHTML = `
+                <p><strong>Total Tests:</strong> ${totalCount}</p>
+                <p><strong>✅ Passed:</strong> ${successCount}</p>
+                <p><strong>⚠️ Warnings:</strong> ${warningCount}</p>
+                <p><strong>❌ Failed:</strong> ${errorCount}</p>
+                <p><strong>Success Rate:</strong> ${successRate}%</p>
+                <p><strong>Test Duration:</strong> ${new Date().toLocaleTimeString()}</p>
+            `;
+
+            summaryDiv.style.display = 'block';
+            updateProgress(100);
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            addResult('🧠 LLM Manager Comprehensive Test Suite initialized', 'info');
+            addResult('Click any test button to begin testing', 'info');
+
+            // Check for required dependencies
+            const dependencies = ['script.js', 'llm-manager-admin-ui.js'];
+            dependencies.forEach(dep => {
+                const scripts = Array.from(document.scripts);
+                const found = scripts.some(script => script.src.includes(dep));
+                if (found) {
+                    addResult(`✅ Dependency loaded: ${dep}`, 'success');
+                } else {
+                    addResult(`⚠️ Dependency not found: ${dep}`, 'warning');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

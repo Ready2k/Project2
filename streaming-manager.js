@@ -1405,3 +1405,8 @@ When the customer asks about their account, balance, transactions, or card, use 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = StreamingManager;
 }
+
+// Export to global scope for browser usage
+if (typeof window !== 'undefined') {
+    window.StreamingManager = StreamingManager;
+}

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Guardrails Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border-color: #17a2b8;
+            color: #0c5460;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .prompt-display {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-style: italic;
+        }
+        .auth-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Enhanced Guardrails System Test</h1>
+    
+    <div class="test-container">
+        <h2>Test Controls</h2>
+        <button class="btn" onclick="runAllTests()">Run All Tests</button>
+        <button class="btn" onclick="testPromptTemplates()">Test Prompt Templates</button>
+        <button class="btn" onclick="testSecondaryAuth()">Test Secondary Auth</button>
+        <button class="btn" onclick="testCustomPrompts()">Test Custom Prompts</button>
+        <button class="btn" onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div class="test-container">
+        <h2>Test Results</h2>
+        <div id="testResults"></div>
+    </div>
+
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/guardrails-manager.js"></script>
+    
+    <script>
+        let guardrailsManager;
+        
+        function initialize() {
+            try {
+                guardrailsManager = new GuardrailsManager();
+                addResult('success', 'GuardrailsManager initialized successfully');
+            } catch (error) {
+                addResult('error', `Failed to initialize GuardrailsManager: ${error.message}`);
+            }
+        }
+
+        function addResult(type, message, details = null) {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            
+            let content = message;
+            if (details) {
+                content += `<br><small>${details}</small>`;
+            }
+            
+            resultDiv.innerHTML = content;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+        }
+
+        function testPromptTemplates() {
+            addResult('info', 'Testing Prompt Templates...');
+            
+            try {
+                const templates = guardrailsManager.getPromptTemplates();
+                
+                // Test secondary auth templates
+                if (templates.secondaryAuth) {
+                    addResult('success', `Found ${Object.keys(templates.secondaryAuth).length} secondary auth templates`);
+                    
+                    Object.entries(templates.secondaryAuth).forEach(([key, template]) => {
+                        addResult('info', `Template "${key}":`, template);
+                    });
+                }
+                
+                // Test restriction blocked templates
+                if (templates.restrictionBlocked) {
+                    addResult('success', `Found ${Object.keys(templates.restrictionBlocked).length} restriction blocked templates`);
+                }
+                
+                // Test compliance templates
+                if (templates.compliance) {
+                    addResult('success', `Found ${Object.keys(templates.compliance).length} compliance templates`);
+                }
+                
+            } catch (error) {
+                addResult('error', `Error testing prompt templates: ${error.message}`);
+            }
+        }
+
+        function testSecondaryAuth() {
+            addResult('info', 'Testing Secondary Authentication...');
+            
+            try {
+                // Test FraudAgent card blocking without auth
+                const result1 = guardrailsManager.validateAction('FraudAgent', 'blockCard', {});
+                
+                if (!result1.allowed && result1.requiresAuth) {
+                    addResult('success', 'FraudAgent blockCard correctly requires secondary auth');
+                    
+                    if (result1.prompt) {
+                        const promptDiv = document.createElement('div');
+                        promptDiv.className = 'prompt-display';
+                        promptDiv.innerHTML = `<strong>Prompt:</strong> ${result1.prompt}`;
+                        document.getElementById('testResults').appendChild(promptDiv);
+                    }
+                    
+                    if (result1.authType) {
+                        const authDiv = document.createElement('div');
+                        authDiv.className = 'auth-info';
+                        authDiv.innerHTML = `<strong>Auth Type:</strong> ${result1.authType}`;
+                        document.getElementById('testResults').appendChild(authDiv);
+                    }
+                } else {
+                    addResult('error', 'FraudAgent blockCard should require secondary auth');
+                }
+                
+                // Test with auth completed
+                const result2 = guardrailsManager.validateAction('FraudAgent', 'blockCard', { 
+                    secondaryAuthCompleted: true 
+                });
+                
+                if (result2.allowed) {
+                    addResult('success', 'FraudAgent blockCard allowed with secondary auth completed');
+                } else {
+                    addResult('error', 'FraudAgent blockCard should be allowed with secondary auth');
+                }
+                
+                // Test PaymentsAgent transfer
+                const result3 = guardrailsManager.validateAction('PaymentsAgent', 'initiateTransfer', { 
+                    amount: 500 
+                });
+                
+                if (!result3.allowed && result3.requiresAuth) {
+                    addResult('success', 'PaymentsAgent initiateTransfer correctly requires secondary auth');
+                    
+                    if (result3.prompt) {
+                        const promptDiv = document.createElement('div');
+                        promptDiv.className = 'prompt-display';
+                        promptDiv.innerHTML = `<strong>Prompt:</strong> ${result3.prompt}`;
+                        document.getElementById('testResults').appendChild(promptDiv);
+                    }
+                } else {
+                    addResult('error', 'PaymentsAgent initiateTransfer should require secondary auth');
+                }
+                
+            } catch (error) {
+                addResult('error', `Error testing secondary auth: ${error.message}`);
+            }
+        }
+
+        function testCustomPrompts() {
+            addResult('info', 'Testing Custom Prompts...');
+            
+            try {
+                // Test setting custom prompt
+                const success = guardrailsManager.setCustomPrompt(
+                    'FraudAgent', 
+                    'secondaryAuth', 
+                    'blockCard', 
+                    'CUSTOM: Please verify your identity before we block your card for security.'
+                );
+                
+                if (success) {
+                    addResult('success', 'Custom prompt set successfully');
+                    
+                    // Test that custom prompt is used
+                    const result = guardrailsManager.validateAction('FraudAgent', 'blockCard', {});
+                    
+                    if (result.prompt && result.prompt.includes('CUSTOM:')) {
+                        addResult('success', 'Custom prompt is being used correctly');
+                        
+                        const promptDiv = document.createElement('div');
+                        promptDiv.className = 'prompt-display';
+                        promptDiv.innerHTML = `<strong>Custom Prompt:</strong> ${result.prompt}`;
+                        document.getElementById('testResults').appendChild(promptDiv);
+                    } else {
+                        addResult('error', 'Custom prompt not being used');
+                    }
+                } else {
+                    addResult('error', 'Failed to set custom prompt');
+                }
+                
+                // Test getting custom prompt
+                const retrievedPrompt = guardrailsManager.getCustomPrompt('FraudAgent', 'secondaryAuth', 'blockCard');
+                if (retrievedPrompt && retrievedPrompt.includes('CUSTOM:')) {
+                    addResult('success', 'Custom prompt retrieved successfully');
+                } else {
+                    addResult('error', 'Failed to retrieve custom prompt');
+                }
+                
+            } catch (error) {
+                addResult('error', `Error testing custom prompts: ${error.message}`);
+            }
+        }
+
+        function testAuthenticationTypes() {
+            addResult('info', 'Testing Authentication Types...');
+            
+            try {
+                const authTypes = guardrailsManager.getAuthenticationTypes();
+                
+                if (authTypes && Object.keys(authTypes).length > 0) {
+                    addResult('success', `Found ${Object.keys(authTypes).length} authentication types`);
+                    
+                    Object.entries(authTypes).forEach(([key, label]) => {
+                        addResult('info', `Auth Type: ${key} - ${label}`);
+                    });
+                } else {
+                    addResult('error', 'No authentication types found');
+                }
+                
+            } catch (error) {
+                addResult('error', `Error testing authentication types: ${error.message}`);
+            }
+        }
+
+        function testAvailableAuthActions() {
+            addResult('info', 'Testing Available Auth Actions...');
+            
+            try {
+                const agents = ['FraudAgent', 'PaymentsAgent', 'IDVAgent', 'BankingInfoAgent'];
+                
+                agents.forEach(agentName => {
+                    const actions = guardrailsManager.getAvailableAuthActions(agentName);
+                    
+                    if (actions && actions.length > 0) {
+                        addResult('success', `${agentName}: Found ${actions.length} available auth actions`);
+                        
+                        actions.forEach(action => {
+                            addResult('info', `  - ${action.label} (${action.action})`);
+                        });
+                    } else {
+                        addResult('error', `${agentName}: No available auth actions found`);
+                    }
+                });
+                
+            } catch (error) {
+                addResult('error', `Error testing available auth actions: ${error.message}`);
+            }
+        }
+
+        function runAllTests() {
+            clearResults();
+            addResult('info', 'Running all enhanced guardrails tests...');
+            
+            testPromptTemplates();
+            testSecondaryAuth();
+            testCustomPrompts();
+            testAuthenticationTypes();
+            testAvailableAuthActions();
+            
+            addResult('info', 'All tests completed!');
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', initialize);
+    </script>
+</body>
+</html>

@@ -19,14 +19,25 @@ class SystemPromptsManager {
                 this.systemPrompts = JSON.parse(storedPrompts);
             }
 
-            // Load default system prompts from JSON file
-            const response = await fetch('./system-prompts.json');
-            if (response.ok) {
-                const defaultPrompts = await response.json();
-                // Merge default prompts with stored ones (stored takes precedence)
-                this.systemPrompts = { ...defaultPrompts, ...this.systemPrompts };
+            // Load default system prompts from JSON file (skip if file:// protocol to avoid CORS)
+            const isFileProtocol = window.location.protocol === 'file:';
+            
+            if (!isFileProtocol) {
+                try {
+                    const response = await fetch('./system-prompts.json');
+                    if (response.ok) {
+                        const defaultPrompts = await response.json();
+                        // Merge default prompts with stored ones (stored takes precedence)
+                        this.systemPrompts = { ...defaultPrompts, ...this.systemPrompts };
+                        this.debug.log('Loaded system prompts from JSON file');
+                    } else {
+                        this.debug.warn('Could not load system-prompts.json, using stored/default prompts only');
+                    }
+                } catch (fetchError) {
+                    this.debug.warn('Could not load system-prompts.json:', fetchError.message);
+                }
             } else {
-                this.debug.warn('Could not load system-prompts.json, using stored prompts only');
+                this.debug.log('File protocol detected, using default system prompts to avoid CORS issues');
             }
 
             // Ensure required properties exist
@@ -149,20 +160,31 @@ class SystemPromptsManager {
 
     resetToDefaults() {
         try {
-            // Load fresh defaults from JSON file
-            return fetch('./system-prompts.json')
-                .then(response => response.json())
-                .then(defaultPrompts => {
-                    this.systemPrompts = defaultPrompts;
-                    this.saveToLocalStorage();
-                    return true;
-                })
-                .catch(error => {
-                    this.debug.error('Error loading defaults:', error);
-                    this.setDefaults();
-                    this.saveToLocalStorage();
-                    return true;
-                });
+            // Check if we're on file:// protocol to avoid CORS errors
+            const isFileProtocol = window.location.protocol === 'file:';
+            
+            if (!isFileProtocol) {
+                // Load fresh defaults from JSON file
+                return fetch('./system-prompts.json')
+                    .then(response => response.json())
+                    .then(defaultPrompts => {
+                        this.systemPrompts = defaultPrompts;
+                        this.saveToLocalStorage();
+                        return true;
+                    })
+                    .catch(error => {
+                        this.debug.error('Error loading defaults:', error);
+                        this.setDefaults();
+                        this.saveToLocalStorage();
+                        return true;
+                    });
+            } else {
+                // Use embedded defaults for file:// protocol
+                this.debug.log('File protocol detected, using embedded defaults');
+                this.setDefaults();
+                this.saveToLocalStorage();
+                return Promise.resolve(true);
+            }
         } catch (error) {
             this.debug.error('Error resetting to defaults:', error);
             this.setDefaults();
@@ -212,4 +234,9 @@ class SystemPromptsManager {
     setCurrencyFormatter(formatFunction) {
         this.formatCurrency = formatFunction;
     }
+}
+
+// Export to global scope for browser usage
+if (typeof window !== 'undefined') {
+    window.SystemPromptsManager = SystemPromptsManager;
 }

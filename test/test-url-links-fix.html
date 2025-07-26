@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Links Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .url-test {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #f8f9fa;
+        }
+        .url-test.success {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        .url-test.error {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+        .url-link {
+            flex: 1;
+            margin-right: 10px;
+        }
+        .url-link a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .url-link a:hover {
+            text-decoration: underline;
+        }
+        .status {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .status.found {
+            background: #28a745;
+            color: white;
+        }
+        .status.missing {
+            background: #dc3545;
+            color: white;
+        }
+        .test-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-btn:hover {
+            background: #0056b3;
+        }
+        .summary {
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .summary.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .summary.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔗 URL Links Fix Test</h1>
+    
+    <div class="test-container">
+        <h2>Test Case: Fixed URL Links</h2>
+        <p>This test verifies that all test file URLs now include the correct <code>/test/</code> prefix and that the files actually exist.</p>
+        
+        <button class="test-btn" onclick="testAllUrls()">Test All URLs</button>
+        <button class="test-btn" onclick="testScriptUrls()">Test Script.js URLs</button>
+        <button class="test-btn" onclick="clearResults()">Clear Results</button>
+        
+        <div id="testResults"></div>
+        <div id="summary"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>URLs Being Tested</h2>
+        <p>These are the URLs that were fixed to include the <code>/test/</code> prefix:</p>
+        <ul>
+            <li><strong>script.js</strong>: test-agent-configuration.html → test/test-agent-configuration.html</li>
+            <li><strong>script.js</strong>: test-ai-agent-routing.html → test/test-ai-agent-routing.html</li>
+            <li><strong>script.js</strong>: test-agent-routing.html → test/test-agent-routing.html</li>
+            <li><strong>TESTING_GUIDE.md</strong>: Various test file references</li>
+            <li><strong>Other docs</strong>: Multiple documentation file references</li>
+        </ul>
+    </div>
+
+    <script>
+        // List of URLs that should be accessible
+        const testUrls = [
+            // URLs from script.js
+            'test/test-agent-configuration.html',
+            'test/test-ai-agent-routing.html', 
+            'test/test-agent-routing.html',
+            
+            // URLs from TESTING_GUIDE.md
+            'test/test-llm-manager-admin-ui.html',
+            'test/test-enhanced-guardrails.html',
+            'test/test-agent-indicator.html',
+            'test/test-agent-indicator-integration.html',
+            
+            // URLs from other documentation
+            'test/test-dependencies.html',
+            'test/test-security-boundaries.html',
+            'test/test-new-interface.html',
+            'test/test-final-fixes.html',
+            'test/test-close-button-fix.html',
+            'test/test-mic-sensitivity-fix.html',
+            
+            // Additional important test files
+            'test/test-agent-system-comprehensive.html',
+            'test/test-guardrails-system.html',
+            'test/test-streaming-integration.html',
+            'test/test-llm-manager-comprehensive.html'
+        ];
+
+        // URLs that were specifically mentioned as broken
+        const scriptUrls = [
+            'test/test-agent-configuration.html',
+            'test/test-ai-agent-routing.html',
+            'test/test-agent-routing.html'
+        ];
+
+        async function testUrl(url) {
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                return {
+                    url: url,
+                    exists: response.ok,
+                    status: response.status
+                };
+            } catch (error) {
+                return {
+                    url: url,
+                    exists: false,
+                    status: 'Error',
+                    error: error.message
+                };
+            }
+        }
+
+        async function testAllUrls() {
+            const results = document.getElementById('testResults');
+            const summary = document.getElementById('summary');
+            results.innerHTML = '<p>Testing URLs...</p>';
+            summary.innerHTML = '';
+
+            const testResults = [];
+            
+            for (const url of testUrls) {
+                const result = await testUrl(url);
+                testResults.push(result);
+                
+                const urlDiv = document.createElement('div');
+                urlDiv.className = `url-test ${result.exists ? 'success' : 'error'}`;
+                urlDiv.innerHTML = `
+                    <div class="url-link">
+                        <a href="${url}" target="_blank">${url}</a>
+                    </div>
+                    <div class="status ${result.exists ? 'found' : 'missing'}">
+                        ${result.exists ? '✅ FOUND' : '❌ MISSING'}
+                    </div>
+                `;
+                results.appendChild(urlDiv);
+            }
+
+            // Show summary
+            const foundCount = testResults.filter(r => r.exists).length;
+            const totalCount = testResults.length;
+            const allFound = foundCount === totalCount;
+            
+            summary.className = `summary ${allFound ? 'success' : 'error'}`;
+            summary.innerHTML = `
+                <strong>Summary:</strong> ${foundCount}/${totalCount} URLs are accessible
+                ${allFound ? '🎉 All URLs are working!' : '⚠️ Some URLs are missing or broken'}
+            `;
+        }
+
+        async function testScriptUrls() {
+            const results = document.getElementById('testResults');
+            const summary = document.getElementById('summary');
+            results.innerHTML = '<p>Testing script.js URLs specifically...</p>';
+            summary.innerHTML = '';
+
+            const testResults = [];
+            
+            for (const url of scriptUrls) {
+                const result = await testUrl(url);
+                testResults.push(result);
+                
+                const urlDiv = document.createElement('div');
+                urlDiv.className = `url-test ${result.exists ? 'success' : 'error'}`;
+                urlDiv.innerHTML = `
+                    <div class="url-link">
+                        <a href="${url}" target="_blank">${url}</a>
+                        <small>(from script.js)</small>
+                    </div>
+                    <div class="status ${result.exists ? 'found' : 'missing'}">
+                        ${result.exists ? '✅ FOUND' : '❌ MISSING'}
+                    </div>
+                `;
+                results.appendChild(urlDiv);
+            }
+
+            // Show summary
+            const foundCount = testResults.filter(r => r.exists).length;
+            const totalCount = testResults.length;
+            const allFound = foundCount === totalCount;
+            
+            summary.className = `summary ${allFound ? 'success' : 'error'}`;
+            summary.innerHTML = `
+                <strong>Script.js URLs:</strong> ${foundCount}/${totalCount} URLs are accessible
+                ${allFound ? '🎉 All script.js URLs are fixed!' : '⚠️ Some script.js URLs are still broken'}
+            `;
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('summary').innerHTML = '';
+        }
+
+        // Test the main functionality that was broken
+        function testMainFunctionality() {
+            console.log('Testing main functionality...');
+            
+            // Test if the URLs would work when called from script.js
+            const configUrl = 'test/test-agent-configuration.html';
+            const aiRoutingUrl = 'test/test-ai-agent-routing.html';
+            const basicRoutingUrl = 'test/test-agent-routing.html';
+            
+            console.log('Config URL:', configUrl);
+            console.log('AI Routing URL:', aiRoutingUrl);
+            console.log('Basic Routing URL:', basicRoutingUrl);
+            
+            // These should now work when opened
+            return {
+                configUrl,
+                aiRoutingUrl,
+                basicRoutingUrl
+            };
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                console.log('URL Links Fix Test loaded');
+                console.log('Main functionality test:', testMainFunctionality());
+            }, 500);
+        });
+    </script>
+</body>
+</html>

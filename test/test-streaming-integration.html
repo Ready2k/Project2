@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Token Tracking Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        button { margin: 5px; padding: 8px 15px; }
+        .token-stats { background: #e8f5e8; padding: 10px; margin: 10px 0; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Streaming Token Tracking Integration Test</h1>
+    
+    <div class="test-section info">
+        <h3>Test Status</h3>
+        <div id="testStatus">Initializing...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>Current Token Usage</h3>
+        <div class="token-stats">
+            <div>Whisper: <span id="whisperTokens">0 requests</span> - <span id="whisperCost">$0.0000</span></div>
+            <div>GPT: <span id="gptTokens">0 tokens</span> - <span id="gptCost">$0.0000</span></div>
+            <div>TTS: <span id="ttsTokens">0 chars</span> - <span id="ttsCost">$0.0000</span></div>
+            <div><strong>Total: <span id="totalCost">$0.0000</span></strong></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>Integration Tests</h3>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="resetAll()">Reset All</button>
+        <div id="testResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Session Stats</h3>
+        <pre id="sessionStats">No session data</pre>
+    </div>
+
+    <!-- Load required modules -->
+    <script src="../debug-manager.js"></script>
+    <script src="../token-tracker.js"></script>
+    <script src="../streaming-manager.js"></script>
+
+    <script>
+        let tokenTracker, streamingManager;
+        let testResults = [];
+
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('testStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+        }
+
+        function addTestResult(testName, passed, details = '') {
+            testResults.push({ testName, passed, details });
+            updateTestDisplay();
+        }
+
+        function updateTestDisplay() {
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = testResults.map(result => 
+                `<div class="${result.passed ? 'success' : 'error'}" style="margin: 5px 0; padding: 5px;">
+                    <strong>${result.testName}:</strong> ${result.passed ? 'PASS' : 'FAIL'}
+                    ${result.details ? `<br><small>${result.details}</small>` : ''}
+                </div>`
+            ).join('');
+        }
+
+        function updateSessionStats() {
+            if (streamingManager) {
+                const stats = streamingManager.getSessionStats();
+                document.getElementById('sessionStats').textContent = JSON.stringify(stats, null, 2);
+            }
+        }
+
+        async function runAllTests() {
+            testResults = [];
+            updateStatus('Running integration tests...', 'info');
+
+            try {
+                // Test 1: Initialization
+                const initTest = testInitialization();
+                addTestResult('Initialization', initTest.passed, initTest.details);
+
+                // Test 2: Token Tracker Integration
+                const trackerTest = testTokenTrackerIntegration();
+                addTestResult('Token Tracker Integration', trackerTest.passed, trackerTest.details);
+
+                // Test 3: Input Text Tracking
+                const inputTest = testInputTextTracking();
+                addTestResult('Input Text Tracking', inputTest.passed, inputTest.details);
+
+                // Test 4: Output Text Tracking
+                const outputTest = testOutputTextTracking();
+                addTestResult('Output Text Tracking', outputTest.passed, outputTest.details);
+
+                // Test 5: Audio Tracking
+                const audioTest = testAudioTracking();
+                addTestResult('Audio Tracking', audioTest.passed, audioTest.details);
+
+                // Test 6: Session Completion
+                const completionTest = testSessionCompletion();
+                addTestResult('Session Completion', completionTest.passed, completionTest.details);
+
+                const passedTests = testResults.filter(r => r.passed).length;
+                const totalTests = testResults.length;
+                
+                updateStatus(`Tests completed: ${passedTests}/${totalTests} passed`, 
+                    passedTests === totalTests ? 'success' : 'error');
+
+            } catch (error) {
+                updateStatus(`Test error: ${error.message}`, 'error');
+                addTestResult('Test Execution', false, error.message);
+            }
+
+            updateSessionStats();
+        }
+
+        function testInitialization() {
+            try {
+                // Initialize components
+                tokenTracker = new TokenTracker();
+                streamingManager = new StreamingManager('test-key', null, tokenTracker);
+
+                const hasTokenTracker = !!streamingManager.tokenTracker;
+                const hasSessionTracking = !!streamingManager.streamingSession;
+
+                return {
+                    passed: hasTokenTracker && hasSessionTracking,
+                    details: `Token tracker: ${hasTokenTracker}, Session tracking: ${hasSessionTracking}`
+                };
+            } catch (error) {
+                return { passed: false, details: error.message };
+            }
+        }
+
+        function testTokenTrackerIntegration() {
+            try {
+                const initialUsage = tokenTracker.getUsage();
+                const hasInitialState = initialUsage.total === 0;
+                
+                // Test manual tracking
+                tokenTracker.trackGptUsage(10, 5);
+                const afterManual = tokenTracker.getUsage();
+                const manualWorked = afterManual.gpt.tokens === 15;
+
+                tokenTracker.updateDisplay();
+
+                return {
+                    passed: hasInitialState && manualWorked,
+                    details: `Initial state: ${hasInitialState}, Manual tracking: ${manualWorked}`
+                };
+            } catch (error) {
+                return { passed: false, details: error.message };
+            }
+        }
+
+        function testInputTextTracking() {
+            try {
+                const initialTokens = streamingManager.streamingSession.estimatedInputTokens;
+                
+                const testInput = "This is a test input message for token tracking.";
+                streamingManager.trackInputText(testInput);
+                
+                const afterTokens = streamingManager.streamingSession.estimatedInputTokens;
+                const tokensAdded = afterTokens > initialTokens;
+                const expectedTokens = Math.ceil(testInput.length / 4);
+                const correctEstimate = (afterTokens - initialTokens) === expectedTokens;
+
+                return {
+                    passed: tokensAdded && correctEstimate,
+                    details: `Tokens added: ${tokensAdded}, Estimate correct: ${correctEstimate} (${afterTokens - initialTokens} tokens)`
+                };
+            } catch (error) {
+                return { passed: false, details: error.message };
+            }
+        }
+
+        function testOutputTextTracking() {
+            try {
+                const initialTokens = streamingManager.streamingSession.estimatedOutputTokens;
+                const initialLength = streamingManager.streamingSession.textResponseLength;
+                
+                const testOutput = "This is a test output response from the AI assistant.";
+                streamingManager.trackOutputText(testOutput);
+                
+                const afterTokens = streamingManager.streamingSession.estimatedOutputTokens;
+                const afterLength = streamingManager.streamingSession.textResponseLength;
+                
+                const tokensAdded = afterTokens > initialTokens;
+                const lengthAdded = afterLength > initialLength;
+                const correctLength = (afterLength - initialLength) === testOutput.length;
+
+                return {
+                    passed: tokensAdded && lengthAdded && correctLength,
+                    details: `Tokens: ${afterTokens - initialTokens}, Length: ${afterLength - initialLength}`
+                };
+            } catch (error) {
+                return { passed: false, details: error.message };
+            }
+        }
+
+        function testAudioTracking() {
+            try {
+                const initialInput = streamingManager.streamingSession.audioMinutesSent;
+                const initialOutput = streamingManager.streamingSession.audioMinutesReceived;
+                
+                // Test audio input tracking
+                streamingManager.trackAudioInput(48000); // 1 second of audio
+                
+                // Test audio output tracking
+                const mockAudioData = "UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+                streamingManager.trackAudioOutput(mockAudioData);
+                
+                const afterInput = streamingManager.streamingSession.audioMinutesSent;
+                const afterOutput = streamingManager.streamingSession.audioMinutesReceived;
+                
+                const inputTracked = afterInput > initialInput;
+                const outputTracked = afterOutput > initialOutput;
+
+                return {
+                    passed: inputTracked && outputTracked,
+                    details: `Input: ${(afterInput - initialInput).toFixed(4)} min, Output: ${(afterOutput - initialOutput).toFixed(4)} min`
+                };
+            } catch (error) {
+                return { passed: false, details: error.message };
+            }
+        }
+
+        function testSessionCompletion() {
+            try {
+                const initialUsage = tokenTracker.getUsage();
+                
+                // Simulate session completion
+                streamingManager.trackResponseCompletion();
+                
+                const finalUsage = tokenTracker.getUsage();
+                
+                // Check if usage was updated
+                const gptUpdated = finalUsage.gpt.tokens > initialUsage.gpt.tokens;
+                const ttsUpdated = finalUsage.tts.characters > initialUsage.tts.characters;
+                const totalUpdated = finalUsage.total > initialUsage.total;
+
+                return {
+                    passed: gptUpdated && ttsUpdated && totalUpdated,
+                    details: `GPT: ${gptUpdated}, TTS: ${ttsUpdated}, Total: ${totalUpdated}`
+                };
+            } catch (error) {
+                return { passed: false, details: error.message };
+            }
+        }
+
+        function resetAll() {
+            if (tokenTracker) {
+                tokenTracker.resetUsage();
+                tokenTracker.updateDisplay();
+            }
+            if (streamingManager) {
+                streamingManager.resetSessionTracking();
+            }
+            testResults = [];
+            updateTestDisplay();
+            updateSessionStats();
+            updateStatus('Reset completed', 'success');
+        }
+
+        // Initialize on page load
+        updateStatus('Ready to run tests', 'info');
+    </script>
+</body>
+</html>

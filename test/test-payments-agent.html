@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaymentsAgent Unit Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .test-pass {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .test-fail {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .test-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .summary {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .summary.pass {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .summary.fail {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .debug-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <h1>PaymentsAgent Unit Tests</h1>
+    
+    <div class="test-container">
+        <h2>Test Controls</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="runCanHandleTests()">Test canHandle() Method</button>
+        <button onclick="runHandleTests()">Test handle() Method</button>
+        <button onclick="runSecurityTests()">Test Security Validation</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="test-results"></div>
+
+    <!-- Load dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/base-agent.js"></script>
+    <script src="../agents/payments-agent.js"></script>
+
+    <script>
+        // Test framework
+        class TestFramework {
+            constructor() {
+                this.results = [];
+                this.currentSuite = '';
+            }
+
+            suite(name) {
+                this.currentSuite = name;
+                this.log(`\n=== ${name} ===`, 'info');
+            }
+
+            test(description, testFn) {
+                try {
+                    const result = testFn();
+                    if (result === true || result === undefined) {
+                        this.results.push({ suite: this.currentSuite, test: description, status: 'pass' });
+                        this.log(`✓ ${description}`, 'pass');
+                    } else {
+                        this.results.push({ suite: this.currentSuite, test: description, status: 'fail', error: 'Test returned false' });
+                        this.log(`✗ ${description} - Test returned false`, 'fail');
+                    }
+                } catch (error) {
+                    this.results.push({ suite: this.currentSuite, test: description, status: 'fail', error: error.message });
+                    this.log(`✗ ${description} - ${error.message}`, 'fail');
+                }
+            }
+
+            async asyncTest(description, testFn) {
+                try {
+                    const result = await testFn();
+                    if (result === true || result === undefined) {
+                        this.results.push({ suite: this.currentSuite, test: description, status: 'pass' });
+                        this.log(`✓ ${description}`, 'pass');
+                    } else {
+                        this.results.push({ suite: this.currentSuite, test: description, status: 'fail', error: 'Test returned false' });
+                        this.log(`✗ ${description} - Test returned false`, 'fail');
+                    }
+                } catch (error) {
+                    this.results.push({ suite: this.currentSuite, test: description, status: 'fail', error: error.message });
+                    this.log(`✗ ${description} - ${error.message}`, 'fail');
+                }
+            }
+
+            log(message, type = 'info') {
+                const resultsDiv = document.getElementById('test-results');
+                const div = document.createElement('div');
+                div.className = `test-result test-${type}`;
+                div.textContent = message;
+                resultsDiv.appendChild(div);
+            }
+
+            getSummary() {
+                const total = this.results.length;
+                const passed = this.results.filter(r => r.status === 'pass').length;
+                const failed = total - passed;
+                return { total, passed, failed };
+            }
+
+            displaySummary() {
+                const summary = this.getSummary();
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = `summary ${summary.failed === 0 ? 'pass' : 'fail'}`;
+                summaryDiv.textContent = `Tests completed: ${summary.total} total, ${summary.passed} passed, ${summary.failed} failed`;
+                document.getElementById('test-results').appendChild(summaryDiv);
+            }
+
+            clear() {
+                this.results = [];
+                document.getElementById('test-results').innerHTML = '';
+            }
+        }
+
+        // Initialize test framework
+        const testFramework = new TestFramework();
+
+        // Mock dependencies
+        const mockDebugManager = {
+            createModuleLogger: (name) => ({
+                info: (msg, data) => console.log(`[${name}] INFO:`, msg, data || ''),
+                warn: (msg, data) => console.warn(`[${name}] WARN:`, msg, data || ''),
+                error: (msg, data) => console.error(`[${name}] ERROR:`, msg, data || '')
+            })
+        };
+
+        const mockPersonaManager = {
+            getCurrentPersonaData: () => ({
+                name: 'John Smith',
+                accountType: 'Current Account',
+                balance: 1500.00,
+                cardLast4: '1234',
+                currency: 'GBP',
+                accountStatus: 'active'
+            }),
+            formatCurrency: (amount) => `£${amount.toFixed(2)}`
+        };
+
+        const mockSystemPromptsManager = {
+            getSystemPrompt: () => 'Base system prompt for testing'
+        };
+
+        const mockApiClient = {
+            createChatCompletion: async (params) => ({
+                choices: [{
+                    message: {
+                        content: 'Mock payment processing response: I can help you with that transfer. Please confirm the details.'
+                    }
+                }],
+                usage: { total_tokens: 150 }
+            })
+        };
+
+        const mockTokenTracker = {
+            addTokens: (tokens, agent) => console.log(`Token tracking: ${tokens} tokens for ${agent}`),
+            trackGptUsage: (inputTokens, outputTokens) => console.log(`Token tracking: ${inputTokens} input, ${outputTokens} output tokens`),
+            trackWhisperUsage: (minutes) => console.log(`Token tracking: ${minutes} minutes of Whisper usage`),
+            trackTtsUsage: (characters, model) => console.log(`Token tracking: ${characters} characters for TTS (${model})`),
+            getUsage: () => ({ whisper: { requests: 0, cost: 0 }, gpt: { tokens: 0, cost: 0 }, tts: { characters: 0, cost: 0 }, total: 0 })
+        };
+
+        const mockContext = {
+            personaManager: mockPersonaManager,
+            systemPromptsManager: mockSystemPromptsManager,
+            apiClient: mockApiClient,
+            tokenTracker: mockTokenTracker
+        };
+
+        // Set up global dependencies
+        window.debugManager = mockDebugManager;
+
+        // Test functions
+        function runCanHandleTests() {
+            testFramework.clear();
+            testFramework.suite('PaymentsAgent canHandle() Tests');
+
+            const agent = new PaymentsAgent();
+
+            // Test exact phrase matches
+            testFramework.test('Should handle "send money"', () => {
+                return agent.canHandle('I want to send money to Alice') === true;
+            });
+
+            testFramework.test('Should handle "transfer £50"', () => {
+                return agent.canHandle('transfer £50 to my savings') === true;
+            });
+
+            testFramework.test('Should handle "pay £100"', () => {
+                return agent.canHandle('pay £100 to John') === true;
+            });
+
+            testFramework.test('Should handle "send £25 to Alice"', () => {
+                return agent.canHandle('send £25 to Alice') === true;
+            });
+
+            testFramework.test('Should handle "make payment"', () => {
+                return agent.canHandle('I need to make payment of £200') === true;
+            });
+
+            testFramework.test('Should handle "wire money"', () => {
+                return agent.canHandle('wire money internationally') === true;
+            });
+
+            // Test payment + amount combinations
+            testFramework.test('Should handle payment with amount', () => {
+                return agent.canHandle('send 50 pounds to my friend') === true;
+            });
+
+            testFramework.test('Should handle transfer with numbers', () => {
+                return agent.canHandle('transfer 100 to savings account') === true;
+            });
+
+            // Test negative cases
+            testFramework.test('Should NOT handle balance inquiry', () => {
+                return agent.canHandle('what is my account balance') === false;
+            });
+
+            testFramework.test('Should NOT handle fraud report', () => {
+                return agent.canHandle('report fraudulent transaction') === false;
+            });
+
+            testFramework.test('Should NOT handle identity verification', () => {
+                return agent.canHandle('verify my identity') === false;
+            });
+
+            testFramework.test('Should NOT handle empty input', () => {
+                return agent.canHandle('') === false;
+            });
+
+            testFramework.test('Should NOT handle null input', () => {
+                return agent.canHandle(null) === false;
+            });
+
+            testFramework.displaySummary();
+        }
+
+        async function runHandleTests() {
+            testFramework.clear();
+            testFramework.suite('PaymentsAgent handle() Tests');
+
+            const agent = new PaymentsAgent();
+
+            await testFramework.asyncTest('Should process valid payment request', async () => {
+                const result = await agent.handle('send £50 to Alice', mockContext);
+                return result.success === true && 
+                       result.agentName === 'PaymentsAgent' &&
+                       result.response.includes('transfer') &&
+                       result.metadata.securityLevel === 'highest';
+            });
+
+            await testFramework.asyncTest('Should include transaction validation metadata', async () => {
+                const result = await agent.handle('transfer £100 to savings', mockContext);
+                return result.metadata.transactionValidated === true &&
+                       result.metadata.agentType === 'payment_processing';
+            });
+
+            await testFramework.asyncTest('Should handle wire transfer request', async () => {
+                const result = await agent.handle('wire £200 internationally', mockContext);
+                return result.success === true && result.processingTime > 0;
+            });
+
+            await testFramework.asyncTest('Should fail without persona data', async () => {
+                const contextWithoutPersona = {
+                    ...mockContext,
+                    personaManager: {
+                        getCurrentPersonaData: () => null
+                    }
+                };
+                const result = await agent.handle('send £50', contextWithoutPersona);
+                return result.success === false && 
+                       result.error.includes('No persona data available');
+            });
+
+            await testFramework.asyncTest('Should fail with insufficient balance', async () => {
+                const contextWithLowBalance = {
+                    ...mockContext,
+                    personaManager: {
+                        ...mockPersonaManager,
+                        getCurrentPersonaData: () => ({
+                            ...mockPersonaManager.getCurrentPersonaData(),
+                            balance: 10.00
+                        })
+                    }
+                };
+                const result = await agent.handle('send £50 to Alice', contextWithLowBalance);
+                return result.success === false && 
+                       result.error.includes('amount exceeds available balance');
+            });
+
+            testFramework.displaySummary();
+        }
+
+        async function runSecurityTests() {
+            testFramework.clear();
+            testFramework.suite('PaymentsAgent Security Tests');
+
+            const agent = new PaymentsAgent();
+
+            // Test security validation
+            testFramework.test('Should validate sufficient balance', () => {
+                const personaData = { balance: 1000.00, accountStatus: 'active' };
+                try {
+                    agent.validateTransactionSecurity('send £50 to Alice', personaData);
+                    return true;
+                } catch (error) {
+                    return false;
+                }
+            });
+
+            testFramework.test('Should reject insufficient balance', () => {
+                const personaData = { balance: 10.00, accountStatus: 'active' };
+                try {
+                    agent.validateTransactionSecurity('send £50 to Alice', personaData);
+                    return false;
+                } catch (error) {
+                    return error.message.includes('amount exceeds available balance');
+                }
+            });
+
+            testFramework.test('Should reject zero balance', () => {
+                const personaData = { balance: 0, accountStatus: 'active' };
+                try {
+                    agent.validateTransactionSecurity('send money', personaData);
+                    return false;
+                } catch (error) {
+                    return error.message.includes('Insufficient account balance');
+                }
+            });
+
+            testFramework.test('Should reject inactive account', () => {
+                const personaData = { balance: 1000.00, accountStatus: 'frozen' };
+                try {
+                    agent.validateTransactionSecurity('send £50', personaData);
+                    return false;
+                } catch (error) {
+                    return error.message.includes('Account is not active');
+                }
+            });
+
+            // Test input categorization
+            testFramework.test('Should categorize money transfer correctly', () => {
+                const category = agent.categorizeInput('send £50 to Alice');
+                return category === 'money_transfer';
+            });
+
+            testFramework.test('Should categorize account transfer correctly', () => {
+                const category = agent.categorizeInput('transfer £100 to savings');
+                return category === 'account_transfer';
+            });
+
+            testFramework.test('Should categorize payment processing correctly', () => {
+                const category = agent.categorizeInput('pay £25 to merchant');
+                return category === 'payment_processing';
+            });
+
+            testFramework.test('Should categorize wire transfer correctly', () => {
+                const category = agent.categorizeInput('wire money overseas');
+                return category === 'wire_transfer';
+            });
+
+            testFramework.test('Should categorize international transfer correctly', () => {
+                const category = agent.categorizeInput('send money internationally');
+                return category === 'international_transfer';
+            });
+
+            // Test system prompt generation
+            testFramework.test('Should generate payment-specific system prompt', () => {
+                const prompt = agent.generateSystemPrompt(mockContext, 'send £50', mockPersonaManager.getCurrentPersonaData());
+                return prompt.includes('PAYMENT PROCESSING AGENT') &&
+                       prompt.includes('HIGHEST SECURITY') &&
+                       prompt.includes('Available Balance: £1500.00');
+            });
+
+            testFramework.displaySummary();
+        }
+
+        async function runAllTests() {
+            testFramework.clear();
+            
+            // Run all test suites
+            runCanHandleTests();
+            await new Promise(resolve => setTimeout(resolve, 100)); // Small delay between suites
+            
+            await runHandleTests();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            await runSecurityTests();
+            
+            // Display final summary
+            testFramework.log('\n=== FINAL TEST SUMMARY ===', 'info');
+            testFramework.displaySummary();
+        }
+
+        function clearResults() {
+            testFramework.clear();
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            testFramework.log('PaymentsAgent Unit Tests Initialized', 'info');
+            testFramework.log('Click "Run All Tests" to begin testing', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -25,20 +25,79 @@ class PersonaManager {
                 this.debug.log('No personas found in localStorage');
             }
 
-            // Load default personas from JSON file
-            this.debug.log('Attempting to fetch personas.json...');
-            const response = await fetch('./personas.json');
-            this.debug.log('Fetch response status:', response.status, response.statusText);
+            // Try to load personas from JSON file first, fallback to embedded data
+            let defaultPersonas = null;
             
-            if (response.ok) {
-                const defaultPersonas = await response.json();
-                this.debug.log('Loaded default personas from JSON:', Object.keys(defaultPersonas));
-                // Merge default personas with stored ones (stored takes precedence)
-                this.personas = { ...defaultPersonas, ...this.personas };
+            // Check if we're running on file:// protocol to avoid CORS errors
+            const isFileProtocol = window.location.protocol === 'file:';
+            
+            if (!isFileProtocol) {
+                try {
+                    this.debug.log('Attempting to fetch personas.json...');
+                    const response = await fetch('./personas.json');
+                    this.debug.log('Fetch response status:', response.status, response.statusText);
+                    
+                    if (response.ok) {
+                        defaultPersonas = await response.json();
+                        this.debug.log('Loaded default personas from JSON file:', Object.keys(defaultPersonas));
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                } catch (fetchError) {
+                    this.debug.warn('Could not load personas.json:', fetchError.message);
+                    this.debug.log('Using embedded default personas as fallback...');
+                }
             } else {
-                this.debug.warn('Could not load personas.json, response not ok:', response.status, response.statusText);
-                this.debug.warn('Using stored personas only');
+                this.debug.log('File protocol detected, using embedded personas to avoid CORS issues...');
             }
+            
+            // Use embedded data if fetch failed or we're on file:// protocol
+            if (!defaultPersonas) {
+                
+                // Fallback to embedded personas data
+                defaultPersonas = {
+                    "john_doe": {
+                        "name": "John Doe",
+                        "balance": 2450.75,
+                        "cardLast4": "1234",
+                        "accountType": "checking",
+                        "currency": "GBP",
+                        "recentTransactions": [
+                            { "date": "2025-01-15", "amount": -45.67, "description": "Coffee Shop" },
+                            { "date": "2025-01-14", "amount": -120.00, "description": "Tesco Groceries" },
+                            { "date": "2025-01-13", "amount": 1500.00, "description": "Salary Deposit" }
+                        ]
+                    },
+                    "sarah_smith": {
+                        "name": "Sarah Smith",
+                        "balance": 8750.25,
+                        "cardLast4": "5678",
+                        "accountType": "premium",
+                        "currency": "GBP",
+                        "recentTransactions": [
+                            { "date": "2025-01-16", "amount": -89.99, "description": "ASOS Online Shopping" },
+                            { "date": "2025-01-15", "amount": -25.00, "description": "Shell Petrol Station" },
+                            { "date": "2025-01-14", "amount": 2000.00, "description": "Investment Return" }
+                        ]
+                    },
+                    "mike_johnson": {
+                        "name": "Mike Johnson",
+                        "balance": 156.80,
+                        "cardLast4": "9012",
+                        "accountType": "savings",
+                        "currency": "GBP",
+                        "recentTransactions": [
+                            { "date": "2025-01-16", "amount": -12.50, "description": "McDonald's" },
+                            { "date": "2025-01-15", "amount": -75.00, "description": "British Gas Bill" },
+                            { "date": "2025-01-10", "amount": 200.00, "description": "Part-time Job" }
+                        ]
+                    }
+                };
+                this.debug.log('Loaded embedded default personas:', Object.keys(defaultPersonas));
+            }
+            
+            // Merge default personas with stored ones (stored takes precedence)
+            this.personas = { ...defaultPersonas, ...this.personas };
 
             this.initialized = true;
             const personaCount = Object.keys(this.personas).length;

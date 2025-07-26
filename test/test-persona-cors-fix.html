@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persona CORS Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .persona-card { border: 1px solid #ddd; margin: 10px 0; padding: 10px; border-radius: 5px; }
+        select { padding: 10px; margin: 10px 0; width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>Persona CORS Fix Test</h1>
+    <div id="results"></div>
+    
+    <h2>Test Persona Selector:</h2>
+    <select id="testPersonaSelect">
+        <option>Loading...</option>
+    </select>
+
+    <!-- Include dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../persona-manager.js"></script>
+
+    <script>
+        async function testPersonaCORSFix() {
+            const results = document.getElementById('results');
+            let html = '<h2>Persona CORS Fix Test Results:</h2>';
+
+            try {
+                // Test 1: Create PersonaManager instance
+                html += '<p class="info">Test 1: Creating PersonaManager instance...</p>';
+                const personaManager = new PersonaManager();
+                html += '<p class="success">✅ PersonaManager instance created</p>';
+
+                // Test 2: Initialize PersonaManager (this should now work with embedded data)
+                html += '<p class="info">Test 2: Initializing PersonaManager with CORS fix...</p>';
+                await personaManager.init();
+                html += '<p class="success">✅ PersonaManager initialized successfully</p>';
+
+                // Test 3: Check if personas were loaded
+                html += '<p class="info">Test 3: Checking loaded personas...</p>';
+                const personas = personaManager.getAllPersonas();
+                const personaCount = Object.keys(personas).length;
+                
+                if (personaCount > 0) {
+                    html += `<p class="success">✅ Successfully loaded ${personaCount} personas</p>`;
+                    
+                    html += '<h3>Loaded Personas:</h3>';
+                    Object.keys(personas).forEach(personaId => {
+                        const persona = personas[personaId];
+                        html += `
+                            <div class="persona-card">
+                                <h4>${persona.name} (${personaId})</h4>
+                                <p>Balance: ${personaManager.formatCurrency(persona.balance)}</p>
+                                <p>Account Type: ${persona.accountType}</p>
+                                <p>Card Last 4: ****${persona.cardLast4}</p>
+                            </div>
+                        `;
+                    });
+                    
+                    // Test 4: Populate the test selector
+                    html += '<p class="info">Test 4: Populating persona selector...</p>';
+                    const selector = document.getElementById('testPersonaSelect');
+                    selector.innerHTML = '';
+                    
+                    Object.keys(personas).forEach(personaId => {
+                        const option = document.createElement('option');
+                        option.value = personaId;
+                        option.textContent = personas[personaId].name;
+                        selector.appendChild(option);
+                    });
+                    
+                    html += '<p class="success">✅ Persona selector populated successfully</p>';
+                    html += '<p class="info">Check the dropdown above to see all personas!</p>';
+                    
+                } else {
+                    html += '<p class="error">❌ No personas loaded - the fix didn\'t work</p>';
+                }
+
+                html += '<h3 class="success">🎉 CORS Fix Test Complete!</h3>';
+                html += '<p class="info">The personas should now load properly even when using file:// protocol</p>';
+
+            } catch (error) {
+                html += `<p class="error">❌ Test failed: ${error.message}</p>`;
+                html += `<p class="error">Stack trace: ${error.stack}</p>`;
+                console.error('Test failed:', error);
+            }
+
+            results.innerHTML = html;
+        }
+
+        // Run test when page loads
+        window.addEventListener('load', () => {
+            setTimeout(testPersonaCORSFix, 100);
+        });
+    </script>
+</body>
+</html>

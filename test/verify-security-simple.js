@@ -80,7 +80,7 @@ function runSecurityVerification() {
 // Instructions for running the verification
 console.log(`
 To run security verification:
-1. Open test-security-boundaries.html in your browser
+1. Open test/test-security-boundaries.html in your browser
 2. Open browser developer console
 3. Run: runSecurityVerification()
 

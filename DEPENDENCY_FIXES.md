@@ -120,7 +120,7 @@ initializeManagers() {
 ## Verification Steps
 
 ### 1. **Load Test Page**
-Open `test-dependencies.html` in your browser to verify:
+Open `test/test-dependencies.html` in your browser to verify:
 - All scripts load in correct order
 - No dependency errors occur
 - All manager classes can be instantiated

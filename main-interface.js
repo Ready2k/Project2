@@ -16,7 +16,8 @@ class MainInterfaceController {
         // Close panel buttons
         document.querySelectorAll('.close-panel').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const panelId = e.target.getAttribute('data-panel');
+                // Use currentTarget to get the button element, not the clicked icon
+                const panelId = e.currentTarget.getAttribute('data-panel');
                 this.closePanel(panelId);
             });
         });
@@ -268,9 +269,9 @@ class MainInterfaceController {
         const enabledElement = document.getElementById('enabledAgents');
         const disabledElement = document.getElementById('disabledAgents');
 
-        if (totalElement) totalElement.textContent = stats.total || '0';
-        if (enabledElement) enabledElement.textContent = stats.enabled || '0';
-        if (disabledElement) disabledElement.textContent = stats.disabled || '0';
+        if (totalElement) totalElement.textContent = stats.totalAgents || '0';
+        if (enabledElement) enabledElement.textContent = stats.enabledAgents || '0';
+        if (disabledElement) disabledElement.textContent = stats.disabledAgents || '0';
     }
 
     // Debug output methods
@@ -345,13 +346,13 @@ function openFullLLMManager() {
 function refreshLLMData() {
     // Trigger refresh of LLM data
     if (window.speechApp && window.speechApp.agentRouter) {
-        const stats = window.speechApp.agentRouter.getAgentStats();
+        const stats = window.speechApp.agentRouter.getStats();
         window.mainInterface.updateAgentStats(stats);
         
         // Update LLM specific stats
         const llmStats = {
-            total: stats.total,
-            enabled: stats.enabled,
+            total: stats.totalAgents,
+            enabled: stats.enabledAgents,
             lastUpdated: new Date().toLocaleTimeString()
         };
         

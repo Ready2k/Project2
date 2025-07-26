@@ -113,7 +113,7 @@ After these fixes, the console should no longer show:
 Use the dependency test page:
 ```bash
 # Open in browser
-open test-dependencies.html
+open test/test-dependencies.html
 ```
 
 Should show:

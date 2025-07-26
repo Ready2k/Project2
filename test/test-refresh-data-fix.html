@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Refresh Data Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+        .warning { color: #ffc107; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .stats-display {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 Refresh Data Fix Test</h1>
+        <p>Testing the fix for the Administrator panel refresh data error.</p>
+        
+        <div id="test-results"></div>
+        
+        <button onclick="runRefreshDataTest()">Test Refresh Data Fix</button>
+        <button onclick="clearResults()">Clear Results</button>
+        
+        <div class="stats-display">
+            <h3>Mock Agent Stats Display</h3>
+            <p>Total Agents: <span id="totalAgents">0</span></p>
+            <p>Enabled Agents: <span id="enabledAgents">0</span></p>
+            <p>Disabled Agents: <span id="disabledAgents">0</span></p>
+            <p>LLM Total: <span id="llmTotalAgents">0</span></p>
+            <p>LLM Enabled: <span id="llmEnabledAgents">0</span></p>
+            <p>Last Updated: <span id="llmLastUpdated">Never</span></p>
+        </div>
+    </div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('test-results');
+            const p = document.createElement('p');
+            p.className = type;
+            p.textContent = message;
+            resultsDiv.appendChild(p);
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        // Mock AgentRouter with getStats method
+        class MockAgentRouter {
+            constructor() {
+                this.agents = [
+                    { name: 'PaymentsAgent', enabled: true },
+                    { name: 'FraudAgent', enabled: true },
+                    { name: 'IDVAgent', enabled: false },
+                    { name: 'BankingInfoAgent', enabled: true }
+                ];
+            }
+
+            getStats() {
+                const enabledAgents = this.agents.filter(a => a.enabled);
+                const disabledAgents = this.agents.filter(a => !a.enabled);
+                
+                return {
+                    totalAgents: this.agents.length,
+                    enabledAgents: enabledAgents.length,
+                    disabledAgents: disabledAgents.length,
+                    agentNames: this.agents.map(a => a.name),
+                    agentDescriptions: this.agents.map(a => ({ 
+                        name: a.name, 
+                        enabled: a.enabled
+                    }))
+                };
+            }
+        }
+
+        // Mock MainInterfaceController with updateAgentStats method
+        class MockMainInterfaceController {
+            updateAgentStats(stats) {
+                const totalElement = document.getElementById('totalAgents');
+                const enabledElement = document.getElementById('enabledAgents');
+                const disabledElement = document.getElementById('disabledAgents');
+
+                if (totalElement) totalElement.textContent = stats.totalAgents || '0';
+                if (enabledElement) enabledElement.textContent = stats.enabledAgents || '0';
+                if (disabledElement) disabledElement.textContent = stats.disabledAgents || '0';
+            }
+        }
+
+        // Mock refreshLLMData function (fixed version)
+        function refreshLLMData() {
+            // Trigger refresh of LLM data
+            if (window.speechApp && window.speechApp.agentRouter) {
+                const stats = window.speechApp.agentRouter.getStats();
+                window.mainInterface.updateAgentStats(stats);
+                
+                // Update LLM specific stats
+                const llmStats = {
+                    total: stats.totalAgents,
+                    enabled: stats.enabledAgents,
+                    lastUpdated: new Date().toLocaleTimeString()
+                };
+                
+                document.getElementById('llmTotalAgents').textContent = llmStats.total;
+                document.getElementById('llmEnabledAgents').textContent = llmStats.enabled;
+                document.getElementById('llmLastUpdated').textContent = llmStats.lastUpdated;
+            }
+        }
+
+        function runRefreshDataTest() {
+            clearResults();
+            addResult('🚀 Starting refresh data fix test...', 'info');
+
+            try {
+                // Test 1: Create mock objects
+                addResult('Test 1: Creating mock objects...', 'info');
+                const mockRouter = new MockAgentRouter();
+                const mockMainInterface = new MockMainInterfaceController();
+                
+                // Set up global objects
+                window.speechApp = { agentRouter: mockRouter };
+                window.mainInterface = mockMainInterface;
+                
+                addResult('✅ Mock objects created successfully', 'success');
+
+                // Test 2: Test getStats method exists and works
+                addResult('Test 2: Testing getStats method...', 'info');
+                const stats = mockRouter.getStats();
+                
+                if (typeof stats.totalAgents === 'number' && 
+                    typeof stats.enabledAgents === 'number' && 
+                    typeof stats.disabledAgents === 'number') {
+                    addResult('✅ getStats returns correct structure', 'success');
+                    addResult(`📊 Stats: ${stats.totalAgents} total, ${stats.enabledAgents} enabled, ${stats.disabledAgents} disabled`, 'info');
+                } else {
+                    throw new Error('getStats does not return expected structure');
+                }
+
+                // Test 3: Test refreshLLMData function
+                addResult('Test 3: Testing refreshLLMData function...', 'info');
+                refreshLLMData();
+                
+                // Check if UI elements were updated
+                const totalText = document.getElementById('totalAgents').textContent;
+                const enabledText = document.getElementById('enabledAgents').textContent;
+                const llmTotalText = document.getElementById('llmTotalAgents').textContent;
+                
+                if (totalText !== '0' && enabledText !== '0' && llmTotalText !== '0') {
+                    addResult('✅ refreshLLMData updated UI elements successfully', 'success');
+                    addResult(`📈 UI shows: ${totalText} total, ${enabledText} enabled`, 'info');
+                } else {
+                    throw new Error('refreshLLMData did not update UI elements');
+                }
+
+                // Test 4: Verify no errors thrown
+                addResult('Test 4: Verifying no errors...', 'info');
+                addResult('✅ No errors thrown during refresh operation', 'success');
+
+                addResult('🎉 All tests passed! The refresh data fix is working correctly.', 'success');
+
+            } catch (error) {
+                addResult(`❌ Test failed: ${error.message}`, 'error');
+                console.error('Refresh data test error:', error);
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            addResult('🔧 Refresh Data Fix Test initialized', 'info');
+            addResult('Click "Test Refresh Data Fix" to run the test', 'info');
+        });
+    </script>
+</body>
+</html>

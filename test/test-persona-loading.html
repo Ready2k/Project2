@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persona Loading Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .persona-card { border: 1px solid #ddd; margin: 10px 0; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Persona Loading Test</h1>
+    <div id="results"></div>
+
+    <!-- Include dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../persona-manager.js"></script>
+
+    <script>
+        async function testPersonaLoading() {
+            const results = document.getElementById('results');
+            let html = '<h2>Persona Loading Test Results:</h2>';
+
+            try {
+                // Test 1: Check if PersonaManager is available
+                html += '<p class="info">Test 1: Checking PersonaManager availability...</p>';
+                if (typeof PersonaManager === 'undefined') {
+                    throw new Error('PersonaManager is not defined');
+                }
+                html += '<p class="success">✅ PersonaManager is available</p>';
+
+                // Test 2: Create PersonaManager instance
+                html += '<p class="info">Test 2: Creating PersonaManager instance...</p>';
+                const personaManager = new PersonaManager();
+                html += '<p class="success">✅ PersonaManager instance created</p>';
+
+                // Test 3: Initialize PersonaManager
+                html += '<p class="info">Test 3: Initializing PersonaManager...</p>';
+                await personaManager.init();
+                html += '<p class="success">✅ PersonaManager initialized</p>';
+
+                // Test 4: Check if personas were loaded
+                html += '<p class="info">Test 4: Checking loaded personas...</p>';
+                const personas = personaManager.getAllPersonas();
+                const personaCount = Object.keys(personas).length;
+                html += `<p class="success">✅ Loaded ${personaCount} personas</p>`;
+
+                if (personaCount === 0) {
+                    html += '<p class="error">❌ No personas loaded! This is the problem.</p>';
+                } else {
+                    html += '<h3>Loaded Personas:</h3>';
+                    Object.keys(personas).forEach(personaId => {
+                        const persona = personas[personaId];
+                        html += `
+                            <div class="persona-card">
+                                <h4>${persona.name} (${personaId})</h4>
+                                <p>Balance: ${personaManager.formatCurrency(persona.balance)}</p>
+                                <p>Account Type: ${persona.accountType}</p>
+                                <p>Card Last 4: ****${persona.cardLast4}</p>
+                            </div>
+                        `;
+                    });
+                }
+
+                // Test 5: Test persona selector population
+                html += '<p class="info">Test 5: Testing persona selector population...</p>';
+                html += '<select id="testPersonaSelect"><option>Loading...</option></select>';
+                
+                // Simulate the updatePersonaSelector function
+                const selector = document.getElementById('testPersonaSelect');
+                selector.innerHTML = '';
+                Object.keys(personas).forEach(personaId => {
+                    const option = document.createElement('option');
+                    option.value = personaId;
+                    option.textContent = personas[personaId].name;
+                    selector.appendChild(option);
+                });
+                
+                if (selector.options.length > 0) {
+                    html += '<p class="success">✅ Persona selector populated successfully</p>';
+                } else {
+                    html += '<p class="error">❌ Persona selector is empty</p>';
+                }
+
+                // Test 6: Check personas.json loading
+                html += '<p class="info">Test 6: Testing direct personas.json fetch...</p>';
+                try {
+                    const response = await fetch('../personas.json');
+                    if (response.ok) {
+                        const jsonPersonas = await response.json();
+                        const jsonPersonaCount = Object.keys(jsonPersonas).length;
+                        html += `<p class="success">✅ personas.json loaded directly: ${jsonPersonaCount} personas</p>';
+                        
+                        html += '<h3>personas.json Contents:</h3>';
+                        Object.keys(jsonPersonas).forEach(personaId => {
+                            const persona = jsonPersonas[personaId];
+                            html += `<p>- ${persona.name} (${personaId})</p>`;
+                        });
+                    } else {
+                        html += `<p class="error">❌ Failed to fetch personas.json: ${response.status} ${response.statusText}</p>`;
+                    }
+                } catch (fetchError) {
+                    html += `<p class="error">❌ Error fetching personas.json: ${fetchError.message}</p>`;
+                }
+
+            } catch (error) {
+                html += `<p class="error">❌ Test failed: ${error.message}</p>`;
+                html += `<p class="error">Stack trace: ${error.stack}</p>`;
+                console.error('Test failed:', error);
+            }
+
+            results.innerHTML = html;
+        }
+
+        // Run test when page loads
+        window.addEventListener('load', () => {
+            setTimeout(testPersonaLoading, 100);
+        });
+    </script>
+</body>
+</html>

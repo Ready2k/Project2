@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Personas Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        pre {
+            background: #f1f3f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Personas Test</h1>
+    <p>This tests if we can load the personas.json file directly.</p>
+    
+    <button onclick="testFetch()">Test Fetch personas.json</button>
+    <button onclick="testPersonaManager()">Test PersonaManager</button>
+    
+    <div id="result"></div>
+
+    <script src="../debug-manager.js"></script>
+    <script src="../persona-manager.js"></script>
+    
+    <script>
+        async function testFetch() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p>Testing direct fetch...</p>';
+            
+            try {
+                console.log('Current URL:', window.location.href);
+                console.log('Attempting to fetch: ./personas.json');
+                
+                const response = await fetch('./personas.json');
+                console.log('Response:', response);
+                console.log('Status:', response.status);
+                console.log('Status Text:', response.statusText);
+                console.log('OK:', response.ok);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Data:', data);
+                    
+                    result.innerHTML = `
+                        <p class="success">✓ Fetch successful!</p>
+                        <p>Status: ${response.status} ${response.statusText}</p>
+                        <p>Found ${Object.keys(data).length} personas:</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <p class="error">✗ Fetch failed</p>
+                        <p>Status: ${response.status} ${response.statusText}</p>
+                        <p>URL: ${response.url}</p>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('Fetch error:', error);
+                result.innerHTML = `
+                    <p class="error">✗ Fetch error: ${error.message}</p>
+                    <pre>${error.stack}</pre>
+                `;
+            }
+        }
+        
+        async function testPersonaManager() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p>Testing PersonaManager...</p>';
+            
+            try {
+                // Initialize debug manager
+                const debugManager = new DebugManager();
+                window.debugManager = debugManager;
+                
+                // Initialize persona manager
+                const personaManager = new PersonaManager();
+                console.log('PersonaManager created');
+                
+                await personaManager.init();
+                console.log('PersonaManager initialized');
+                
+                const personas = personaManager.getAllPersonas();
+                const personaIds = Object.keys(personas);
+                
+                console.log('Personas:', personas);
+                console.log('Persona IDs:', personaIds);
+                
+                if (personaIds.length > 0) {
+                    result.innerHTML = `
+                        <p class="success">✓ PersonaManager working!</p>
+                        <p>Found ${personaIds.length} personas:</p>
+                        <pre>${JSON.stringify(personas, null, 2)}</pre>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <p class="error">✗ PersonaManager found no personas</p>
+                        <p>Check the browser console for debug messages</p>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('PersonaManager error:', error);
+                result.innerHTML = `
+                    <p class="error">✗ PersonaManager error: ${error.message}</p>
+                    <pre>${error.stack}</pre>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

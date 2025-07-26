@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Configuration Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .config-display {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            margin: 10px 0;
+        }
+        .voice-preview {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .agent-card {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .agent-card h4 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .voice-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .voice-controls select, .voice-controls input {
+            padding: 5px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        .test-status {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 5px 0;
+        }
+        .status-pass { background-color: #d4edda; color: #155724; }
+        .status-fail { background-color: #f8d7da; color: #721c24; }
+        .status-pending { background-color: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Voice Configuration Integration Test</h1>
+        <p>This test verifies that the voice configuration system is properly integrated with the TTS system and agent routing.</p>
+        
+        <div class="test-section">
+            <h2>Test Status</h2>
+            <div id="overallStatus" class="test-status status-pending">Initializing...</div>
+            <div id="testResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>1. Voice Configuration Manager Tests</h2>
+            <button onclick="testVoiceConfigManager()">Run Voice Config Tests</button>
+            <div id="voiceConfigResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>2. Agent Voice Configuration Tests</h2>
+            <button onclick="testAgentVoiceConfigs()">Test Agent Voice Configs</button>
+            <div id="agentVoiceResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>3. TTS Integration Tests</h2>
+            <button onclick="testTTSIntegration()">Test TTS Integration</button>
+            <div id="ttsIntegrationResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>4. Voice Preview Tests</h2>
+            <button onclick="testVoicePreviews()">Test Voice Previews</button>
+            <div id="voicePreviewResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>5. Agent-Specific Voice Application</h2>
+            <button onclick="testAgentSpecificVoices()">Test Agent Voice Application</button>
+            <div id="agentVoiceApplicationResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>6. Configuration Persistence Tests</h2>
+            <button onclick="testConfigPersistence()">Test Config Persistence</button>
+            <div id="persistenceResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Interactive Voice Configuration</h2>
+            <div id="interactiveConfig">
+                <div class="agent-card" id="agentConfigCard">
+                    <h4>Configure Agent Voice</h4>
+                    <div class="voice-controls">
+                        <label>Agent:</label>
+                        <select id="agentSelect">
+                            <option value="IDVAgent">IDV Agent</option>
+                            <option value="BankingInfoAgent">Banking Info Agent</option>
+                            <option value="FraudAgent">Fraud Agent</option>
+                            <option value="PaymentsAgent">Payments Agent</option>
+                        </select>
+                    </div>
+                    <div class="voice-controls">
+                        <label>Provider:</label>
+                        <select id="providerSelect">
+                            <option value="openai">OpenAI</option>
+                            <option value="elevenlabs">ElevenLabs</option>
+                            <option value="azure">Azure</option>
+                        </select>
+                    </div>
+                    <div class="voice-controls">
+                        <label>Voice:</label>
+                        <select id="voiceSelect">
+                            <option value="alloy">Alloy</option>
+                            <option value="echo">Echo</option>
+                            <option value="fable">Fable</option>
+                            <option value="onyx">Onyx</option>
+                            <option value="nova">Nova</option>
+                            <option value="shimmer">Shimmer</option>
+                        </select>
+                    </div>
+                    <div class="voice-controls">
+                        <label>Speed:</label>
+                        <input type="range" id="speedRange" min="0.25" max="4.0" step="0.25" value="1.0">
+                        <span id="speedValue">1.0</span>
+                    </div>
+                    <div class="voice-controls">
+                        <label>Pitch:</label>
+                        <input type="range" id="pitchRange" min="-20" max="20" step="1" value="0">
+                        <span id="pitchValue">0</span>
+                    </div>
+                    <div class="voice-controls">
+                        <button onclick="applyVoiceConfig()">Apply Configuration</button>
+                        <button onclick="previewVoiceConfig()">Preview Voice</button>
+                        <button onclick="resetVoiceConfig()">Reset to Default</button>
+                    </div>
+                    <div id="configStatus"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include required dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/voice-config-manager.js"></script>
+    <script src="../agents/base-agent.js"></script>
+    <script src="../agents/idv-agent.js"></script>
+    <script src="../agents/banking-info-agent.js"></script>
+    <script src="../agents/fraud-agent.js"></script>
+    <script src="../agents/payments-agent.js"></script>
+
+    <script>
+        // Initialize test environment
+        let voiceConfigManager;
+        let testResults = [];
+
+        // Initialize debug manager
+        if (typeof window.debugManager === 'undefined') {
+            window.debugManager = {
+                createModuleLogger: (name) => console,
+                isEnabled: () => true
+            };
+        }
+
+        function initializeTest() {
+            try {
+                voiceConfigManager = new VoiceConfigManager();
+                updateStatus('Initialized', 'success');
+                setupInteractiveControls();
+            } catch (error) {
+                updateStatus(`Initialization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('overallStatus');
+            statusElement.textContent = message;
+            statusElement.className = `test-status status-${type === 'success' ? 'pass' : type === 'error' ? 'fail' : 'pending'}`;
+        }
+
+        function addTestResult(testName, passed, message) {
+            testResults.push({ testName, passed, message });
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${passed ? 'success' : 'error'}`;
+            resultDiv.innerHTML = `<strong>${testName}:</strong> ${message}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        // Test 1: Voice Configuration Manager Tests
+        function testVoiceConfigManager() {
+            const resultsDiv = document.getElementById('voiceConfigResults');
+            resultsDiv.innerHTML = '';
+
+            try {
+                // Test 1.1: Manager initialization
+                const manager = new VoiceConfigManager();
+                addResult(resultsDiv, 'Manager Initialization', true, 'VoiceConfigManager created successfully');
+
+                // Test 1.2: Default configurations loaded
+                const allConfigs = manager.getAllVoiceConfigs();
+                const hasDefaults = Object.keys(allConfigs).length > 0;
+                addResult(resultsDiv, 'Default Configurations', hasDefaults, 
+                    hasDefaults ? `Loaded ${Object.keys(allConfigs).length} default configurations` : 'No default configurations found');
+
+                // Test 1.3: Voice configuration validation
+                const validConfig = {
+                    ttsSettings: {
+                        provider: 'openai',
+                        voice: 'alloy',
+                        speed: 1.0,
+                        pitch: 0,
+                        volume: 0.8
+                    },
+                    personalityTraits: {
+                        tone: 'professional',
+                        formality: 'professional',
+                        enthusiasm: 5,
+                        empathy: 6
+                    }
+                };
+                const validation = manager.validateVoiceConfig(validConfig);
+                addResult(resultsDiv, 'Configuration Validation', validation.valid, 
+                    validation.valid ? 'Valid configuration accepted' : `Validation errors: ${validation.errors.join(', ')}`);
+
+                // Test 1.4: Invalid configuration rejection
+                const invalidConfig = {
+                    ttsSettings: {
+                        provider: 'invalid_provider',
+                        speed: 10.0 // Invalid speed
+                    }
+                };
+                const invalidValidation = manager.validateVoiceConfig(invalidConfig);
+                addResult(resultsDiv, 'Invalid Configuration Rejection', !invalidValidation.valid, 
+                    !invalidValidation.valid ? 'Invalid configuration properly rejected' : 'Invalid configuration was accepted');
+
+                // Test 1.5: Available providers and voices
+                const providers = manager.getAvailableProviders();
+                const openaiVoices = manager.getAvailableVoices('openai');
+                addResult(resultsDiv, 'Available Providers/Voices', providers.length > 0 && openaiVoices.length > 0,
+                    `Found ${providers.length} providers and ${openaiVoices.length} OpenAI voices`);
+
+            } catch (error) {
+                addResult(resultsDiv, 'Voice Config Manager Test', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Test 2: Agent Voice Configuration Tests
+        function testAgentVoiceConfigs() {
+            const resultsDiv = document.getElementById('agentVoiceResults');
+            resultsDiv.innerHTML = '';
+
+            try {
+                const manager = new VoiceConfigManager();
+                const agents = ['IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+
+                agents.forEach(agentName => {
+                    const config = manager.getVoiceConfig(agentName);
+                    const hasConfig = config !== null;
+                    addResult(resultsDiv, `${agentName} Configuration`, hasConfig,
+                        hasConfig ? `Configuration found: ${config.ttsSettings?.voice || 'No voice set'}` : 'No configuration found');
+
+                    if (hasConfig) {
+                        // Test configuration structure
+                        const hasRequiredFields = config.ttsSettings && config.personalityTraits;
+                        addResult(resultsDiv, `${agentName} Structure`, hasRequiredFields,
+                            hasRequiredFields ? 'Required fields present' : 'Missing required fields');
+                    }
+                });
+
+                // Test setting new configuration
+                const testConfig = {
+                    agentName: 'TestAgent',
+                    ttsSettings: {
+                        provider: 'openai',
+                        voice: 'nova',
+                        speed: 0.9,
+                        pitch: 1,
+                        volume: 0.8
+                    },
+                    personalityTraits: {
+                        tone: 'friendly',
+                        formality: 'casual',
+                        enthusiasm: 7,
+                        empathy: 8
+                    }
+                };
+
+                const setResult = manager.setVoiceConfig('TestAgent', testConfig);
+                addResult(resultsDiv, 'Set Voice Configuration', setResult, 
+                    setResult ? 'Successfully set voice configuration' : 'Failed to set voice configuration');
+
+                if (setResult) {
+                    const retrievedConfig = manager.getVoiceConfig('TestAgent');
+                    const configMatches = retrievedConfig && retrievedConfig.ttsSettings.voice === 'nova';
+                    addResult(resultsDiv, 'Retrieve Voice Configuration', configMatches,
+                        configMatches ? 'Configuration retrieved correctly' : 'Configuration mismatch');
+                }
+
+            } catch (error) {
+                addResult(resultsDiv, 'Agent Voice Config Test', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Test 3: TTS Integration Tests
+        function testTTSIntegration() {
+            const resultsDiv = document.getElementById('ttsIntegrationResults');
+            resultsDiv.innerHTML = '';
+
+            try {
+                const manager = new VoiceConfigManager();
+
+                // Test TTS request building
+                const agentConfig = manager.getVoiceConfig('BankingInfoAgent');
+                if (agentConfig) {
+                    const ttsRequest = manager.buildTTSRequest(agentConfig, 'Hello, this is a test message.');
+                    
+                    const hasRequiredFields = ttsRequest.provider && ttsRequest.voice && ttsRequest.text;
+                    addResult(resultsDiv, 'TTS Request Building', hasRequiredFields,
+                        hasRequiredFields ? `Built TTS request with ${ttsRequest.provider}/${ttsRequest.voice}` : 'Missing required TTS fields');
+
+                    // Test contextual tone detection
+                    const errorTone = manager.determineContextualTone('Sorry, there was an error', agentConfig.contextualAdaptation || {});
+                    const successTone = manager.determineContextualTone('Transaction completed successfully', agentConfig.contextualAdaptation || {});
+                    
+                    addResult(resultsDiv, 'Contextual Tone Detection', errorTone || successTone,
+                        `Error tone: ${errorTone || 'none'}, Success tone: ${successTone || 'none'}`);
+                }
+
+                // Test voice configuration application
+                const testText = 'Your account balance is £1,234.56';
+                const appliedConfig = manager.applyVoiceConfig('PaymentsAgent', testText);
+                
+                const hasAppliedConfig = appliedConfig && appliedConfig.provider && appliedConfig.voice;
+                addResult(resultsDiv, 'Voice Config Application', hasAppliedConfig,
+                    hasAppliedConfig ? `Applied config: ${appliedConfig.provider}/${appliedConfig.voice}` : 'Failed to apply voice configuration');
+
+                // Test fallback for unknown agent
+                const fallbackConfig = manager.applyVoiceConfig('UnknownAgent', testText);
+                const hasFallback = fallbackConfig && fallbackConfig.provider;
+                addResult(resultsDiv, 'Fallback Configuration', hasFallback,
+                    hasFallback ? `Fallback config: ${fallbackConfig.provider}/${fallbackConfig.voice}` : 'No fallback configuration');
+
+            } catch (error) {
+                addResult(resultsDiv, 'TTS Integration Test', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Test 4: Voice Preview Tests
+        function testVoicePreviews() {
+            const resultsDiv = document.getElementById('voicePreviewResults');
+            resultsDiv.innerHTML = '';
+
+            try {
+                const manager = new VoiceConfigManager();
+
+                // Test voice preview generation
+                const testConfig = {
+                    ttsSettings: {
+                        provider: 'openai',
+                        voice: 'alloy',
+                        speed: 1.0,
+                        pitch: 0,
+                        volume: 0.8
+                    }
+                };
+
+                manager.previewVoice(testConfig, 'This is a voice preview test.').then(result => {
+                    const previewWorked = result.success;
+                    addResult(resultsDiv, 'Voice Preview Generation', previewWorked,
+                        previewWorked ? `Preview generated: ${result.estimatedDuration}s duration` : `Preview failed: ${result.error}`);
+                }).catch(error => {
+                    addResult(resultsDiv, 'Voice Preview Generation', false, `Preview error: ${error.message}`);
+                });
+
+                // Test preview with invalid configuration
+                const invalidConfig = {
+                    ttsSettings: {
+                        provider: 'invalid',
+                        voice: 'nonexistent'
+                    }
+                };
+
+                manager.previewVoice(invalidConfig).then(result => {
+                    const properlyRejected = !result.success;
+                    addResult(resultsDiv, 'Invalid Preview Rejection', properlyRejected,
+                        properlyRejected ? 'Invalid preview properly rejected' : 'Invalid preview was accepted');
+                }).catch(error => {
+                    addResult(resultsDiv, 'Invalid Preview Rejection', true, 'Invalid preview properly rejected with error');
+                });
+
+            } catch (error) {
+                addResult(resultsDiv, 'Voice Preview Test', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Test 5: Agent-Specific Voice Application
+        function testAgentSpecificVoices() {
+            const resultsDiv = document.getElementById('agentVoiceApplicationResults');
+            resultsDiv.innerHTML = '';
+
+            try {
+                const manager = new VoiceConfigManager();
+                const agents = ['IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+
+                agents.forEach(agentName => {
+                    const config = manager.getVoiceConfig(agentName);
+                    if (config) {
+                        const appliedConfig = manager.applyVoiceConfig(agentName, 'Test message for agent voice');
+                        
+                        // Check if agent-specific settings are applied
+                        const hasAgentVoice = appliedConfig.voice === config.ttsSettings.voice;
+                        const hasAgentSpeed = Math.abs(appliedConfig.speed - config.ttsSettings.speed) < 0.01;
+                        
+                        addResult(resultsDiv, `${agentName} Voice Application`, hasAgentVoice && hasAgentSpeed,
+                            `Voice: ${appliedConfig.voice}, Speed: ${appliedConfig.speed}`);
+
+                        // Test personality traits application
+                        const hasPersonality = appliedConfig.personalityTraits && 
+                                             appliedConfig.personalityTraits.tone === config.personalityTraits.tone;
+                        addResult(resultsDiv, `${agentName} Personality Traits`, hasPersonality,
+                            hasPersonality ? `Tone: ${appliedConfig.personalityTraits.tone}` : 'Personality traits not applied');
+                    }
+                });
+
+            } catch (error) {
+                addResult(resultsDiv, 'Agent Voice Application Test', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Test 6: Configuration Persistence Tests
+        function testConfigPersistence() {
+            const resultsDiv = document.getElementById('persistenceResults');
+            resultsDiv.innerHTML = '';
+
+            try {
+                const manager1 = new VoiceConfigManager();
+                
+                // Set a test configuration
+                const testConfig = {
+                    agentName: 'PersistenceTestAgent',
+                    ttsSettings: {
+                        provider: 'openai',
+                        voice: 'echo',
+                        speed: 1.5,
+                        pitch: 2,
+                        volume: 0.9
+                    },
+                    personalityTraits: {
+                        tone: 'confident',
+                        formality: 'professional',
+                        enthusiasm: 8,
+                        empathy: 4
+                    }
+                };
+
+                const setResult = manager1.setVoiceConfig('PersistenceTestAgent', testConfig);
+                addResult(resultsDiv, 'Configuration Save', setResult, 
+                    setResult ? 'Configuration saved successfully' : 'Failed to save configuration');
+
+                if (setResult) {
+                    // Create new manager instance to test persistence
+                    const manager2 = new VoiceConfigManager();
+                    const retrievedConfig = manager2.getVoiceConfig('PersistenceTestAgent');
+                    
+                    const configPersisted = retrievedConfig && 
+                                          retrievedConfig.ttsSettings.voice === 'echo' &&
+                                          retrievedConfig.ttsSettings.speed === 1.5;
+                    
+                    addResult(resultsDiv, 'Configuration Persistence', configPersisted,
+                        configPersisted ? 'Configuration persisted across instances' : 'Configuration not persisted');
+                }
+
+                // Test export/import functionality
+                const exportData = manager1.exportVoiceConfigs();
+                const hasExportData = exportData && exportData.voiceConfigs && exportData.version;
+                addResult(resultsDiv, 'Configuration Export', hasExportData,
+                    hasExportData ? `Exported ${Object.keys(exportData.voiceConfigs).length} configurations` : 'Export failed');
+
+                if (hasExportData) {
+                    const manager3 = new VoiceConfigManager();
+                    manager3.resetToDefaults(); // Clear existing configs
+                    const importResult = manager3.importVoiceConfigs(exportData);
+                    
+                    addResult(resultsDiv, 'Configuration Import', importResult,
+                        importResult ? 'Import successful' : 'Import failed');
+                }
+
+            } catch (error) {
+                addResult(resultsDiv, 'Configuration Persistence Test', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Helper function to add test results
+        function addResult(container, testName, passed, message) {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${passed ? 'success' : 'error'}`;
+            resultDiv.innerHTML = `<strong>${testName}:</strong> ${message}`;
+            container.appendChild(resultDiv);
+        }
+
+        // Interactive configuration functions
+        function setupInteractiveControls() {
+            const speedRange = document.getElementById('speedRange');
+            const speedValue = document.getElementById('speedValue');
+            const pitchRange = document.getElementById('pitchRange');
+            const pitchValue = document.getElementById('pitchValue');
+
+            speedRange.addEventListener('input', () => {
+                speedValue.textContent = speedRange.value;
+            });
+
+            pitchRange.addEventListener('input', () => {
+                pitchValue.textContent = pitchRange.value;
+            });
+
+            // Load current configuration for selected agent
+            loadAgentConfig();
+        }
+
+        function loadAgentConfig() {
+            const agentName = document.getElementById('agentSelect').value;
+            const config = voiceConfigManager.getVoiceConfig(agentName);
+            
+            if (config && config.ttsSettings) {
+                document.getElementById('providerSelect').value = config.ttsSettings.provider || 'openai';
+                document.getElementById('voiceSelect').value = config.ttsSettings.voice || 'alloy';
+                document.getElementById('speedRange').value = config.ttsSettings.speed || 1.0;
+                document.getElementById('speedValue').textContent = config.ttsSettings.speed || 1.0;
+                document.getElementById('pitchRange').value = config.ttsSettings.pitch || 0;
+                document.getElementById('pitchValue').textContent = config.ttsSettings.pitch || 0;
+            }
+        }
+
+        function applyVoiceConfig() {
+            const agentName = document.getElementById('agentSelect').value;
+            const provider = document.getElementById('providerSelect').value;
+            const voice = document.getElementById('voiceSelect').value;
+            const speed = parseFloat(document.getElementById('speedRange').value);
+            const pitch = parseInt(document.getElementById('pitchRange').value);
+
+            const config = {
+                agentName: agentName,
+                ttsSettings: {
+                    provider: provider,
+                    voice: voice,
+                    speed: speed,
+                    pitch: pitch,
+                    volume: 0.8
+                },
+                personalityTraits: {
+                    tone: 'professional',
+                    formality: 'professional',
+                    enthusiasm: 5,
+                    empathy: 6
+                }
+            };
+
+            const result = voiceConfigManager.setVoiceConfig(agentName, config);
+            const statusDiv = document.getElementById('configStatus');
+            
+            if (result) {
+                statusDiv.innerHTML = '<div class="test-result success">Configuration applied successfully!</div>';
+            } else {
+                statusDiv.innerHTML = '<div class="test-result error">Failed to apply configuration.</div>';
+            }
+        }
+
+        function previewVoiceConfig() {
+            const provider = document.getElementById('providerSelect').value;
+            const voice = document.getElementById('voiceSelect').value;
+            const speed = parseFloat(document.getElementById('speedRange').value);
+            const pitch = parseInt(document.getElementById('pitchRange').value);
+
+            const config = {
+                ttsSettings: {
+                    provider: provider,
+                    voice: voice,
+                    speed: speed,
+                    pitch: pitch,
+                    volume: 0.8
+                }
+            };
+
+            const sampleText = "Hello, this is a preview of the voice configuration for your banking assistant.";
+            
+            voiceConfigManager.previewVoice(config, sampleText).then(result => {
+                const statusDiv = document.getElementById('configStatus');
+                if (result.success) {
+                    statusDiv.innerHTML = `<div class="test-result success">Preview generated! Estimated duration: ${result.estimatedDuration} seconds</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div class="test-result error">Preview failed: ${result.error}</div>`;
+                }
+            });
+        }
+
+        function resetVoiceConfig() {
+            const agentName = document.getElementById('agentSelect').value;
+            voiceConfigManager.resetToDefaults();
+            loadAgentConfig();
+            
+            const statusDiv = document.getElementById('configStatus');
+            statusDiv.innerHTML = '<div class="test-result info">Configuration reset to defaults.</div>';
+        }
+
+        // Event listeners
+        document.getElementById('agentSelect').addEventListener('change', loadAgentConfig);
+
+        // Initialize when page loads
+        window.addEventListener('load', initializeTest);
+    </script>
+</body>
+</html>

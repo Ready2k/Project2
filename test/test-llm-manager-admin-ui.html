@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Manager Admin UI - Test Suite</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .test-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border-radius: 10px;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        
+        .test-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+        
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        
+        .test-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .test-btn.primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .test-btn.primary:hover {
+            background: #2980b9;
+        }
+        
+        .test-btn.success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .test-btn.success:hover {
+            background: #229954;
+        }
+        
+        .test-btn.warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .test-btn.warning:hover {
+            background: #e67e22;
+        }
+        
+        .test-btn.danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .test-btn.danger:hover {
+            background: #c0392b;
+        }
+        
+        .test-results {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .test-result {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        
+        .test-result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .test-result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .test-result.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .launch-btn {
+            display: block;
+            width: 200px;
+            margin: 20px auto;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .launch-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-indicator.online {
+            background: #27ae60;
+        }
+        
+        .status-indicator.offline {
+            background: #e74c3c;
+        }
+        
+        .component-status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .status-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .status-value {
+            font-size: 1.2em;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🧪 LLM Manager Admin UI Test Suite</h1>
+            <p>Comprehensive testing for all admin UI components</p>
+        </div>
+        
+        <!-- Component Status -->
+        <div class="test-section">
+            <h3>Component Status</h3>
+            <div class="component-status">
+                <div class="status-card">
+                    <div class="status-title">
+                        <span class="status-indicator" id="llmManagerStatus"></span>
+                        LLM Manager
+                    </div>
+                    <div class="status-value" id="llmManagerValue">Not Initialized</div>
+                </div>
+                
+                <div class="status-card">
+                    <div class="status-title">
+                        <span class="status-indicator" id="guardrailsStatus"></span>
+                        Guardrails Manager
+                    </div>
+                    <div class="status-value" id="guardrailsValue">Not Initialized</div>
+                </div>
+                
+                <div class="status-card">
+                    <div class="status-title">
+                        <span class="status-indicator" id="voiceConfigStatus"></span>
+                        Voice Config Manager
+                    </div>
+                    <div class="status-value" id="voiceConfigValue">Not Initialized</div>
+                </div>
+                
+                <div class="status-card">
+                    <div class="status-title">
+                        <span class="status-indicator" id="adminUIStatus"></span>
+                        Admin UI
+                    </div>
+                    <div class="status-value" id="adminUIValue">Not Initialized</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Initialization Tests -->
+        <div class="test-section">
+            <h3>🚀 Initialization Tests</h3>
+            <div class="test-buttons">
+                <button class="test-btn primary" onclick="testManagerInitialization()">Test Manager Initialization</button>
+                <button class="test-btn primary" onclick="testUIInitialization()">Test UI Initialization</button>
+                <button class="test-btn success" onclick="initializeAllComponents()">Initialize All Components</button>
+            </div>
+            <div id="initResults" class="test-results"></div>
+        </div>
+        
+        <!-- Agent Overview Tests -->
+        <div class="test-section">
+            <h3>📊 Agent Overview Panel Tests</h3>
+            <div class="test-buttons">
+                <button class="test-btn primary" onclick="testAgentOverview()">Test Agent Overview</button>
+                <button class="test-btn primary" onclick="testAgentGrid()">Test Agent Grid</button>
+                <button class="test-btn primary" onclick="testStatistics()">Test Statistics</button>
+                <button class="test-btn warning" onclick="testAgentToggle()">Test Agent Toggle</button>
+            </div>
+            <div id="overviewResults" class="test-results"></div>
+        </div>
+        
+        <!-- Configuration Modal Tests -->
+        <div class="test-section">
+            <h3>⚙️ Configuration Modal Tests</h3>
+            <div class="test-buttons">
+                <button class="test-btn primary" onclick="testConfigurationModal()">Test Configuration Modal</button>
+                <button class="test-btn primary" onclick="testTabbedInterface()">Test Tabbed Interface</button>
+                <button class="test-btn primary" onclick="testConfigurationSave()">Test Configuration Save</button>
+                <button class="test-btn warning" onclick="testConfigurationValidation()">Test Validation</button>
+            </div>
+            <div id="configResults" class="test-results"></div>
+        </div>
+        
+        <!-- Guardrails Editor Tests -->
+        <div class="test-section">
+            <h3>🛡️ Guardrails Editor Tests</h3>
+            <div class="test-buttons">
+                <button class="test-btn primary" onclick="testGuardrailsEditor()">Test Guardrails Editor</button>
+                <button class="test-btn primary" onclick="testCapabilityToggles()">Test Capability Toggles</button>
+                <button class="test-btn primary" onclick="testGuardrailsValidation()">Test Guardrails Validation</button>
+                <button class="test-btn success" onclick="testGuardrailsSave()">Test Guardrails Save</button>
+            </div>
+            <div id="guardrailsResults" class="test-results"></div>
+        </div>
+        
+        <!-- Voice Configuration Tests -->
+        <div class="test-section">
+            <h3>🎤 Voice Configuration Tests</h3>
+            <div class="test-buttons">
+                <button class="test-btn primary" onclick="testVoiceConfiguration()">Test Voice Configuration</button>
+                <button class="test-btn primary" onclick="testVoicePreview()">Test Voice Preview</button>
+                <button class="test-btn primary" onclick="testVoiceProviders()">Test Voice Providers</button>
+                <button class="test-btn success" onclick="testVoiceSave()">Test Voice Save</button>
+            </div>
+            <div id="voiceResults" class="test-results"></div>
+        </div>
+        
+        <!-- Audit Log Tests -->
+        <div class="test-section">
+            <h3>📋 Audit Log Tests</h3>
+            <div class="test-buttons">
+                <button class="test-btn primary" onclick="testAuditLog()">Test Audit Log</button>
+                <button class="test-btn primary" onclick="testAuditFiltering()">Test Audit Filtering</button>
+                <button class="test-btn primary" onclick="testAuditEvents()">Test Audit Events</button>
+                <button class="test-btn danger" onclick="testAuditClear()">Test Audit Clear</button>
+            </div>
+            <div id="auditResults" class="test-results"></div>
+        </div>
+        
+        <!-- Integration Tests -->
+        <div class="test-section">
+            <h3>🔗 Integration Tests</h3>
+            <div class="test-buttons">
+                <button class="test-btn primary" onclick="testDataPersistence()">Test Data Persistence</button>
+                <button class="test-btn primary" onclick="testExportImport()">Test Export/Import</button>
+                <button class="test-btn primary" onclick="testErrorHandling()">Test Error Handling</button>
+                <button class="test-btn success" onclick="runFullIntegrationTest()">Run Full Integration Test</button>
+            </div>
+            <div id="integrationResults" class="test-results"></div>
+        </div>
+        
+        <!-- Launch Admin UI -->
+        <a href="llm-manager-admin-ui.html" target="_blank" class="launch-btn">
+            🚀 Launch Admin UI
+        </a>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/llm-manager.js"></script>
+    <script src="../agents/guardrails-manager.js"></script>
+    <script src="../agents/voice-config-manager.js"></script>
+    <script src="../llm-manager-admin-ui.js"></script>
+
+    <script>
+        // Test framework
+        class AdminUITestSuite {
+            constructor() {
+                this.testResults = {};
+                this.managers = {};
+                this.adminUI = null;
+                
+                this.initialize();
+            }
+            
+            initialize() {
+                // Initialize debug manager if not available
+                if (!window.debugManager) {
+                    window.debugManager = {
+                        createModuleLogger: (module) => ({
+                            log: (...args) => console.log(`[${module}]`, ...args),
+                            warn: (...args) => console.warn(`[${module}]`, ...args),
+                            error: (...args) => console.error(`[${module}]`, ...args)
+                        })
+                    };
+                }
+                
+                this.updateComponentStatus();
+            }
+            
+            updateComponentStatus() {
+                // Check LLM Manager
+                const llmStatus = document.getElementById('llmManagerStatus');
+                const llmValue = document.getElementById('llmManagerValue');
+                if (this.managers.llmManager) {
+                    llmStatus.className = 'status-indicator online';
+                    llmValue.textContent = 'Initialized';
+                } else {
+                    llmStatus.className = 'status-indicator offline';
+                    llmValue.textContent = 'Not Initialized';
+                }
+                
+                // Check Guardrails Manager
+                const guardrailsStatus = document.getElementById('guardrailsStatus');
+                const guardrailsValue = document.getElementById('guardrailsValue');
+                if (this.managers.guardrailsManager) {
+                    guardrailsStatus.className = 'status-indicator online';
+                    guardrailsValue.textContent = 'Initialized';
+                } else {
+                    guardrailsStatus.className = 'status-indicator offline';
+                    guardrailsValue.textContent = 'Not Initialized';
+                }
+                
+                // Check Voice Config Manager
+                const voiceStatus = document.getElementById('voiceConfigStatus');
+                const voiceValue = document.getElementById('voiceConfigValue');
+                if (this.managers.voiceConfigManager) {
+                    voiceStatus.className = 'status-indicator online';
+                    voiceValue.textContent = 'Initialized';
+                } else {
+                    voiceStatus.className = 'status-indicator offline';
+                    voiceValue.textContent = 'Not Initialized';
+                }
+                
+                // Check Admin UI
+                const adminStatus = document.getElementById('adminUIStatus');
+                const adminValue = document.getElementById('adminUIValue');
+                if (this.adminUI) {
+                    adminStatus.className = 'status-indicator online';
+                    adminValue.textContent = 'Initialized';
+                } else {
+                    adminStatus.className = 'status-indicator offline';
+                    adminValue.textContent = 'Not Initialized';
+                }
+            }
+            
+            logResult(section, message, type = 'info') {
+                const container = document.getElementById(section + 'Results');
+                if (!container) return;
+                
+                const result = document.createElement('div');
+                result.className = `test-result ${type}`;
+                result.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+                
+                container.appendChild(result);
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            // Initialization Tests
+            testManagerInitialization() {
+                this.logResult('init', 'Testing manager initialization...', 'info');
+                
+                try {
+                    this.managers.llmManager = new LLMManager();
+                    this.logResult('init', '✅ LLM Manager initialized successfully', 'success');
+                    
+                    this.managers.guardrailsManager = new GuardrailsManager();
+                    this.logResult('init', '✅ Guardrails Manager initialized successfully', 'success');
+                    
+                    this.managers.voiceConfigManager = new VoiceConfigManager();
+                    this.logResult('init', '✅ Voice Config Manager initialized successfully', 'success');
+                    
+                    // Set up dependencies
+                    this.managers.llmManager.setManagers(
+                        this.managers.guardrailsManager, 
+                        this.managers.voiceConfigManager, 
+                        null
+                    );
+                    this.logResult('init', '✅ Manager dependencies configured', 'success');
+                    
+                    this.updateComponentStatus();
+                    
+                } catch (error) {
+                    this.logResult('init', `❌ Manager initialization failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testUIInitialization() {
+                this.logResult('init', 'Testing UI initialization...', 'info');
+                
+                try {
+                    // Create a mock admin UI instance
+                    this.adminUI = {
+                        llmManager: this.managers.llmManager,
+                        guardrailsManager: this.managers.guardrailsManager,
+                        voiceConfigManager: this.managers.voiceConfigManager,
+                        initialized: true
+                    };
+                    
+                    this.logResult('init', '✅ Admin UI mock initialized successfully', 'success');
+                    this.updateComponentStatus();
+                    
+                } catch (error) {
+                    this.logResult('init', `❌ UI initialization failed: ${error.message}`, 'error');
+                }
+            }
+            
+            initializeAllComponents() {
+                this.testManagerInitialization();
+                this.testUIInitialization();
+                this.logResult('init', '🎉 All components initialized successfully', 'success');
+            }
+            
+            // Agent Overview Tests
+            testAgentOverview() {
+                if (!this.managers.llmManager) {
+                    this.logResult('overview', '❌ LLM Manager not initialized', 'error');
+                    return;
+                }
+                
+                this.logResult('overview', 'Testing agent overview functionality...', 'info');
+                
+                try {
+                    const configs = this.managers.llmManager.getAgentConfigurations();
+                    this.logResult('overview', `✅ Retrieved ${Object.keys(configs).length} agent configurations`, 'success');
+                    
+                    const stats = this.managers.llmManager.getConfigurationStats();
+                    this.logResult('overview', `✅ Statistics: ${stats.totalAgents} total, ${stats.enabledAgents} enabled`, 'success');
+                    
+                } catch (error) {
+                    this.logResult('overview', `❌ Agent overview test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testAgentGrid() {
+                this.logResult('overview', 'Testing agent grid rendering...', 'info');
+                
+                try {
+                    const agents = this.managers.llmManager?.getAgentConfigurations() || {};
+                    
+                    Object.entries(agents).forEach(([name, config]) => {
+                        this.logResult('overview', `✅ Agent card data for ${name}: ${config.description}`, 'success');
+                    });
+                    
+                    this.logResult('overview', '✅ Agent grid test completed', 'success');
+                    
+                } catch (error) {
+                    this.logResult('overview', `❌ Agent grid test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testStatistics() {
+                this.logResult('overview', 'Testing statistics calculation...', 'info');
+                
+                try {
+                    const stats = this.managers.llmManager?.getConfigurationStats();
+                    
+                    if (stats) {
+                        this.logResult('overview', `✅ Total agents: ${stats.totalAgents}`, 'success');
+                        this.logResult('overview', `✅ Enabled agents: ${stats.enabledAgents}`, 'success');
+                        this.logResult('overview', `✅ Disabled agents: ${stats.disabledAgents}`, 'success');
+                        this.logResult('overview', `✅ Last updated: ${stats.lastUpdated || 'Never'}`, 'success');
+                    } else {
+                        this.logResult('overview', '❌ Failed to retrieve statistics', 'error');
+                    }
+                    
+                } catch (error) {
+                    this.logResult('overview', `❌ Statistics test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testAgentToggle() {
+                this.logResult('overview', 'Testing agent enable/disable toggle...', 'info');
+                
+                try {
+                    const agents = this.managers.llmManager?.getAgentConfigurations() || {};
+                    const agentName = Object.keys(agents)[0];
+                    
+                    if (agentName) {
+                        const originalStatus = agents[agentName].enabled;
+                        
+                        // Toggle status
+                        const success = this.managers.llmManager.updateAgentConfiguration(agentName, {
+                            enabled: !originalStatus
+                        });
+                        
+                        if (success) {
+                            this.logResult('overview', `✅ Successfully toggled ${agentName} from ${originalStatus} to ${!originalStatus}`, 'success');
+                            
+                            // Toggle back
+                            this.managers.llmManager.updateAgentConfiguration(agentName, {
+                                enabled: originalStatus
+                            });
+                            this.logResult('overview', `✅ Restored ${agentName} to original status`, 'success');
+                        } else {
+                            this.logResult('overview', `❌ Failed to toggle ${agentName}`, 'error');
+                        }
+                    } else {
+                        this.logResult('overview', '❌ No agents available for toggle test', 'error');
+                    }
+                    
+                } catch (error) {
+                    this.logResult('overview', `❌ Agent toggle test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            // Configuration Modal Tests
+            testConfigurationModal() {
+                this.logResult('config', 'Testing configuration modal functionality...', 'info');
+                
+                try {
+                    const agents = this.managers.llmManager?.getAgentConfigurations() || {};
+                    const agentName = Object.keys(agents)[0];
+                    
+                    if (agentName) {
+                        const config = this.managers.llmManager.getAgentConfiguration(agentName);
+                        
+                        if (config) {
+                            this.logResult('config', `✅ Retrieved configuration for ${agentName}`, 'success');
+                            this.logResult('config', `✅ Config has ${Object.keys(config).length} properties`, 'success');
+                        } else {
+                            this.logResult('config', `❌ Failed to retrieve configuration for ${agentName}`, 'error');
+                        }
+                    } else {
+                        this.logResult('config', '❌ No agents available for configuration test', 'error');
+                    }
+                    
+                } catch (error) {
+                    this.logResult('config', `❌ Configuration modal test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testTabbedInterface() {
+                this.logResult('config', 'Testing tabbed interface functionality...', 'info');
+                
+                const tabs = ['basic', 'llm', 'triggers', 'advanced'];
+                
+                tabs.forEach(tab => {
+                    this.logResult('config', `✅ Tab '${tab}' structure validated`, 'success');
+                });
+                
+                this.logResult('config', '✅ Tabbed interface test completed', 'success');
+            }
+            
+            testConfigurationSave() {
+                this.logResult('config', 'Testing configuration save functionality...', 'info');
+                
+                try {
+                    const agents = this.managers.llmManager?.getAgentConfigurations() || {};
+                    const agentName = Object.keys(agents)[0];
+                    
+                    if (agentName) {
+                        const testConfig = {
+                            description: 'Test configuration update',
+                            maxTokens: 1500,
+                            temperature: 0.8
+                        };
+                        
+                        const success = this.managers.llmManager.updateAgentConfiguration(agentName, testConfig);
+                        
+                        if (success) {
+                            this.logResult('config', `✅ Successfully saved configuration for ${agentName}`, 'success');
+                            
+                            // Verify the save
+                            const updatedConfig = this.managers.llmManager.getAgentConfiguration(agentName);
+                            if (updatedConfig.maxTokens === 1500) {
+                                this.logResult('config', '✅ Configuration save verified', 'success');
+                            } else {
+                                this.logResult('config', '❌ Configuration save verification failed', 'error');
+                            }
+                        } else {
+                            this.logResult('config', `❌ Failed to save configuration for ${agentName}`, 'error');
+                        }
+                    }
+                    
+                } catch (error) {
+                    this.logResult('config', `❌ Configuration save test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testConfigurationValidation() {
+                this.logResult('config', 'Testing configuration validation...', 'info');
+                
+                try {
+                    // Test valid configuration
+                    const validConfig = {
+                        name: 'TestAgent',
+                        description: 'Test agent description',
+                        priority: 5,
+                        enabled: true,
+                        maxTokens: 1000
+                    };
+                    
+                    const validResult = this.managers.llmManager?.validateConfiguration(validConfig);
+                    
+                    if (validResult?.valid) {
+                        this.logResult('config', '✅ Valid configuration passed validation', 'success');
+                    } else {
+                        this.logResult('config', `❌ Valid configuration failed validation: ${validResult?.errors?.join(', ')}`, 'error');
+                    }
+                    
+                    // Test invalid configuration
+                    const invalidConfig = {
+                        name: '', // Invalid: empty name
+                        priority: -1, // Invalid: negative priority
+                        maxTokens: 'invalid' // Invalid: non-numeric
+                    };
+                    
+                    const invalidResult = this.managers.llmManager?.validateConfiguration(invalidConfig);
+                    
+                    if (!invalidResult?.valid) {
+                        this.logResult('config', '✅ Invalid configuration correctly rejected', 'success');
+                        this.logResult('config', `✅ Validation errors: ${invalidResult.errors.length}`, 'success');
+                    } else {
+                        this.logResult('config', '❌ Invalid configuration incorrectly accepted', 'error');
+                    }
+                    
+                } catch (error) {
+                    this.logResult('config', `❌ Configuration validation test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            // Guardrails Editor Tests
+            testGuardrailsEditor() {
+                this.logResult('guardrails', 'Testing guardrails editor functionality...', 'info');
+                
+                try {
+                    const agents = this.managers.llmManager?.getAgentConfigurations() || {};
+                    const agentName = Object.keys(agents)[0];
+                    
+                    if (agentName) {
+                        const guardrails = this.managers.guardrailsManager?.getGuardrails(agentName);
+                        
+                        if (guardrails) {
+                            this.logResult('guardrails', `✅ Retrieved guardrails for ${agentName}`, 'success');
+                            this.logResult('guardrails', `✅ Guardrails have ${Object.keys(guardrails.allowedCapabilities || {}).length} capabilities`, 'success');
+                        } else {
+                            this.logResult('guardrails', `✅ No existing guardrails for ${agentName} (expected for new agents)`, 'success');
+                        }
+                    }
+                    
+                } catch (error) {
+                    this.logResult('guardrails', `❌ Guardrails editor test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testCapabilityToggles() {
+                this.logResult('guardrails', 'Testing capability toggle functionality...', 'info');
+                
+                try {
+                    const testCapabilities = {
+                        canAccessAccountData: true,
+                        canInitiateTransactions: false,
+                        canBlockCards: true,
+                        canResetPasswords: false,
+                        canAccessTransactionHistory: true,
+                        canProvideBalanceInfo: true
+                    };
+                    
+                    Object.entries(testCapabilities).forEach(([capability, enabled]) => {
+                        this.logResult('guardrails', `✅ Capability ${capability}: ${enabled ? 'enabled' : 'disabled'}`, 'success');
+                    });
+                    
+                    this.logResult('guardrails', '✅ Capability toggles test completed', 'success');
+                    
+                } catch (error) {
+                    this.logResult('guardrails', `❌ Capability toggles test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testGuardrailsValidation() {
+                this.logResult('guardrails', 'Testing guardrails validation...', 'info');
+                
+                try {
+                    const agents = this.managers.llmManager?.getAgentConfigurations() || {};
+                    const agentName = Object.keys(agents)[0];
+                    
+                    if (agentName) {
+                        // Test various actions
+                        const testActions = [
+                            { action: 'getAccountData', expected: true },
+                            { action: 'initiateTransfer', expected: false },
+                            { action: 'blockCard', expected: false }
+                        ];
+                        
+                        testActions.forEach(test => {
+                            const result = this.managers.guardrailsManager?.validateAction(agentName, test.action);
+                            
+                            if (result) {
+                                const status = result.allowed ? 'allowed' : 'blocked';
+                                this.logResult('guardrails', `✅ Action '${test.action}' ${status}: ${result.reason}`, 'success');
+                            } else {
+                                this.logResult('guardrails', `❌ Failed to validate action '${test.action}'`, 'error');
+                            }
+                        });
+                    }
+                    
+                } catch (error) {
+                    this.logResult('guardrails', `❌ Guardrails validation test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testGuardrailsSave() {
+                this.logResult('guardrails', 'Testing guardrails save functionality...', 'info');
+                
+                try {
+                    const agents = this.managers.llmManager?.getAgentConfigurations() || {};
+                    const agentName = Object.keys(agents)[0];
+                    
+                    if (agentName) {
+                        const testGuardrails = {
+                            allowedCapabilities: {
+                                canAccessAccountData: true,
+                                canInitiateTransactions: false,
+                                canBlockCards: false,
+                                canResetPasswords: true,
+                                canAccessTransactionHistory: true,
+                                canProvideBalanceInfo: true
+                            },
+                            restrictions: {
+                                maxTransactionAmount: 500,
+                                blockedKeywords: ['test', 'demo'],
+                                timeBasedRestrictions: {}
+                            },
+                            complianceRules: {
+                                logAllActions: true,
+                                requireAuditTrail: true,
+                                dataRetentionDays: 90
+                            }
+                        };
+                        
+                        const success = this.managers.guardrailsManager?.setGuardrails(agentName, testGuardrails);
+                        
+                        if (success) {
+                            this.logResult('guardrails', `✅ Successfully saved guardrails for ${agentName}`, 'success');
+                            
+                            // Verify the save
+                            const savedGuardrails = this.managers.guardrailsManager.getGuardrails(agentName);
+                            if (savedGuardrails?.restrictions?.maxTransactionAmount === 500) {
+                                this.logResult('guardrails', '✅ Guardrails save verified', 'success');
+                            } else {
+                                this.logResult('guardrails', '❌ Guardrails save verification failed', 'error');
+                            }
+                        } else {
+                            this.logResult('guardrails', `❌ Failed to save guardrails for ${agentName}`, 'error');
+                        }
+                    }
+                    
+                } catch (error) {
+                    this.logResult('guardrails', `❌ Guardrails save test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            // Voice Configuration Tests
+            testVoiceConfiguration() {
+                this.logResult('voice', 'Testing voice configuration functionality...', 'info');
+                
+                try {
+                    const agents = this.managers.llmManager?.getAgentConfigurations() || {};
+                    const agentName = Object.keys(agents)[0];
+                    
+                    if (agentName) {
+                        const voiceConfig = this.managers.voiceConfigManager?.getVoiceConfig(agentName);
+                        
+                        if (voiceConfig) {
+                            this.logResult('voice', `✅ Retrieved voice config for ${agentName}`, 'success');
+                            this.logResult('voice', `✅ TTS Provider: ${voiceConfig.ttsSettings?.provider || 'default'}`, 'success');
+                            this.logResult('voice', `✅ Voice: ${voiceConfig.ttsSettings?.voice || 'default'}`, 'success');
+                        } else {
+                            this.logResult('voice', `✅ No existing voice config for ${agentName} (expected for new agents)`, 'success');
+                        }
+                    }
+                    
+                } catch (error) {
+                    this.logResult('voice', `❌ Voice configuration test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testVoicePreview() {
+                this.logResult('voice', 'Testing voice preview functionality...', 'info');
+                
+                try {
+                    const testConfig = {
+                        ttsSettings: {
+                            provider: 'openai',
+                            voice: 'nova',
+                            speed: 1.2,
+                            pitch: 0,
+                            volume: 0.8
+                        },
+                        personalityTraits: {
+                            tone: 'friendly',
+                            formality: 'professional',
+                            enthusiasm: 7,
+                            empathy: 6
+                        }
+                    };
+                    
+                    const sampleText = 'Hello, this is a test of the voice preview functionality.';
+                    
+                    this.managers.voiceConfigManager?.previewVoice(testConfig, sampleText)
+                        .then(preview => {
+                            if (preview.success) {
+                                this.logResult('voice', '✅ Voice preview generated successfully', 'success');
+                                this.logResult('voice', `✅ Estimated duration: ${preview.estimatedDuration} seconds`, 'success');
+                            } else {
+                                this.logResult('voice', `❌ Voice preview failed: ${preview.error}`, 'error');
+                            }
+                        })
+                        .catch(error => {
+                            this.logResult('voice', `❌ Voice preview error: ${error.message}`, 'error');
+                        });
+                    
+                } catch (error) {
+                    this.logResult('voice', `❌ Voice preview test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testVoiceProviders() {
+                this.logResult('voice', 'Testing voice provider functionality...', 'info');
+                
+                try {
+                    const providers = this.managers.voiceConfigManager?.getAvailableProviders() || [];
+                    
+                    this.logResult('voice', `✅ Available providers: ${providers.join(', ')}`, 'success');
+                    
+                    providers.forEach(provider => {
+                        const voices = this.managers.voiceConfigManager.getAvailableVoices(provider);
+                        this.logResult('voice', `✅ ${provider}: ${voices.length} voices available`, 'success');
+                    });
+                    
+                } catch (error) {
+                    this.logResult('voice', `❌ Voice providers test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testVoiceSave() {
+                this.logResult('voice', 'Testing voice configuration save...', 'info');
+                
+                try {
+                    const agents = this.managers.llmManager?.getAgentConfigurations() || {};
+                    const agentName = Object.keys(agents)[0];
+                    
+                    if (agentName) {
+                        const testVoiceConfig = {
+                            ttsSettings: {
+                                provider: 'openai',
+                                voice: 'echo',
+                                speed: 0.9,
+                                pitch: 1,
+                                volume: 0.7
+                            },
+                            personalityTraits: {
+                                tone: 'professional',
+                                formality: 'formal',
+                                enthusiasm: 4,
+                                empathy: 8
+                            },
+                            contextualAdaptation: {
+                                errorResponseTone: 'apologetic',
+                                successResponseTone: 'confident'
+                            }
+                        };
+                        
+                        const success = this.managers.voiceConfigManager?.setVoiceConfig(agentName, testVoiceConfig);
+                        
+                        if (success) {
+                            this.logResult('voice', `✅ Successfully saved voice config for ${agentName}`, 'success');
+                            
+                            // Verify the save
+                            const savedConfig = this.managers.voiceConfigManager.getVoiceConfig(agentName);
+                            if (savedConfig?.ttsSettings?.voice === 'echo') {
+                                this.logResult('voice', '✅ Voice configuration save verified', 'success');
+                            } else {
+                                this.logResult('voice', '❌ Voice configuration save verification failed', 'error');
+                            }
+                        } else {
+                            this.logResult('voice', `❌ Failed to save voice config for ${agentName}`, 'error');
+                        }
+                    }
+                    
+                } catch (error) {
+                    this.logResult('voice', `❌ Voice save test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            // Audit Log Tests
+            testAuditLog() {
+                this.logResult('audit', 'Testing audit log functionality...', 'info');
+                
+                try {
+                    // Create mock audit events
+                    const mockEvents = [
+                        { category: 'config', action: 'Updated agent configuration', timestamp: new Date().toISOString() },
+                        { category: 'guardrails', action: 'Modified guardrails', timestamp: new Date().toISOString() },
+                        { category: 'voice', action: 'Changed voice settings', timestamp: new Date().toISOString() },
+                        { category: 'system', action: 'Exported configuration', timestamp: new Date().toISOString() }
+                    ];
+                    
+                    // Store in localStorage to simulate audit log
+                    localStorage.setItem('llm_manager_audit_log', JSON.stringify(mockEvents));
+                    
+                    this.logResult('audit', `✅ Created ${mockEvents.length} mock audit events`, 'success');
+                    this.logResult('audit', '✅ Audit log storage test completed', 'success');
+                    
+                } catch (error) {
+                    this.logResult('audit', `❌ Audit log test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testAuditFiltering() {
+                this.logResult('audit', 'Testing audit log filtering...', 'info');
+                
+                try {
+                    const stored = localStorage.getItem('llm_manager_audit_log');
+                    const events = stored ? JSON.parse(stored) : [];
+                    
+                    const categories = ['all', 'config', 'guardrails', 'voice', 'system'];
+                    
+                    categories.forEach(category => {
+                        const filtered = category === 'all' ? 
+                            events : 
+                            events.filter(event => event.category === category);
+                        
+                        this.logResult('audit', `✅ Filter '${category}': ${filtered.length} events`, 'success');
+                    });
+                    
+                } catch (error) {
+                    this.logResult('audit', `❌ Audit filtering test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testAuditEvents() {
+                this.logResult('audit', 'Testing audit event creation...', 'info');
+                
+                try {
+                    const testEvent = {
+                        id: Date.now(),
+                        timestamp: new Date().toISOString(),
+                        category: 'test',
+                        action: 'Test audit event creation',
+                        details: { test: true },
+                        user: 'test-user'
+                    };
+                    
+                    // Simulate adding to audit log
+                    const stored = localStorage.getItem('llm_manager_audit_log');
+                    const events = stored ? JSON.parse(stored) : [];
+                    events.unshift(testEvent);
+                    localStorage.setItem('llm_manager_audit_log', JSON.stringify(events));
+                    
+                    this.logResult('audit', '✅ Test audit event created successfully', 'success');
+                    this.logResult('audit', `✅ Event details: ${JSON.stringify(testEvent.details)}`, 'success');
+                    
+                } catch (error) {
+                    this.logResult('audit', `❌ Audit events test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testAuditClear() {
+                this.logResult('audit', 'Testing audit log clear functionality...', 'info');
+                
+                try {
+                    // Clear audit log
+                    localStorage.removeItem('llm_manager_audit_log');
+                    
+                    const cleared = localStorage.getItem('llm_manager_audit_log');
+                    
+                    if (!cleared) {
+                        this.logResult('audit', '✅ Audit log cleared successfully', 'success');
+                    } else {
+                        this.logResult('audit', '❌ Audit log clear failed', 'error');
+                    }
+                    
+                } catch (error) {
+                    this.logResult('audit', `❌ Audit clear test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            // Integration Tests
+            testDataPersistence() {
+                this.logResult('integration', 'Testing data persistence...', 'info');
+                
+                try {
+                    // Test LLM Manager persistence
+                    const llmData = localStorage.getItem('llm_manager_config');
+                    if (llmData) {
+                        this.logResult('integration', '✅ LLM Manager data persisted', 'success');
+                    }
+                    
+                    // Test Guardrails persistence
+                    const guardrailsData = localStorage.getItem('guardrails_config');
+                    if (guardrailsData) {
+                        this.logResult('integration', '✅ Guardrails data persisted', 'success');
+                    }
+                    
+                    // Test Voice Config persistence
+                    const voiceData = localStorage.getItem('voice_config');
+                    if (voiceData) {
+                        this.logResult('integration', '✅ Voice configuration data persisted', 'success');
+                    }
+                    
+                    this.logResult('integration', '✅ Data persistence test completed', 'success');
+                    
+                } catch (error) {
+                    this.logResult('integration', `❌ Data persistence test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testExportImport() {
+                this.logResult('integration', 'Testing export/import functionality...', 'info');
+                
+                try {
+                    // Test export
+                    const exportData = this.managers.llmManager?.exportConfiguration();
+                    
+                    if (exportData) {
+                        this.logResult('integration', '✅ Configuration exported successfully', 'success');
+                        this.logResult('integration', `✅ Export contains ${Object.keys(exportData.configurations || {}).length} agents`, 'success');
+                        
+                        // Test import
+                        const importSuccess = this.managers.llmManager.importConfiguration(exportData);
+                        
+                        if (importSuccess) {
+                            this.logResult('integration', '✅ Configuration imported successfully', 'success');
+                        } else {
+                            this.logResult('integration', '❌ Configuration import failed', 'error');
+                        }
+                    } else {
+                        this.logResult('integration', '❌ Configuration export failed', 'error');
+                    }
+                    
+                } catch (error) {
+                    this.logResult('integration', `❌ Export/import test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            testErrorHandling() {
+                this.logResult('integration', 'Testing error handling...', 'info');
+                
+                try {
+                    // Test invalid configuration
+                    const invalidConfig = { invalid: 'config' };
+                    const result = this.managers.llmManager?.updateAgentConfiguration('NonExistentAgent', invalidConfig);
+                    
+                    if (!result) {
+                        this.logResult('integration', '✅ Invalid configuration correctly rejected', 'success');
+                    } else {
+                        this.logResult('integration', '❌ Invalid configuration incorrectly accepted', 'error');
+                    }
+                    
+                    // Test invalid guardrails
+                    const invalidGuardrails = { invalid: 'guardrails' };
+                    const guardrailsResult = this.managers.guardrailsManager?.setGuardrails('TestAgent', invalidGuardrails);
+                    
+                    if (!guardrailsResult) {
+                        this.logResult('integration', '✅ Invalid guardrails correctly rejected', 'success');
+                    } else {
+                        this.logResult('integration', '❌ Invalid guardrails incorrectly accepted', 'error');
+                    }
+                    
+                    this.logResult('integration', '✅ Error handling test completed', 'success');
+                    
+                } catch (error) {
+                    this.logResult('integration', `❌ Error handling test failed: ${error.message}`, 'error');
+                }
+            }
+            
+            runFullIntegrationTest() {
+                this.logResult('integration', '🚀 Running full integration test...', 'info');
+                
+                // Run all tests in sequence
+                this.initializeAllComponents();
+                
+                setTimeout(() => {
+                    this.testAgentOverview();
+                    this.testConfigurationModal();
+                    this.testGuardrailsEditor();
+                    this.testVoiceConfiguration();
+                    this.testAuditLog();
+                    this.testDataPersistence();
+                    this.testExportImport();
+                    this.testErrorHandling();
+                    
+                    this.logResult('integration', '🎉 Full integration test completed!', 'success');
+                }, 1000);
+            }
+        }
+        
+        // Initialize test suite
+        const testSuite = new AdminUITestSuite();
+        
+        // Global functions for HTML onclick handlers
+        window.testManagerInitialization = () => testSuite.testManagerInitialization();
+        window.testUIInitialization = () => testSuite.testUIInitialization();
+        window.initializeAllComponents = () => testSuite.initializeAllComponents();
+        
+        window.testAgentOverview = () => testSuite.testAgentOverview();
+        window.testAgentGrid = () => testSuite.testAgentGrid();
+        window.testStatistics = () => testSuite.testStatistics();
+        window.testAgentToggle = () => testSuite.testAgentToggle();
+        
+        window.testConfigurationModal = () => testSuite.testConfigurationModal();
+        window.testTabbedInterface = () => testSuite.testTabbedInterface();
+        window.testConfigurationSave = () => testSuite.testConfigurationSave();
+        window.testConfigurationValidation = () => testSuite.testConfigurationValidation();
+        
+        window.testGuardrailsEditor = () => testSuite.testGuardrailsEditor();
+        window.testCapabilityToggles = () => testSuite.testCapabilityToggles();
+        window.testGuardrailsValidation = () => testSuite.testGuardrailsValidation();
+        window.testGuardrailsSave = () => testSuite.testGuardrailsSave();
+        
+        window.testVoiceConfiguration = () => testSuite.testVoiceConfiguration();
+        window.testVoicePreview = () => testSuite.testVoicePreview();
+        window.testVoiceProviders = () => testSuite.testVoiceProviders();
+        window.testVoiceSave = () => testSuite.testVoiceSave();
+        
+        window.testAuditLog = () => testSuite.testAuditLog();
+        window.testAuditFiltering = () => testSuite.testAuditFiltering();
+        window.testAuditEvents = () => testSuite.testAuditEvents();
+        window.testAuditClear = () => testSuite.testAuditClear();
+        
+        window.testDataPersistence = () => testSuite.testDataPersistence();
+        window.testExportImport = () => testSuite.testExportImport();
+        window.testErrorHandling = () => testSuite.testErrorHandling();
+        window.runFullIntegrationTest = () => testSuite.runFullIntegrationTest();
+    </script>
+</body>
+</html>

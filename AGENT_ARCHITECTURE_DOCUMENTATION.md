@@ -490,7 +490,7 @@ const testContext = TestAPIFactory.createTestContext();
 <!-- Add test mode selector to any test page -->
 <div id="test-mode-selector"></div>
 
-<script src="test-mode-selector.js"></script>
+<script src="test/test-mode-selector.js"></script>
 <script>
     // Selector automatically initializes and provides UI
     // Callbacks can be added for mode change events

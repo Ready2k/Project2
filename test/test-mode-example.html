@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Mode Example</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .results {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Mode Example</h1>
+        <p>This example demonstrates how to use Mock vs Real API testing modes.</p>
+        
+        <div id="status" class="status info">
+            Ready to test API modes
+        </div>
+
+        <!-- Test Mode Selector -->
+        <div class="test-section">
+            <h2>Test Configuration</h2>
+            <div id="test-mode-selector"></div>
+        </div>
+
+        <!-- API Test Controls -->
+        <div class="test-section">
+            <h2>API Tests</h2>
+            <button onclick="testChatCompletion()">Test Chat Completion</button>
+            <button onclick="testSpeechToText()">Test Speech-to-Text</button>
+            <button onclick="testTextToSpeech()">Test Text-to-Speech</button>
+            <button onclick="testAllAPIs()">Test All APIs</button>
+            <button onclick="clearResults()">Clear Results</button>
+        </div>
+
+        <!-- Test Results -->
+        <div class="test-section">
+            <h2>Test Results</h2>
+            <div id="test-results" class="results">
+                Test results will appear here...
+            </div>
+        </div>
+    </div>
+
+    <!-- Include dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../token-tracker.js"></script>
+    <script src="../api-client.js"></script>
+    <script src="test-api-factory.js"></script>
+    <script src="test-mode-selector.js"></script>
+
+    <script>
+        let apiClient = null;
+        let testResults = [];
+
+        // Initialize
+        function initialize() {
+            // Create API client based on current test mode
+            apiClient = TestAPIFactory.createAPIClient();
+            
+            const testMode = window.debugManager ? window.debugManager.getTestMode() : 'mock';
+            updateStatus(`Initialized in ${testMode.toUpperCase()} mode`, 'success');
+        }
+
+        // Handle test mode changes
+        function onTestModeChange(newMode) {
+            updateStatus(`Switching to ${newMode.toUpperCase()} mode...`, 'info');
+            
+            // Recreate API client with new mode
+            apiClient = TestAPIFactory.createAPIClient(newMode);
+            
+            updateStatus(`Switched to ${newMode.toUpperCase()} mode`, 'success');
+            log(`=== Switched to ${newMode.toUpperCase()} mode ===`);
+        }
+
+        // Test chat completion
+        async function testChatCompletion() {
+            log('Testing Chat Completion...');
+            
+            try {
+                const messages = [
+                    { role: 'user', content: 'What is my account balance?' }
+                ];
+                
+                const startTime = Date.now();
+                const result = await apiClient.generateChatCompletion(messages);
+                const duration = Date.now() - startTime;
+                
+                if (result.success) {
+                    log(`✅ Chat Completion Success (${duration}ms)`);
+                    log(`Response: ${result.content}`);
+                    if (result.tokensUsed) {
+                        log(`Tokens Used: ${result.tokensUsed}`);
+                    }
+                } else {
+                    log(`❌ Chat Completion Failed: ${result.error}`);
+                }
+            } catch (error) {
+                log(`❌ Chat Completion Error: ${error.message}`);
+            }
+        }
+
+        // Test speech to text
+        async function testSpeechToText() {
+            log('Testing Speech-to-Text...');
+            
+            try {
+                // Create a mock audio blob for testing
+                const mockAudioBlob = new Blob(['mock audio data'], { type: 'audio/wav' });
+                
+                const startTime = Date.now();
+                const result = await apiClient.speechToText(mockAudioBlob);
+                const duration = Date.now() - startTime;
+                
+                if (result.success) {
+                    log(`✅ Speech-to-Text Success (${duration}ms)`);
+                    log(`Transcription: ${result.text}`);
+                } else {
+                    log(`❌ Speech-to-Text Failed: ${result.error}`);
+                }
+            } catch (error) {
+                log(`❌ Speech-to-Text Error: ${error.message}`);
+            }
+        }
+
+        // Test text to speech
+        async function testTextToSpeech() {
+            log('Testing Text-to-Speech...');
+            
+            try {
+                const text = 'Your account balance is £2,500.75';
+                
+                const startTime = Date.now();
+                const result = await apiClient.textToSpeech(text);
+                const duration = Date.now() - startTime;
+                
+                if (result.success) {
+                    log(`✅ Text-to-Speech Success (${duration}ms)`);
+                    log(`Audio blob size: ${result.audioBlob.size} bytes`);
+                } else {
+                    log(`❌ Text-to-Speech Failed: ${result.error}`);
+                }
+            } catch (error) {
+                log(`❌ Text-to-Speech Error: ${error.message}`);
+            }
+        }
+
+        // Test all APIs
+        async function testAllAPIs() {
+            log('=== Testing All APIs ===');
+            await testChatCompletion();
+            await testSpeechToText();
+            await testTextToSpeech();
+            log('=== All API Tests Complete ===');
+        }
+
+        // Logging functions
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            testResults.push(logEntry);
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            const resultsDiv = document.getElementById('test-results');
+            if (resultsDiv) {
+                resultsDiv.textContent = testResults.join('\n');
+                resultsDiv.scrollTop = resultsDiv.scrollHeight;
+            }
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            if (statusDiv) {
+                statusDiv.textContent = message;
+                statusDiv.className = `status ${type}`;
+            }
+        }
+
+        function clearResults() {
+            testResults = [];
+            updateDisplay();
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initialize();
+            
+            // Set up test mode change callback
+            if (window.testModeSelector) {
+                window.testModeSelector.onModeChange(onTestModeChange);
+            }
+        });
+    </script>
+</body>
+</html>

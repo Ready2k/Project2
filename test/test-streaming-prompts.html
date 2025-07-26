@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Streaming Prompts Integration</title>
+</head>
+<body>
+    <h1>Streaming Prompts Integration Test</h1>
+    <div id="output"></div>
+    
+    <script src="../persona-manager.js"></script>
+    <script src="../system-prompts-manager.js"></script>
+    <script src="../streaming-manager.js"></script>
+    <script>
+        async function testStreamingPromptsIntegration() {
+            const output = document.getElementById('output');
+            
+            try {
+                // Set up mock app object
+                window.app = {
+                    personaManager: new PersonaManager(),
+                    systemPromptsManager: new SystemPromptsManager()
+                };
+                
+                // Initialize managers
+                await window.app.personaManager.init();
+                await window.app.systemPromptsManager.init();
+                
+                // Set up currency formatter
+                window.app.systemPromptsManager.setCurrencyFormatter(
+                    window.app.personaManager.formatCurrency.bind(window.app.personaManager)
+                );
+                
+                // Create streaming manager instance
+                const streamingManager = new StreamingManager('test-key', () => {});
+                
+                // Get test persona
+                const testPersona = window.app.personaManager.getPersona('john_doe');
+                
+                // Generate instructions using streaming manager
+                const instructions = streamingManager.generateInstructions(testPersona);
+                
+                output.innerHTML = `
+                    <h2>Test Results:</h2>
+                    <h3>Test Persona:</h3>
+                    <pre>${JSON.stringify(testPersona, null, 2)}</pre>
+                    
+                    <h3>Generated Streaming Instructions:</h3>
+                    <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; white-space: pre-wrap;">${instructions}</pre>
+                    
+                    <h3>System Prompts Manager Available:</h3>
+                    <p>${window.app.systemPromptsManager ? '✅ Yes' : '❌ No'}</p>
+                    
+                    <h3>Base Personality from Manager:</h3>
+                    <p>${window.app.systemPromptsManager.getBasePersonality()}</p>
+                `;
+            } catch (error) {
+                output.innerHTML = `<p style="color: red;">Error: ${error.message}</p>
+                                   <pre>${error.stack}</pre>`;
+            }
+        }
+        
+        testStreamingPromptsIntegration();
+    </script>
+</body>
+</html>

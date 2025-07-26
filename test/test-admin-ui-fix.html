@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin UI Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 Admin UI Fix Test</h1>
+        <p>Testing the fixes for the LLM Manager Admin UI JavaScript errors.</p>
+        
+        <div id="testResults"></div>
+        
+        <button onclick="runTests()">Run Tests</button>
+        <button onclick="openAdminUI()">Open Admin UI</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/llm-manager.js"></script>
+    <script src="../agents/guardrails-manager.js"></script>
+    <script src="../agents/voice-config-manager.js"></script>
+    <script src="../llm-manager-admin-ui.js"></script>
+
+    <script>
+        function logResult(message, type = 'info') {
+            const container = document.getElementById('testResults');
+            const result = document.createElement('div');
+            result.className = `test-result ${type}`;
+            result.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            container.appendChild(result);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+        }
+
+        function runTests() {
+            clearResults();
+            logResult('Starting Admin UI fix tests...', 'info');
+            
+            // Test 1: Check if adminUI is initialized
+            if (window.adminUI) {
+                logResult('✅ adminUI global variable is available', 'success');
+            } else {
+                logResult('❌ adminUI global variable is not available', 'error');
+            }
+            
+            // Test 2: Check if global functions are available
+            const requiredFunctions = [
+                'refreshAgentData',
+                'exportConfiguration',
+                'importConfiguration',
+                'resetToDefaults',
+                'clearAuditLog',
+                'closeModal',
+                'saveAgentConfiguration',
+                'addTrigger',
+                'updateVoiceOptions',
+                'openAgentConfiguration',
+                'openGuardrailsEditor',
+                'openVoiceConfig',
+                'toggleAgent',
+                'saveGuardrails',
+                'testGuardrails',
+                'saveVoiceConfig',
+                'resetVoiceConfig',
+                'previewVoice',
+                'loadGuardrailsEditor',
+                'loadVoiceEditor'
+            ];
+            
+            let functionsAvailable = 0;
+            requiredFunctions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    functionsAvailable++;
+                    logResult(`✅ Function ${funcName} is available`, 'success');
+                } else {
+                    logResult(`❌ Function ${funcName} is missing`, 'error');
+                }
+            });
+            
+            logResult(`Functions available: ${functionsAvailable}/${requiredFunctions.length}`, 
+                functionsAvailable === requiredFunctions.length ? 'success' : 'error');
+            
+            // Test 3: Check if managers are initialized
+            if (window.adminUI && window.adminUI.llmManager) {
+                logResult('✅ LLM Manager is initialized', 'success');
+            } else {
+                logResult('❌ LLM Manager is not initialized', 'error');
+            }
+            
+            if (window.adminUI && window.adminUI.guardrailsManager) {
+                logResult('✅ Guardrails Manager is initialized', 'success');
+            } else {
+                logResult('❌ Guardrails Manager is not initialized', 'error');
+            }
+            
+            if (window.adminUI && window.adminUI.voiceConfigManager) {
+                logResult('✅ Voice Config Manager is initialized', 'success');
+            } else {
+                logResult('❌ Voice Config Manager is not initialized', 'error');
+            }
+            
+            // Test 4: Test a simple function call
+            try {
+                if (window.refreshAgentData) {
+                    // Don't actually call it, just check if it's callable
+                    logResult('✅ refreshAgentData function is callable', 'success');
+                } else {
+                    logResult('❌ refreshAgentData function is not callable', 'error');
+                }
+            } catch (error) {
+                logResult(`❌ Error testing refreshAgentData: ${error.message}`, 'error');
+            }
+            
+            // Test 5: Test agent configuration function
+            try {
+                if (window.openAgentConfiguration) {
+                    logResult('✅ openAgentConfiguration function is available', 'success');
+                } else {
+                    logResult('❌ openAgentConfiguration function is not available', 'error');
+                }
+            } catch (error) {
+                logResult(`❌ Error testing openAgentConfiguration: ${error.message}`, 'error');
+            }
+            
+            logResult('Tests completed!', 'info');
+        }
+
+        function openAdminUI() {
+            window.open('llm-manager-admin-ui.html', '_blank');
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                runTests();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

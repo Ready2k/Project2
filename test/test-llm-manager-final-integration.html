@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Manager Final Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .test-status {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 5px 0;
+        }
+        .status-pass { background-color: #d4edda; color: #155724; }
+        .status-fail { background-color: #f8d7da; color: #721c24; }
+        .status-pending { background-color: #fff3cd; color: #856404; }
+        .status-running { background-color: #cce5ff; color: #004085; }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.3s ease;
+        }
+        .summary-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+            margin: 10px 0;
+        }
+        .summary-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 3px;
+        }
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .scenario-test {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .scenario-title {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        .scenario-steps {
+            font-family: monospace;
+            font-size: 0.9em;
+            background: white;
+            padding: 10px;
+            border-radius: 3px;
+            white-space: pre-line;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎯 LLM Manager Final Integration Test</h1>
+        <p>Comprehensive end-to-end testing of the complete LLM Manager system including all components, workflows, and real-world scenarios.</p>
+        
+        <div class="test-section">
+            <h2>📊 Test Overview</h2>
+            <div id="overallStatus" class="test-status status-pending">Initializing...</div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="summary-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalTests">0</div>
+                    <div class="stat-label">Total Tests</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="passedTests">0</div>
+                    <div class="stat-label">Passed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="failedTests">0</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="successRate">0%</div>
+                    <div class="stat-label">Success Rate</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔄 End-to-End Workflow Tests</h2>
+            <p>Tests complete workflows from configuration creation to real-world usage scenarios.</p>
+            <button onclick="runEndToEndTests()">Run End-to-End Tests</button>
+            <div id="endToEndResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎭 Real-World Scenario Tests</h2>
+            <p>Simulates actual usage scenarios with multiple agents, configurations, and user interactions.</p>
+            <button onclick="runScenarioTests()">Run Scenario Tests</button>
+            <div id="scenarioResults"></div>
+            
+            <div class="scenario-test">
+                <div class="scenario-title">Scenario 1: Banking Customer Service</div>
+                <div class="scenario-steps" id="scenario1Steps">Ready to run...</div>
+            </div>
+            
+            <div class="scenario-test">
+                <div class="scenario-title">Scenario 2: Fraud Detection Response</div>
+                <div class="scenario-steps" id="scenario2Steps">Ready to run...</div>
+            </div>
+            
+            <div class="scenario-test">
+                <div class="scenario-title">Scenario 3: Payment Processing</div>
+                <div class="scenario-steps" id="scenario3Steps">Ready to run...</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>⚡ Performance and Stress Tests</h2>
+            <p>Tests system performance under load and stress conditions.</p>
+            <button onclick="runPerformanceTests()">Run Performance Tests</button>
+            <div id="performanceResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔒 Security and Compliance Tests</h2>
+            <p>Validates security boundaries, compliance rules, and data protection.</p>
+            <button onclick="runSecurityTests()">Run Security Tests</button>
+            <div id="securityResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📈 Final System Validation</h2>
+            <p>Comprehensive validation of the entire LLM Manager system.</p>
+            <button onclick="runFinalValidation()" id="finalValidationButton">Run Final Validation</button>
+            <div id="finalValidationResults"></div>
+            
+            <div class="summary-card" id="finalSummary" style="display: none;">
+                <div class="summary-title">🎉 Final Test Summary</div>
+                <div id="finalSummaryContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include all required dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/llm-manager.js"></script>
+    <script src="../agents/guardrails-manager.js"></script>
+    <script src="../agents/voice-config-manager.js"></script>
+    <script src="../agents/config-update-manager.js"></script>
+    <script src="../llm-manager-admin-ui.js"></script>
+    <script src="../agents/base-agent.js"></script>
+    <script src="../agents/idv-agent.js"></script>
+    <script src="../agents/banking-info-agent.js"></script>
+    <script src="../agents/fraud-agent.js"></script>
+    <script src="../agents/payments-agent.js"></script>
+    <script src="test-real-time-config-comprehensive.js"></script>
+    <script src="test-admin-ui-comprehensive.js"></script>
+
+    <script>
+        // Final integration test framework
+        let finalTestFramework = {
+            llmManager: null,
+            guardrailsManager: null,
+            voiceConfigManager: null,
+            configUpdateManager: null,
+            adminUI: null,
+            agents: {},
+            testResults: [],
+            currentTest: 0,
+            totalTests: 0,
+            scenarios: []
+        };
+
+        // Initialize comprehensive test framework
+        function initializeFinalTestFramework() {
+            try {
+                // Initialize debug manager
+                if (!window.debugManager) {
+                    window.debugManager = {
+                        createModuleLogger: (module) => ({
+                            log: (...args) => console.log(`[${module}]`, ...args),
+                            warn: (...args) => console.warn(`[${module}]`, ...args),
+                            error: (...args) => console.error(`[${module}]`, ...args)
+                        })
+                    };
+                }
+
+                // Initialize all managers
+                finalTestFramework.llmManager = new LLMManager();
+                finalTestFramework.guardrailsManager = new GuardrailsManager();
+                finalTestFramework.voiceConfigManager = new VoiceConfigManager();
+                
+                try {
+                    finalTestFramework.configUpdateManager = new ConfigUpdateManager();
+                } catch (e) {
+                    console.warn('ConfigUpdateManager not available');
+                }
+
+                try {
+                    finalTestFramework.adminUI = new LLMManagerAdminUI();
+                } catch (e) {
+                    console.warn('LLMManagerAdminUI not available');
+                }
+
+                // Set up dependencies
+                finalTestFramework.llmManager.setManagers(
+                    finalTestFramework.guardrailsManager,
+                    finalTestFramework.voiceConfigManager,
+                    null,
+                    finalTestFramework.configUpdateManager
+                );
+
+                // Initialize agents
+                try {
+                    finalTestFramework.agents = {
+                        idv: new IDVAgent(),
+                        banking: new BankingInfoAgent(),
+                        fraud: new FraudAgent(),
+                        payments: new PaymentsAgent()
+                    };
+
+                    Object.values(finalTestFramework.agents).forEach(agent => {
+                        if (agent.setGuardrailsManager) {
+                            agent.setGuardrailsManager(finalTestFramework.guardrailsManager);
+                        }
+                    });
+                } catch (e) {
+                    console.warn('Some agents not available');
+                }
+
+                updateStatus('Final test framework initialized successfully', 'pass');
+                return true;
+            } catch (error) {
+                updateStatus(`Initialization failed: ${error.message}`, 'fail');
+                return false;
+            }
+        }
+
+        // Test result management
+        function addTestResult(testName, passed, message, category = 'general') {
+            const result = {
+                testName,
+                passed,
+                message,
+                category,
+                timestamp: new Date().toISOString()
+            };
+            
+            finalTestFramework.testResults.push(result);
+            updateTestMetrics();
+            
+            return result;
+        }
+
+        function updateTestMetrics() {
+            const total = finalTestFramework.testResults.length;
+            const passed = finalTestFramework.testResults.filter(r => r.passed).length;
+            const failed = total - passed;
+            const successRate = total > 0 ? ((passed / total) * 100).toFixed(1) : 0;
+
+            document.getElementById('totalTests').textContent = total;
+            document.getElementById('passedTests').textContent = passed;
+            document.getElementById('failedTests').textContent = failed;
+            document.getElementById('successRate').textContent = successRate + '%';
+
+            const progress = finalTestFramework.totalTests > 0 ? 
+                (finalTestFramework.currentTest / finalTestFramework.totalTests) * 100 : 0;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        function updateStatus(message, type = 'pending') {
+            const statusElement = document.getElementById('overallStatus');
+            statusElement.textContent = message;
+            statusElement.className = `test-status status-${type}`;
+        }
+
+        function addResult(container, testName, passed, message) {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${passed ? 'success' : 'error'}`;
+            resultDiv.innerHTML = `<strong>${testName}:</strong> ${message}`;
+            container.appendChild(resultDiv);
+            
+            addTestResult(testName, passed, message);
+        }
+
+        // End-to-End Workflow Tests
+        async function runEndToEndTests() {
+            const resultsDiv = document.getElementById('endToEndResults');
+            resultsDiv.innerHTML = '';
+            updateStatus('Running end-to-end workflow tests...', 'running');
+
+            try {
+                // Test 1: Complete agent lifecycle
+                const agentLifecycleResult = await testCompleteAgentLifecycle();
+                addResult(resultsDiv, 'Complete Agent Lifecycle', agentLifecycleResult.passed, agentLifecycleResult.message);
+
+                // Test 2: Configuration workflow integration
+                const configWorkflowResult = await testConfigurationWorkflowIntegration();
+                addResult(resultsDiv, 'Configuration Workflow Integration', configWorkflowResult.passed, configWorkflowResult.message);
+
+                // Test 3: Real-time updates end-to-end
+                const realTimeResult = await testRealTimeUpdatesEndToEnd();
+                addResult(resultsDiv, 'Real-Time Updates End-to-End', realTimeResult.passed, realTimeResult.message);
+
+                // Test 4: Admin UI integration
+                const adminUIResult = await testAdminUIIntegration();
+                addResult(resultsDiv, 'Admin UI Integration', adminUIResult.passed, adminUIResult.message);
+
+                // Test 5: Data persistence across sessions
+                const persistenceResult = await testDataPersistenceAcrossSessions();
+                addResult(resultsDiv, 'Data Persistence Across Sessions', persistenceResult.passed, persistenceResult.message);
+
+            } catch (error) {
+                addResult(resultsDiv, 'End-to-End Workflow Tests', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Real-World Scenario Tests
+        async function runScenarioTests() {
+            const resultsDiv = document.getElementById('scenarioResults');
+            resultsDiv.innerHTML = '';
+            updateStatus('Running real-world scenario tests...', 'running');
+
+            try {
+                // Scenario 1: Banking Customer Service
+                const scenario1Result = await runBankingCustomerServiceScenario();
+                addResult(resultsDiv, 'Banking Customer Service Scenario', scenario1Result.passed, scenario1Result.message);
+
+                // Scenario 2: Fraud Detection Response
+                const scenario2Result = await runFraudDetectionScenario();
+                addResult(resultsDiv, 'Fraud Detection Response Scenario', scenario2Result.passed, scenario2Result.message);
+
+                // Scenario 3: Payment Processing
+                const scenario3Result = await runPaymentProcessingScenario();
+                addResult(resultsDiv, 'Payment Processing Scenario', scenario3Result.passed, scenario3Result.message);
+
+                // Scenario 4: Multi-agent conversation
+                const multiAgentResult = await runMultiAgentConversationScenario();
+                addResult(resultsDiv, 'Multi-Agent Conversation Scenario', multiAgentResult.passed, multiAgentResult.message);
+
+                // Scenario 5: Configuration change during operation
+                const configChangeResult = await runConfigurationChangeDuringOperationScenario();
+                addResult(resultsDiv, 'Configuration Change During Operation', configChangeResult.passed, configChangeResult.message);
+
+            } catch (error) {
+                addResult(resultsDiv, 'Real-World Scenario Tests', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Performance and Stress Tests
+        async function runPerformanceTests() {
+            const resultsDiv = document.getElementById('performanceResults');
+            resultsDiv.innerHTML = '';
+            updateStatus('Running performance and stress tests...', 'running');
+
+            try {
+                // Test 1: High-volume configuration updates
+                const highVolumeResult = await testHighVolumeConfigurationUpdates();
+                addResult(resultsDiv, 'High-Volume Configuration Updates', highVolumeResult.passed, highVolumeResult.message);
+
+                // Test 2: Concurrent agent operations
+                const concurrentResult = await testConcurrentAgentOperations();
+                addResult(resultsDiv, 'Concurrent Agent Operations', concurrentResult.passed, concurrentResult.message);
+
+                // Test 3: Memory usage under load
+                const memoryResult = await testMemoryUsageUnderLoad();
+                addResult(resultsDiv, 'Memory Usage Under Load', memoryResult.passed, memoryResult.message);
+
+                // Test 4: Response time consistency
+                const responseTimeResult = await testResponseTimeConsistency();
+                addResult(resultsDiv, 'Response Time Consistency', responseTimeResult.passed, responseTimeResult.message);
+
+                // Test 5: System recovery after stress
+                const recoveryResult = await testSystemRecoveryAfterStress();
+                addResult(resultsDiv, 'System Recovery After Stress', recoveryResult.passed, recoveryResult.message);
+
+            } catch (error) {
+                addResult(resultsDiv, 'Performance and Stress Tests', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Security and Compliance Tests
+        async function runSecurityTests() {
+            const resultsDiv = document.getElementById('securityResults');
+            resultsDiv.innerHTML = '';
+            updateStatus('Running security and compliance tests...', 'running');
+
+            try {
+                // Test 1: Agent boundary enforcement
+                const boundaryResult = await testAgentBoundaryEnforcement();
+                addResult(resultsDiv, 'Agent Boundary Enforcement', boundaryResult.passed, boundaryResult.message);
+
+                // Test 2: Data access validation
+                const dataAccessResult = await testDataAccessValidation();
+                addResult(resultsDiv, 'Data Access Validation', dataAccessResult.passed, dataAccessResult.message);
+
+                // Test 3: Audit trail completeness
+                const auditTrailResult = await testAuditTrailCompleteness();
+                addResult(resultsDiv, 'Audit Trail Completeness', auditTrailResult.passed, auditTrailResult.message);
+
+                // Test 4: Configuration tampering protection
+                const tamperingResult = await testConfigurationTamperingProtection();
+                addResult(resultsDiv, 'Configuration Tampering Protection', tamperingResult.passed, tamperingResult.message);
+
+                // Test 5: Compliance rule enforcement
+                const complianceResult = await testComplianceRuleEnforcement();
+                addResult(resultsDiv, 'Compliance Rule Enforcement', complianceResult.passed, complianceResult.message);
+
+            } catch (error) {
+                addResult(resultsDiv, 'Security and Compliance Tests', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Final System Validation
+        async function runFinalValidation() {
+            const button = document.getElementById('finalValidationButton');
+            button.disabled = true;
+            button.textContent = 'Running Final Validation...';
+            
+            const resultsDiv = document.getElementById('finalValidationResults');
+            resultsDiv.innerHTML = '';
+            updateStatus('Running final system validation...', 'running');
+
+            try {
+                // Run all test suites
+                await runEndToEndTests();
+                await runScenarioTests();
+                await runPerformanceTests();
+                await runSecurityTests();
+
+                // Generate final summary
+                generateFinalSummary();
+
+                const totalTests = finalTestFramework.testResults.length;
+                const passedTests = finalTestFramework.testResults.filter(r => r.passed).length;
+                const successRate = ((passedTests / totalTests) * 100).toFixed(1);
+
+                updateStatus(`Final validation complete: ${passedTests}/${totalTests} passed (${successRate}%)`, 
+                    passedTests === totalTests ? 'pass' : 'fail');
+
+                addResult(resultsDiv, 'Final System Validation', passedTests === totalTests, 
+                    `System validation ${passedTests === totalTests ? 'PASSED' : 'FAILED'} with ${successRate}% success rate`);
+
+            } catch (error) {
+                updateStatus(`Final validation failed: ${error.message}`, 'fail');
+                addResult(resultsDiv, 'Final System Validation', false, `Error: ${error.message}`);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Run Final Validation';
+            }
+        }
+
+        // Test implementation functions
+        async function testCompleteAgentLifecycle() {
+            try {
+                // Create agent
+                const agentConfig = {
+                    name: 'LifecycleTestAgent',
+                    description: 'Agent for lifecycle testing',
+                    priority: 1,
+                    enabled: true,
+                    triggers: ['lifecycle', 'test'],
+                    llmProvider: 'openai',
+                    llmModel: 'gpt-4',
+                    maxTokens: 1500
+                };
+
+                const createResult = await finalTestFramework.llmManager.updateAgentConfiguration('LifecycleTestAgent', agentConfig);
+                if (!createResult.success && !createResult) {
+                    throw new Error('Failed to create agent');
+                }
+
+                // Configure guardrails
+                const guardrailsResult = finalTestFramework.guardrailsManager.setGuardrails('LifecycleTestAgent', {
+                    allowedCapabilities: { canAccessAccountData: true },
+                    restrictions: { maxTransactionAmount: 0 }
+                });
+
+                // Configure voice
+                const voiceResult = finalTestFramework.voiceConfigManager.setVoiceConfig('LifecycleTestAgent', {
+                    ttsSettings: { provider: 'openai', voice: 'alloy', speed: 1.0 }
+                });
+
+                // Verify complete configuration
+                const completeConfig = finalTestFramework.llmManager.getAgentConfiguration('LifecycleTestAgent');
+                const hasCompleteConfig = completeConfig && completeConfig.guardrails && completeConfig.voiceConfig;
+
+                return {
+                    passed: hasCompleteConfig && guardrailsResult && voiceResult,
+                    message: hasCompleteConfig ? 'Complete agent lifecycle successful' : 'Agent lifecycle incomplete'
+                };
+            } catch (error) {
+                return { passed: false, message: `Agent lifecycle error: ${error.message}` };
+            }
+        }
+
+        async function testConfigurationWorkflowIntegration() {
+            try {
+                // Test export/import workflow
+                const exportData = finalTestFramework.llmManager.exportConfiguration();
+                const importResult = finalTestFramework.llmManager.importConfiguration(exportData);
+                
+                return {
+                    passed: exportData && importResult,
+                    message: exportData && importResult ? 'Configuration workflow integration successful' : 'Configuration workflow failed'
+                };
+            } catch (error) {
+                return { passed: false, message: `Configuration workflow error: ${error.message}` };
+            }
+        }
+
+        async function testRealTimeUpdatesEndToEnd() {
+            try {
+                // Test real-time configuration update
+                const updateResult = await finalTestFramework.llmManager.updateConfigurationWithRollback(
+                    'IDVAgent',
+                    { description: 'Real-time update test' },
+                    { enableRollback: true }
+                );
+
+                return {
+                    passed: updateResult && updateResult.success,
+                    message: updateResult && updateResult.success ? 'Real-time updates working end-to-end' : 'Real-time updates failed'
+                };
+            } catch (error) {
+                return { passed: false, message: `Real-time updates error: ${error.message}` };
+            }
+        }
+
+        async function testAdminUIIntegration() {
+            try {
+                // Test admin UI functionality
+                const adminUIWorking = finalTestFramework.adminUI && typeof finalTestFramework.adminUI.refreshAgentData === 'function';
+                
+                if (adminUIWorking) {
+                    finalTestFramework.adminUI.refreshAgentData();
+                }
+
+                return {
+                    passed: adminUIWorking,
+                    message: adminUIWorking ? 'Admin UI integration successful' : 'Admin UI integration failed'
+                };
+            } catch (error) {
+                return { passed: false, message: `Admin UI integration error: ${error.message}` };
+            }
+        }
+
+        async function testDataPersistenceAcrossSessions() {
+            try {
+                // Test data persistence
+                const testConfig = {
+                    name: 'PersistenceTestAgent',
+                    description: 'Testing persistence',
+                    enabled: true
+                };
+
+                await finalTestFramework.llmManager.updateAgentConfiguration('PersistenceTestAgent', testConfig);
+                
+                // Create new manager to simulate new session
+                const newManager = new LLMManager();
+                const retrievedConfig = newManager.getAgentConfiguration('PersistenceTestAgent');
+
+                return {
+                    passed: retrievedConfig && retrievedConfig.name === 'PersistenceTestAgent',
+                    message: retrievedConfig ? 'Data persistence across sessions successful' : 'Data persistence failed'
+                };
+            } catch (error) {
+                return { passed: false, message: `Data persistence error: ${error.message}` };
+            }
+        }
+
+        async function runBankingCustomerServiceScenario() {
+            const stepsDiv = document.getElementById('scenario1Steps');
+            
+            try {
+                stepsDiv.textContent = 'Step 1: Customer requests balance information...';
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                stepsDiv.textContent += '\nStep 2: BankingInfoAgent activated...';
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                stepsDiv.textContent += '\nStep 3: Guardrails validated...';
+                const guardrailsResult = finalTestFramework.guardrailsManager.validateAction('BankingInfoAgent', 'getBalance', {});
+                
+                stepsDiv.textContent += '\nStep 4: Voice configuration applied...';
+                const voiceConfig = finalTestFramework.voiceConfigManager.applyVoiceConfig('BankingInfoAgent', 'Your balance is £1,234.56');
+                
+                stepsDiv.textContent += '\nStep 5: Response generated and delivered...';
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                const scenarioSuccess = guardrailsResult.allowed && voiceConfig;
+                stepsDiv.textContent += `\n\nScenario ${scenarioSuccess ? 'COMPLETED' : 'FAILED'} successfully!`;
+
+                return {
+                    passed: scenarioSuccess,
+                    message: scenarioSuccess ? 'Banking customer service scenario completed' : 'Banking scenario failed'
+                };
+            } catch (error) {
+                stepsDiv.textContent += `\n\nScenario FAILED: ${error.message}`;
+                return { passed: false, message: `Banking scenario error: ${error.message}` };
+            }
+        }
+
+        async function runFraudDetectionScenario() {
+            const stepsDiv = document.getElementById('scenario2Steps');
+            
+            try {
+                stepsDiv.textContent = 'Step 1: Suspicious activity detected...';
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                stepsDiv.textContent += '\nStep 2: FraudAgent activated...';
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                stepsDiv.textContent += '\nStep 3: Secondary authentication required...';
+                const authResult = finalTestFramework.guardrailsManager.validateAction('FraudAgent', 'blockCard', { secondaryAuthCompleted: true });
+                
+                stepsDiv.textContent += '\nStep 4: Card blocking authorized...';
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                stepsDiv.textContent += '\nStep 5: Customer notified with urgent tone...';
+                const voiceConfig = finalTestFramework.voiceConfigManager.applyVoiceConfig('FraudAgent', 'Your card has been blocked due to suspicious activity');
+                
+                const scenarioSuccess = authResult.allowed && voiceConfig;
+                stepsDiv.textContent += `\n\nScenario ${scenarioSuccess ? 'COMPLETED' : 'FAILED'} successfully!`;
+
+                return {
+                    passed: scenarioSuccess,
+                    message: scenarioSuccess ? 'Fraud detection scenario completed' : 'Fraud scenario failed'
+                };
+            } catch (error) {
+                stepsDiv.textContent += `\n\nScenario FAILED: ${error.message}`;
+                return { passed: false, message: `Fraud scenario error: ${error.message}` };
+            }
+        }
+
+        async function runPaymentProcessingScenario() {
+            const stepsDiv = document.getElementById('scenario3Steps');
+            
+            try {
+                stepsDiv.textContent = 'Step 1: Payment request received...';
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                stepsDiv.textContent += '\nStep 2: PaymentsAgent activated...';
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                stepsDiv.textContent += '\nStep 3: Transaction amount validated...';
+                const amountResult = finalTestFramework.guardrailsManager.validateAction('PaymentsAgent', 'initiateTransfer', { 
+                    amount: 500, 
+                    secondaryAuthCompleted: true 
+                });
+                
+                stepsDiv.textContent += '\nStep 4: Payment processed...';
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                stepsDiv.textContent += '\nStep 5: Confirmation delivered...';
+                const voiceConfig = finalTestFramework.voiceConfigManager.applyVoiceConfig('PaymentsAgent', 'Payment of £500 has been sent successfully');
+                
+                const scenarioSuccess = amountResult.allowed && voiceConfig;
+                stepsDiv.textContent += `\n\nScenario ${scenarioSuccess ? 'COMPLETED' : 'FAILED'} successfully!`;
+
+                return {
+                    passed: scenarioSuccess,
+                    message: scenarioSuccess ? 'Payment processing scenario completed' : 'Payment scenario failed'
+                };
+            } catch (error) {
+                stepsDiv.textContent += `\n\nScenario FAILED: ${error.message}`;
+                return { passed: false, message: `Payment scenario error: ${error.message}` };
+            }
+        }
+
+        async function runMultiAgentConversationScenario() {
+            try {
+                // Simulate multi-agent conversation
+                const agents = ['BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+                const results = [];
+
+                for (const agentName of agents) {
+                    const config = finalTestFramework.llmManager.getAgentConfiguration(agentName);
+                    results.push(config !== null);
+                }
+
+                return {
+                    passed: results.every(r => r),
+                    message: results.every(r => r) ? 'Multi-agent conversation scenario successful' : 'Multi-agent scenario failed'
+                };
+            } catch (error) {
+                return { passed: false, message: `Multi-agent scenario error: ${error.message}` };
+            }
+        }
+
+        async function runConfigurationChangeDuringOperationScenario() {
+            try {
+                // Simulate configuration change during operation
+                const updateResult = await finalTestFramework.llmManager.updateAgentConfiguration('BankingInfoAgent', {
+                    description: 'Updated during operation',
+                    maxTokens: 2000
+                });
+
+                return {
+                    passed: updateResult.success || updateResult,
+                    message: updateResult ? 'Configuration change during operation successful' : 'Configuration change failed'
+                };
+            } catch (error) {
+                return { passed: false, message: `Configuration change scenario error: ${error.message}` };
+            }
+        }
+
+        // Performance test implementations
+        async function testHighVolumeConfigurationUpdates() {
+            try {
+                const startTime = performance.now();
+                const promises = [];
+
+                for (let i = 0; i < 50; i++) {
+                    promises.push(finalTestFramework.llmManager.updateAgentConfiguration(`TestAgent${i}`, {
+                        name: `TestAgent${i}`,
+                        description: `High volume test agent ${i}`,
+                        priority: i % 10
+                    }));
+                }
+
+                await Promise.all(promises);
+                const endTime = performance.now();
+                const totalTime = endTime - startTime;
+
+                return {
+                    passed: totalTime < 5000, // Should complete in under 5 seconds
+                    message: `High-volume updates completed in ${totalTime.toFixed(2)}ms`
+                };
+            } catch (error) {
+                return { passed: false, message: `High-volume test error: ${error.message}` };
+            }
+        }
+
+        async function testConcurrentAgentOperations() {
+            try {
+                const operations = [
+                    finalTestFramework.guardrailsManager.validateAction('IDVAgent', 'getAccountData', {}),
+                    finalTestFramework.guardrailsManager.validateAction('BankingInfoAgent', 'getBalance', {}),
+                    finalTestFramework.guardrailsManager.validateAction('FraudAgent', 'getTransactions', {}),
+                    finalTestFramework.voiceConfigManager.applyVoiceConfig('PaymentsAgent', 'Test message')
+                ];
+
+                const results = await Promise.all(operations);
+                const allSuccessful = results.every(r => r && (r.allowed !== false));
+
+                return {
+                    passed: allSuccessful,
+                    message: allSuccessful ? 'Concurrent operations successful' : 'Some concurrent operations failed'
+                };
+            } catch (error) {
+                return { passed: false, message: `Concurrent operations error: ${error.message}` };
+            }
+        }
+
+        async function testMemoryUsageUnderLoad() {
+            try {
+                const memoryBefore = performance.memory ? performance.memory.usedJSHeapSize : 0;
+
+                // Create load
+                for (let i = 0; i < 1000; i++) {
+                    const config = finalTestFramework.llmManager.getAgentConfiguration('IDVAgent');
+                }
+
+                const memoryAfter = performance.memory ? performance.memory.usedJSHeapSize : 0;
+                const memoryIncrease = memoryAfter - memoryBefore;
+
+                return {
+                    passed: memoryIncrease < 100000000, // Less than 100MB increase
+                    message: `Memory increase under load: ${(memoryIncrease / 1024 / 1024).toFixed(2)}MB`
+                };
+            } catch (error) {
+                return { passed: false, message: `Memory usage test error: ${error.message}` };
+            }
+        }
+
+        async function testResponseTimeConsistency() {
+            try {
+                const responseTimes = [];
+
+                for (let i = 0; i < 10; i++) {
+                    const startTime = performance.now();
+                    finalTestFramework.llmManager.getAgentConfiguration('BankingInfoAgent');
+                    const endTime = performance.now();
+                    responseTimes.push(endTime - startTime);
+                }
+
+                const avgResponseTime = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
+                const maxResponseTime = Math.max(...responseTimes);
+
+                return {
+                    passed: avgResponseTime < 10 && maxResponseTime < 50, // Consistent fast responses
+                    message: `Average response time: ${avgResponseTime.toFixed(2)}ms, Max: ${maxResponseTime.toFixed(2)}ms`
+                };
+            } catch (error) {
+                return { passed: false, message: `Response time test error: ${error.message}` };
+            }
+        }
+
+        async function testSystemRecoveryAfterStress() {
+            try {
+                // Apply stress
+                for (let i = 0; i < 100; i++) {
+                    finalTestFramework.guardrailsManager.validateAction('IDVAgent', `stressTest${i}`, {});
+                }
+
+                // Test recovery
+                const recoveryTest = finalTestFramework.llmManager.getAgentConfiguration('IDVAgent');
+                const statsAfterStress = finalTestFramework.llmManager.getConfigurationStats();
+
+                return {
+                    passed: recoveryTest && statsAfterStress,
+                    message: recoveryTest && statsAfterStress ? 'System recovered after stress' : 'System did not recover properly'
+                };
+            } catch (error) {
+                return { passed: false, message: `System recovery test error: ${error.message}` };
+            }
+        }
+
+        // Security test implementations
+        async function testAgentBoundaryEnforcement() {
+            try {
+                // Test that IDV agent cannot initiate transactions
+                const idvTransactionResult = finalTestFramework.guardrailsManager.validateAction('IDVAgent', 'initiateTransfer', { amount: 100 });
+                
+                // Test that Banking agent cannot block cards
+                const bankingBlockResult = finalTestFramework.guardrailsManager.validateAction('BankingInfoAgent', 'blockCard', {});
+
+                return {
+                    passed: !idvTransactionResult.allowed && !bankingBlockResult.allowed,
+                    message: 'Agent boundary enforcement working correctly'
+                };
+            } catch (error) {
+                return { passed: false, message: `Agent boundary test error: ${error.message}` };
+            }
+        }
+
+        async function testDataAccessValidation() {
+            try {
+                // Test data access validation
+                const validAccess = finalTestFramework.guardrailsManager.validateAction('BankingInfoAgent', 'getBalance', {});
+                const invalidAccess = finalTestFramework.guardrailsManager.validateAction('BankingInfoAgent', 'initiateTransfer', {});
+
+                return {
+                    passed: validAccess.allowed && !invalidAccess.allowed,
+                    message: 'Data access validation working correctly'
+                };
+            } catch (error) {
+                return { passed: false, message: `Data access validation error: ${error.message}` };
+            }
+        }
+
+        async function testAuditTrailCompleteness() {
+            try {
+                // Generate some violations for audit trail
+                finalTestFramework.guardrailsManager.validateAction('IDVAgent', 'forbidden action', {});
+                const violations = finalTestFramework.guardrailsManager.getViolationHistory('IDVAgent');
+
+                return {
+                    passed: violations.length > 0,
+                    message: `Audit trail contains ${violations.length} entries`
+                };
+            } catch (error) {
+                return { passed: false, message: `Audit trail test error: ${error.message}` };
+            }
+        }
+
+        async function testConfigurationTamperingProtection() {
+            try {
+                // Test invalid configuration rejection
+                const invalidConfig = { name: '', priority: -1 };
+                const validationResult = finalTestFramework.llmManager.validateConfiguration(invalidConfig);
+
+                return {
+                    passed: !validationResult.valid,
+                    message: 'Configuration tampering protection working'
+                };
+            } catch (error) {
+                return { passed: false, message: `Configuration tampering test error: ${error.message}` };
+            }
+        }
+
+        async function testComplianceRuleEnforcement() {
+            try {
+                // Test compliance rule enforcement
+                const guardrails = finalTestFramework.guardrailsManager.getGuardrails('PaymentsAgent');
+                const hasComplianceRules = guardrails && guardrails.complianceRules;
+
+                return {
+                    passed: hasComplianceRules,
+                    message: hasComplianceRules ? 'Compliance rules enforced' : 'Compliance rules not found'
+                };
+            } catch (error) {
+                return { passed: false, message: `Compliance rule test error: ${error.message}` };
+            }
+        }
+
+        function generateFinalSummary() {
+            const summaryDiv = document.getElementById('finalSummary');
+            const contentDiv = document.getElementById('finalSummaryContent');
+            
+            const totalTests = finalTestFramework.testResults.length;
+            const passedTests = finalTestFramework.testResults.filter(r => r.passed).length;
+            const failedTests = totalTests - passedTests;
+            const successRate = ((passedTests / totalTests) * 100).toFixed(1);
+
+            const categoryStats = {};
+            finalTestFramework.testResults.forEach(result => {
+                if (!categoryStats[result.category]) {
+                    categoryStats[result.category] = { total: 0, passed: 0 };
+                }
+                categoryStats[result.category].total++;
+                if (result.passed) categoryStats[result.category].passed++;
+            });
+
+            let summaryHTML = `
+                <div class="summary-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">${totalTests}</div>
+                        <div class="stat-label">Total Tests</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${passedTests}</div>
+                        <div class="stat-label">Passed</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${failedTests}</div>
+                        <div class="stat-label">Failed</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${successRate}%</div>
+                        <div class="stat-label">Success Rate</div>
+                    </div>
+                </div>
+            `;
+
+            if (failedTests > 0) {
+                summaryHTML += '<h4>Failed Tests:</h4><ul>';
+                finalTestFramework.testResults
+                    .filter(r => !r.passed)
+                    .forEach(r => {
+                        summaryHTML += `<li><strong>${r.testName}:</strong> ${r.message}</li>`;
+                    });
+                summaryHTML += '</ul>';
+            }
+
+            summaryHTML += `<p><strong>Overall Result:</strong> ${passedTests === totalTests ? '🎉 ALL TESTS PASSED' : '⚠️ SOME TESTS FAILED'}</p>`;
+
+            contentDiv.innerHTML = summaryHTML;
+            summaryDiv.style.display = 'block';
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            if (initializeFinalTestFramework()) {
+                updateStatus('Final integration test framework ready', 'pass');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,4 +1,3 @@
-import { buildPromptMessages } from './agents/prompt-composer.js';
 class SpeechToSpeechApp {
     constructor() {
         this.openaiApiKey = '';
@@ -64,11 +63,11 @@ class SpeechToSpeechApp {
             this.apiClient = new OpenAIClient(this.openaiApiKey, this.tokenTracker);
         } else {
             console.warn('[SpeechToSpeechApp] OpenAIClient not available, using fallback');
-            console.warn('[SpeechToSpeechApp] OpenAIClient not available, using fallback');
-this.apiClient = {
-    transcribeAudio: () => Promise.resolve({ success: false, error: 'API client not available' }),
-    generateSpeech: () => Promise.resolve({ success: false, error: 'API client not available' })
-};
+            this.apiClient = {
+                generateChatCompletion: () => Promise.resolve({ success: false, error: 'API client not available' }),
+                transcribeAudio: () => Promise.resolve({ success: false, error: 'API client not available' }),
+                generateSpeech: () => Promise.resolve({ success: false, error: 'API client not available' })
+            };
         }
 
         // Initialize AgentRouter with all domain agents
@@ -202,7 +201,7 @@ this.apiClient = {
             }
 
             // Initialize AgentRouter first (this creates the configuration manager)
-            this.agentRouter = new AgentRouter({ agents: [], apiClient: this.apiClient });
+            this.agentRouter = new AgentRouter([]);
 
             // Create domain-specific agents and register them with configurations
             const agents = [
@@ -712,27 +711,31 @@ this.apiClient = {
             console.log('Sending audio to Whisper API...');
             this.updateStatus('🔄 Converting speech to text...');
             this.updateDebugOutput('sttOutput', 'Processing audio with Whisper...');
-    
+
             console.log('Using language setting:', this.speechSettings.whisperLanguage);
-            const text = await this.apiClient.speechToText(audioBlob, {
+            const result = await this.apiClient.speechToText(audioBlob, {
                 language: this.speechSettings.whisperLanguage
             });
-    
+            
+            // Debug: Check if tracking happened
             this.debug.log('After Whisper API call - Token tracker status:', {
                 hasTracker: !!this.apiClient.tokenTracker,
                 currentUsage: this.tokenTracker.getUsage()
             });
-    
-            console.log('Transcription received:', text);
-            this.updateDebugOutput('sttOutput', text, 'Transcribed Text:');
-            return text;
-    
+
+            if (result.success) {
+                console.log('Transcription received:', result.text);
+                this.updateDebugOutput('sttOutput', result.text, 'Transcribed Text:');
+                return result.text;
+            } else {
+                throw new Error(result.error);
+            }
+
         } catch (error) {
             console.error('Speech-to-text error:', error);
             this.updateDebugOutput('sttOutput', `Error: ${error.message}`);
             throw error;
         }
-    
     }
 
     /**
@@ -898,11 +901,6 @@ this.apiClient = {
             } else {
                 throw new Error(result.error);
             }
-            if (!result || !result.success) {
-                const errorMsg = result?.error || 'Invalid GPT result';
-                throw new Error(errorMsg);
-              }
-              
 
         } catch (error) {
             console.error('AI response error:', error);
@@ -955,9 +953,7 @@ this.apiClient = {
             });
 
             if (!result.success) {
-                const errorMessage = result.error || 'Unknown TTS error';
-                this.debug.error('OpenAI TTS error:', errorMessage);
-                throw new Error(errorMessage);
+                throw new Error(result.error);
             }
 
             // Clean up previous audio if exists
@@ -1032,7 +1028,7 @@ this.apiClient = {
     }
 
     async textToSpeechBrowser(text, voiceConfig = null) {
-        return new Promise((resolve, reject) => {;
+        return new Promise((resolve, reject) => {
             try {
                 console.log('Converting text to speech with Browser TTS:', text);
                 this.updateStatus('🔊 Generating voice with browser...');
@@ -2127,7 +2123,8 @@ this.apiClient = {
                     voice.name.toLowerCase().includes('zira') ||
                     voice.name.toLowerCase().includes('susan') ||
                     voice.name.toLowerCase().includes('samantha') ||
-                    voice.name.toLowerCase().includes('karen'));
+                    voice.name.toLowerCase().includes('karen')
+                );
 
                 if (femaleVoice) {
                     utterance.voice = femaleVoice;
@@ -4013,4 +4010,3 @@ function loadGuardrailsEditor(agentName) {
         window.app.loadLLMGuardrailsEditor(agentName);
     }
 }
-window.buildPromptMessages = buildPromptMessages;

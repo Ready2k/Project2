@@ -3,12 +3,10 @@
  * Implements priority-based agent selection with fallback handling
  */
 class AgentRouter {
-    constructor({ agents = [], apiClient } = {}) {
+    constructor(agents = []) {
         this.agents = agents;
-        this.apiClient = apiClient;
         this.debug = window.debugManager.createModuleLogger('AgentRouter');
-        this.fallbackHandler = new FallbackHandler(this.apiClient);
-
+        this.fallbackHandler = new FallbackHandler();
         
         // Initialize configuration manager
         this.configManager = new AgentConfigManager();
@@ -319,7 +317,7 @@ class AgentRouter {
             
         } catch (error) {
             const processingTime = Date.now() - startTime;
-            this.debug.error('Routing failed', { error: error.message, processingTime });
+            this.debug.error('Routing failed', { error: error?.message || 'Unknown error', processingTime });
             
             // Return error response
             return {
@@ -328,7 +326,7 @@ class AgentRouter {
                 agentName: 'AgentRouter',
                 processingTime,
                 tokensUsed: 0,
-                error: error.message,
+                error: error?.message || 'Unknown error',
                 metadata: {
                     timestamp: new Date().toISOString(),
                     routingError: true
@@ -642,64 +640,73 @@ Examples:
  */
 class FallbackHandler {
     constructor(apiClient) {
-      this.apiClient = apiClient;
-      this.debug = window.debugManager?.createModuleLogger('FallbackHandler') || console;
+        this.apiClient = apiClient;
+        this.debug = window.debugManager.createModuleLogger('FallbackHandler');
     }
-  
+    
+    /**
+     * Handle requests that no specific agent could process
+     * @param {string} inputText - The user's input text
+     * @param {Object} context - Context object containing app state and dependencies
+     * @returns {Promise<Object>} - Fallback response object
+     */
     async handle(inputText, context = {}) {
-      const startTime = Date.now();
-      this.debug.info("Fallback handler processing request");
-  
-      try {
-        const messages = [
-          { role: "system", content: "You are a helpful assistant." },
-          { role: "user", content: inputText }
-        ];
-  
-        const result = await this.apiClient.generateChatCompletion(messages);
-  
-        if (!result || !result.choices || !result.choices.length) {
-          throw new Error("No valid choices returned by OpenAI");
+        const startTime = Date.now();
+        this.debug.info("Fallback handler processing request");
+      
+        try {
+          const messages = [
+            { role: "system", content: "You are a helpful assistant." },
+            { role: "user", content: inputText }
+          ];
+      
+          // Call OpenAI
+          const result = await this.apiClient.generateChatCompletion(messages);
+      
+          // ✅ SAFETY CHECK
+          if (!result || !result.choices || !result.choices.length) {
+            throw new Error("No valid choices returned by OpenAI");
+          }
+      
+          const content = result.choices[0].message.content;
+      
+          const processingTime = Date.now() - startTime;
+      
+          return {
+            success: true,
+            response: content,
+            agentName: "Default Agent",
+            processingTime,
+            tokensUsed: result.usage?.total_tokens || 0,
+            error: null,
+            metadata: {
+              timestamp: new Date().toISOString(),
+              fallbackUsed: true
+            }
+          };
+      
+        } catch (error) {
+          const processingTime = Date.now() - startTime;
+      
+          this.debug.error("Fallback handler failed", {
+            error: error?.message || String(error) || "Unknown error"
+          });
+      
+          return {
+            success: false,
+            response: "I apologize, but I'm having trouble processing your request right now. Please try again later.",
+            agentName: "Default Agent",
+            processingTime,
+            tokensUsed: 0,
+            error: error?.message || "Unknown error",
+            metadata: {
+              timestamp: new Date().toISOString(),
+              fallbackError: true
+            }
+          };
         }
-  
-        const content = result.choices[0].message.content;
-        const processingTime = Date.now() - startTime;
-  
-        return {
-          success: true,
-          response: content,
-          agentName: "Default Agent",
-          processingTime,
-          tokensUsed: result.usage?.total_tokens || 0,
-          error: null,
-          metadata: {
-            timestamp: new Date().toISOString(),
-            fallbackUsed: true
-          }
-        };
-  
-      } catch (error) {
-        const processingTime = Date.now() - startTime;
-        this.debug.error("Fallback handler failed", {
-          error: error?.message || String(error) || "Unknown error"
-        });
-  
-        return {
-          success: false,
-          response: "I apologize, but I'm having trouble processing your request right now. Please try again later.",
-          agentName: "Default Agent",
-          processingTime,
-          tokensUsed: 0,
-          error: error?.message || "Unknown error",
-          metadata: {
-            timestamp: new Date().toISOString(),
-            fallbackError: true
-          }
-        };
-      }
-    }
-  }
-   
+      }      
+}
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {

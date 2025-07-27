@@ -1,0 +1,59 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LLM Manager Admin UI - Integration Test (Real)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; padding: 2rem; background: #f0f2f5; }
+        h1 { color: #333; }
+        .status { padding: 0.5rem; margin-top: 1rem; border-radius: 4px; }
+        .online { background: #d4edda; color: #155724; }
+        .offline { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🔧 LLM Manager Admin UI - Real Integration Test</h1>
+    <p>This page boots real modules and loads real configuration. Check the console for logs.</p>
+
+    <div id="statusLLM" class="status offline">LLM Manager: Not Initialized</div>
+    <div id="statusGuardrails" class="status offline">Guardrails Manager: Not Initialized</div>
+    <div id="statusVoice" class="status offline">Voice Config Manager: Not Initialized</div>
+
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/llm-manager.js"></script>
+    <script src="../agents/guardrails-manager.js"></script>
+    <script src="../agents/voice-config-manager.js"></script>
+    <script src="../llm-manager-admin-ui.js"></script>
+
+    <script>
+        window.debugManager = window.debugManager || {
+            createModuleLogger: (module) => ({
+                log: (...args) => console.log(`[${module}]`, ...args),
+                warn: (...args) => console.warn(`[${module}]`, ...args),
+                error: (...args) => console.error(`[${module}]`, ...args)
+            })
+        };
+
+        const logger = debugManager.createModuleLogger("TestRunner");
+
+        window.llmManager = new LLMManager();
+        window.guardrailsManager = new GuardrailsManager();
+        window.voiceConfigManager = new VoiceConfigManager();
+        window.adminUI = new LLMManagerAdminUI();
+
+        // Mark UI status based on instantiation
+        function updateStatus(id, online) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.className = 'status ' + (online ? 'online' : 'offline');
+            el.textContent = el.textContent.replace('Not Initialized', online ? 'Initialized' : 'Not Initialized');
+        }
+
+        updateStatus('statusLLM', !!window.llmManager);
+        updateStatus('statusGuardrails', !!window.guardrailsManager);
+        updateStatus('statusVoice', !!window.voiceConfigManager);
+    </script>
+</body>
+</html>

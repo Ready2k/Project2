@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prompt Composer Integration Test Suite</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; background: #f9f9f9; }
+    h1 { font-size: 1.8rem; color: #333; }
+    .test-case { background: #fff; padding: 1rem; border: 1px solid #ddd; margin-bottom: 1rem; border-radius: 8px; }
+    .test-case h2 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+    .pass { color: green; }
+    .fail { color: red; }
+    pre { background: #eee; padding: 0.5rem; border-radius: 4px; }
+  </style>
+
+  <!-- Load OpenAIClient onto the window object -->
+  <script src="../api-client.js"></script>
+  <!-- Optionally load another script that defines window.apiKey -->
+  <script src="../script.js"></script>
+
+  <script type="module">
+    import { buildPromptMessages } from '../agents/prompt-composer.js';
+
+    if (!window.apiKey) {
+      console.warn("⚠️ API key not found on window.apiKey!");
+    }
+
+    const client = new OpenAIClient(window.apiKey || "fallback-key");
+
+    const guardrails = {
+      checkPromptOverride(global, agent) {
+        if (!agent) return null;
+        if (agent.toLowerCase().includes("pirate")) return "No pirates allowed.";
+        if (agent.toLowerCase().includes("robot")) return "No robots allowed.";
+        return null;
+      }
+    };
+
+    console.log("✅ Test suite loaded with client:", client);
+  </script>
+</head>
+<body>
+  <h1>🧪 Prompt Composer Integration Test Suite</h1>
+  <div id="results">Running tests...</div>
+</body>
+</html>

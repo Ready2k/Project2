@@ -1,3 +1,5 @@
+// Import will be handled by loading the script in HTML
+// import { buildPromptMessages } from './agents/prompt-composer.js';
 class SpeechToSpeechApp {
     constructor() {
         this.openaiApiKey = '';
@@ -12,9 +14,10 @@ class SpeechToSpeechApp {
             // Fallback debug logger if debugManager isn't available yet
             this.debug = {
                 log: (...args) => console.log('[SpeechToSpeechApp]', ...args),
+                debug: (...args) => console.debug('[SpeechToSpeechApp]', ...args),
+                info: (...args) => console.info('[SpeechToSpeechApp]', ...args),
                 warn: (...args) => console.warn('[SpeechToSpeechApp]', ...args),
-                error: (...args) => console.error('[SpeechToSpeechApp]', ...args),
-                info: (...args) => console.info('[SpeechToSpeechApp]', ...args)
+                error: (...args) => console.error('[SpeechToSpeechApp]', ...args)
             };
             console.warn('[SpeechToSpeechApp] debugManager not available, using fallback logger');
         }
@@ -63,11 +66,11 @@ class SpeechToSpeechApp {
             this.apiClient = new OpenAIClient(this.openaiApiKey, this.tokenTracker);
         } else {
             console.warn('[SpeechToSpeechApp] OpenAIClient not available, using fallback');
-            this.apiClient = {
-                generateChatCompletion: () => Promise.resolve({ success: false, error: 'API client not available' }),
-                transcribeAudio: () => Promise.resolve({ success: false, error: 'API client not available' }),
-                generateSpeech: () => Promise.resolve({ success: false, error: 'API client not available' })
-            };
+            console.warn('[SpeechToSpeechApp] OpenAIClient not available, using fallback');
+this.apiClient = {
+    transcribeAudio: () => Promise.resolve({ success: false, error: 'API client not available' }),
+    generateSpeech: () => Promise.resolve({ success: false, error: 'API client not available' })
+};
         }
 
         // Initialize AgentRouter with all domain agents
@@ -188,20 +191,22 @@ class SpeechToSpeechApp {
      */
     initializeAgentRouter() {
         try {
-            // Check if required classes are available
-            if (typeof BaseAgent === 'undefined' || 
-                typeof IDVAgent === 'undefined' || 
-                typeof BankingInfoAgent === 'undefined' || 
-                typeof FraudAgent === 'undefined' || 
-                typeof PaymentsAgent === 'undefined' || 
-                typeof AgentRouter === 'undefined' ||
-                typeof AgentConfigManager === 'undefined' ||
-                typeof SecurityManager === 'undefined') {
+            // Check if required classes are available (try both global and window scope)
+            const BaseAgent = window.BaseAgent || (typeof BaseAgent !== 'undefined' ? BaseAgent : undefined);
+            const IDVAgent = window.IDVAgent || (typeof IDVAgent !== 'undefined' ? IDVAgent : undefined);
+            const BankingInfoAgent = window.BankingInfoAgent || (typeof BankingInfoAgent !== 'undefined' ? BankingInfoAgent : undefined);
+            const FraudAgent = window.FraudAgent || (typeof FraudAgent !== 'undefined' ? FraudAgent : undefined);
+            const PaymentsAgent = window.PaymentsAgent || (typeof PaymentsAgent !== 'undefined' ? PaymentsAgent : undefined);
+            const AgentRouter = window.AgentRouter || (typeof AgentRouter !== 'undefined' ? AgentRouter : undefined);
+            const AgentConfigManager = window.AgentConfigManager || (typeof AgentConfigManager !== 'undefined' ? AgentConfigManager : undefined);
+            const SecurityManager = window.SecurityManager || (typeof SecurityManager !== 'undefined' ? SecurityManager : undefined);
+            
+            if (!BaseAgent || !IDVAgent || !BankingInfoAgent || !FraudAgent || !PaymentsAgent || !AgentRouter || !AgentConfigManager || !SecurityManager) {
                 throw new Error('Agent classes not loaded - falling back to original behavior');
             }
 
             // Initialize AgentRouter first (this creates the configuration manager)
-            this.agentRouter = new AgentRouter([]);
+            this.agentRouter = new AgentRouter({ agents: [], apiClient: this.apiClient });
 
             // Create domain-specific agents and register them with configurations
             const agents = [
@@ -711,31 +716,27 @@ class SpeechToSpeechApp {
             console.log('Sending audio to Whisper API...');
             this.updateStatus('🔄 Converting speech to text...');
             this.updateDebugOutput('sttOutput', 'Processing audio with Whisper...');
-
+    
             console.log('Using language setting:', this.speechSettings.whisperLanguage);
-            const result = await this.apiClient.speechToText(audioBlob, {
+            const text = await this.apiClient.speechToText(audioBlob, {
                 language: this.speechSettings.whisperLanguage
             });
-            
-            // Debug: Check if tracking happened
+    
             this.debug.log('After Whisper API call - Token tracker status:', {
                 hasTracker: !!this.apiClient.tokenTracker,
                 currentUsage: this.tokenTracker.getUsage()
             });
-
-            if (result.success) {
-                console.log('Transcription received:', result.text);
-                this.updateDebugOutput('sttOutput', result.text, 'Transcribed Text:');
-                return result.text;
-            } else {
-                throw new Error(result.error);
-            }
-
+    
+            console.log('Transcription received:', text);
+            this.updateDebugOutput('sttOutput', text, 'Transcribed Text:');
+            return text;
+    
         } catch (error) {
             console.error('Speech-to-text error:', error);
             this.updateDebugOutput('sttOutput', `Error: ${error.message}`);
             throw error;
         }
+    
     }
 
     /**
@@ -891,16 +892,17 @@ class SpeechToSpeechApp {
             });
 
             if (result.success) {
-                console.log('AI response received:', result.content);
-                this.updateDebugOutput('gptResponse', result.content);
+                console.log('AI response received:', result.text);
+                this.updateDebugOutput('gptResponse', result.text);
                 
                 // Update conversation context for fallback responses too
-                this.updateConversationContext(userMessage, result.content, 'FallbackHandler');
+                this.updateConversationContext(userMessage, result.text, 'FallbackHandler');
                 
-                return result.content;
+                return result.text;
             } else {
                 throw new Error(result.error);
             }
+              
 
         } catch (error) {
             console.error('AI response error:', error);
@@ -922,6 +924,12 @@ class SpeechToSpeechApp {
 
     async textToSpeechOpenAI(text, voiceConfig = null) {
         try {
+            // Check for undefined or empty text
+            if (!text || text.trim() === '') {
+                console.error('OpenAI TTS error: No text provided');
+                throw new Error('No text provided for TTS');
+            }
+            
             console.log('Converting text to speech with OpenAI:', text);
             this.updateStatus('🔊 Generating voice...');
             
@@ -953,7 +961,9 @@ class SpeechToSpeechApp {
             });
 
             if (!result.success) {
-                throw new Error(result.error);
+                const errorMessage = result.error || 'Unknown TTS error';
+                this.debug.error('OpenAI TTS error:', errorMessage);
+                throw new Error(errorMessage);
             }
 
             // Clean up previous audio if exists
@@ -1028,8 +1038,15 @@ class SpeechToSpeechApp {
     }
 
     async textToSpeechBrowser(text, voiceConfig = null) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {;
             try {
+                // Check for undefined or empty text
+                if (!text || text.trim() === '') {
+                    console.error('Browser TTS error: No text provided');
+                    reject(new Error('No text provided for TTS'));
+                    return;
+                }
+                
                 console.log('Converting text to speech with Browser TTS:', text);
                 this.updateStatus('🔊 Generating voice with browser...');
                 
@@ -1085,7 +1102,7 @@ class SpeechToSpeechApp {
                 utterance.onend = () => {
                     console.log('Browser TTS ended');
                     this.updateStatus('Ready to listen');
-                    this.updateDebugOutput('ttsOutput', `Browser TTS completed successfully\nCharacters: ${text.length}\nVoice: ${utterance.voice ? utterance.voice.name : 'Default'}`);
+                    this.updateDebugOutput('ttsOutput', `Browser TTS completed successfully\nCharacters: ${text ? text.length : 0}\nVoice: ${utterance.voice ? utterance.voice.name : 'Default'}`);
                     resolve();
                 };
 
@@ -2123,8 +2140,7 @@ class SpeechToSpeechApp {
                     voice.name.toLowerCase().includes('zira') ||
                     voice.name.toLowerCase().includes('susan') ||
                     voice.name.toLowerCase().includes('samantha') ||
-                    voice.name.toLowerCase().includes('karen')
-                );
+                    voice.name.toLowerCase().includes('karen'));
 
                 if (femaleVoice) {
                     utterance.voice = femaleVoice;
@@ -4010,3 +4026,4 @@ function loadGuardrailsEditor(agentName) {
         window.app.loadLLMGuardrailsEditor(agentName);
     }
 }
+// buildPromptMessages is now loaded from prompt-composer.js

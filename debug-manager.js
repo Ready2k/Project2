@@ -6,6 +6,7 @@ class DebugManager {
         this.testMode = localStorage.getItem('test_mode') || 'mock';
         this.debugLevels = {
             LOG: 'log',
+            DEBUG: 'debug',
             WARN: 'warn',
             ERROR: 'error',
             INFO: 'info'
@@ -50,6 +51,9 @@ class DebugManager {
             case this.debugLevels.LOG:
                 console.log(prefix, message, data || '');
                 break;
+            case this.debugLevels.DEBUG:
+                console.debug(prefix, message, data || '');
+                break;
             case this.debugLevels.WARN:
                 console.warn(prefix, message, data || '');
                 break;
@@ -79,13 +83,18 @@ class DebugManager {
         this._log(this.debugLevels.INFO, module, message, data);
     }
 
+    debug(module, message, data = null) {
+        this._log(this.debugLevels.DEBUG, module, message, data);
+    }
+
     // Module-specific loggers
     createModuleLogger(moduleName) {
         return {
             log: (message, data) => this.log(moduleName, message, data),
+            debug: (message, data) => this.debug(moduleName, message, data),
+            info: (message, data) => this.info(moduleName, message, data),
             warn: (message, data) => this.warn(moduleName, message, data),
-            error: (message, data) => this.error(moduleName, message, data),
-            info: (message, data) => this.info(moduleName, message, data)
+            error: (message, data) => this.error(moduleName, message, data)
         };
     }
 
@@ -416,7 +425,7 @@ class DebugManager {
             this.warn('DebugManager', `Invalid test mode: ${mode}. Use 'mock' or 'real'`);
             return false;
         }
-        
+
         this.testMode = mode;
         localStorage.setItem('test_mode', mode);
         this.info('DebugManager', `Test mode set to: ${mode}`);

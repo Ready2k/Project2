@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Tracking Accuracy Tests</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        button { margin: 5px; padding: 10px; }
+        #results { margin-top: 20px; }
+        .result-item { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+        .summary { background: #e8f4f8; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .category-results { margin: 10px 0; padding: 10px; border-left: 3px solid #007acc; }
+        .test-detail { margin: 5px 0; padding: 5px; font-size: 0.9em; }
+        .passed { border-left-color: green; }
+        .failed { border-left-color: red; }
+        pre { background: #f0f0f0; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Token Tracking Accuracy Tests</h1>
+    
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="runValidationTests()">Test Token Validation</button>
+        <button onclick="runAccumulationTests()">Test Usage Accumulation</button>
+        <button onclick="runPersistenceTests()">Test Data Persistence</button>
+        <button onclick="runCorruptionTests()">Test Corruption Detection</button>
+        <button onclick="runRecoveryTests()">Test Recovery Mechanisms</button>
+        <button onclick="runConcurrencyTests()">Test Concurrent Operations</button>
+        <button onclick="runEdgeCaseTests()">Test Edge Cases</button>
+        <button onclick="runPerformanceTests()">Test Performance</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Storage Controls</h2>
+        <button onclick="clearAllStorage()">Clear All Storage</button>
+        <button onclick="viewCurrentUsage()">View Current Usage</button>
+        <button onclick="injectCorruptData()">Inject Corrupt Data</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script src="token-tracking-accuracy-tests.js"></script>
+    <script>
+        let testSuite;
+        
+        function init() {
+            testSuite = new TokenTrackingAccuracyTests();
+            log('Token Tracking Accuracy Test Suite initialized', 'info');
+        }
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result-item ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        async function runAllTests() {
+            log('Starting comprehensive token tracking accuracy tests...', 'info');
+            
+            try {
+                const report = await testSuite.runAllTests();
+                displayTestReport(report);
+            } catch (error) {
+                log(`Error running tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runValidationTests() {
+            log('Running token validation tests...', 'info');
+            
+            try {
+                await testSuite.testTokenValidation();
+                log('Token validation tests completed', 'success');
+            } catch (error) {
+                log(`Error in validation tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runAccumulationTests() {
+            log('Running usage accumulation tests...', 'info');
+            
+            try {
+                await testSuite.testUsageAccumulation();
+                log('Usage accumulation tests completed', 'success');
+            } catch (error) {
+                log(`Error in accumulation tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runPersistenceTests() {
+            log('Running data persistence tests...', 'info');
+            
+            try {
+                await testSuite.testDataPersistence();
+                log('Data persistence tests completed', 'success');
+            } catch (error) {
+                log(`Error in persistence tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runCorruptionTests() {
+            log('Running corruption detection tests...', 'info');
+            
+            try {
+                await testSuite.testCorruptionDetection();
+                log('Corruption detection tests completed', 'success');
+            } catch (error) {
+                log(`Error in corruption tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runRecoveryTests() {
+            log('Running recovery mechanism tests...', 'info');
+            
+            try {
+                await testSuite.testRecoveryMechanisms();
+                log('Recovery mechanism tests completed', 'success');
+            } catch (error) {
+                log(`Error in recovery tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runConcurrencyTests() {
+            log('Running concurrent operation tests...', 'info');
+            
+            try {
+                await testSuite.testConcurrentOperations();
+                log('Concurrent operation tests completed', 'success');
+            } catch (error) {
+                log(`Error in concurrency tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runEdgeCaseTests() {
+            log('Running edge case tests...', 'info');
+            
+            try {
+                await testSuite.testEdgeCases();
+                log('Edge case tests completed', 'success');
+            } catch (error) {
+                log(`Error in edge case tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runPerformanceTests() {
+            log('Running performance tests...', 'info');
+            
+            try {
+                await testSuite.testPerformanceUnderLoad();
+                log('Performance tests completed', 'success');
+            } catch (error) {
+                log(`Error in performance tests: ${error.message}`, 'error');
+            }
+        }
+        
+        function displayTestReport(report) {
+            const results = document.getElementById('results');
+            
+            // Clear previous results
+            results.innerHTML = '';
+            
+            // Summary
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'summary';
+            summaryDiv.innerHTML = `
+                <h3>Test Summary</h3>
+                <p><strong>Total Tests:</strong> ${report.summary.total}</p>
+                <p><strong>Passed:</strong> <span class="success">${report.summary.passed}</span></p>
+                <p><strong>Failed:</strong> <span class="error">${report.summary.failed}</span></p>
+                <p><strong>Pass Rate:</strong> ${report.summary.passRate}</p>
+            `;
+            results.appendChild(summaryDiv);
+            
+            // Category results
+            for (const [category, stats] of Object.entries(report.categories)) {
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = `category-results ${stats.failed === 0 ? 'passed' : 'failed'}`;
+                
+                const categoryPassRate = ((stats.passed / (stats.passed + stats.failed)) * 100).toFixed(2);
+                categoryDiv.innerHTML = `
+                    <h4>${category}</h4>
+                    <p>Passed: ${stats.passed}, Failed: ${stats.failed} (${categoryPassRate}%)</p>
+                `;
+                
+                // Individual test details
+                for (const test of stats.tests) {
+                    const testDiv = document.createElement('div');
+                    testDiv.className = `test-detail ${test.passed ? 'success' : 'error'}`;
+                    
+                    let detailsHtml = '';
+                    if (test.details && Object.keys(test.details).length > 0) {
+                        detailsHtml = `<pre>${JSON.stringify(test.details, null, 2)}</pre>`;
+                    }
+                    
+                    testDiv.innerHTML = `
+                        <span>${test.passed ? '✓' : '✗'}</span> ${test.description}
+                        ${detailsHtml}
+                    `;
+                    
+                    categoryDiv.appendChild(testDiv);
+                }
+                
+                results.appendChild(categoryDiv);
+            }
+        }
+        
+        function clearAllStorage() {
+            try {
+                localStorage.clear();
+                log('All storage cleared', 'success');
+            } catch (error) {
+                log(`Error clearing storage: ${error.message}`, 'error');
+            }
+        }
+        
+        function viewCurrentUsage() {
+            try {
+                const usage = localStorage.getItem('token_usage');
+                if (usage) {
+                    const parsed = JSON.parse(usage);
+                    log(`Current usage: ${JSON.stringify(parsed, null, 2)}`, 'info');
+                } else {
+                    log('No usage data found', 'info');
+                }
+            } catch (error) {
+                log(`Error viewing usage: ${error.message}`, 'error');
+            }
+        }
+        
+        function injectCorruptData() {
+            try {
+                localStorage.setItem('token_usage', '{"invalid": json}');
+                log('Corrupt data injected', 'warning');
+            } catch (error) {
+                log(`Error injecting corrupt data: ${error.message}`, 'error');
+            }
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Reporter Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .alert-box {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .log-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Error Reporter Test Suite</h1>
+    
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="clearResults()">Clear Results</button>
+        <button onclick="testErrorRateMonitoring()">Test Error Rate Monitoring</button>
+        <button onclick="testAlertSystem()">Test Alert System</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Alerts</h2>
+        <div id="alerts"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Logs</h2>
+        <div id="logs" class="log-box"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="results"></div>
+    </div>
+
+    <script src="../agents/error-reporter.js"></script>
+    <script>
+        let errorReporter;
+        let testResults = [];
+        let alertsReceived = [];
+        let logsReceived = [];
+
+        // Initialize error reporter with test callbacks
+        function initializeErrorReporter() {
+            errorReporter = new ErrorReporter({
+                alertThreshold: 'MEDIUM',
+                maxContextSize: 500
+            });
+
+            // Register alert callback
+            errorReporter.onAlert((alert) => {
+                alertsReceived.push(alert);
+                displayAlert(alert);
+            });
+
+            // Register logging callback
+            errorReporter.onLog((log) => {
+                logsReceived.push(log);
+                displayLog(log);
+            });
+        }
+
+        function displayAlert(alert) {
+            const alertsDiv = document.getElementById('alerts');
+            const alertElement = document.createElement('div');
+            alertElement.className = 'alert-box';
+            alertElement.innerHTML = `
+                <strong>🚨 ${alert.severity} ALERT</strong><br>
+                ${alert.message || alert.error?.message}<br>
+                <small>Component: ${alert.metadata?.component || alert.component} | ${alert.timestamp}</small>
+            `;
+            alertsDiv.appendChild(alertElement);
+        }
+
+        function displayLog(log) {
+            const logsDiv = document.getElementById('logs');
+            const logElement = document.createElement('div');
+            logElement.innerHTML = `
+                <strong>[${log.severity}]</strong> ${log.error.message} 
+                <small>(${log.metadata.component} | ${log.timestamp})</small>
+            `;
+            logsDiv.appendChild(logElement);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        function addResult(testName, success, message, details = null) {
+            testResults.push({ testName, success, message, details });
+            displayResult(testName, success, message, details);
+        }
+
+        function displayResult(testName, success, message, details) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${success ? 'success' : 'error'}`;
+            
+            let html = `<strong>${testName}:</strong> ${message}`;
+            if (details) {
+                html += `<pre>${JSON.stringify(details, null, 2)}</pre>`;
+            }
+            
+            resultDiv.innerHTML = html;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('alerts').innerHTML = '';
+            document.getElementById('logs').innerHTML = '';
+            testResults = [];
+            alertsReceived = [];
+            logsReceived = [];
+        }
+
+        // Test 1: Basic Error Reporting
+        function testBasicErrorReporting() {
+            try {
+                const error = new Error('Test error message');
+                const context = {
+                    component: 'test-component',
+                    operation: 'test-operation',
+                    userId: 'user123'
+                };
+
+                const report = errorReporter.report(error, context);
+
+                if (report && report.id && report.error && report.context) {
+                    addResult('Basic Error Reporting', true, 'Error report created successfully', {
+                        id: report.id,
+                        severity: report.severity,
+                        component: report.metadata.component
+                    });
+                } else {
+                    addResult('Basic Error Reporting', false, 'Error report missing required fields');
+                }
+            } catch (error) {
+                addResult('Basic Error Reporting', false, `Test failed: ${error.message}`);
+            }
+        }
+
+        // Test 2: Severity Classification
+        function testSeverityClassification() {
+            try {
+                const testCases = [
+                    { error: new Error('CRITICAL system failure'), expectedSeverity: 'CRITICAL' },
+                    { error: new SecurityError('Security violation'), expectedSeverity: 'CRITICAL' },
+                    { error: new Error('Network timeout'), expectedSeverity: 'HIGH' },
+                    { error: new Error('Invalid input'), expectedSeverity: 'MEDIUM' },
+                    { error: new Error('Minor issue'), expectedSeverity: 'LOW' }
+                ];
+
+                let passed = 0;
+                let total = testCases.length;
+
+                testCases.forEach((testCase, index) => {
+                    const report = errorReporter.report(testCase.error, { component: 'test' });
+                    if (report.severity === testCase.expectedSeverity) {
+                        passed++;
+                    }
+                });
+
+                if (passed === total) {
+                    addResult('Severity Classification', true, `All ${total} severity tests passed`);
+                } else {
+                    addResult('Severity Classification', false, `${passed}/${total} severity tests passed`);
+                }
+            } catch (error) {
+                addResult('Severity Classification', false, `Test failed: ${error.message}`);
+            }
+        }
+
+        // Test 3: Context Sanitization
+        function testContextSanitization() {
+            try {
+                const sensitiveContext = {
+                    password: 'secret123',
+                    apiKey: 'sk-1234567890abcdef',
+                    email: 'user@example.com',
+                    normalField: 'normal value',
+                    nested: {
+                        token: 'bearer-token-123',
+                        publicData: 'public info'
+                    }
+                };
+
+                const error = new Error('Test error');
+                const report = errorReporter.report(error, sensitiveContext);
+
+                const sanitizedContext = report.context;
+                
+                // Check that sensitive fields are masked
+                const passwordMasked = sanitizedContext.password && sanitizedContext.password.includes('*');
+                const apiKeyMasked = sanitizedContext.apiKey && sanitizedContext.apiKey.includes('*');
+                const tokenMasked = sanitizedContext.nested?.token && sanitizedContext.nested.token.includes('*');
+                const normalFieldPreserved = sanitizedContext.normalField === 'normal value';
+
+                if (passwordMasked && apiKeyMasked && tokenMasked && normalFieldPreserved) {
+                    addResult('Context Sanitization', true, 'Sensitive data properly masked', sanitizedContext);
+                } else {
+                    addResult('Context Sanitization', false, 'Sensitive data not properly masked', sanitizedContext);
+                }
+            } catch (error) {
+                addResult('Context Sanitization', false, `Test failed: ${error.message}`);
+            }
+        }
+
+        // Test 4: Alert System
+        function testAlertSystem() {
+            try {
+                alertsReceived = []; // Clear previous alerts
+                
+                // Test high-severity error that should trigger alert
+                const highSeverityError = new SecurityError('Security breach detected');
+                errorReporter.report(highSeverityError, { component: 'security' });
+
+                // Test low-severity error that should not trigger alert
+                const lowSeverityError = new Error('Minor issue');
+                errorReporter.report(lowSeverityError, { component: 'test' });
+
+                setTimeout(() => {
+                    if (alertsReceived.length === 1 && alertsReceived[0].severity === 'CRITICAL') {
+                        addResult('Alert System', true, 'Alert system working correctly - 1 alert for high-severity error');
+                    } else {
+                        addResult('Alert System', false, `Expected 1 alert, got ${alertsReceived.length}`);
+                    }
+                }, 100);
+            } catch (error) {
+                addResult('Alert System', false, `Test failed: ${error.message}`);
+            }
+        }
+
+        // Test 5: Error Rate Monitoring
+        function testErrorRateMonitoring() {
+            try {
+                // Clear previous error rates
+                errorReporter.clearErrorRates();
+                alertsReceived = [];
+
+                // Generate multiple high-severity errors to trigger rate alert
+                for (let i = 0; i < 7; i++) {
+                    const error = new Error(`High severity error ${i}`);
+                    errorReporter.report(error, { component: 'api-client' });
+                }
+
+                setTimeout(() => {
+                    const stats = errorReporter.getErrorRateStats('api-client');
+                    const rateAlerts = alertsReceived.filter(alert => alert.type === 'ERROR_RATE_THRESHOLD');
+
+                    if (stats.totalErrors === 7 && rateAlerts.length > 0) {
+                        addResult('Error Rate Monitoring', true, 'Error rate monitoring working correctly', {
+                            stats,
+                            alertsTriggered: rateAlerts.length
+                        });
+                    } else {
+                        addResult('Error Rate Monitoring', false, 'Error rate monitoring not working correctly', {
+                            stats,
+                            alertsTriggered: rateAlerts.length
+                        });
+                    }
+                }, 100);
+            } catch (error) {
+                addResult('Error Rate Monitoring', false, `Test failed: ${error.message}`);
+            }
+        }
+
+        // Test 6: Recovery Logging
+        function testRecoveryLogging() {
+            try {
+                const error = new Error('Network connection failed');
+                const context = { component: 'streaming', operation: 'connect' };
+                const options = {
+                    recoveryAttempted: true,
+                    recoverySuccessful: true,
+                    recoveryStrategy: 'exponential-backoff'
+                };
+
+                const report = errorReporter.report(error, context, options);
+
+                if (report.recovery.attempted && report.recovery.successful && report.recovery.strategy) {
+                    addResult('Recovery Logging', true, 'Recovery information properly logged', report.recovery);
+                } else {
+                    addResult('Recovery Logging', false, 'Recovery information not properly logged', report.recovery);
+                }
+            } catch (error) {
+                addResult('Recovery Logging', false, `Test failed: ${error.message}`);
+            }
+        }
+
+        // Test 7: Stack Trace Sanitization
+        function testStackTraceSanitization() {
+            try {
+                const error = new Error('Test error');
+                // Simulate a stack trace with sensitive paths
+                error.stack = `Error: Test error
+    at testFunction (/home/user/sensitive/project/file.js:10:5)
+    at main (/home/user/sensitive/project/main.js:20:10)`;
+
+                const report = errorReporter.report(error, { component: 'test' });
+
+                if (report.stackTrace && !report.stackTrace.includes('/home/user/sensitive')) {
+                    addResult('Stack Trace Sanitization', true, 'Stack trace properly sanitized', {
+                        original: error.stack.substring(0, 100) + '...',
+                        sanitized: report.stackTrace.substring(0, 100) + '...'
+                    });
+                } else {
+                    addResult('Stack Trace Sanitization', false, 'Stack trace not properly sanitized');
+                }
+            } catch (error) {
+                addResult('Stack Trace Sanitization', false, `Test failed: ${error.message}`);
+            }
+        }
+
+        // Custom error classes for testing
+        class SecurityError extends Error {
+            constructor(message) {
+                super(message);
+                this.name = 'SecurityError';
+            }
+        }
+
+        class NetworkError extends Error {
+            constructor(message) {
+                super(message);
+                this.name = 'NetworkError';
+            }
+        }
+
+        function runAllTests() {
+            clearResults();
+            initializeErrorReporter();
+
+            // Run tests with small delays to see results progressively
+            setTimeout(() => testBasicErrorReporting(), 100);
+            setTimeout(() => testSeverityClassification(), 200);
+            setTimeout(() => testContextSanitization(), 300);
+            setTimeout(() => testAlertSystem(), 400);
+            setTimeout(() => testErrorRateMonitoring(), 500);
+            setTimeout(() => testRecoveryLogging(), 600);
+            setTimeout(() => testStackTraceSanitization(), 700);
+
+            setTimeout(() => {
+                const passed = testResults.filter(r => r.success).length;
+                const total = testResults.length;
+                
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = `test-result ${passed === total ? 'success' : 'warning'}`;
+                summaryDiv.innerHTML = `<strong>Test Summary: ${passed}/${total} tests passed</strong>`;
+                document.getElementById('results').insertBefore(summaryDiv, document.getElementById('results').firstChild);
+            }, 1000);
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            initializeErrorReporter();
+            
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'test-result info';
+            infoDiv.innerHTML = '<strong>Error Reporter Test Suite Loaded</strong><br>Click "Run All Tests" to start testing.';
+            document.getElementById('results').appendChild(infoDiv);
+        };
+    </script>
+</body>
+</html>

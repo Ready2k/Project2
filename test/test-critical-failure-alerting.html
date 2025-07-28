@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Critical Failure Alerting Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        .critical { color: red; font-weight: bold; }
+        button { margin: 5px; padding: 8px 16px; }
+        .alert-display { background: #ffe6e6; border: 1px solid #ff9999; padding: 10px; margin: 10px 0; }
+        .stats-display { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .group-display { background: #e6f3ff; border: 1px solid #99ccff; padding: 10px; margin: 10px 0; }
+        pre { background: #f0f0f0; padding: 10px; overflow-x: auto; font-size: 12px; }
+        .tabs { display: flex; margin-bottom: 10px; }
+        .tab { padding: 10px 20px; background: #f0f0f0; border: 1px solid #ddd; cursor: pointer; }
+        .tab.active { background: #dc3545; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body>
+    <h1>Critical Failure Alerting Test Suite</h1>
+    
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="simulateCriticalFailure()">Simulate Critical Failure</button>
+        <button onclick="simulateComponentFailures()">Simulate Component Failures</button>
+        <button onclick="simulateEscalation()">Simulate Escalation</button>
+        <button onclick="testAlertCorrelation()">Test Alert Correlation</button>
+        <button onclick="resetSystem()">Reset System</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Alert Dashboard</h2>
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('alerts')">Active Alerts</div>
+            <div class="tab" onclick="showTab('groups')">Alert Groups</div>
+            <div class="tab" onclick="showTab('escalations')">Escalations</div>
+            <div class="tab" onclick="showTab('statistics')">Statistics</div>
+            <div class="tab" onclick="showTab('patterns')">Failure Patterns</div>
+        </div>
+        
+        <div id="alerts" class="tab-content active">
+            <div id="alertsDisplay"></div>
+            <button onclick="updateAlertsDisplay()">Refresh Alerts</button>
+        </div>
+        
+        <div id="groups" class="tab-content">
+            <div id="groupsDisplay"></div>
+            <button onclick="updateGroupsDisplay()">Refresh Groups</button>
+        </div>
+        
+        <div id="escalations" class="tab-content">
+            <div id="escalationsDisplay"></div>
+            <button onclick="updateEscalationsDisplay()">Refresh Escalations</button>
+        </div>
+        
+        <div id="statistics" class="tab-content">
+            <div id="statisticsDisplay" class="stats-display"></div>
+            <button onclick="updateStatisticsDisplay()">Refresh Statistics</button>
+        </div>
+        
+        <div id="patterns" class="tab-content">
+            <div id="patternsDisplay"></div>
+            <button onclick="updatePatternsDisplay()">Refresh Patterns</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Live Alert Feed</h2>
+        <div id="liveAlerts"></div>
+        <button onclick="clearLiveAlerts()">Clear Feed</button>
+    </div>
+
+    <div id="testResults"></div>
+
+    <script src="../agents/critical-failure-alerting.js"></script>
+    <script>
+        let alertingSystem;
+        let testResults = [];
+        let liveAlertCount = 0;
+
+        function log(message, type = 'info') {
+            console.log(message);
+            const className = type === 'pass' ? 'pass' : type === 'fail' ? 'fail' : 'info';
+            testResults.push(`<div class="${className}">${message}</div>`);
+            updateTestDisplay();
+        }
+
+        function updateTestDisplay() {
+            document.getElementById('testResults').innerHTML = testResults.join('');
+        }
+
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        function initializeAlertingSystem() {
+            if (!alertingSystem) {
+                alertingSystem = new CriticalFailureAlerting({
+                    criticalThresholds: {
+                        errorRate: 20, // Lower for testing
+                        responseTime: 5000,
+                        memoryUsage: 80,
+                        consecutiveFailures: 3
+                    },
+                    escalation: {
+                        timeouts: [10000, 30000, 60000] // Shorter for testing
+                    }
+                });
+
+                // Listen for alerts
+                alertingSystem.onAlert((alert, group) => {
+                    displayLiveAlert(alert, group);
+                });
+
+                // Listen for escalations
+                alertingSystem.onEscalation((alert, escalation) => {
+                    displayEscalation(alert, escalation);
+                });
+
+                // Listen for browser events
+                window.addEventListener('criticalFailureAlert', (event) => {
+                    console.log('Browser event received:', event.detail);
+                });
+
+                log('CriticalFailureAlerting system initialized', 'pass');
+            }
+        }
+
+        function displayLiveAlert(alert, group) {
+            const liveAlertsDiv = document.getElementById('liveAlerts');
+            const alertElement = document.createElement('div');
+            alertElement.className = 'alert-display';
+            alertElement.innerHTML = `
+                <strong>🚨 ${alert.severity} ALERT</strong><br>
+                <strong>ID:</strong> ${alert.id}<br>
+                <strong>Component:</strong> ${alert.component}<br>
+                <strong>Type:</strong> ${alert.type}<br>
+                <strong>Message:</strong> ${alert.message}<br>
+                <strong>Group:</strong> ${group.id} (${group.count} alerts)<br>
+                <small>Time: ${new Date(alert.timestamp).toLocaleTimeString()}</small>
+            `;
+            liveAlertsDiv.insertBefore(alertElement, liveAlertsDiv.firstChild);
+            
+            // Keep only last 10 alerts
+            while (liveAlertsDiv.children.length > 10) {
+                liveAlertsDiv.removeChild(liveAlertsDiv.lastChild);
+            }
+        }
+
+        function displayEscalation(alert, escalation) {
+            const liveAlertsDiv = document.getElementById('liveAlerts');
+            const escalationElement = document.createElement('div');
+            escalationElement.className = 'alert-display critical';
+            escalationElement.innerHTML = `
+                <strong>🔥 ESCALATION LEVEL ${escalation.level}</strong><br>
+                <strong>Alert ID:</strong> ${alert.id}<br>
+                <strong>Component:</strong> ${alert.component}<br>
+                <strong>Attempts:</strong> ${escalation.attempts}<br>
+                <small>Time: ${new Date().toLocaleTimeString()}</small>
+            `;
+            liveAlertsDiv.insertBefore(escalationElement, liveAlertsDiv.firstChild);
+        }
+
+        function testBasicAlerting() {
+            log('Testing basic alerting functionality...', 'info');
+            
+            try {
+                initializeAlertingSystem();
+                
+                const alertId = alertingSystem.reportCriticalFailure({
+                    component: 'test-component',
+                    type: 'CRITICAL_FAILURE',
+                    message: 'Test critical failure',
+                    details: {
+                        errorRate: 30,
+                        context: { test: true }
+                    }
+                });
+                
+                if (alertId) {
+                    log(`✓ Basic alerting works: Alert ID ${alertId}`, 'pass');
+                } else {
+                    log('✗ Basic alerting failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Basic alerting test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testCriticalityDetection() {
+            log('Testing criticality detection...', 'info');
+            
+            try {
+                initializeAlertingSystem();
+                
+                // Test non-critical failure
+                const nonCriticalId = alertingSystem.reportCriticalFailure({
+                    component: 'test-component',
+                    type: 'MINOR_ERROR',
+                    message: 'Minor error',
+                    details: { errorRate: 5 }
+                });
+                
+                // Test critical failure
+                const criticalId = alertingSystem.reportCriticalFailure({
+                    component: 'test-component',
+                    type: 'SYSTEM_CRASH',
+                    message: 'System crash detected',
+                    details: { errorRate: 50 }
+                });
+                
+                if (!nonCriticalId && criticalId) {
+                    log('✓ Criticality detection works correctly', 'pass');
+                } else {
+                    log('✗ Criticality detection failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Criticality detection test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testAlertCorrelationTest() {
+            log('Testing alert correlation...', 'info');
+            
+            try {
+                initializeAlertingSystem();
+                
+                // Generate similar alerts
+                const alertIds = [];
+                for (let i = 0; i < 3; i++) {
+                    const alertId = alertingSystem.reportCriticalFailure({
+                        component: 'database',
+                        type: 'CONNECTION_FAILURE',
+                        message: `Database connection failed ${i + 1}`,
+                        details: { errorRate: 25 }
+                    });
+                    if (alertId) alertIds.push(alertId);
+                }
+                
+                const groups = alertingSystem.getAlertGroups();
+                const dbGroup = groups.find(g => g.representative.component === 'database');
+                
+                if (dbGroup && dbGroup.count >= 3) {
+                    log(`✓ Alert correlation works: ${dbGroup.count} alerts grouped`, 'pass');
+                } else {
+                    log('✗ Alert correlation failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Alert correlation test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testEscalationSystem() {
+            log('Testing escalation system...', 'info');
+            
+            try {
+                initializeAlertingSystem();
+                
+                const alertId = alertingSystem.reportCriticalFailure({
+                    component: 'payment-system',
+                    type: 'CRITICAL_COMPONENT_FAILURE',
+                    message: 'Payment system down',
+                    details: { errorRate: 100 }
+                });
+                
+                if (alertId) {
+                    // Check if escalation is scheduled
+                    const escalations = Array.from(alertingSystem.escalations.values());
+                    const escalation = escalations.find(e => e.alertId === alertId);
+                    
+                    if (escalation && escalation.nextEscalation > Date.now()) {
+                        log('✓ Escalation system works: escalation scheduled', 'pass');
+                    } else {
+                        log('✗ Escalation system failed', 'fail');
+                    }
+                } else {
+                    log('✗ Escalation test failed: no alert created', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Escalation system test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testAlertSuppression() {
+            log('Testing alert suppression...', 'info');
+            
+            try {
+                initializeAlertingSystem();
+                
+                // Suppress alerts for test component
+                alertingSystem.suppressAlerts({
+                    component: 'test-suppression'
+                }, 60000); // 1 minute
+                
+                // Try to create suppressed alert
+                const alertId = alertingSystem.reportCriticalFailure({
+                    component: 'test-suppression',
+                    type: 'CRITICAL_FAILURE',
+                    message: 'This should be suppressed',
+                    details: { errorRate: 50 }
+                });
+                
+                const stats = alertingSystem.getStatistics();
+                
+                if (stats.suppressedAlerts > 0) {
+                    log('✓ Alert suppression works', 'pass');
+                } else {
+                    log('✗ Alert suppression failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Alert suppression test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testStatisticsTracking() {
+            log('Testing statistics tracking...', 'info');
+            
+            try {
+                initializeAlertingSystem();
+                
+                const initialStats = alertingSystem.getStatistics();
+                
+                // Generate some alerts
+                alertingSystem.reportCriticalFailure({
+                    component: 'stats-test',
+                    type: 'CRITICAL_FAILURE',
+                    message: 'Stats test alert',
+                    details: { errorRate: 30 }
+                });
+                
+                const newStats = alertingSystem.getStatistics();
+                
+                if (newStats.totalAlerts > initialStats.totalAlerts) {
+                    log('✓ Statistics tracking works', 'pass');
+                } else {
+                    log('✗ Statistics tracking failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Statistics tracking test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function runAllTests() {
+            testResults = [];
+            log('Starting Critical Failure Alerting test suite...', 'info');
+            
+            testBasicAlerting();
+            setTimeout(() => testCriticalityDetection(), 200);
+            setTimeout(() => testAlertCorrelationTest(), 400);
+            setTimeout(() => testEscalationSystem(), 600);
+            setTimeout(() => testAlertSuppression(), 800);
+            setTimeout(() => testStatisticsTracking(), 1000);
+            
+            setTimeout(() => {
+                log('Test suite completed!', 'info');
+            }, 1500);
+        }
+
+        function simulateCriticalFailure() {
+            initializeAlertingSystem();
+            
+            const failures = [
+                {
+                    component: 'authentication',
+                    type: 'SECURITY_BREACH',
+                    message: 'Unauthorized access attempt detected',
+                    details: { errorRate: 100, affectedUsers: 500 }
+                },
+                {
+                    component: 'database',
+                    type: 'DATA_CORRUPTION',
+                    message: 'Database corruption detected',
+                    details: { errorRate: 75, memoryUsage: 95 }
+                },
+                {
+                    component: 'payment-gateway',
+                    type: 'SERVICE_UNAVAILABLE',
+                    message: 'Payment gateway is down',
+                    details: { errorRate: 100, responseTime: 15000 }
+                }
+            ];
+            
+            const failure = failures[Math.floor(Math.random() * failures.length)];
+            alertingSystem.reportCriticalFailure(failure);
+            
+            log(`Simulated critical failure in ${failure.component}`, 'critical');
+            updateAllDisplays();
+        }
+
+        function simulateComponentFailures() {
+            initializeAlertingSystem();
+            
+            const components = ['api-gateway', 'user-service', 'notification-service'];
+            const component = components[Math.floor(Math.random() * components.length)];
+            
+            // Simulate multiple failures in same component
+            for (let i = 0; i < 4; i++) {
+                setTimeout(() => {
+                    alertingSystem.reportCriticalFailure({
+                        component,
+                        type: 'CONNECTION_FAILURE',
+                        message: `${component} connection failure ${i + 1}`,
+                        details: { errorRate: 25 + (i * 5) }
+                    });
+                }, i * 1000);
+            }
+            
+            log(`Simulating consecutive failures in ${component}`, 'warning');
+        }
+
+        function simulateEscalation() {
+            initializeAlertingSystem();
+            
+            const alertId = alertingSystem.reportCriticalFailure({
+                component: 'core-system',
+                type: 'SYSTEM_CRASH',
+                message: 'Core system has crashed',
+                details: { errorRate: 100, memoryUsage: 98 }
+            });
+            
+            if (alertId) {
+                log('Simulated escalation scenario - check console for escalation messages', 'warning');
+                
+                // Force escalation for testing (normally happens automatically)
+                setTimeout(() => {
+                    const escalation = alertingSystem.escalations.get(alertId);
+                    if (escalation) {
+                        const alert = alertingSystem.alerts.get(alertId);
+                        alertingSystem.escalateAlert(alert, escalation);
+                    }
+                }, 2000);
+            }
+        }
+
+        function testAlertCorrelation() {
+            initializeAlertingSystem();
+            
+            // Generate correlated alerts
+            const baseFailure = {
+                component: 'web-server',
+                type: 'HIGH_LOAD',
+                message: 'Web server under high load'
+            };
+            
+            for (let i = 0; i < 5; i++) {
+                alertingSystem.reportCriticalFailure({
+                    ...baseFailure,
+                    message: `${baseFailure.message} - instance ${i + 1}`,
+                    details: { errorRate: 20 + (i * 2) }
+                });
+            }
+            
+            log('Generated correlated alerts for testing', 'info');
+            updateAllDisplays();
+        }
+
+        function resetSystem() {
+            if (alertingSystem) {
+                alertingSystem.destroy();
+                alertingSystem = null;
+                log('Reset alerting system', 'info');
+                updateAllDisplays();
+                clearLiveAlerts();
+            }
+        }
+
+        function clearLiveAlerts() {
+            document.getElementById('liveAlerts').innerHTML = '';
+        }
+
+        function updateAlertsDisplay() {
+            if (!alertingSystem) return;
+            
+            const alerts = alertingSystem.getRecentAlerts(20);
+            const display = document.getElementById('alertsDisplay');
+            
+            if (alerts.length === 0) {
+                display.innerHTML = '<p>No active alerts</p>';
+            } else {
+                let html = '<h3>Recent Alerts</h3>';
+                alerts.forEach(alert => {
+                    html += `
+                        <div class="alert-display">
+                            <strong>${alert.severity}</strong> - ${alert.component}<br>
+                            <strong>Type:</strong> ${alert.type}<br>
+                            <strong>Message:</strong> ${alert.message}<br>
+                            <strong>Status:</strong> ${alert.status}<br>
+                            <small>ID: ${alert.id} | Time: ${new Date(alert.timestamp).toLocaleString()}</small>
+                        </div>
+                    `;
+                });
+                display.innerHTML = html;
+            }
+        }
+
+        function updateGroupsDisplay() {
+            if (!alertingSystem) return;
+            
+            const groups = alertingSystem.getAlertGroups();
+            const display = document.getElementById('groupsDisplay');
+            
+            if (groups.length === 0) {
+                display.innerHTML = '<p>No alert groups</p>';
+            } else {
+                let html = '<h3>Alert Groups</h3>';
+                groups.forEach(group => {
+                    html += `
+                        <div class="group-display">
+                            <strong>Group ${group.id}</strong><br>
+                            <strong>Count:</strong> ${group.count} alerts<br>
+                            <strong>Representative:</strong> ${group.representative.component} - ${group.representative.type}<br>
+                            <strong>Last Update:</strong> ${new Date(group.lastUpdate).toLocaleString()}<br>
+                        </div>
+                    `;
+                });
+                display.innerHTML = html;
+            }
+        }
+
+        function updateEscalationsDisplay() {
+            if (!alertingSystem) return;
+            
+            const escalations = Array.from(alertingSystem.escalations.values())
+                .filter(e => !e.resolved);
+            const display = document.getElementById('escalationsDisplay');
+            
+            if (escalations.length === 0) {
+                display.innerHTML = '<p>No active escalations</p>';
+            } else {
+                let html = '<h3>Active Escalations</h3>';
+                escalations.forEach(escalation => {
+                    const alert = alertingSystem.alerts.get(escalation.alertId);
+                    html += `
+                        <div class="alert-display">
+                            <strong>Alert:</strong> ${alert ? alert.component : 'Unknown'}<br>
+                            <strong>Level:</strong> ${escalation.level}<br>
+                            <strong>Attempts:</strong> ${escalation.attempts}<br>
+                            <strong>Next Escalation:</strong> ${new Date(escalation.nextEscalation).toLocaleString()}<br>
+                        </div>
+                    `;
+                });
+                display.innerHTML = html;
+            }
+        }
+
+        function updateStatisticsDisplay() {
+            if (!alertingSystem) return;
+            
+            const stats = alertingSystem.getStatistics();
+            const display = document.getElementById('statisticsDisplay');
+            
+            display.innerHTML = `
+                <h3>System Statistics</h3>
+                <div><strong>Total Alerts:</strong> ${stats.totalAlerts}</div>
+                <div><strong>Critical Alerts:</strong> ${stats.criticalAlerts}</div>
+                <div><strong>Active Alerts:</strong> ${stats.activeAlerts}</div>
+                <div><strong>Escalated Alerts:</strong> ${stats.escalatedAlerts}</div>
+                <div><strong>Suppressed Alerts:</strong> ${stats.suppressedAlerts}</div>
+                <div><strong>Resolved Alerts:</strong> ${stats.resolvedAlerts}</div>
+                <div><strong>Alert Groups:</strong> ${stats.alertGroups}</div>
+                <div><strong>Active Escalations:</strong> ${stats.activeEscalations}</div>
+                <div><strong>Suppressions:</strong> ${stats.suppressions}</div>
+                <h4>Component Failures:</h4>
+                <pre>${JSON.stringify(stats.componentFailures, null, 2)}</pre>
+            `;
+        }
+
+        function updatePatternsDisplay() {
+            if (!alertingSystem) return;
+            
+            const patterns = Object.fromEntries(alertingSystem.failurePatterns);
+            const display = document.getElementById('patternsDisplay');
+            
+            if (Object.keys(patterns).length === 0) {
+                display.innerHTML = '<p>No failure patterns detected</p>';
+            } else {
+                display.innerHTML = `
+                    <h3>Failure Patterns</h3>
+                    <pre>${JSON.stringify(patterns, null, 2)}</pre>
+                `;
+            }
+        }
+
+        function updateAllDisplays() {
+            updateAlertsDisplay();
+            updateGroupsDisplay();
+            updateEscalationsDisplay();
+            updateStatisticsDisplay();
+            updatePatternsDisplay();
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            log('Critical Failure Alerting test page loaded', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -6,7 +6,7 @@ class PersonaManager {
         
         // Initialize debug logger for this module
         this.debug = window.debugManager ? window.debugManager.createModuleLogger('PersonaManager') : {
-            log: () => {}, warn: () => {}, error: () => {}, info: () => {}
+            log: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {}
         };
     }
 

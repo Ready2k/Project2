@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Final Fixes</title>
+</head>
+<body>
+    <h1>Testing Final Fixes</h1>
+    <div id="results"></div>
+
+    <!-- Load dependencies in correct order -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/security-manager.js"></script>
+    <script src="agents/prompt-composer.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        function testFixes() {
+            const resultsDiv = document.getElementById('results');
+            
+            // Test 1: SecurityManager availability
+            if (window.SecurityManager) {
+                resultsDiv.innerHTML += `<p>✅ SecurityManager: Available</p>`;
+            } else {
+                resultsDiv.innerHTML += `<p>❌ SecurityManager: Missing</p>`;
+            }
+            
+            // Test 2: SecurityEnhancementLayer availability
+            if (window.SecurityEnhancementLayer) {
+                resultsDiv.innerHTML += `<p>✅ SecurityEnhancementLayer: Available</p>`;
+            } else {
+                resultsDiv.innerHTML += `<p>❌ SecurityEnhancementLayer: Missing</p>`;
+            }
+            
+            // Test 3: buildPromptMessages availability
+            if (window.buildPromptMessages) {
+                resultsDiv.innerHTML += `<p>✅ buildPromptMessages: Available</p>`;
+                
+                // Test the function
+                try {
+                    const result = window.buildPromptMessages({
+                        systemPrompt: "Test system prompt",
+                        agentPrompt: "Test agent prompt"
+                    });
+                    if (result && result.messages) {
+                        resultsDiv.innerHTML += `<p>✅ buildPromptMessages: Function works correctly</p>`;
+                    } else {
+                        resultsDiv.innerHTML += `<p>❌ buildPromptMessages: Function returned invalid result</p>`;
+                    }
+                } catch (error) {
+                    resultsDiv.innerHTML += `<p>❌ buildPromptMessages: Function error - ${error.message}</p>`;
+                }
+            } else {
+                resultsDiv.innerHTML += `<p>❌ buildPromptMessages: Missing</p>`;
+            }
+            
+            // Test 4: Check if SecurityManager is alias for SecurityEnhancementLayer
+            if (window.SecurityManager === window.SecurityEnhancementLayer) {
+                resultsDiv.innerHTML += `<p>✅ SecurityManager alias: Correctly points to SecurityEnhancementLayer</p>`;
+            } else {
+                resultsDiv.innerHTML += `<p>❌ SecurityManager alias: Not correctly aliased</p>`;
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('load', testFixes);
+    </script>
+</body>
+</html>

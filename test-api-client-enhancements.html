@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Client Enhancements Test</title>
+</head>
+<body>
+    <h1>API Client Enhancements Test</h1>
+    <div id="results"></div>
+
+    <script src="api-client.js"></script>
+    <script>
+        async function testApiClientEnhancements() {
+            const results = document.getElementById('results');
+            const client = new OpenAIClient('test-key');
+            
+            // Test 1: Input validation
+            try {
+                await client.generateChatCompletion(null);
+                results.innerHTML += '<p style="color: red;">❌ Test 1 Failed: Should have thrown validation error for null messages</p>';
+            } catch (error) {
+                if (error instanceof ApiResponseError) {
+                    results.innerHTML += '<p style="color: green;">✅ Test 1 Passed: Input validation working</p>';
+                } else {
+                    results.innerHTML += '<p style="color: red;">❌ Test 1 Failed: Wrong error type: ' + error.constructor.name + '</p>';
+                }
+            }
+
+            // Test 2: Empty messages validation
+            try {
+                await client.generateChatCompletion([]);
+                results.innerHTML += '<p style="color: red;">❌ Test 2 Failed: Should have thrown validation error for empty messages</p>';
+            } catch (error) {
+                if (error instanceof ApiResponseError) {
+                    results.innerHTML += '<p style="color: green;">✅ Test 2 Passed: Empty messages validation working</p>';
+                } else {
+                    results.innerHTML += '<p style="color: red;">❌ Test 2 Failed: Wrong error type: ' + error.constructor.name + '</p>';
+                }
+            }
+
+            // Test 3: Invalid message structure validation
+            try {
+                await client.generateChatCompletion([{ role: 'user' }]); // missing content
+                results.innerHTML += '<p style="color: red;">❌ Test 3 Failed: Should have thrown validation error for invalid message</p>';
+            } catch (error) {
+                if (error instanceof ApiResponseError) {
+                    results.innerHTML += '<p style="color: green;">✅ Test 3 Passed: Message structure validation working</p>';
+                } else {
+                    results.innerHTML += '<p style="color: red;">❌ Test 3 Failed: Wrong error type: ' + error.constructor.name + '</p>';
+                }
+            }
+
+            // Test 4: Options validation
+            try {
+                await client.generateChatCompletion([{ role: 'user', content: 'test' }], { temperature: 5 }); // invalid temperature
+                results.innerHTML += '<p style="color: red;">❌ Test 4 Failed: Should have thrown validation error for invalid temperature</p>';
+            } catch (error) {
+                if (error instanceof ApiResponseError) {
+                    results.innerHTML += '<p style="color: green;">✅ Test 4 Passed: Options validation working</p>';
+                } else {
+                    results.innerHTML += '<p style="color: red;">❌ Test 4 Failed: Wrong error type: ' + error.constructor.name + '</p>';
+                }
+            }
+
+            // Test 5: Response validation
+            try {
+                client.validateChatCompletionResponse({});
+                results.innerHTML += '<p style="color: red;">❌ Test 5 Failed: Should have thrown validation error for invalid response</p>';
+            } catch (error) {
+                if (error instanceof ApiResponseError) {
+                    results.innerHTML += '<p style="color: green;">✅ Test 5 Passed: Response validation working</p>';
+                } else {
+                    results.innerHTML += '<p style="color: red;">❌ Test 5 Failed: Wrong error type</p>';
+                }
+            }
+
+            // Test 6: Valid response validation
+            try {
+                const validResponse = {
+                    choices: [{
+                        message: {
+                            content: 'Hello, world!'
+                        }
+                    }]
+                };
+                const result = client.validateChatCompletionResponse(validResponse);
+                if (result === true) {
+                    results.innerHTML += '<p style="color: green;">✅ Test 6 Passed: Valid response validation working</p>';
+                } else {
+                    results.innerHTML += '<p style="color: red;">❌ Test 6 Failed: Valid response should return true</p>';
+                }
+            } catch (error) {
+                results.innerHTML += '<p style="color: red;">❌ Test 6 Failed: Valid response should not throw error</p>';
+            }
+
+            // Test 7: Error handling method
+            try {
+                const testError = new Error('Test network error');
+                const errorResponse = await client.handleApiError(testError, 'testOperation');
+                
+                if (errorResponse.success === false && errorResponse.error && errorResponse.error.message) {
+                    results.innerHTML += '<p style="color: green;">✅ Test 7 Passed: Error handling method working</p>';
+                } else {
+                    results.innerHTML += '<p style="color: red;">❌ Test 7 Failed: Error handling method not returning proper format</p>';
+                }
+            } catch (error) {
+                results.innerHTML += '<p style="color: red;">❌ Test 7 Failed: Error handling method should not throw</p>';
+            }
+
+            results.innerHTML += '<h2>All tests completed!</h2>';
+        }
+
+        // Run tests when page loads
+        window.addEventListener('load', testApiClientEnhancements);
+    </script>
+</body>
+</html>

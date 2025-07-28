@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Complete Agent System</title>
+</head>
+<body>
+    <h1>Testing Complete Agent System</h1>
+    <div id="results"></div>
+
+    <!-- Load all dependencies exactly as in index.html -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/rate-limiter.js"></script>
+    <script src="agents/request-validator.js"></script>
+    <script src="agents/audit-logger.js"></script>
+    <script src="agents/security-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/prompt-composer.js"></script>
+    <script src="agents/lru-cache.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        function testCompleteAgentSystem() {
+            const resultsDiv = document.getElementById('results');
+            let successCount = 0;
+            let totalTests = 0;
+            
+            function addResult(test, success, message) {
+                totalTests++;
+                if (success) {
+                    successCount++;
+                    resultsDiv.innerHTML += `<p style="color: green;">✅ ${test}: ${message}</p>`;
+                } else {
+                    resultsDiv.innerHTML += `<p style="color: red;">❌ ${test}: ${message}</p>`;
+                }
+            }
+            
+            try {
+                // Test 1: All classes loaded without duplicate variable errors
+                const requiredClasses = [
+                    'RateLimiter', 'RateLimitError', 'RequestValidator', 'ValidationError', 'AuditLogger',
+                    'SecurityEnhancementLayer', 'SecurityManager', 'AgentRouter', 'BaseAgent'
+                ];
+                
+                requiredClasses.forEach(className => {
+                    addResult(`${className} availability`, !!window[className], window[className] ? 'Available' : 'Missing');
+                });
+                
+                // Test 2: SecurityManager instantiation
+                const securityManager = new SecurityManager();
+                addResult('SecurityManager instantiation', true, 'Successfully created without duplicate variable error');
+                
+                // Test 3: SecurityManager components
+                addResult('SecurityManager.rateLimiter', !!securityManager.rateLimiter, 'RateLimiter component created');
+                addResult('SecurityManager.requestValidator', !!securityManager.requestValidator, 'RequestValidator component created');
+                addResult('SecurityManager.auditLogger', !!securityManager.auditLogger, 'AuditLogger component created');
+                
+                // Test 4: AgentRouter instantiation
+                const mockApiClient = { generateChatCompletion: () => Promise.resolve({ success: true, text: 'test' }) };
+                const agentRouter = new AgentRouter({ agents: [], apiClient: mockApiClient });
+                addResult('AgentRouter instantiation', true, 'Successfully created with SecurityManager');
+                
+                // Test 5: Agent registration
+                const testAgent = new BaseAgent();
+                agentRouter.registerAgent(testAgent);
+                const stats = agentRouter.getStats();
+                addResult('Agent registration', stats.totalAgents > 0, `${stats.totalAgents} agents registered`);
+                
+                // Test 6: SecurityManager error handling
+                const RateLimitErrorClass = window.RateLimitError;
+                const ValidationErrorClass = window.ValidationError;
+                
+                if (RateLimitErrorClass && ValidationErrorClass) {
+                    const rateLimitError = new RateLimitErrorClass('Test rate limit error');
+                    const validationError = new ValidationErrorClass('Test validation error');
+                    
+                    const rateLimitMessage = securityManager.getSafeErrorMessage(rateLimitError);
+                    const validationMessage = securityManager.getSafeErrorMessage(validationError);
+                    
+                    addResult('RateLimitError handling', rateLimitMessage.includes('Rate limit'), 'Error message generated correctly');
+                    addResult('ValidationError handling', validationMessage.includes('Invalid request'), 'Error message generated correctly');
+                }
+                
+            } catch (error) {
+                addResult('System test', false, `Error: ${error.message}`);
+                console.error('Test error:', error);
+            }
+            
+            // Summary
+            resultsDiv.innerHTML += `<hr><h3>Summary: ${successCount}/${totalTests} tests passed</h3>`;
+            if (successCount === totalTests) {
+                resultsDiv.innerHTML += `<p style="color: green; font-weight: bold;">🎉 All tests passed! Agent system is working correctly.</p>`;
+            } else {
+                resultsDiv.innerHTML += `<p style="color: red; font-weight: bold;">⚠️ Some tests failed. Check the results above.</p>`;
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('load', testCompleteAgentSystem);
+    </script>
+</body>
+</html>

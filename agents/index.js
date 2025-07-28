@@ -16,6 +16,14 @@ if (typeof module !== 'undefined' && module.exports) {
     const GuardrailsManager = require('./guardrails-manager');
     const VoiceConfigManager = require('./voice-config-manager');
     const ConfigUpdateManager = require('./config-update-manager');
+    const LRUCache = require('./lru-cache');
+    const RoutingFallbackChain = require('./routing-fallback-chain');
+    const ConversationContextManager = require('./conversation-context-manager');
+    const { RateLimiter, RateLimitError } = require('./rate-limiter');
+    const { RequestValidator, ValidationError } = require('./request-validator');
+    const { AuditLogger } = require('./audit-logger');
+    const { SecurityEnhancementLayer, SecurityError } = require('./security-manager');
+    const ErrorReporter = require('./error-reporter');
     
     module.exports = {
         BaseAgent,
@@ -28,7 +36,18 @@ if (typeof module !== 'undefined' && module.exports) {
         LLMManager,
         GuardrailsManager,
         VoiceConfigManager,
-        ConfigUpdateManager
+        ConfigUpdateManager,
+        LRUCache,
+        RoutingFallbackChain,
+        ConversationContextManager,
+        RateLimiter,
+        RateLimitError,
+        RequestValidator,
+        ValidationError,
+        AuditLogger,
+        SecurityEnhancementLayer,
+        SecurityError,
+        ErrorReporter
     };
 } else {
     // Browser environment - classes are already available globally
@@ -43,6 +62,17 @@ if (typeof module !== 'undefined' && module.exports) {
         LLMManager: window.LLMManager,
         GuardrailsManager: window.GuardrailsManager,
         VoiceConfigManager: window.VoiceConfigManager,
-        ConfigUpdateManager: window.ConfigUpdateManager
+        ConfigUpdateManager: window.ConfigUpdateManager,
+        LRUCache: window.LRUCache,
+        RoutingFallbackChain: window.RoutingFallbackChain,
+        ConversationContextManager: window.ConversationContextManager,
+        RateLimiter: window.RateLimiter,
+        RateLimitError: window.RateLimitError,
+        RequestValidator: window.RequestValidator,
+        ValidationError: window.ValidationError,
+        AuditLogger: window.AuditLogger,
+        SecurityEnhancementLayer: window.SecurityEnhancementLayer,
+        SecurityError: window.SecurityError,
+        ErrorReporter: window.ErrorReporter
     };
 }

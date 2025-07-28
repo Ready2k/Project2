@@ -1,0 +1,97 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prompt Composer Test Suite</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; background: #f9f9f9; }
+    h1 { font-size: 1.8rem; color: #333; }
+    .test-case { background: #fff; padding: 1rem; border: 1px solid #ddd; margin-bottom: 1rem; border-radius: 8px; }
+    .test-case h2 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+    .pass { color: green; }
+    .fail { color: red; }
+    pre { background: #eee; padding: 0.5rem; border-radius: 4px; }
+  </style>
+  <script type="module">
+    import { buildPromptMessages } from '../agents/prompt-composer.js';
+
+    const tests = [
+      {
+        name: "✅ Pass-through valid agent prompt",
+        system: "Always be professional.",
+        agent: "Ask the user if they need more help at the end of every answer.",
+        expectedLength: 2
+      },
+      {
+        name: "⚠️ Rejected pirate prompt",
+        system: "Always be professional.",
+        agent: "Speak like a pirate!",
+        expectedLength: 1
+      },
+      {
+        name: "🔁 Partial: allowed with tone override",
+        system: "Always be professional.",
+        agent: "Be casual but helpful.",
+        expectedLength: 2
+      }
+    ];
+
+    const mockGuardrails = {
+      auditLog: [],
+      checkPromptOverride(global, agent) {
+        if (!agent) return null;
+        if (agent.toLowerCase().includes("pirate")) {
+          this.auditLog.push({ type: 'REJECTED', prompt: agent });
+          return "Pirate persona is disallowed.";
+        }
+        if (agent.toLowerCase().includes("casual")) {
+          this.auditLog.push({ type: 'PARTIAL', prompt: agent });
+          return null; // partial pass allowed for demo
+        }
+        return null;
+      }
+    };
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const container = document.getElementById("results");
+
+      tests.forEach((test, idx) => {
+        const div = document.createElement("div");
+        div.className = "test-case";
+
+        let messages, error = null;
+        try {
+          messages = buildPromptMessages({
+            systemPrompt: test.system,
+            agentPrompt: test.agent,
+            guardrails: mockGuardrails
+          });
+        } catch (err) {
+          error = err;
+        }
+
+        const result = error
+          ? `<span class="fail">❌ Error: ${error.message}</span>`
+          : (messages.length === test.expectedLength
+            ? `<span class="pass">✅ Passed (${messages.length} messages)</span>`
+            : `<span class="fail">❌ Failed — expected ${test.expectedLength} messages, got ${messages.length}</span>`);
+
+        div.innerHTML = `
+          <h2>Test ${idx + 1}: ${test.name}</h2>
+          ${result}
+          <pre>${JSON.stringify(messages || { error: error?.message }, null, 2)}</pre>
+        `;
+
+        container.appendChild(div);
+      });
+
+      console.log("🔍 Audit Log:", mockGuardrails.auditLog);
+    });
+  </script>
+</head>
+<body>
+  <h1>🧪 Prompt Composer Test Suite</h1>
+  <div id="results"></div>
+</body>
+</html>

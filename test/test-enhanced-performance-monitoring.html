@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Performance Monitor Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        button { margin: 5px; padding: 8px 16px; }
+        .metrics { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .diagnostic { background: #e6f3ff; padding: 10px; margin: 10px 0; border-left: 4px solid #0066cc; }
+        .recommendation { background: #fff3cd; padding: 10px; margin: 10px 0; border-left: 4px solid #ffc107; }
+        pre { background: #f0f0f0; padding: 10px; overflow-x: auto; font-size: 12px; }
+        .tabs { display: flex; margin-bottom: 10px; }
+        .tab { padding: 10px 20px; background: #f0f0f0; border: 1px solid #ddd; cursor: pointer; }
+        .tab.active { background: #007bff; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body>
+    <h1>Enhanced Performance Monitor Test Suite</h1>
+    
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="simulateSlowOperation()">Simulate Slow Operation</button>
+        <button onclick="simulatePerformanceDegradation()">Simulate Degradation</button>
+        <button onclick="simulateMemoryPressure()">Simulate Memory Pressure</button>
+        <button onclick="generateComprehensiveReport()">Generate Report</button>
+        <button onclick="clearMetrics()">Clear Metrics</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Performance Dashboard</h2>
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('summary')">Summary</div>
+            <div class="tab" onclick="showTab('diagnostics')">Diagnostics</div>
+            <div class="tab" onclick="showTab('trends')">Trends</div>
+            <div class="tab" onclick="showTab('predictions')">Predictions</div>
+            <div class="tab" onclick="showTab('recommendations')">Recommendations</div>
+        </div>
+        
+        <div id="summary" class="tab-content active">
+            <div id="summaryDisplay" class="metrics"></div>
+            <button onclick="updateSummary()">Refresh Summary</button>
+        </div>
+        
+        <div id="diagnostics" class="tab-content">
+            <div id="diagnosticsDisplay" class="diagnostic"></div>
+            <button onclick="updateDiagnostics()">Refresh Diagnostics</button>
+        </div>
+        
+        <div id="trends" class="tab-content">
+            <div id="trendsDisplay" class="metrics"></div>
+            <button onclick="updateTrends()">Refresh Trends</button>
+        </div>
+        
+        <div id="predictions" class="tab-content">
+            <div id="predictionsDisplay" class="metrics"></div>
+            <button onclick="updatePredictions()">Refresh Predictions</button>
+        </div>
+        
+        <div id="recommendations" class="tab-content">
+            <div id="recommendationsDisplay" class="recommendation"></div>
+            <button onclick="updateRecommendations()">Refresh Recommendations</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Bottlenecks & Alerts</h2>
+        <div id="bottlenecksDisplay" class="metrics"></div>
+        <button onclick="updateBottlenecks()">Refresh Bottlenecks</button>
+    </div>
+
+    <div id="testResults"></div>
+
+    <script src="../agents/performance-monitor.js"></script>
+    <script>
+        let performanceMonitor;
+        let testResults = [];
+
+        function log(message, type = 'info') {
+            console.log(message);
+            const className = type === 'pass' ? 'pass' : type === 'fail' ? 'fail' : 'info';
+            testResults.push(`<div class="${className}">${message}</div>`);
+            updateTestDisplay();
+        }
+
+        function updateTestDisplay() {
+            document.getElementById('testResults').innerHTML = testResults.join('');
+        }
+
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        function initializePerformanceMonitor() {
+            if (!performanceMonitor) {
+                performanceMonitor = new PerformanceMonitor({
+                    enabled: true,
+                    responseTimeThreshold: 1000, // 1 second for testing
+                    memoryUsageThreshold: 0.7, // 70% for testing
+                    errorRateThreshold: 0.05 // 5% for testing
+                });
+                log('Enhanced PerformanceMonitor initialized', 'pass');
+            }
+        }
+
+        function testDegradationDetection() {
+            log('Testing performance degradation detection...', 'info');
+            
+            try {
+                initializePerformanceMonitor();
+                
+                // Simulate baseline performance
+                for (let i = 0; i < 15; i++) {
+                    const timerId = performanceMonitor.startTimer('degradation_test');
+                    setTimeout(() => {
+                        performanceMonitor.endTimer(timerId, { success: true });
+                    }, 100 + Math.random() * 50); // 100-150ms baseline
+                }
+                
+                // Simulate degraded performance
+                setTimeout(() => {
+                    for (let i = 0; i < 15; i++) {
+                        const timerId = performanceMonitor.startTimer('degradation_test');
+                        setTimeout(() => {
+                            performanceMonitor.endTimer(timerId, { success: true });
+                        }, 200 + Math.random() * 100); // 200-300ms degraded
+                    }
+                }, 500);
+                
+                setTimeout(() => {
+                    const metrics = performanceMonitor.getMetrics('degradation_test');
+                    if (metrics) {
+                        const degradation = performanceMonitor.detectPerformanceDegradation('degradation_test', metrics);
+                        if (degradation.isDegraded) {
+                            log(`✓ Degradation detection works: ${degradation.degradationFactor.toFixed(2)}x slower`, 'pass');
+                        } else {
+                            log('✗ Degradation detection failed', 'fail');
+                        }
+                    }
+                }, 1000);
+                
+            } catch (error) {
+                log(`✗ Degradation detection test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testTrendAnalysis() {
+            log('Testing trend analysis...', 'info');
+            
+            try {
+                initializePerformanceMonitor();
+                
+                // Simulate increasing trend
+                for (let i = 0; i < 20; i++) {
+                    const timerId = performanceMonitor.startTimer('trend_test');
+                    setTimeout(() => {
+                        performanceMonitor.endTimer(timerId, { success: true });
+                    }, 100 + (i * 10)); // Increasing duration
+                }
+                
+                setTimeout(() => {
+                    const metrics = performanceMonitor.getMetrics('trend_test');
+                    if (metrics) {
+                        const trendAnalysis = performanceMonitor.analyzeTrendAnomalies('trend_test', metrics);
+                        if (trendAnalysis.hasAnomaly) {
+                            log('✓ Trend analysis works: anomaly detected', 'pass');
+                        } else {
+                            log('✗ Trend analysis failed to detect anomaly', 'fail');
+                        }
+                    }
+                }, 500);
+                
+            } catch (error) {
+                log(`✗ Trend analysis test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testPredictions() {
+            log('Testing performance predictions...', 'info');
+            
+            try {
+                initializePerformanceMonitor();
+                
+                // Generate consistent data for prediction
+                for (let i = 0; i < 15; i++) {
+                    const timerId = performanceMonitor.startTimer('prediction_test');
+                    setTimeout(() => {
+                        performanceMonitor.endTimer(timerId, { success: true });
+                    }, 100 + (i * 5)); // Slight increasing trend
+                }
+                
+                setTimeout(() => {
+                    const metrics = performanceMonitor.getMetrics('prediction_test');
+                    if (metrics) {
+                        const prediction = performanceMonitor.predictPerformanceTrend('prediction_test', metrics);
+                        if (prediction.available) {
+                            log(`✓ Predictions work: ${prediction.trend} trend predicted`, 'pass');
+                        } else {
+                            log('✗ Predictions failed', 'fail');
+                        }
+                    }
+                }, 300);
+                
+            } catch (error) {
+                log(`✗ Predictions test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testDiagnostics() {
+            log('Testing diagnostic information collection...', 'info');
+            
+            try {
+                initializePerformanceMonitor();
+                
+                const diagnostics = performanceMonitor.collectDiagnosticInfo('test_operation');
+                
+                if (diagnostics && diagnostics.system && diagnostics.performance && diagnostics.environment) {
+                    log('✓ Diagnostic collection works', 'pass');
+                } else {
+                    log('✗ Diagnostic collection failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Diagnostics test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testRecommendations() {
+            log('Testing recommendation generation...', 'info');
+            
+            try {
+                initializePerformanceMonitor();
+                
+                // Create conditions that should trigger recommendations
+                for (let i = 0; i < 10; i++) {
+                    const timerId = performanceMonitor.startTimer('slow_operation');
+                    setTimeout(() => {
+                        performanceMonitor.endTimer(timerId, { success: i < 7 }); // 70% success rate
+                    }, 1500); // Slow operation
+                }
+                
+                setTimeout(() => {
+                    const recommendations = performanceMonitor.generateRecommendations('slow_operation');
+                    if (recommendations.length > 0) {
+                        log(`✓ Recommendations work: ${recommendations.length} recommendations generated`, 'pass');
+                    } else {
+                        log('✗ Recommendations failed', 'fail');
+                    }
+                }, 200);
+                
+            } catch (error) {
+                log(`✗ Recommendations test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function runAllTests() {
+            testResults = [];
+            log('Starting Enhanced Performance Monitor test suite...', 'info');
+            
+            // Basic tests
+            testBasicTiming();
+            setTimeout(() => testMeasureFunction(), 200);
+            setTimeout(() => testBottleneckDetection(), 400);
+            setTimeout(() => testMetricsCollection(), 600);
+            setTimeout(() => testAlertSystem(), 800);
+            
+            // Enhanced tests
+            setTimeout(() => testDegradationDetection(), 1000);
+            setTimeout(() => testTrendAnalysis(), 1500);
+            setTimeout(() => testPredictions(), 2000);
+            setTimeout(() => testDiagnostics(), 2500);
+            setTimeout(() => testRecommendations(), 3000);
+            
+            setTimeout(() => {
+                log('Enhanced test suite completed!', 'info');
+            }, 4000);
+        }
+
+        function testBasicTiming() {
+            log('Testing basic timing functionality...', 'info');
+            
+            try {
+                initializePerformanceMonitor();
+                
+                const timerId = performanceMonitor.startTimer('test_operation', { test: true });
+                
+                setTimeout(() => {
+                    const metrics = performanceMonitor.endTimer(timerId, { success: true });
+                    
+                    if (metrics && metrics.duration > 0) {
+                        log(`✓ Basic timing works: ${metrics.duration.toFixed(2)}ms`, 'pass');
+                    } else {
+                        log('✗ Basic timing failed', 'fail');
+                    }
+                }, 100);
+                
+            } catch (error) {
+                log(`✗ Basic timing test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testMeasureFunction() {
+            log('Testing measure function...', 'info');
+            
+            try {
+                initializePerformanceMonitor();
+                
+                const testFunction = async () => {
+                    return new Promise(resolve => {
+                        setTimeout(() => resolve('test result'), 50);
+                    });
+                };
+                
+                performanceMonitor.measure('async_test', testFunction, { type: 'async' })
+                    .then(result => {
+                        if (result === 'test result') {
+                            log('✓ Measure function works', 'pass');
+                        } else {
+                            log('✗ Measure function failed', 'fail');
+                        }
+                    })
+                    .catch(error => {
+                        log(`✗ Measure function failed: ${error.message}`, 'fail');
+                    });
+                
+            } catch (error) {
+                log(`✗ Measure function test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testBottleneckDetection() {
+            log('Testing bottleneck detection...', 'info');
+            
+            try {
+                initializePerformanceMonitor();
+                
+                for (let i = 0; i < 5; i++) {
+                    const timerId = performanceMonitor.startTimer('slow_operation');
+                    setTimeout(() => {
+                        performanceMonitor.endTimer(timerId, { success: true });
+                    }, 1200);
+                }
+                
+                setTimeout(() => {
+                    const bottlenecks = performanceMonitor.analyzeBottlenecks();
+                    if (bottlenecks.length > 0) {
+                        log(`✓ Bottleneck detection works: ${bottlenecks.length} bottlenecks found`, 'pass');
+                    } else {
+                        log('✗ Bottleneck detection failed', 'fail');
+                    }
+                }, 1500);
+                
+            } catch (error) {
+                log(`✗ Bottleneck detection test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testMetricsCollection() {
+            log('Testing metrics collection...', 'info');
+            
+            try {
+                initializePerformanceMonitor();
+                
+                for (let i = 0; i < 10; i++) {
+                    const timerId = performanceMonitor.startTimer('metrics_test');
+                    setTimeout(() => {
+                        performanceMonitor.endTimer(timerId, { success: i < 8 });
+                    }, Math.random() * 100);
+                }
+                
+                setTimeout(() => {
+                    const metrics = performanceMonitor.getMetrics('metrics_test');
+                    if (metrics && metrics.totalCalls > 0) {
+                        log(`✓ Metrics collection works: ${metrics.totalCalls} calls recorded`, 'pass');
+                    } else {
+                        log('✗ Metrics collection failed', 'fail');
+                    }
+                }, 200);
+                
+            } catch (error) {
+                log(`✗ Metrics collection test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testAlertSystem() {
+            log('Testing alert system...', 'info');
+            
+            try {
+                initializePerformanceMonitor();
+                
+                let alertReceived = false;
+                performanceMonitor.onAlert((alert) => {
+                    alertReceived = true;
+                    log(`Alert received: ${alert.type}`, 'info');
+                });
+                
+                performanceMonitor.checkAlertThresholds();
+                
+                setTimeout(() => {
+                    if (alertReceived || performanceMonitor.alerts.length > 0) {
+                        log('✓ Alert system works', 'pass');
+                    } else {
+                        log('✗ Alert system failed', 'fail');
+                    }
+                }, 100);
+                
+            } catch (error) {
+                log(`✗ Alert system test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function simulateSlowOperation() {
+            initializePerformanceMonitor();
+            
+            const timerId = performanceMonitor.startTimer('slow_simulation');
+            setTimeout(() => {
+                performanceMonitor.endTimer(timerId, { success: true });
+                log('Simulated slow operation (2 seconds)', 'info');
+                updateSummary();
+            }, 2000);
+        }
+
+        function simulatePerformanceDegradation() {
+            initializePerformanceMonitor();
+            
+            // Simulate baseline
+            for (let i = 0; i < 10; i++) {
+                const timerId = performanceMonitor.startTimer('degradation_sim');
+                setTimeout(() => {
+                    performanceMonitor.endTimer(timerId, { success: true });
+                }, 100);
+            }
+            
+            // Simulate degradation
+            setTimeout(() => {
+                for (let i = 0; i < 10; i++) {
+                    const timerId = performanceMonitor.startTimer('degradation_sim');
+                    setTimeout(() => {
+                        performanceMonitor.endTimer(timerId, { success: true });
+                    }, 300);
+                }
+                log('Simulated performance degradation', 'warning');
+                updateSummary();
+            }, 200);
+        }
+
+        function simulateMemoryPressure() {
+            initializePerformanceMonitor();
+            
+            const largeArray = new Array(1000000).fill('memory pressure test');
+            
+            setTimeout(() => {
+                performanceMonitor.collectSystemMetrics();
+                log('Simulated memory pressure', 'info');
+                updateSummary();
+            }, 100);
+        }
+
+        function generateComprehensiveReport() {
+            if (!performanceMonitor) {
+                initializePerformanceMonitor();
+            }
+            
+            const report = performanceMonitor.getComprehensiveReport();
+            console.log('Comprehensive Performance Report:', report);
+            log('Generated comprehensive performance report (check console)', 'info');
+        }
+
+        function clearMetrics() {
+            if (performanceMonitor) {
+                performanceMonitor.clearMetrics();
+                log('Cleared all metrics', 'info');
+                updateAllDisplays();
+            }
+        }
+
+        function updateSummary() {
+            if (!performanceMonitor) return;
+            
+            const summary = performanceMonitor.getPerformanceSummary();
+            const display = document.getElementById('summaryDisplay');
+            
+            display.innerHTML = `
+                <h3>Performance Summary</h3>
+                <pre>${JSON.stringify(summary, null, 2)}</pre>
+            `;
+        }
+
+        function updateDiagnostics() {
+            if (!performanceMonitor) return;
+            
+            const diagnostics = performanceMonitor.collectDiagnosticInfo();
+            const display = document.getElementById('diagnosticsDisplay');
+            
+            display.innerHTML = `
+                <h3>System Diagnostics</h3>
+                <pre>${JSON.stringify(diagnostics, null, 2)}</pre>
+            `;
+        }
+
+        function updateTrends() {
+            if (!performanceMonitor) return;
+            
+            const trends = performanceMonitor.calculatePerformanceTrends();
+            const display = document.getElementById('trendsDisplay');
+            
+            display.innerHTML = `
+                <h3>Performance Trends</h3>
+                <pre>${JSON.stringify(trends, null, 2)}</pre>
+            `;
+        }
+
+        function updatePredictions() {
+            if (!performanceMonitor) return;
+            
+            const predictions = performanceMonitor.generatePerformancePredictions();
+            const display = document.getElementById('predictionsDisplay');
+            
+            display.innerHTML = `
+                <h3>Performance Predictions</h3>
+                <pre>${JSON.stringify(predictions, null, 2)}</pre>
+            `;
+        }
+
+        function updateRecommendations() {
+            if (!performanceMonitor) return;
+            
+            const recommendations = performanceMonitor.generateRecommendations();
+            const display = document.getElementById('recommendationsDisplay');
+            
+            if (recommendations.length === 0) {
+                display.innerHTML = '<p>No recommendations at this time</p>';
+            } else {
+                let html = '<h3>Performance Recommendations</h3>';
+                recommendations.forEach(rec => {
+                    html += `
+                        <div style="margin: 10px 0; padding: 10px; border-left: 4px solid ${rec.priority === 'CRITICAL' ? '#dc3545' : rec.priority === 'HIGH' ? '#fd7e14' : '#ffc107'};">
+                            <strong>${rec.priority}:</strong> ${rec.message}
+                        </div>
+                    `;
+                });
+                display.innerHTML = html;
+            }
+        }
+
+        function updateBottlenecks() {
+            if (!performanceMonitor) return;
+            
+            const bottlenecks = performanceMonitor.getRecentBottlenecks();
+            const display = document.getElementById('bottlenecksDisplay');
+            
+            if (bottlenecks.length === 0) {
+                display.innerHTML = '<p>No bottlenecks detected</p>';
+            } else {
+                display.innerHTML = `
+                    <h3>Recent Bottlenecks</h3>
+                    <pre>${JSON.stringify(bottlenecks, null, 2)}</pre>
+                `;
+            }
+        }
+
+        function updateAllDisplays() {
+            updateSummary();
+            updateDiagnostics();
+            updateTrends();
+            updatePredictions();
+            updateRecommendations();
+            updateBottlenecks();
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            log('Enhanced Performance Monitor test page loaded', 'info');
+        });
+    </script>
+</body>
+</html>

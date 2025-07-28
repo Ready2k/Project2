@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test All Agent Dependencies</title>
+</head>
+<body>
+    <h1>Testing All Agent System Dependencies</h1>
+    <div id="results"></div>
+
+    <!-- Load all dependencies in correct order (same as index.html) -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/rate-limiter.js"></script>
+    <script src="agents/request-validator.js"></script>
+    <script src="agents/audit-logger.js"></script>
+    <script src="agents/security-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/prompt-composer.js"></script>
+    <script src="agents/lru-cache.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        function testAllDependencies() {
+            const resultsDiv = document.getElementById('results');
+            
+            // Test all required dependencies
+            const allDependencies = [
+                // Core agent classes
+                'BaseAgent', 'PaymentsAgent', 'FraudAgent', 'IDVAgent', 'BankingInfoAgent',
+                // Security system
+                'RateLimiter', 'RateLimitError', 'RequestValidator', 'ValidationError', 'AuditLogger',
+                'SecurityEnhancementLayer', 'SecurityManager',
+                // Agent routing system
+                'LRUCache', 'RoutingFallbackChain', 'ConversationContextManager', 
+                'AgentConfigManager', 'AgentRouter', 'FallbackHandler',
+                // Other systems
+                'GuardrailsManager', 'VoiceConfigManager', 'LLMManager', 'buildPromptMessages'
+            ];
+            
+            let availableCount = 0;
+            let missingCount = 0;
+            
+            allDependencies.forEach(dep => {
+                if (window[dep]) {
+                    resultsDiv.innerHTML += `<p style="color: green;">✅ ${dep}: Available</p>`;
+                    availableCount++;
+                } else {
+                    resultsDiv.innerHTML += `<p style="color: red;">❌ ${dep}: Missing</p>`;
+                    missingCount++;
+                }
+            });
+            
+            resultsDiv.innerHTML += `<hr><h3>Summary: ${availableCount}/${allDependencies.length} dependencies available</h3>`;
+            
+            // Test AgentRouter instantiation with SecurityManager
+            if (missingCount === 0) {
+                try {
+                    const mockApiClient = { generateChatCompletion: () => {} };
+                    const router = new AgentRouter({ agents: [], apiClient: mockApiClient });
+                    resultsDiv.innerHTML += `<p style="color: green;">✅ AgentRouter with SecurityManager: Successfully instantiated</p>`;
+                    
+                    // Test agent registration
+                    const mockAgent = new BaseAgent();
+                    router.registerAgent(mockAgent);
+                    resultsDiv.innerHTML += `<p style="color: green;">✅ Agent registration: Working</p>`;
+                    
+                } catch (error) {
+                    resultsDiv.innerHTML += `<p style="color: red;">❌ AgentRouter instantiation failed: ${error.message}</p>`;
+                }
+            } else {
+                resultsDiv.innerHTML += `<p style="color: orange;">⚠️ Skipping AgentRouter test due to missing dependencies</p>`;
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('load', testAllDependencies);
+    </script>
+</body>
+</html>

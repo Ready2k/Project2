@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ErrorRateMonitor Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        .critical { color: red; font-weight: bold; }
+        .stats-display { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .alert { background: #ffe6e6; border: 1px solid #ff9999; padding: 10px; margin: 5px 0; }
+        .category-stats { display: inline-block; margin: 10px; padding: 10px; border: 1px solid #ccc; }
+        button { margin: 5px; padding: 8px 16px; }
+        pre { background: #f0f0f0; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>ErrorRateMonitor Test Suite</h1>
+    
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="simulateNormalTraffic()">Simulate Normal Traffic</button>
+        <button onclick="simulateErrorSpike()">Simulate Error Spike</button>
+        <button onclick="simulateCriticalErrors()">Simulate Critical Errors</button>
+        <button onclick="resetMonitor()">Reset Monitor</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Current Error Rate Stats</h2>
+        <div id="statsDisplay" class="stats-display"></div>
+        <button onclick="updateStatsDisplay()">Refresh Stats</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Category Statistics</h2>
+        <div id="categoryDisplay"></div>
+        <button onclick="updateCategoryDisplay()">Refresh Categories</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Recent Alerts</h2>
+        <div id="alertsDisplay"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Error Report</h2>
+        <button onclick="generateErrorReport()">Generate Report</button>
+        <div id="reportDisplay"></div>
+    </div>
+
+    <div id="testResults"></div>
+
+    <script src="../agents/error-rate-monitor.js"></script>
+    <script>
+        let errorRateMonitor;
+        let testResults = [];
+
+        function log(message, type = 'info') {
+            console.log(message);
+            const className = type === 'pass' ? 'pass' : type === 'fail' ? 'fail' : 'info';
+            testResults.push(`<div class="${className}">${message}</div>`);
+            updateTestDisplay();
+        }
+
+        function updateTestDisplay() {
+            document.getElementById('testResults').innerHTML = testResults.join('');
+        }
+
+        function initializeErrorRateMonitor() {
+            if (!errorRateMonitor) {
+                errorRateMonitor = new ErrorRateMonitor({
+                    windowSize: 60000, // 1 minute for testing
+                    alertThreshold: 10, // 10% for testing
+                    criticalThreshold: 25,
+                    categories: {
+                        api: { weight: 1.0, threshold: 8 },
+                        network: { weight: 0.8, threshold: 15 },
+                        validation: { weight: 0.6, threshold: 20 },
+                        authentication: { weight: 1.2, threshold: 5 }
+                    }
+                });
+
+                // Listen for alerts
+                window.addEventListener('errorRateAlert', (event) => {
+                    displayAlert(event.detail);
+                });
+
+                log('ErrorRateMonitor initialized', 'pass');
+            }
+        }
+
+        function displayAlert(alert) {
+            const alertsDiv = document.getElementById('alertsDisplay');
+            const alertElement = document.createElement('div');
+            alertElement.className = `alert ${alert.severity.toLowerCase()}`;
+            alertElement.innerHTML = `
+                <strong>${alert.severity}</strong> - ${alert.message}<br>
+                <small>Category: ${alert.category} | Rate: ${alert.rate}% | Time: ${new Date(alert.timestamp).toLocaleTimeString()}</small>
+            `;
+            alertsDiv.insertBefore(alertElement, alertsDiv.firstChild);
+        }
+
+        function testBasicFunctionality() {
+            log('Testing basic functionality...', 'info');
+            
+            try {
+                initializeErrorRateMonitor();
+                
+                // Record some successful requests
+                for (let i = 0; i < 10; i++) {
+                    errorRateMonitor.recordRequest(true, 'api', { endpoint: '/test' });
+                }
+                
+                // Record some errors
+                for (let i = 0; i < 2; i++) {
+                    errorRateMonitor.recordRequest(false, 'api', { 
+                        endpoint: '/test', 
+                        message: 'Test error',
+                        statusCode: 500
+                    });
+                }
+                
+                const errorRate = errorRateMonitor.getCurrentErrorRate();
+                const expectedRate = (2 / 12) * 100; // 2 errors out of 12 requests
+                
+                if (Math.abs(errorRate - expectedRate) < 1) {
+                    log(`✓ Basic error rate calculation works: ${errorRate.toFixed(2)}%`, 'pass');
+                } else {
+                    log(`✗ Error rate calculation failed: expected ~${expectedRate.toFixed(2)}%, got ${errorRate.toFixed(2)}%`, 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Basic functionality test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testCategoryTracking() {
+            log('Testing category tracking...', 'info');
+            
+            try {
+                initializeErrorRateMonitor();
+                
+                // Record errors in different categories
+                errorRateMonitor.recordRequest(false, 'api', { message: 'API error' });
+                errorRateMonitor.recordRequest(false, 'network', { message: 'Network error' });
+                errorRateMonitor.recordRequest(false, 'validation', { message: 'Validation error' });
+                
+                const apiRate = errorRateMonitor.getCurrentErrorRate('api');
+                const networkRate = errorRateMonitor.getCurrentErrorRate('network');
+                
+                if (apiRate > 0 && networkRate > 0) {
+                    log('✓ Category-specific error tracking works', 'pass');
+                } else {
+                    log('✗ Category tracking failed', 'fail');
+                }
+                
+                const categoryStats = errorRateMonitor.getAllCategoryStats();
+                if (Object.keys(categoryStats).length > 0) {
+                    log('✓ Category statistics collection works', 'pass');
+                } else {
+                    log('✗ Category statistics failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Category tracking test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testTrendAnalysis() {
+            log('Testing trend analysis...', 'info');
+            
+            try {
+                initializeErrorRateMonitor();
+                
+                // Simulate increasing error trend
+                const baseTime = Date.now() - 300000; // 5 minutes ago
+                
+                // Period 1: Low errors
+                for (let i = 0; i < 20; i++) {
+                    errorRateMonitor.recordRequest(true, 'api');
+                }
+                errorRateMonitor.recordRequest(false, 'api');
+                
+                // Period 2: Medium errors  
+                for (let i = 0; i < 20; i++) {
+                    errorRateMonitor.recordRequest(true, 'api');
+                }
+                for (let i = 0; i < 3; i++) {
+                    errorRateMonitor.recordRequest(false, 'api');
+                }
+                
+                // Period 3: High errors
+                for (let i = 0; i < 20; i++) {
+                    errorRateMonitor.recordRequest(true, 'api');
+                }
+                for (let i = 0; i < 5; i++) {
+                    errorRateMonitor.recordRequest(false, 'api');
+                }
+                
+                const trend = errorRateMonitor.getErrorRateTrend('api');
+                
+                if (trend && trend.direction) {
+                    log(`✓ Trend analysis works: ${trend.direction} (slope: ${trend.slope.toFixed(2)})`, 'pass');
+                } else {
+                    log('✗ Trend analysis failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Trend analysis test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testAlertGeneration() {
+            log('Testing alert generation...', 'info');
+            
+            try {
+                initializeErrorRateMonitor();
+                
+                // Clear existing alerts
+                errorRateMonitor.alerts = [];
+                
+                // Generate high error rate to trigger alert
+                for (let i = 0; i < 10; i++) {
+                    errorRateMonitor.recordRequest(true, 'api');
+                }
+                for (let i = 0; i < 3; i++) {
+                    errorRateMonitor.recordRequest(false, 'api', { 
+                        message: 'Test alert error',
+                        statusCode: 500
+                    });
+                }
+                
+                const alerts = errorRateMonitor.getRecentAlerts();
+                if (alerts.length > 0) {
+                    log(`✓ Alert generation works: ${alerts.length} alerts generated`, 'pass');
+                } else {
+                    log('✗ Alert generation failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Alert generation test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testImpactAnalysis() {
+            log('Testing impact analysis...', 'info');
+            
+            try {
+                initializeErrorRateMonitor();
+                
+                // Record errors with user and endpoint data
+                errorRateMonitor.recordRequest(false, 'api', {
+                    userId: 'user1',
+                    endpoint: '/api/users',
+                    message: 'User API error'
+                });
+                
+                errorRateMonitor.recordRequest(false, 'api', {
+                    userId: 'user2', 
+                    endpoint: '/api/users',
+                    message: 'Another user API error'
+                });
+                
+                errorRateMonitor.recordRequest(false, 'api', {
+                    userId: 'user1',
+                    endpoint: '/api/orders',
+                    message: 'Order API error'
+                });
+                
+                const impact = errorRateMonitor.getImpactAnalysis('api');
+                
+                if (impact && impact.affectedUsers === 2 && impact.affectedEndpoints === 2) {
+                    log('✓ Impact analysis works: 2 users, 2 endpoints affected', 'pass');
+                } else {
+                    log(`✗ Impact analysis failed: ${JSON.stringify(impact)}`, 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Impact analysis test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testErrorReport() {
+            log('Testing error report generation...', 'info');
+            
+            try {
+                initializeErrorRateMonitor();
+                
+                // Generate some data
+                for (let i = 0; i < 15; i++) {
+                    errorRateMonitor.recordRequest(true, 'api');
+                }
+                for (let i = 0; i < 2; i++) {
+                    errorRateMonitor.recordRequest(false, 'api');
+                }
+                
+                const report = errorRateMonitor.getErrorReport();
+                
+                if (report && report.overallStats && report.categoryStats && report.summary) {
+                    log('✓ Error report generation works', 'pass');
+                } else {
+                    log('✗ Error report generation failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Error report test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function runAllTests() {
+            testResults = [];
+            log('Starting ErrorRateMonitor test suite...', 'info');
+            
+            testBasicFunctionality();
+            testCategoryTracking();
+            testTrendAnalysis();
+            testAlertGeneration();
+            testImpactAnalysis();
+            testErrorReport();
+            
+            log('Test suite completed!', 'info');
+        }
+
+        function simulateNormalTraffic() {
+            initializeErrorRateMonitor();
+            
+            // Simulate normal traffic with low error rate
+            for (let i = 0; i < 50; i++) {
+                errorRateMonitor.recordRequest(true, 'api', { endpoint: '/api/data' });
+            }
+            for (let i = 0; i < 2; i++) {
+                errorRateMonitor.recordRequest(false, 'api', { 
+                    endpoint: '/api/data',
+                    message: 'Normal error',
+                    statusCode: 400
+                });
+            }
+            
+            log('Simulated normal traffic (4% error rate)', 'info');
+            updateStatsDisplay();
+        }
+
+        function simulateErrorSpike() {
+            initializeErrorRateMonitor();
+            
+            // Simulate error spike
+            for (let i = 0; i < 20; i++) {
+                errorRateMonitor.recordRequest(true, 'api', { endpoint: '/api/service' });
+            }
+            for (let i = 0; i < 5; i++) {
+                errorRateMonitor.recordRequest(false, 'api', {
+                    endpoint: '/api/service',
+                    message: 'Service error spike',
+                    statusCode: 500
+                });
+            }
+            
+            log('Simulated error spike (20% error rate)', 'warning');
+            updateStatsDisplay();
+        }
+
+        function simulateCriticalErrors() {
+            initializeErrorRateMonitor();
+            
+            // Simulate critical authentication errors
+            for (let i = 0; i < 10; i++) {
+                errorRateMonitor.recordRequest(true, 'authentication');
+            }
+            for (let i = 0; i < 4; i++) {
+                errorRateMonitor.recordRequest(false, 'authentication', {
+                    message: 'Authentication failure',
+                    statusCode: 401,
+                    userId: `user${i}`
+                });
+            }
+            
+            log('Simulated critical authentication errors (28% error rate)', 'critical');
+            updateStatsDisplay();
+        }
+
+        function resetMonitor() {
+            if (errorRateMonitor) {
+                errorRateMonitor.reset();
+                log('Reset error rate monitor', 'info');
+                updateStatsDisplay();
+                updateCategoryDisplay();
+                document.getElementById('alertsDisplay').innerHTML = '';
+                document.getElementById('reportDisplay').innerHTML = '';
+            }
+        }
+
+        function updateStatsDisplay() {
+            if (!errorRateMonitor) return;
+            
+            const stats = errorRateMonitor.getErrorRateStats();
+            const display = document.getElementById('statsDisplay');
+            
+            display.innerHTML = `
+                <h3>Overall Error Rate Statistics</h3>
+                <div><strong>Current Rate:</strong> ${stats.currentRate}%</div>
+                <div><strong>Trend:</strong> ${stats.trend.direction} (slope: ${stats.trend.slope.toFixed(2)})</div>
+                <div><strong>Threshold:</strong> ${stats.threshold}%</div>
+                <div><strong>Recent Errors:</strong> ${stats.recentErrors.length}</div>
+            `;
+        }
+
+        function updateCategoryDisplay() {
+            if (!errorRateMonitor) return;
+            
+            const categoryStats = errorRateMonitor.getAllCategoryStats();
+            const display = document.getElementById('categoryDisplay');
+            
+            let html = '';
+            Object.entries(categoryStats).forEach(([category, stats]) => {
+                const statusClass = stats.rate > (stats.config?.threshold || 10) ? 'warning' : 'pass';
+                html += `
+                    <div class="category-stats ${statusClass}">
+                        <h4>${category}</h4>
+                        <div>Rate: ${stats.rate.toFixed(2)}%</div>
+                        <div>Count: ${stats.count}</div>
+                        <div>Trend: ${stats.trend}</div>
+                        <div>Threshold: ${stats.config?.threshold || 'N/A'}%</div>
+                    </div>
+                `;
+            });
+            
+            display.innerHTML = html;
+        }
+
+        function generateErrorReport() {
+            if (!errorRateMonitor) {
+                initializeErrorRateMonitor();
+            }
+            
+            const report = errorRateMonitor.getErrorReport();
+            const display = document.getElementById('reportDisplay');
+            
+            display.innerHTML = `
+                <h3>Comprehensive Error Report</h3>
+                <pre>${JSON.stringify(report, null, 2)}</pre>
+            `;
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            log('ErrorRateMonitor test page loaded', 'info');
+        });
+    </script>
+</body>
+</html>

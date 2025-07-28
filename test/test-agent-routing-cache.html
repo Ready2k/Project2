@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Routing Cache Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Agent Routing Cache Test</h1>
+    <div id="results"></div>
+
+    <!-- Load dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/lru-cache.js"></script>
+    <script src="../agents/base-agent.js"></script>
+    <script src="../agents/agent-config-manager.js"></script>
+    <script src="../agents/guardrails-manager.js"></script>
+    <script src="../agents/security-manager.js"></script>
+    <script src="../agents/agent-router.js"></script>
+
+    <script>
+        class TestResults {
+            constructor() {
+                this.results = [];
+                this.container = document.getElementById('results');
+            }
+
+            log(message, type = 'info') {
+                console.log(`[${type.toUpperCase()}] ${message}`);
+                this.results.push({ message, type, timestamp: new Date().toISOString() });
+                this.render();
+            }
+
+            success(message) { this.log(message, 'success'); }
+            error(message) { this.log(message, 'error'); }
+            info(message) { this.log(message, 'info'); }
+
+            render() {
+                this.container.innerHTML = this.results.map(result => 
+                    `<div class="${result.type}">[${result.timestamp}] ${result.message}</div>`
+                ).join('');
+            }
+        }
+
+        // Mock API client for testing
+        class MockApiClient {
+            async generateChatCompletion(messages, options = {}) {
+                // Simulate API delay
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                return {
+                    success: true,
+                    content: 'PaymentsAgent', // Mock AI response
+                    choices: [{ message: { content: 'PaymentsAgent' } }],
+                    usage: { total_tokens: 50 }
+                };
+            }
+        }
+
+        // Mock agent for testing
+        class MockAgent extends BaseAgent {
+            constructor(name, canHandleResult = false) {
+                super(name, `Mock ${name} agent`);
+                this.canHandleResult = canHandleResult;
+            }
+
+            canHandle(inputText) {
+                return this.canHandleResult;
+            }
+
+            async handle(inputText, context) {
+                return {
+                    success: true,
+                    response: `${this.name} handled: ${inputText}`,
+                    agentName: this.name,
+                    processingTime: 100,
+                    tokensUsed: 10
+                };
+            }
+        }
+
+        async function runTests() {
+            const testResults = new TestResults();
+            
+            try {
+                testResults.info('Starting Agent Routing Cache Tests...');
+
+                // Initialize debug manager
+                if (!window.debugManager) {
+                    window.debugManager = new DebugManager();
+                }
+
+                // Test 1: LRU Cache Basic Functionality
+                testResults.info('Test 1: LRU Cache Basic Functionality');
+                const cache = new LRUCache(3);
+                
+                cache.set('key1', 'value1');
+                cache.set('key2', 'value2');
+                cache.set('key3', 'value3');
+                
+                if (cache.get('key1') === 'value1') {
+                    testResults.success('✓ Cache set/get works correctly');
+                } else {
+                    testResults.error('✗ Cache set/get failed');
+                }
+
+                // Test LRU eviction
+                cache.set('key4', 'value4'); // Should evict key2 (least recently used)
+                
+                if (!cache.has('key2') && cache.has('key1') && cache.has('key3') && cache.has('key4')) {
+                    testResults.success('✓ LRU eviction works correctly');
+                } else {
+                    testResults.error('✗ LRU eviction failed');
+                }
+
+                // Test 2: Agent Router Cache Integration
+                testResults.info('Test 2: Agent Router Cache Integration');
+                
+                const mockApiClient = new MockApiClient();
+                const router = new AgentRouter({ 
+                    agents: [
+                        new MockAgent('PaymentsAgent', true),
+                        new MockAgent('FraudAgent', false)
+                    ], 
+                    apiClient: mockApiClient 
+                });
+
+                // Test cache key generation
+                const cacheKey1 = router.generateCacheKey('send money to alice', { lastAgentUsed: 'PaymentsAgent' });
+                const cacheKey2 = router.generateCacheKey('send money to alice', { lastAgentUsed: 'PaymentsAgent' });
+                const cacheKey3 = router.generateCacheKey('send money to bob', { lastAgentUsed: 'PaymentsAgent' });
+
+                if (cacheKey1 === cacheKey2 && cacheKey1 !== cacheKey3) {
+                    testResults.success('✓ Cache key generation is consistent and unique');
+                } else {
+                    testResults.error('✗ Cache key generation failed');
+                }
+
+                // Test 3: Routing with Cache
+                testResults.info('Test 3: Routing with Cache');
+                
+                const context = { apiClient: mockApiClient, lastAgentUsed: 'PaymentsAgent' };
+                
+                // First routing call - should miss cache
+                const startTime1 = Date.now();
+                const result1 = await router.route('send money to alice', context);
+                const time1 = Date.now() - startTime1;
+                
+                if (result1.success && result1.agentName === 'PaymentsAgent') {
+                    testResults.success('✓ First routing call successful');
+                } else {
+                    testResults.error('✗ First routing call failed');
+                }
+
+                // Second routing call - should hit cache
+                const startTime2 = Date.now();
+                const result2 = await router.route('send money to alice', context);
+                const time2 = Date.now() - startTime2;
+                
+                if (result2.success && result2.agentName === 'PaymentsAgent') {
+                    testResults.success('✓ Second routing call successful');
+                } else {
+                    testResults.error('✗ Second routing call failed');
+                }
+
+                // Check cache statistics
+                const cacheStats = router.getCacheStats();
+                testResults.info(`Cache Stats: ${JSON.stringify(cacheStats, null, 2)}`);
+                
+                if (cacheStats.hits > 0) {
+                    testResults.success('✓ Cache hits recorded correctly');
+                } else {
+                    testResults.error('✗ No cache hits recorded');
+                }
+
+                // Test 4: Cache Invalidation
+                testResults.info('Test 4: Cache Invalidation');
+                
+                const initialCacheSize = router.routingCache.size();
+                router.invalidateRoutingCache('Test invalidation');
+                const finalCacheSize = router.routingCache.size();
+                
+                if (initialCacheSize > 0 && finalCacheSize === 0) {
+                    testResults.success('✓ Cache invalidation works correctly');
+                } else {
+                    testResults.error('✗ Cache invalidation failed');
+                }
+
+                // Test 5: Configuration Change Cache Invalidation
+                testResults.info('Test 5: Configuration Change Cache Invalidation');
+                
+                // Add some cache entries
+                await router.route('check balance', context);
+                const cacheSize = router.routingCache.size();
+                
+                // Disable an agent (should invalidate cache)
+                router.disableAgent('PaymentsAgent');
+                const newCacheSize = router.routingCache.size();
+                
+                if (cacheSize > 0 && newCacheSize === 0) {
+                    testResults.success('✓ Configuration change invalidates cache');
+                } else {
+                    testResults.error('✗ Configuration change cache invalidation failed');
+                }
+
+                testResults.success('All Agent Routing Cache tests completed!');
+
+            } catch (error) {
+                testResults.error(`Test execution failed: ${error.message}`);
+                console.error('Test error:', error);
+            }
+        }
+
+        // Run tests when page loads
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>

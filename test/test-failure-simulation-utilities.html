@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Failure Simulation Utilities</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { margin: 5px; padding: 10px; }
+        #results { margin-top: 20px; }
+        .result-item { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+    </style>
+</head>
+<body>
+    <h1>Failure Simulation Utilities Test</h1>
+    
+    <div class="test-section">
+        <h2>API Failure Simulation</h2>
+        <button onclick="testApiFailures()">Test API Failures</button>
+        <button onclick="testNetworkTimeout()">Test Network Timeout</button>
+        <button onclick="testRateLimitError()">Test Rate Limit Error</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>WebSocket Failure Simulation</h2>
+        <button onclick="testWebSocketFailures()">Test WebSocket Failures</button>
+        <button onclick="testConnectionDrops()">Test Connection Drops</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Storage Failure Simulation</h2>
+        <button onclick="testStorageFailures()">Test Storage Failures</button>
+        <button onclick="testDataCorruption()">Test Data Corruption</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Resource Exhaustion Simulation</h2>
+        <button onclick="testMemoryPressure()">Test Memory Pressure</button>
+        <button onclick="testCpuThrottling()">Test CPU Throttling</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Comprehensive Scenarios</h2>
+        <button onclick="testFailureScenarios()">Test All Failure Scenarios</button>
+        <button onclick="testResilienceFramework()">Test Resilience Framework</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Reset</h2>
+        <button onclick="resetAllMocks()">Reset All Mocks</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script src="failure-simulation-utilities.js"></script>
+    <script>
+        let failureSimulator;
+        let networkSimulator;
+        let resourceSimulator;
+        
+        function init() {
+            failureSimulator = new FailureSimulator();
+            networkSimulator = new NetworkFailureSimulator();
+            resourceSimulator = new ResourceExhaustionSimulator();
+            log('Failure simulation utilities initialized', 'info');
+        }
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result-item ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        async function testApiFailures() {
+            log('Testing API failure simulation...', 'info');
+            
+            try {
+                failureSimulator.mockApiFailures({
+                    openaiFailureRate: 1.0,
+                    serverError: true
+                });
+                
+                // Test fetch call that should fail
+                try {
+                    await fetch('https://api.openai.com/v1/chat/completions');
+                    log('ERROR: API call should have failed', 'error');
+                } catch (error) {
+                    log(`✓ API failure simulated successfully: ${error.message}`, 'success');
+                }
+                
+            } catch (error) {
+                log(`Error in API failure test: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testNetworkTimeout() {
+            log('Testing network timeout simulation...', 'info');
+            
+            try {
+                failureSimulator.mockApiFailures({
+                    networkTimeout: true
+                });
+                
+                const startTime = Date.now();
+                try {
+                    await Promise.race([
+                        fetch('https://api.openai.com/v1/chat/completions'),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Test timeout')), 2000)
+                        )
+                    ]);
+                } catch (error) {
+                    const duration = Date.now() - startTime;
+                    log(`✓ Network timeout simulated: ${error.message} (${duration}ms)`, 'success');
+                }
+                
+            } catch (error) {
+                log(`Error in network timeout test: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testRateLimitError() {
+            log('Testing rate limit error simulation...', 'info');
+            
+            try {
+                failureSimulator.mockApiFailures({
+                    openaiFailureRate: 1.0,
+                    rateLimitError: true
+                });
+                
+                try {
+                    await fetch('https://api.openai.com/v1/chat/completions');
+                } catch (error) {
+                    if (error.message.includes('Rate limit')) {
+                        log(`✓ Rate limit error simulated: ${error.message}`, 'success');
+                    } else {
+                        log(`Unexpected error: ${error.message}`, 'error');
+                    }
+                }
+                
+            } catch (error) {
+                log(`Error in rate limit test: ${error.message}`, 'error');
+            }
+        }
+        
+        function testWebSocketFailures() {
+            log('Testing WebSocket failure simulation...', 'info');
+            
+            try {
+                failureSimulator.mockWebSocketFailures({
+                    connectionFailureRate: 1.0
+                });
+                
+                const ws = new WebSocket('wss://api.openai.com/v1/realtime');
+                
+                ws.addEventListener('error', () => {
+                    log('✓ WebSocket connection failure simulated', 'success');
+                });
+                
+                ws.addEventListener('open', () => {
+                    log('ERROR: WebSocket should have failed to connect', 'error');
+                });
+                
+            } catch (error) {
+                log(`Error in WebSocket failure test: ${error.message}`, 'error');
+            }
+        }
+        
+        function testConnectionDrops() {
+            log('Testing connection drop simulation...', 'info');
+            
+            try {
+                failureSimulator.mockWebSocketFailures({
+                    connectionFailureRate: 0,
+                    unexpectedClose: true
+                });
+                
+                const ws = new WebSocket('wss://api.openai.com/v1/realtime');
+                
+                ws.addEventListener('open', () => {
+                    log('WebSocket connected, waiting for unexpected close...', 'info');
+                });
+                
+                ws.addEventListener('close', (event) => {
+                    if (event.code === 1006) {
+                        log('✓ Unexpected connection drop simulated', 'success');
+                    }
+                });
+                
+            } catch (error) {
+                log(`Error in connection drop test: ${error.message}`, 'error');
+            }
+        }
+        
+        function testStorageFailures() {
+            log('Testing storage failure simulation...', 'info');
+            
+            try {
+                failureSimulator.mockStorageFailures({
+                    quotaExceeded: true
+                });
+                
+                try {
+                    localStorage.setItem('test_key', 'test_value');
+                    log('ERROR: Storage operation should have failed', 'error');
+                } catch (error) {
+                    log(`✓ Storage failure simulated: ${error.message}`, 'success');
+                }
+                
+            } catch (error) {
+                log(`Error in storage failure test: ${error.message}`, 'error');
+            }
+        }
+        
+        function testDataCorruption() {
+            log('Testing data corruption simulation...', 'info');
+            
+            try {
+                // First set some valid data
+                localStorage.setItem('token_usage', '{"valid": "data"}');
+                
+                failureSimulator.mockStorageFailures({
+                    corruptData: true
+                });
+                
+                try {
+                    const data = localStorage.getItem('token_usage');
+                    JSON.parse(data); // This should fail
+                    log('ERROR: Corrupted data should have caused parse error', 'error');
+                } catch (error) {
+                    log(`✓ Data corruption simulated: ${error.message}`, 'success');
+                }
+                
+            } catch (error) {
+                log(`Error in data corruption test: ${error.message}`, 'error');
+            }
+        }
+        
+        function testMemoryPressure() {
+            log('Testing memory pressure simulation...', 'info');
+            
+            try {
+                failureSimulator.simulateResourceExhaustion({
+                    memoryPressure: true
+                });
+                
+                log('✓ Memory pressure simulation started', 'success');
+                
+                // Stop after 3 seconds
+                setTimeout(() => {
+                    failureSimulator.reset();
+                    log('Memory pressure simulation stopped', 'info');
+                }, 3000);
+                
+            } catch (error) {
+                log(`Error in memory pressure test: ${error.message}`, 'error');
+            }
+        }
+        
+        function testCpuThrottling() {
+            log('Testing CPU throttling simulation...', 'info');
+            
+            try {
+                failureSimulator.simulateResourceExhaustion({
+                    cpuThrottling: true
+                });
+                
+                const startTime = Date.now();
+                setTimeout(() => {
+                    const actualDelay = Date.now() - startTime;
+                    if (actualDelay > 150) { // Should be ~200ms due to throttling
+                        log(`✓ CPU throttling simulated (delay: ${actualDelay}ms)`, 'success');
+                    } else {
+                        log(`CPU throttling may not be working (delay: ${actualDelay}ms)`, 'error');
+                    }
+                }, 100);
+                
+            } catch (error) {
+                log(`Error in CPU throttling test: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testFailureScenarios() {
+            log('Testing predefined failure scenarios...', 'info');
+            
+            const scenarios = [
+                'api_outage',
+                'network_instability', 
+                'storage_corruption',
+                'resource_exhaustion'
+            ];
+            
+            for (const scenario of scenarios) {
+                try {
+                    failureSimulator.createFailureScenario(scenario);
+                    log(`✓ Created failure scenario: ${scenario}`, 'success');
+                    
+                    // Reset for next scenario
+                    failureSimulator.reset();
+                    
+                } catch (error) {
+                    log(`Error creating scenario ${scenario}: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        async function testResilienceFramework() {
+            log('Testing resilience testing framework...', 'info');
+            
+            try {
+                const testFunction = async () => {
+                    // Simulate a system operation
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    return { status: 'success', timestamp: Date.now() };
+                };
+                
+                const scenarios = ['api_outage', 'storage_corruption'];
+                const results = await failureSimulator.testResilience(testFunction, scenarios);
+                
+                log(`✓ Resilience test completed. Results:`, 'success');
+                results.forEach(result => {
+                    const status = result.success ? 'PASSED' : 'FAILED';
+                    const message = result.error || 'Success';
+                    log(`  ${result.scenario}: ${status} - ${message}`, result.success ? 'success' : 'error');
+                });
+                
+            } catch (error) {
+                log(`Error in resilience framework test: ${error.message}`, 'error');
+            }
+        }
+        
+        function resetAllMocks() {
+            try {
+                failureSimulator.reset();
+                networkSimulator.stopAll();
+                resourceSimulator.cleanup();
+                log('✓ All mocks reset successfully', 'success');
+            } catch (error) {
+                log(`Error resetting mocks: ${error.message}`, 'error');
+            }
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Case Handler Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Edge Case Handler Test</h1>
+    <div id="test-results"></div>
+
+    <script src="../agents/edge-case-handler.js"></script>
+    <script>
+        class EdgeCaseHandlerTest {
+            constructor() {
+                this.results = [];
+                this.handler = new EdgeCaseHandler({
+                    debug: {
+                        log: (...args) => console.log('[LOG]', ...args),
+                        warn: (...args) => console.warn('[WARN]', ...args),
+                        error: (...args) => console.error('[ERROR]', ...args),
+                        info: (...args) => console.info('[INFO]', ...args)
+                    }
+                });
+            }
+
+            test(name, testFn) {
+                try {
+                    const result = testFn();
+                    if (result) {
+                        this.results.push({ name, status: 'PASS', message: 'Test passed' });
+                    } else {
+                        this.results.push({ name, status: 'FAIL', message: 'Test failed' });
+                    }
+                } catch (error) {
+                    this.results.push({ name, status: 'FAIL', message: error.message });
+                }
+            }
+
+            async testAsync(name, testFn) {
+                try {
+                    const result = await testFn();
+                    if (result) {
+                        this.results.push({ name, status: 'PASS', message: 'Test passed' });
+                    } else {
+                        this.results.push({ name, status: 'FAIL', message: 'Test failed' });
+                    }
+                } catch (error) {
+                    this.results.push({ name, status: 'FAIL', message: error.message });
+                }
+            }
+
+            runTests() {
+                console.log('Starting Edge Case Handler Tests...');
+
+                // Test input validation
+                this.test('String validation - valid input', () => {
+                    const result = this.handler.validateInput('hello', 'string');
+                    return result.valid === true;
+                });
+
+                this.test('String validation - null input', () => {
+                    const result = this.handler.validateInput(null, 'string');
+                    return result.valid === false && result.fallback === null;
+                });
+
+                this.test('String validation - empty string', () => {
+                    const result = this.handler.validateInput('', 'string');
+                    return result.valid === false && result.fallback === '';
+                });
+
+                this.test('String validation - too long string', () => {
+                    const longString = 'a'.repeat(15000);
+                    const result = this.handler.validateInput(longString, 'string');
+                    return result.valid === false;
+                });
+
+                this.test('Number validation - valid number', () => {
+                    const result = this.handler.validateInput(42, 'number');
+                    return result.valid === true;
+                });
+
+                this.test('Number validation - NaN', () => {
+                    const result = this.handler.validateInput(NaN, 'number');
+                    return result.valid === false && result.fallback === 0;
+                });
+
+                this.test('Number validation - Infinity', () => {
+                    const result = this.handler.validateInput(Infinity, 'number');
+                    return result.valid === false && result.fallback === 0;
+                });
+
+                this.test('Array validation - valid array', () => {
+                    const result = this.handler.validateInput([1, 2, 3], 'array');
+                    return result.valid === true;
+                });
+
+                this.test('Array validation - not array', () => {
+                    const result = this.handler.validateInput('not array', 'array');
+                    return result.valid === false && Array.isArray(result.fallback);
+                });
+
+                this.test('Object validation - valid object', () => {
+                    const result = this.handler.validateInput({ key: 'value' }, 'object');
+                    return result.valid === true;
+                });
+
+                this.test('Object validation - circular reference', () => {
+                    const obj = { key: 'value' };
+                    obj.circular = obj;
+                    const result = this.handler.validateInput(obj, 'object');
+                    return result.valid === false;
+                });
+
+                // Test error handling
+                this.test('Error handling - TypeError', () => {
+                    const error = new TypeError('Test type error');
+                    const result = this.handler.handleError(error);
+                    return result === null; // Default fallback
+                });
+
+                this.test('Error handling - RangeError', () => {
+                    const error = new RangeError('Test range error');
+                    const result = this.handler.handleError(error);
+                    return result === null; // Default fallback
+                });
+
+                // Test safe execution
+                this.testAsync('Safe execute - successful operation', async () => {
+                    const result = await this.handler.safeExecute(() => 'success');
+                    return result === 'success';
+                });
+
+                this.testAsync('Safe execute - failing operation', async () => {
+                    const result = await this.handler.safeExecute(
+                        () => { throw new Error('Test error'); },
+                        'fallback'
+                    );
+                    return result === 'fallback';
+                });
+
+                // Test input sanitization
+                this.test('Sanitize string input', () => {
+                    const result = this.handler.sanitizeInput('  hello world  ', 'string');
+                    return result === 'hello world';
+                });
+
+                this.test('Sanitize number input', () => {
+                    const result = this.handler.sanitizeInput('42', 'number');
+                    return result === 42;
+                });
+
+                this.test('Sanitize invalid number input', () => {
+                    const result = this.handler.sanitizeInput('not a number', 'number');
+                    return result === 0;
+                });
+
+                this.test('Sanitize array input', () => {
+                    const result = this.handler.sanitizeInput('not array', 'array');
+                    return Array.isArray(result) && result.length === 0;
+                });
+
+                this.test('Sanitize object input', () => {
+                    const result = this.handler.sanitizeInput('not object', 'object');
+                    return typeof result === 'object' && !Array.isArray(result);
+                });
+
+                // Test multiple input validation
+                this.test('Validate multiple inputs - all valid', () => {
+                    const inputs = {
+                        name: 'John',
+                        age: 30,
+                        tags: ['user', 'active']
+                    };
+                    const schema = {
+                        name: { type: 'string' },
+                        age: { type: 'number' },
+                        tags: { type: 'array' }
+                    };
+                    const result = this.handler.validateInputs(inputs, schema);
+                    return result.valid === true && result.errors.length === 0;
+                });
+
+                this.test('Validate multiple inputs - some invalid', () => {
+                    const inputs = {
+                        name: null,
+                        age: 'not a number',
+                        tags: 'not array'
+                    };
+                    const schema = {
+                        name: { type: 'string' },
+                        age: { type: 'number' },
+                        tags: { type: 'array' }
+                    };
+                    const result = this.handler.validateInputs(inputs, schema);
+                    return result.valid === false && result.errors.length === 3;
+                });
+
+                // Test custom validation rules
+                this.test('Custom validation rule', () => {
+                    this.handler.addValidationRule('email', (value) => {
+                        if (typeof value !== 'string') return { valid: false, error: 'Email must be string' };
+                        if (!value.includes('@')) return { valid: false, error: 'Invalid email format' };
+                        return { valid: true };
+                    });
+
+                    const validResult = this.handler.validateInput('test@example.com', 'email');
+                    const invalidResult = this.handler.validateInput('invalid-email', 'email');
+                    
+                    return validResult.valid === true && invalidResult.valid === false;
+                });
+
+                // Test custom fallback behaviors
+                this.test('Custom fallback behavior', () => {
+                    this.handler.addFallbackBehavior('custom_default', () => 'custom fallback');
+                    const fallback = this.handler.getFallback('custom_default');
+                    return fallback === 'custom fallback';
+                });
+
+                setTimeout(() => this.displayResults(), 100);
+            }
+
+            displayResults() {
+                const container = document.getElementById('test-results');
+                let html = '<h2>Test Results</h2>';
+                
+                const passed = this.results.filter(r => r.status === 'PASS').length;
+                const failed = this.results.filter(r => r.status === 'FAIL').length;
+                
+                html += `<div class="test-section">
+                    <h3>Summary</h3>
+                    <p class="pass">Passed: ${passed}</p>
+                    <p class="fail">Failed: ${failed}</p>
+                    <p class="info">Total: ${this.results.length}</p>
+                </div>`;
+
+                this.results.forEach(result => {
+                    const className = result.status === 'PASS' ? 'pass' : 'fail';
+                    html += `<div class="test-section">
+                        <h4 class="${className}">${result.status}: ${result.name}</h4>
+                        <p>${result.message}</p>
+                    </div>`;
+                });
+
+                container.innerHTML = html;
+                console.log('Edge Case Handler Tests completed:', { passed, failed, total: this.results.length });
+            }
+        }
+
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const tester = new EdgeCaseHandlerTest();
+            tester.runTests();
+        });
+    </script>
+</body>
+</html>

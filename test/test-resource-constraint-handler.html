@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Constraint Handler Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        .critical { color: red; font-weight: bold; }
+        .resource-monitor { background: #f9f9f9; padding: 10px; margin: 10px 0; border-left: 4px solid #007cba; }
+        .degradation-level { padding: 5px 10px; border-radius: 3px; margin: 5px 0; }
+        .degradation-none { background: #e8f5e8; }
+        .degradation-low { background: #fff3cd; }
+        .degradation-medium { background: #ffeaa7; }
+        .degradation-high { background: #fab1a0; }
+        .degradation-critical { background: #ff7675; color: white; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Resource Constraint Handler Test</h1>
+    <div id="test-results"></div>
+    <div id="resource-monitor"></div>
+
+    <script src="../agents/resource-constraint-handler.js"></script>
+    <script>
+        class ResourceConstraintHandlerTest {
+            constructor() {
+                this.results = [];
+                this.handler = new ResourceConstraintHandler({
+                    debug: {
+                        log: (...args) => console.log('[LOG]', ...args),
+                        warn: (...args) => console.warn('[WARN]', ...args),
+                        error: (...args) => console.error('[ERROR]', ...args),
+                        info: (...args) => console.info('[INFO]', ...args)
+                    },
+                    memoryWarningThreshold: 10 * 1024 * 1024, // 10MB for testing
+                    memoryCriticalThreshold: 20 * 1024 * 1024, // 20MB for testing
+                    memoryMaxThreshold: 50 * 1024 * 1024 // 50MB for testing
+                });
+                
+                this.setupResourceMonitor();
+            }
+
+            test(name, testFn) {
+                try {
+                    const result = testFn();
+                    if (result) {
+                        this.results.push({ name, status: 'PASS', message: 'Test passed' });
+                    } else {
+                        this.results.push({ name, status: 'FAIL', message: 'Test failed' });
+                    }
+                } catch (error) {
+                    this.results.push({ name, status: 'FAIL', message: error.message });
+                }
+            }
+
+            async testAsync(name, testFn) {
+                try {
+                    const result = await testFn();
+                    if (result) {
+                        this.results.push({ name, status: 'PASS', message: 'Test passed' });
+                    } else {
+                        this.results.push({ name, status: 'FAIL', message: 'Test failed' });
+                    }
+                } catch (error) {
+                    this.results.push({ name, status: 'FAIL', message: error.message });
+                }
+            }
+
+            setupResourceMonitor() {
+                // Update resource monitor display every 2 seconds
+                setInterval(() => {
+                    this.updateResourceMonitor();
+                }, 2000);
+            }
+
+            updateResourceMonitor() {
+                const usage = this.handler.getResourceUsage();
+                const monitor = document.getElementById('resource-monitor');
+                
+                const memoryMB = Math.round(usage.memory / 1024 / 1024 * 100) / 100;
+                const storageMB = Math.round(usage.storage / 1024 / 1024 * 100) / 100;
+                
+                monitor.innerHTML = `
+                    <h3>Resource Monitor</h3>
+                    <div class="resource-monitor">
+                        <p><strong>Memory Usage:</strong> ${memoryMB} MB</p>
+                        <p><strong>Storage Usage:</strong> ${storageMB} MB</p>
+                        <p><strong>Connections:</strong> ${usage.connections}</p>
+                        <div class="degradation-level degradation-${usage.degradationLevel}">
+                            <strong>Degradation Level:</strong> ${usage.degradationLevel}
+                        </div>
+                    </div>
+                `;
+            }
+
+            runTests() {
+                console.log('Starting Resource Constraint Handler Tests...');
+
+                // Test basic functionality
+                this.test('Handler initialization', () => {
+                    return this.handler && typeof this.handler.checkResourceUsage === 'function';
+                });
+
+                this.test('Get resource usage', () => {
+                    const usage = this.handler.getResourceUsage();
+                    return usage && typeof usage.memory === 'number' && 
+                           typeof usage.storage === 'number' && 
+                           typeof usage.connections === 'number';
+                });
+
+                this.test('Set thresholds', () => {
+                    const newThresholds = {
+                        memory: { warning: 5 * 1024 * 1024 }
+                    };
+                    this.handler.setThresholds(newThresholds);
+                    const usage = this.handler.getResourceUsage();
+                    return usage.thresholds.memory.warning === 5 * 1024 * 1024;
+                });
+
+                // Test cleanup tasks
+                this.test('Add cleanup task', () => {
+                    let taskExecuted = false;
+                    this.handler.addCleanupTask('test_cleanup', () => {
+                        taskExecuted = true;
+                    });
+                    this.handler.performCleanupTask('test_cleanup');
+                    return taskExecuted;
+                });
+
+                this.test('Perform immediate cleanup', () => {
+                    let cleanupCount = 0;
+                    this.handler.addCleanupTask('test_cleanup_1', () => cleanupCount++);
+                    this.handler.addCleanupTask('test_cleanup_2', () => cleanupCount++);
+                    this.handler.performImmediateCleanup();
+                    return cleanupCount >= 2; // Should execute existing cleanup tasks
+                });
+
+                // Test alert system
+                this.test('Add alert callback', () => {
+                    let alertReceived = false;
+                    this.handler.addAlertCallback('test_alert', (data) => {
+                        alertReceived = true;
+                    });
+                    this.handler.triggerAlert('test_alert');
+                    return alertReceived;
+                });
+
+                this.test('Alert callback with data', () => {
+                    let alertData = null;
+                    this.handler.addAlertCallback('test_alert_data', (data) => {
+                        alertData = data;
+                    });
+                    this.handler.triggerAlert('test_alert_data');
+                    return alertData && alertData.type === 'test_alert_data' && alertData.timestamp;
+                });
+
+                // Test memory estimation
+                this.test('Estimate memory usage', () => {
+                    const estimate = this.handler.estimateMemoryUsage();
+                    return typeof estimate === 'number' && estimate >= 0;
+                });
+
+                this.test('Estimate localStorage usage', () => {
+                    // Add some test data to localStorage
+                    localStorage.setItem('test_data', 'test_value');
+                    const estimate = this.handler.estimateLocalStorageUsage();
+                    localStorage.removeItem('test_data');
+                    return typeof estimate === 'number' && estimate >= 0;
+                });
+
+                // Test degradation levels
+                this.test('Update degradation level', () => {
+                    const initialLevel = this.handler.degradationLevel;
+                    this.handler.updateDegradationLevel();
+                    // Should remain the same or change based on current usage
+                    return typeof this.handler.degradationLevel === 'string';
+                });
+
+                this.test('Apply low degradation', () => {
+                    this.handler.applyLowDegradation();
+                    // Should not throw errors
+                    return true;
+                });
+
+                this.test('Apply medium degradation', () => {
+                    this.handler.applyMediumDegradation();
+                    // Should not throw errors
+                    return true;
+                });
+
+                this.test('Apply high degradation', () => {
+                    this.handler.applyHighDegradation();
+                    // Should not throw errors
+                    return true;
+                });
+
+                this.test('Apply critical degradation', () => {
+                    this.handler.applyCriticalDegradation();
+                    // Should not throw errors
+                    return true;
+                });
+
+                this.test('Remove degradation', () => {
+                    this.handler.removeDegradation();
+                    // Should not throw errors
+                    return true;
+                });
+
+                // Test resource monitoring
+                this.testAsync('Check resource usage', async () => {
+                    await this.handler.checkResourceUsage();
+                    // Should complete without errors
+                    return true;
+                });
+
+                this.testAsync('Check memory usage', async () => {
+                    await this.handler.checkMemoryUsage();
+                    const usage = this.handler.getResourceUsage();
+                    return typeof usage.memory === 'number';
+                });
+
+                this.testAsync('Check storage usage', async () => {
+                    await this.handler.checkStorageUsage();
+                    const usage = this.handler.getResourceUsage();
+                    return typeof usage.storage === 'number';
+                });
+
+                this.test('Check connection usage', () => {
+                    this.handler.checkConnectionUsage();
+                    const usage = this.handler.getResourceUsage();
+                    return typeof usage.connections === 'number';
+                });
+
+                // Test cleanup methods
+                this.test('Clear large objects', () => {
+                    this.handler.clearLargeObjects();
+                    // Should not throw errors
+                    return true;
+                });
+
+                this.test('Close idle connections', () => {
+                    this.handler.closeIdleConnections();
+                    // Should not throw errors
+                    return true;
+                });
+
+                this.test('Cleanup localStorage', () => {
+                    // Add some temporary data
+                    localStorage.setItem('temp_test', 'value');
+                    localStorage.setItem('cache_test', 'value');
+                    
+                    this.handler.cleanupLocalStorage();
+                    
+                    // Check if temporary items were removed
+                    return !localStorage.getItem('temp_test') && !localStorage.getItem('cache_test');
+                });
+
+                // Test emergency procedures
+                this.test('Perform emergency cleanup', () => {
+                    this.handler.performEmergencyCleanup();
+                    // Should not throw errors
+                    return true;
+                });
+
+                // Test threshold handling
+                this.test('Handle warning memory usage', () => {
+                    this.handler.handleWarningMemoryUsage();
+                    // Should not throw errors
+                    return true;
+                });
+
+                this.test('Handle critical memory usage', () => {
+                    this.handler.handleCriticalMemoryUsage();
+                    // Should not throw errors
+                    return true;
+                });
+
+                this.test('Handle warning storage usage', () => {
+                    this.handler.handleWarningStorageUsage();
+                    // Should not throw errors
+                    return true;
+                });
+
+                this.test('Handle critical storage usage', () => {
+                    this.handler.handleCriticalStorageUsage();
+                    // Should not throw errors
+                    return true;
+                });
+
+                // Test performance memory monitoring (if available)
+                if (typeof performance !== 'undefined' && performance.memory) {
+                    this.test('Performance memory available', () => {
+                        const memory = performance.memory;
+                        return memory.usedJSHeapSize !== undefined && 
+                               memory.totalJSHeapSize !== undefined;
+                    });
+                }
+
+                // Test storage API (if available)
+                if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+                    this.testAsync('Storage API available', async () => {
+                        try {
+                            const estimate = await navigator.storage.estimate();
+                            return estimate && typeof estimate.usage === 'number';
+                        } catch (error) {
+                            return false;
+                        }
+                    });
+                }
+
+                // Test destruction
+                this.test('Handler destruction', () => {
+                    // Create a temporary handler to test destruction
+                    const tempHandler = new ResourceConstraintHandler();
+                    tempHandler.destroy();
+                    // Should not throw errors
+                    return true;
+                });
+
+                setTimeout(() => this.displayResults(), 100);
+            }
+
+            displayResults() {
+                const container = document.getElementById('test-results');
+                let html = '<h2>Test Results</h2>';
+                
+                const passed = this.results.filter(r => r.status === 'PASS').length;
+                const failed = this.results.filter(r => r.status === 'FAIL').length;
+                
+                html += `<div class="test-section">
+                    <h3>Summary</h3>
+                    <p class="pass">Passed: ${passed}</p>
+                    <p class="fail">Failed: ${failed}</p>
+                    <p class="info">Total: ${this.results.length}</p>
+                </div>`;
+
+                // Add resource usage information
+                const usage = this.handler.getResourceUsage();
+                html += `<div class="test-section">
+                    <h3>Current Resource Usage</h3>
+                    <div class="resource-monitor">
+                        <p><strong>Memory:</strong> ${Math.round(usage.memory / 1024 / 1024 * 100) / 100} MB</p>
+                        <p><strong>Storage:</strong> ${Math.round(usage.storage / 1024 / 1024 * 100) / 100} MB</p>
+                        <p><strong>Connections:</strong> ${usage.connections}</p>
+                        <p><strong>Degradation Level:</strong> ${usage.degradationLevel}</p>
+                    </div>
+                </div>`;
+
+                this.results.forEach(result => {
+                    const className = result.status === 'PASS' ? 'pass' : 'fail';
+                    html += `<div class="test-section">
+                        <h4 class="${className}">${result.status}: ${result.name}</h4>
+                        <p>${result.message}</p>
+                    </div>`;
+                });
+
+                container.innerHTML = html;
+                console.log('Resource Constraint Handler Tests completed:', { passed, failed, total: this.results.length });
+            }
+        }
+
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const tester = new ResourceConstraintHandlerTest();
+            tester.runTests();
+        });
+    </script>
+</body>
+</html>

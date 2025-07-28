@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Dashboard Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; max-height: 300px; }
+        button { margin: 5px; padding: 10px; }
+        .dashboard-display { background: #f9f9f9; padding: 10px; margin: 10px 0; max-height: 200px; overflow-y: auto; }
+        .status-indicator { 
+            display: inline-block; 
+            width: 12px; 
+            height: 12px; 
+            border-radius: 50%; 
+            margin-right: 5px; 
+        }
+        .status-healthy { background-color: #28a745; }
+        .status-warning { background-color: #ffc107; }
+        .status-critical { background-color: #dc3545; }
+        .status-unknown { background-color: #6c757d; }
+    </style>
+</head>
+<body>
+    <h1>Monitoring Dashboard Integration Test</h1>
+    <div id="results"></div>
+
+    <script src="../agents/error-reporter.js"></script>
+    <script src="../agents/performance-monitor.js"></script>
+    <script src="../agents/debug-manager.js"></script>
+    <script src="../agents/monitoring-dashboard.js"></script>
+    <script>
+        class MonitoringDashboardTest {
+            constructor() {
+                this.results = document.getElementById('results');
+                
+                // Initialize supporting components
+                this.errorReporter = new ErrorReporter();
+                this.performanceMonitor = new PerformanceMonitor();
+                this.debugManager = new DebugManager();
+                
+                // Initialize monitoring dashboard
+                this.monitoringDashboard = new MonitoringDashboard({
+                    enabled: true,
+                    updateInterval: 5000, // 5 seconds for testing
+                    errorReporter: this.errorReporter,
+                    performanceMonitor: this.performanceMonitor,
+                    debugManager: this.debugManager
+                });
+                
+                this.testResults = [];
+            }
+
+            log(message, type = 'info') {
+                const div = document.createElement('div');
+                div.className = type;
+                div.innerHTML = message;
+                this.results.appendChild(div);
+                console.log(`[${type.toUpperCase()}] ${message}`);
+            }
+
+            async runAllTests() {
+                this.log('<h2>Testing Monitoring Dashboard Integration (Requirement 7.4)</h2>');
+                
+                await this.testHealthChecks();
+                await this.testMetricsCollection();
+                await this.testMetricsExport();
+                await this.testRealTimeUpdates();
+                await this.testHealthCheckEndpoint();
+                await this.testDashboardStatus();
+                await this.testCustomHealthChecks();
+                
+                this.showSummary();
+            }
+
+            async testHealthChecks() {
+                this.log('<h3>Test: Health Checks</h3>');
+                
+                try {
+                    // Run health checks
+                    const healthResults = await this.monitoringDashboard.runHealthChecks();
+                    
+                    // Verify health check structure
+                    const hasMemoryCheck = healthResults.memory && healthResults.memory.status;
+                    const hasErrorRateCheck = healthResults['error-rate'] && healthResults['error-rate'].status;
+                    const hasPerformanceCheck = healthResults.performance && healthResults.performance.status;
+                    const hasDebugCheck = healthResults['debug-logging'] && healthResults['debug-logging'].status;
+                    const hasNetworkCheck = healthResults.network && healthResults.network.status;
+                    
+                    // Check health check details
+                    const memoryCheck = healthResults.memory;
+                    const hasMemoryDetails = memoryCheck && memoryCheck.details && memoryCheck.message;
+                    
+                    if (hasMemoryCheck && hasErrorRateCheck && hasPerformanceCheck && hasDebugCheck && hasNetworkCheck && hasMemoryDetails) {
+                        this.log('✓ Health checks working correctly', 'pass');
+                        
+                        // Display health status
+                        let healthDisplay = '<div class="dashboard-display"><strong>Health Check Results:</strong><br>';
+                        for (const [name, result] of Object.entries(healthResults)) {
+                            const statusClass = `status-${result.status.toLowerCase()}`;
+                            healthDisplay += `<span class="status-indicator ${statusClass}"></span>${name}: ${result.status} - ${result.message}<br>`;
+                        }
+                        healthDisplay += '</div>';
+                        this.log(healthDisplay, 'info');
+                        
+                        this.testResults.push({ test: 'Health Checks', passed: true });
+                    } else {
+                        this.log('✗ Health checks failed', 'fail');
+                        this.testResults.push({ test: 'Health Checks', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Health checks error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Health Checks', passed: false });
+                }
+            }
+
+            async testMetricsCollection() {
+                this.log('<h3>Test: Metrics Collection</h3>');
+                
+                try {
+                    // Generate some activity for metrics
+                    await this.generateTestActivity();
+                    
+                    // Update metrics
+                    await this.monitoringDashboard.updateMetrics();
+                    
+                    // Get dashboard status
+                    const status = this.monitoringDashboard.getDashboardStatus();
+                    
+                    // Verify metrics structure
+                    const hasMetrics = status.metrics !== null;
+                    const hasSystemMetrics = status.metrics && status.metrics.system;
+                    const hasPerformanceMetrics = status.metrics && status.metrics.performance;
+                    const hasErrorMetrics = status.metrics && status.metrics.errors;
+                    const hasDebugMetrics = status.metrics && status.metrics.debug;
+                    const hasTimestamp = status.metrics && status.metrics.timestamp;
+                    
+                    if (hasMetrics && hasSystemMetrics && hasPerformanceMetrics && hasErrorMetrics && hasDebugMetrics && hasTimestamp) {
+                        this.log('✓ Metrics collection working correctly', 'pass');
+                        
+                        const metrics = status.metrics;
+                        this.log(`<div class="dashboard-display">
+                            <strong>Collected Metrics:</strong><br>
+                            System Memory: ${metrics.system.memory ? Math.round(metrics.system.memory.usagePercentage * 100) + '%' : 'N/A'}<br>
+                            Performance Operations: ${metrics.performance ? metrics.performance.operations.totalOperations : 'N/A'}<br>
+                            Total Errors: ${metrics.errors ? metrics.errors.totalErrors : 'N/A'}<br>
+                            Debug Logs: ${metrics.debug ? metrics.debug.totalLogs : 'N/A'}<br>
+                            Timestamp: ${new Date(metrics.timestamp).toLocaleTimeString()}
+                        </div>`, 'info');
+                        
+                        this.testResults.push({ test: 'Metrics Collection', passed: true });
+                    } else {
+                        this.log('✗ Metrics collection failed', 'fail');
+                        this.testResults.push({ test: 'Metrics Collection', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Metrics collection error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Metrics Collection', passed: false });
+                }
+            }
+
+            async testMetricsExport() {
+                this.log('<h3>Test: Metrics Export</h3>');
+                
+                try {
+                    // Ensure we have some metrics
+                    await this.monitoringDashboard.updateMetrics();
+                    await this.sleep(100); // Allow metrics to be stored
+                    
+                    // Test different export formats
+                    const jsonExport = this.monitoringDashboard.exportMetrics('json');
+                    const prometheusExport = this.monitoringDashboard.exportMetrics('prometheus');
+                    const csvExport = this.monitoringDashboard.exportMetrics('csv');
+                    
+                    // Verify exports
+                    const hasJsonExport = jsonExport && jsonExport.startsWith('[');
+                    const hasPrometheusExport = prometheusExport && prometheusExport.includes('# HELP');
+                    const hasCsvExport = csvExport && csvExport.includes('timestamp');
+                    
+                    // Test invalid format handling
+                    let invalidFormatHandled = false;
+                    try {
+                        this.monitoringDashboard.exportMetrics('invalid-format');
+                    } catch (error) {
+                        invalidFormatHandled = error.message.includes('Unsupported metrics export format');
+                    }
+                    
+                    if (hasJsonExport && hasPrometheusExport && hasCsvExport && invalidFormatHandled) {
+                        this.log('✓ Metrics export working correctly', 'pass');
+                        this.log(`Export sizes: JSON(${jsonExport.length}), Prometheus(${prometheusExport.length}), CSV(${csvExport.length})`, 'info');
+                        this.testResults.push({ test: 'Metrics Export', passed: true });
+                    } else {
+                        this.log('✗ Metrics export failed', 'fail');
+                        this.log(`JSON: ${hasJsonExport}, Prometheus: ${hasPrometheusExport}, CSV: ${hasCsvExport}, Error handling: ${invalidFormatHandled}`, 'info');
+                        this.testResults.push({ test: 'Metrics Export', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Metrics export error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Metrics Export', passed: false });
+                }
+            }
+
+            async testRealTimeUpdates() {
+                this.log('<h3>Test: Real-Time Updates</h3>');
+                
+                try {
+                    let updateReceived = false;
+                    let updateData = null;
+                    
+                    // Subscribe to updates
+                    const unsubscribe = this.monitoringDashboard.subscribe((status) => {
+                        updateReceived = true;
+                        updateData = status;
+                    });
+                    
+                    // Trigger an update
+                    await this.monitoringDashboard.updateMetrics();
+                    await this.monitoringDashboard.updateHealthStatus();
+                    this.monitoringDashboard.notifySubscribers();
+                    
+                    // Wait for update
+                    await this.sleep(100);
+                    
+                    // Verify update
+                    const hasUpdate = updateReceived && updateData;
+                    const hasCorrectStructure = updateData && 
+                        updateData.systemStatus && 
+                        updateData.metrics && 
+                        updateData.health;
+                    
+                    // Test unsubscribe
+                    unsubscribe();
+                    updateReceived = false;
+                    this.monitoringDashboard.notifySubscribers();
+                    await this.sleep(50);
+                    const unsubscribeWorked = !updateReceived;
+                    
+                    if (hasUpdate && hasCorrectStructure && unsubscribeWorked) {
+                        this.log('✓ Real-time updates working correctly', 'pass');
+                        this.log(`System status: ${updateData.systemStatus}, Last update: ${new Date(updateData.lastUpdate).toLocaleTimeString()}`, 'info');
+                        this.testResults.push({ test: 'Real-Time Updates', passed: true });
+                    } else {
+                        this.log('✗ Real-time updates failed', 'fail');
+                        this.testResults.push({ test: 'Real-Time Updates', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Real-time updates error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Real-Time Updates', passed: false });
+                }
+            }
+
+            async testHealthCheckEndpoint() {
+                this.log('<h3>Test: Health Check Endpoint</h3>');
+                
+                try {
+                    // Get health check response
+                    const healthResponse = await this.monitoringDashboard.getHealthCheckResponse();
+                    
+                    // Verify health check response structure
+                    const hasStatus = healthResponse.status !== undefined;
+                    const hasTimestamp = healthResponse.timestamp !== undefined;
+                    const hasChecks = healthResponse.checks !== undefined;
+                    const hasUptime = healthResponse.uptime !== undefined;
+                    const hasVersion = healthResponse.version !== undefined;
+                    
+                    // Verify checks structure
+                    const checksAreValid = Object.keys(healthResponse.checks).length > 0;
+                    const firstCheck = Object.values(healthResponse.checks)[0];
+                    const checkHasRequiredFields = firstCheck && 
+                        firstCheck.status && 
+                        firstCheck.message && 
+                        firstCheck.timestamp;
+                    
+                    if (hasStatus && hasTimestamp && hasChecks && hasUptime && hasVersion && checksAreValid && checkHasRequiredFields) {
+                        this.log('✓ Health check endpoint working correctly', 'pass');
+                        this.log(`<div class="dashboard-display">
+                            <strong>Health Check Endpoint Response:</strong><br>
+                            Status: ${healthResponse.status}<br>
+                            Uptime: ${Math.round(healthResponse.uptime / 1000)}s<br>
+                            Checks: ${Object.keys(healthResponse.checks).length}<br>
+                            Version: ${healthResponse.version}
+                        </div>`, 'info');
+                        this.testResults.push({ test: 'Health Check Endpoint', passed: true });
+                    } else {
+                        this.log('✗ Health check endpoint failed', 'fail');
+                        this.testResults.push({ test: 'Health Check Endpoint', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Health check endpoint error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Health Check Endpoint', passed: false });
+                }
+            }
+
+            async testDashboardStatus() {
+                this.log('<h3>Test: Dashboard Status</h3>');
+                
+                try {
+                    // Get dashboard status
+                    const status = this.monitoringDashboard.getDashboardStatus();
+                    
+                    // Verify status structure
+                    const hasTimestamp = status.timestamp !== undefined;
+                    const hasSystemStatus = status.systemStatus !== undefined;
+                    const hasLastUpdate = status.lastUpdate !== undefined;
+                    const hasMetrics = status.metrics !== undefined;
+                    const hasHealth = status.health !== undefined;
+                    const hasUptime = status.uptime !== undefined;
+                    const hasMonitoring = status.monitoring !== undefined;
+                    
+                    // Verify monitoring details
+                    const monitoring = status.monitoring;
+                    const hasMonitoringDetails = monitoring && 
+                        monitoring.enabled !== undefined &&
+                        monitoring.healthChecks !== undefined &&
+                        monitoring.subscribers !== undefined;
+                    
+                    if (hasTimestamp && hasSystemStatus && hasLastUpdate && hasMetrics && hasHealth && hasUptime && hasMonitoring && hasMonitoringDetails) {
+                        this.log('✓ Dashboard status working correctly', 'pass');
+                        this.log(`<div class="dashboard-display">
+                            <strong>Dashboard Status:</strong><br>
+                            System Status: ${status.systemStatus}<br>
+                            Enabled: ${monitoring.enabled}<br>
+                            Health Checks: ${monitoring.healthChecks}<br>
+                            Subscribers: ${monitoring.subscribers}<br>
+                            Metrics History: ${monitoring.metricsHistory}<br>
+                            Health History: ${monitoring.healthHistory}
+                        </div>`, 'info');
+                        this.testResults.push({ test: 'Dashboard Status', passed: true });
+                    } else {
+                        this.log('✗ Dashboard status failed', 'fail');
+                        this.testResults.push({ test: 'Dashboard Status', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Dashboard status error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Dashboard Status', passed: false });
+                }
+            }
+
+            async testCustomHealthChecks() {
+                this.log('<h3>Test: Custom Health Checks</h3>');
+                
+                try {
+                    // Register a custom health check
+                    this.monitoringDashboard.registerHealthCheck('custom-test', async () => {
+                        return {
+                            status: 'HEALTHY',
+                            details: { customValue: 42 },
+                            message: 'Custom health check passed'
+                        };
+                    });
+                    
+                    // Run health checks to include the custom one
+                    const healthResults = await this.monitoringDashboard.runHealthChecks();
+                    
+                    // Verify custom health check
+                    const hasCustomCheck = healthResults['custom-test'] !== undefined;
+                    const customCheck = healthResults['custom-test'];
+                    const hasCorrectStatus = customCheck && customCheck.status === 'HEALTHY';
+                    const hasCorrectMessage = customCheck && customCheck.message === 'Custom health check passed';
+                    const hasCustomDetails = customCheck && customCheck.details && customCheck.details.customValue === 42;
+                    
+                    // Test unregistering
+                    this.monitoringDashboard.unregisterHealthCheck('custom-test');
+                    const healthResultsAfterUnregister = await this.monitoringDashboard.runHealthChecks();
+                    const customCheckRemoved = healthResultsAfterUnregister['custom-test'] === undefined;
+                    
+                    if (hasCustomCheck && hasCorrectStatus && hasCorrectMessage && hasCustomDetails && customCheckRemoved) {
+                        this.log('✓ Custom health checks working correctly', 'pass');
+                        this.log(`Custom check result: ${customCheck.status} - ${customCheck.message}`, 'info');
+                        this.testResults.push({ test: 'Custom Health Checks', passed: true });
+                    } else {
+                        this.log('✗ Custom health checks failed', 'fail');
+                        this.testResults.push({ test: 'Custom Health Checks', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Custom health checks error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Custom Health Checks', passed: false });
+                }
+            }
+
+            async generateTestActivity() {
+                // Generate some test activity for metrics
+                
+                // Performance activity
+                const timerId = this.performanceMonitor.startTimer('test-operation', { component: 'test' });
+                await this.sleep(50);
+                this.performanceMonitor.endTimer(timerId, { success: true });
+                
+                // Error activity
+                this.errorReporter.report(new Error('Test error'), { component: 'test', operation: 'test-op' });
+                
+                // Debug activity
+                this.debugManager.info('Test debug message', { component: 'test', operation: 'test-debug' });
+                this.debugManager.warn('Test warning message', { component: 'test', operation: 'test-warn' });
+            }
+
+            showSummary() {
+                const passed = this.testResults.filter(r => r.passed).length;
+                const total = this.testResults.length;
+                
+                this.log('<h2>Test Summary</h2>');
+                this.log(`Passed: ${passed}/${total} tests`, passed === total ? 'pass' : 'fail');
+                
+                if (passed === total) {
+                    this.log('✓ All monitoring dashboard integration tests passed! Task 7.4 requirements met.', 'pass');
+                } else {
+                    this.log('✗ Some tests failed. Please review the implementation.', 'fail');
+                }
+                
+                // Show final dashboard status
+                const finalStatus = this.monitoringDashboard.getDashboardStatus();
+                this.log('<h3>Final Dashboard Status</h3>');
+                this.log(`<pre>${JSON.stringify(finalStatus, null, 2)}</pre>`, 'info');
+            }
+
+            sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+
+        // Run tests when page loads
+        window.addEventListener('load', () => {
+            const tester = new MonitoringDashboardTest();
+            tester.runAllTests();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Routing Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input[type="password"], input[type="text"] {
+            width: 300px;
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .api-key-section {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Agent Routing Fix Test</h1>
+    <p>This page tests the fix for the "response.content.trim" error in agent routing.</p>
+
+    <div class="api-key-section">
+        <h3>⚠️ API Key Configuration</h3>
+        <p>Enter your OpenAI API key to test agent routing:</p>
+        <input type="password" id="apiKeyInput" placeholder="Enter OpenAI API key">
+        <button onclick="setApiKey()">Set API Key</button>
+        <div id="apiKeyStatus" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>🧪 Test Results</h2>
+        <div id="testResults"></div>
+        <button onclick="runBasicTests()">🔄 Run Basic Tests</button>
+        <button onclick="testAgentRouting()">🤖 Test Agent Routing</button>
+        <button onclick="testIndividualAgents()">👥 Test Individual Agents</button>
+    </div>
+
+    <div class="test-container">
+        <h2>🎯 Agent Routing Tests</h2>
+        <p>Test different types of user input to see which agents are selected:</p>
+        <input type="text" id="testInput" placeholder="Enter test message" value="What's my account balance?">
+        <button onclick="testSpecificInput()">Test This Input</button>
+        <div id="routingResults"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>📋 Detailed Logs</h2>
+        <div id="detailedLogs"></div>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="debug-manager.js"></script>
+    <script src="token-tracker.js"></script>
+    <script src="api-client.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/security-manager.js"></script>
+    <script src="agents/lru-cache.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        let apiClient = null;
+        let tokenTracker = null;
+        let debugManager = null;
+        let agentRouter = null;
+
+        function logResult(test, result, message, type = 'info') {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = `<strong>${test}:</strong> ${message} ${result ? '✅' : '❌'}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function logDetailed(message) {
+            const logsDiv = document.getElementById('detailedLogs');
+            const logDiv = document.createElement('div');
+            logDiv.innerHTML = `<pre>${new Date().toLocaleTimeString()}: ${message}</pre>`;
+            logsDiv.appendChild(logDiv);
+        }
+
+        function updateApiKeyStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('apiKeyStatus');
+            statusDiv.className = `test-result ${type}`;
+            statusDiv.innerHTML = message;
+        }
+
+        function setApiKey() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            if (!apiKey) {
+                updateApiKeyStatus('Please enter an API key', 'error');
+                return;
+            }
+            
+            if (apiClient) {
+                apiClient.setApiKey(apiKey);
+                updateApiKeyStatus('API key set successfully', 'success');
+                localStorage.setItem('openai_api_key', apiKey);
+            } else {
+                updateApiKeyStatus('API client not initialized', 'error');
+            }
+        }
+
+        function initializeComponents() {
+            try {
+                // Initialize debug manager
+                debugManager = new DebugManager();
+                debugManager.enable();
+                window.debugManager = debugManager;
+
+                // Initialize token tracker
+                tokenTracker = new TokenTracker();
+
+                // Initialize API client
+                const savedApiKey = localStorage.getItem('openai_api_key') || '';
+                apiClient = new OpenAIClient(savedApiKey);
+                apiClient.setTokenTracker(tokenTracker);
+
+                // Initialize agent router
+                agentRouter = new AgentRouter({ agents: [], apiClient });
+
+                // Create and register agents
+                const agents = [
+                    new PaymentsAgent(),
+                    new FraudAgent(),
+                    new IDVAgent(),
+                    new BankingInfoAgent()
+                ];
+
+                agents.forEach(agent => {
+                    agentRouter.registerAgent(agent);
+                });
+                
+                if (savedApiKey) {
+                    document.getElementById('apiKeyInput').value = savedApiKey;
+                    updateApiKeyStatus('API key loaded from storage', 'success');
+                } else {
+                    updateApiKeyStatus('No API key found - please enter one above', 'warning');
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Failed to initialize components:', error);
+                logDetailed(`Initialization error: ${error.message}\nStack: ${error.stack}`);
+                return false;
+            }
+        }
+
+        function runBasicTests() {
+            document.getElementById('testResults').innerHTML = '';
+            
+            const initialized = initializeComponents();
+            logResult('Component Initialization', initialized, 'Components initialized successfully', initialized ? 'success' : 'error');
+            
+            if (!initialized) return;
+
+            // Test agent router creation
+            logResult('Agent Router Creation', !!agentRouter, 'Agent router created successfully', 'success');
+
+            // Test agent registration
+            const stats = agentRouter.getStats();
+            const hasAgents = stats.totalAgents > 0;
+            logResult('Agent Registration', hasAgents, `${stats.totalAgents} agents registered`, hasAgents ? 'success' : 'error');
+
+            // Test API client integration
+            const hasApiClient = !!agentRouter.apiClient;
+            logResult('API Client Integration', hasApiClient, 'API client properly integrated', hasApiClient ? 'success' : 'error');
+
+            // Test API key
+            const hasApiKey = apiClient.apiKey && apiClient.apiKey.length > 0;
+            logResult('API Key Present', hasApiKey, hasApiKey ? 'API key is set' : 'No API key configured', hasApiKey ? 'success' : 'warning');
+
+            logDetailed(`Agent router stats: ${JSON.stringify(stats, null, 2)}`);
+        }
+
+        async function testAgentRouting() {
+            if (!agentRouter || !apiClient.apiKey) {
+                logResult('Agent Routing Test', false, 'Agent router or API key not available', 'error');
+                return;
+            }
+
+            const testCases = [
+                { input: "What's my account balance?", expectedAgent: "BankingInfoAgent" },
+                { input: "I want to send money to my friend", expectedAgent: "PaymentsAgent" },
+                { input: "I think there's fraud on my account", expectedAgent: "FraudAgent" },
+                { input: "I need to verify my identity", expectedAgent: "IDVAgent" }
+            ];
+
+            for (const testCase of testCases) {
+                try {
+                    logResult('Agent Routing Test', null, `Testing: "${testCase.input}"`, 'info');
+                    
+                    const context = {
+                        apiClient,
+                        tokenTracker,
+                        personaManager: { getCurrentPersonaData: () => ({ name: 'Test User' }) }
+                    };
+
+                    const result = await agentRouter.route(testCase.input, context);
+                    
+                    if (result && result.success) {
+                        const agentUsed = result.agentName || 'Unknown';
+                        const isExpected = agentUsed === testCase.expectedAgent;
+                        
+                        logResult('Agent Selection', isExpected, 
+                            `Selected: ${agentUsed} (Expected: ${testCase.expectedAgent})`, 
+                            isExpected ? 'success' : 'warning');
+                            
+                        logDetailed(`Input: "${testCase.input}"\nSelected Agent: ${agentUsed}\nResponse: ${result.response?.substring(0, 100)}...`);
+                    } else {
+                        logResult('Agent Routing', false, `Routing failed for: "${testCase.input}"`, 'error');
+                        logDetailed(`Routing failed: ${JSON.stringify(result)}`);
+                    }
+                    
+                } catch (error) {
+                    logResult('Agent Routing', false, `Error routing "${testCase.input}": ${error.message}`, 'error');
+                    logDetailed(`Routing error: ${error.stack}`);
+                }
+            }
+        }
+
+        async function testIndividualAgents() {
+            if (!agentRouter || !apiClient.apiKey) {
+                logResult('Individual Agent Test', false, 'Agent router or API key not available', 'error');
+                return;
+            }
+
+            const agents = agentRouter.agents;
+            const context = {
+                apiClient,
+                tokenTracker,
+                personaManager: { getCurrentPersonaData: () => ({ name: 'Test User', balance: 1000 }) }
+            };
+
+            for (const agent of agents) {
+                try {
+                    logResult('Individual Agent Test', null, `Testing ${agent.name}...`, 'info');
+                    
+                    const testInput = "Hello, can you help me?";
+                    const canHandle = agent.canHandle(testInput);
+                    
+                    if (canHandle) {
+                        const result = await agent.handle(testInput, context);
+                        
+                        const hasResponse = result && result.response;
+                        logResult(`${agent.name} Test`, hasResponse, 
+                            hasResponse ? `Response received: ${result.response.substring(0, 50)}...` : 'No response received', 
+                            hasResponse ? 'success' : 'error');
+                            
+                        logDetailed(`${agent.name} result: ${JSON.stringify(result, null, 2)}`);
+                    } else {
+                        logResult(`${agent.name} Test`, true, 'Agent correctly declined to handle test input', 'info');
+                    }
+                    
+                } catch (error) {
+                    logResult(`${agent.name} Test`, false, `Error: ${error.message}`, 'error');
+                    logDetailed(`${agent.name} error: ${error.stack}`);
+                }
+            }
+        }
+
+        async function testSpecificInput() {
+            const input = document.getElementById('testInput').value.trim();
+            if (!input) {
+                alert('Please enter a test message');
+                return;
+            }
+
+            if (!agentRouter || !apiClient.apiKey) {
+                alert('Agent router or API key not available');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('routingResults');
+            resultsDiv.innerHTML = '<div class="test-result info">Testing routing...</div>';
+
+            try {
+                const context = {
+                    apiClient,
+                    tokenTracker,
+                    personaManager: { getCurrentPersonaData: () => ({ name: 'Test User', balance: 1000 }) }
+                };
+
+                const startTime = Date.now();
+                const result = await agentRouter.route(input, context);
+                const duration = Date.now() - startTime;
+
+                if (result && result.success) {
+                    resultsDiv.innerHTML = `
+                        <div class="test-result success">
+                            <h4>✅ Routing Successful</h4>
+                            <p><strong>Input:</strong> "${input}"</p>
+                            <p><strong>Selected Agent:</strong> ${result.agentName}</p>
+                            <p><strong>Response:</strong> ${result.response}</p>
+                            <p><strong>Duration:</strong> ${duration}ms</p>
+                        </div>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="test-result error">
+                            <h4>❌ Routing Failed</h4>
+                            <p><strong>Input:</strong> "${input}"</p>
+                            <p><strong>Error:</strong> ${result?.error || 'Unknown error'}</p>
+                            <p><strong>Duration:</strong> ${duration}ms</p>
+                        </div>
+                    `;
+                }
+
+                logDetailed(`Specific input test: "${input}" -> ${JSON.stringify(result, null, 2)}`);
+
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="test-result error">
+                        <h4>❌ Routing Error</h4>
+                        <p><strong>Input:</strong> "${input}"</p>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    </div>
+                `;
+                logDetailed(`Specific input error: ${error.stack}`);
+            }
+        }
+
+        function clearLogs() {
+            document.getElementById('detailedLogs').innerHTML = '';
+        }
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(runBasicTests, 500);
+        });
+    </script>
+</body>
+</html>

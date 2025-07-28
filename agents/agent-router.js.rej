@@ -1,0 +1,18 @@
+@@ -701,7 +700,7 @@
+             
+         } catch (error) {
+             const processingTime = Date.now() - startTime;
+-            this.debug.error('Fallback handler failed', { error: error?.message || String(error) || 'Unknown error' });
++            this.debug.error('Fallback handler failed', { error: error.message });
+             
+             return {
+                 success: false,
+@@ -709,7 +708,7 @@
+                 agentName: 'Default Agent',
+                 processingTime,
+                 tokensUsed: 0,
+-                error: error?.message || 'Unknown error',
++                error: error.message,
+                 metadata: {
+                     timestamp: new Date().toISOString(),
+                     fallbackError: true

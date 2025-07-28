@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Routing Test Framework</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        button { margin: 5px; padding: 10px; }
+        #results { margin-top: 20px; }
+        .result-item { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+        .summary { background: #e8f4f8; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .category-results { margin: 10px 0; padding: 10px; border-left: 3px solid #007acc; }
+        .test-detail { margin: 5px 0; padding: 5px; font-size: 0.9em; }
+        .passed { border-left-color: green; }
+        .failed { border-left-color: red; }
+        pre { background: #f0f0f0; padding: 10px; overflow-x: auto; font-size: 0.8em; }
+        .input-test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        input[type="text"] { width: 300px; padding: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Agent Routing Test Framework</h1>
+    
+    <div class="test-section">
+        <h2>Automated Tests</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="runClearInputTests()">Test Clear Inputs</button>
+        <button onclick="runAmbiguousTests()">Test Ambiguous Inputs</button>
+        <button onclick="runEdgeCaseTests()">Test Edge Cases</button>
+        <button onclick="runContextTests()">Test Context Routing</button>
+        <button onclick="runConsistencyTests()">Test Consistency</button>
+        <button onclick="runPerformanceTests()">Test Performance</button>
+        <button onclick="runCachingTests()">Test Caching</button>
+        <button onclick="runFallbackTests()">Test Fallbacks</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Interactive Testing</h2>
+        <div class="input-test">
+            <label>Test Input: </label>
+            <input type="text" id="testInput" placeholder="Enter text to route..." />
+            <button onclick="testSingleInput()">Route Input</button>
+        </div>
+        <div class="input-test">
+            <label>Context (JSON): </label>
+            <input type="text" id="testContext" placeholder='{"lastAgent": "payments"}' />
+        </div>
+        <div class="input-test">
+            <label>Options: </label>
+            <input type="checkbox" id="useCache" checked /> Use Cache
+            <input type="checkbox" id="simulateAiFailure" /> Simulate AI Failure
+            <input type="checkbox" id="simulateKeywordFailure" /> Simulate Keyword Failure
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Batch Testing</h2>
+        <textarea id="batchInputs" rows="5" cols="50" placeholder="Enter multiple inputs, one per line..."></textarea>
+        <br>
+        <button onclick="testBatchInputs()">Test Batch Inputs</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Performance Analysis</h2>
+        <button onclick="runPerformanceAnalysis()">Analyze Performance</button>
+        <button onclick="testCacheEffectiveness()">Test Cache Effectiveness</button>
+        <button onclick="stressTestRouting()">Stress Test Routing</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script src="agent-routing-test-framework.js"></script>
+    <script>
+        let testFramework;
+        
+        function init() {
+            testFramework = new AgentRoutingTestFramework();
+            log('Agent Routing Test Framework initialized', 'info');
+        }
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result-item ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        async function runAllTests() {
+            log('Starting comprehensive agent routing tests...', 'info');
+            
+            try {
+                const report = await testFramework.runAllTests();
+                displayTestReport(report);
+            } catch (error) {
+                log(`Error running tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runClearInputTests() {
+            log('Running clear input tests...', 'info');
+            
+            try {
+                await testFramework.testClearInputs();
+                log('Clear input tests completed', 'success');
+            } catch (error) {
+                log(`Error in clear input tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runAmbiguousTests() {
+            log('Running ambiguous input tests...', 'info');
+            
+            try {
+                await testFramework.testAmbiguousInputs();
+                log('Ambiguous input tests completed', 'success');
+            } catch (error) {
+                log(`Error in ambiguous input tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runEdgeCaseTests() {
+            log('Running edge case tests...', 'info');
+            
+            try {
+                await testFramework.testEdgeCases();
+                log('Edge case tests completed', 'success');
+            } catch (error) {
+                log(`Error in edge case tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runContextTests() {
+            log('Running context-dependent routing tests...', 'info');
+            
+            try {
+                await testFramework.testContextDependentRouting();
+                log('Context routing tests completed', 'success');
+            } catch (error) {
+                log(`Error in context routing tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runConsistencyTests() {
+            log('Running consistency tests...', 'info');
+            
+            try {
+                await testFramework.testRoutingConsistency();
+                log('Consistency tests completed', 'success');
+            } catch (error) {
+                log(`Error in consistency tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runPerformanceTests() {
+            log('Running performance tests...', 'info');
+            
+            try {
+                await testFramework.testPerformanceOptimization();
+                log('Performance tests completed', 'success');
+            } catch (error) {
+                log(`Error in performance tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runCachingTests() {
+            log('Running caching mechanism tests...', 'info');
+            
+            try {
+                await testFramework.testCachingMechanisms();
+                log('Caching tests completed', 'success');
+            } catch (error) {
+                log(`Error in caching tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function runFallbackTests() {
+            log('Running fallback chain tests...', 'info');
+            
+            try {
+                await testFramework.testFallbackChains();
+                log('Fallback tests completed', 'success');
+            } catch (error) {
+                log(`Error in fallback tests: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testSingleInput() {
+            const input = document.getElementById('testInput').value;
+            const contextStr = document.getElementById('testContext').value;
+            const useCache = document.getElementById('useCache').checked;
+            const simulateAiFailure = document.getElementById('simulateAiFailure').checked;
+            const simulateKeywordFailure = document.getElementById('simulateKeywordFailure').checked;
+            
+            if (!input.trim()) {
+                log('Please enter an input to test', 'warning');
+                return;
+            }
+            
+            try {
+                let context = null;
+                if (contextStr.trim()) {
+                    context = JSON.parse(contextStr);
+                }
+                
+                const options = {
+                    useCache,
+                    simulateAiFailure,
+                    simulateKeywordFailure
+                };
+                
+                const result = await testFramework.routeInput(input, context, options);
+                
+                log(`Input: "${input}"`, 'info');
+                log(`Routed to: ${result.agent} (confidence: ${result.confidence})`, 'success');
+                log(`Processing time: ${result.processingTime}ms`, 'info');
+                
+                if (result.fallbackUsed) {
+                    log(`Fallback used: ${result.fallbackMethod}`, 'warning');
+                }
+                
+                if (result.alternatives && result.alternatives.length > 0) {
+                    log(`Alternatives: ${result.alternatives.join(', ')}`, 'info');
+                }
+                
+            } catch (error) {
+                log(`Error routing input: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testBatchInputs() {
+            const batchText = document.getElementById('batchInputs').value;
+            const inputs = batchText.split('\n').filter(line => line.trim());
+            
+            if (inputs.length === 0) {
+                log('Please enter some inputs to test', 'warning');
+                return;
+            }
+            
+            log(`Testing ${inputs.length} batch inputs...`, 'info');
+            
+            const results = [];
+            for (const input of inputs) {
+                try {
+                    const result = await testFramework.routeInput(input.trim());
+                    results.push({ input: input.trim(), result });
+                    log(`"${input.trim()}" → ${result.agent}`, 'success');
+                } catch (error) {
+                    results.push({ input: input.trim(), error: error.message });
+                    log(`"${input.trim()}" → ERROR: ${error.message}`, 'error');
+                }
+            }
+            
+            // Summary
+            const successful = results.filter(r => !r.error).length;
+            log(`Batch test completed: ${successful}/${inputs.length} successful`, 'info');
+        }
+        
+        async function runPerformanceAnalysis() {
+            log('Running performance analysis...', 'info');
+            
+            const testInputs = [
+                'What is my balance?',
+                'Transfer money to John',
+                'I think there is fraud',
+                'Verify my identity',
+                'Help me please'
+            ];
+            
+            const iterations = 100;
+            const startTime = Date.now();
+            
+            for (let i = 0; i < iterations; i++) {
+                for (const input of testInputs) {
+                    await testFramework.routeInput(input);
+                }
+            }
+            
+            const totalTime = Date.now() - startTime;
+            const avgTime = totalTime / (iterations * testInputs.length);
+            const throughput = (iterations * testInputs.length) / (totalTime / 1000);
+            
+            log(`Performance Analysis Results:`, 'info');
+            log(`Total operations: ${iterations * testInputs.length}`, 'info');
+            log(`Total time: ${totalTime}ms`, 'info');
+            log(`Average time per operation: ${avgTime.toFixed(2)}ms`, 'info');
+            log(`Throughput: ${throughput.toFixed(2)} operations/second`, 'info');
+        }
+        
+        async function testCacheEffectiveness() {
+            log('Testing cache effectiveness...', 'info');
+            
+            const testInput = 'What is my account balance?';
+            
+            // Test without cache
+            testFramework.clearRoutingCache();
+            const startTimeNoCache = Date.now();
+            for (let i = 0; i < 50; i++) {
+                await testFramework.routeInput(testInput, null, { useCache: false });
+            }
+            const noCacheTime = Date.now() - startTimeNoCache;
+            
+            // Test with cache
+            testFramework.clearRoutingCache();
+            const startTimeWithCache = Date.now();
+            for (let i = 0; i < 50; i++) {
+                await testFramework.routeInput(testInput, null, { useCache: true });
+            }
+            const withCacheTime = Date.now() - startTimeWithCache;
+            
+            const improvement = ((noCacheTime - withCacheTime) / noCacheTime * 100).toFixed(2);
+            
+            log(`Cache Effectiveness Results:`, 'info');
+            log(`Without cache: ${noCacheTime}ms`, 'info');
+            log(`With cache: ${withCacheTime}ms`, 'info');
+            log(`Performance improvement: ${improvement}%`, 'success');
+        }
+        
+        async function stressTestRouting() {
+            log('Running stress test...', 'info');
+            
+            const stressInputs = [];
+            const baseInputs = [
+                'balance', 'transfer', 'fraud', 'verify', 'help',
+                'account', 'payment', 'security', 'identity', 'support'
+            ];
+            
+            // Generate 1000 random combinations
+            for (let i = 0; i < 1000; i++) {
+                const randomInput = baseInputs[Math.floor(Math.random() * baseInputs.length)];
+                const variation = Math.random() > 0.5 ? randomInput.toUpperCase() : randomInput;
+                stressInputs.push(`${variation} ${Math.random().toString(36).substring(7)}`);
+            }
+            
+            const startTime = Date.now();
+            let successful = 0;
+            let failed = 0;
+            
+            for (const input of stressInputs) {
+                try {
+                    await testFramework.routeInput(input);
+                    successful++;
+                } catch (error) {
+                    failed++;
+                }
+            }
+            
+            const totalTime = Date.now() - startTime;
+            const throughput = stressInputs.length / (totalTime / 1000);
+            
+            log(`Stress Test Results:`, 'info');
+            log(`Total inputs: ${stressInputs.length}`, 'info');
+            log(`Successful: ${successful}`, 'success');
+            log(`Failed: ${failed}`, failed > 0 ? 'error' : 'info');
+            log(`Total time: ${totalTime}ms`, 'info');
+            log(`Throughput: ${throughput.toFixed(2)} operations/second`, 'info');
+        }
+        
+        function displayTestReport(report) {
+            const results = document.getElementById('results');
+            
+            // Clear previous results
+            results.innerHTML = '';
+            
+            // Summary
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'summary';
+            summaryDiv.innerHTML = `
+                <h3>Agent Routing Test Summary</h3>
+                <p><strong>Total Tests:</strong> ${report.summary.total}</p>
+                <p><strong>Passed:</strong> <span class="success">${report.summary.passed}</span></p>
+                <p><strong>Failed:</strong> <span class="error">${report.summary.failed}</span></p>
+                <p><strong>Pass Rate:</strong> ${report.summary.passRate}</p>
+            `;
+            results.appendChild(summaryDiv);
+            
+            // Category results
+            for (const [category, stats] of Object.entries(report.categories)) {
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = `category-results ${stats.failed === 0 ? 'passed' : 'failed'}`;
+                
+                const categoryPassRate = ((stats.passed / (stats.passed + stats.failed)) * 100).toFixed(2);
+                categoryDiv.innerHTML = `
+                    <h4>${category}</h4>
+                    <p>Passed: ${stats.passed}, Failed: ${stats.failed} (${categoryPassRate}%)</p>
+                `;
+                
+                // Individual test details
+                for (const test of stats.tests) {
+                    const testDiv = document.createElement('div');
+                    testDiv.className = `test-detail ${test.passed ? 'success' : 'error'}`;
+                    
+                    let detailsHtml = '';
+                    if (test.details && Object.keys(test.details).length > 0) {
+                        detailsHtml = `<pre>${JSON.stringify(test.details, null, 2)}</pre>`;
+                    }
+                    
+                    testDiv.innerHTML = `
+                        <span>${test.passed ? '✓' : '✗'}</span> ${test.description}
+                        ${detailsHtml}
+                    `;
+                    
+                    categoryDiv.appendChild(testDiv);
+                }
+                
+                results.appendChild(categoryDiv);
+            }
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

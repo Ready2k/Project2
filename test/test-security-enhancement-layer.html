@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Enhancement Layer Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { margin: 5px; padding: 8px 15px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Security Enhancement Layer Test</h1>
+    
+    <div class="test-section info">
+        <h3>Test Status</h3>
+        <div id="test-status">Initializing...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Controls</h3>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="testRateLimiting()">Test Rate Limiting</button>
+        <button onclick="testRequestValidation()">Test Request Validation</button>
+        <button onclick="testAuditLogging()">Test Audit Logging</button>
+        <button onclick="testSecurityWrapper()">Test Security Wrapper</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Results</h3>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Security Metrics</h3>
+        <button onclick="showMetrics()">Show Current Metrics</button>
+        <div id="metrics-display"></div>
+    </div>
+
+    <!-- Load security components -->
+    <script src="../agents/rate-limiter.js"></script>
+    <script src="../agents/request-validator.js"></script>
+    <script src="../agents/audit-logger.js"></script>
+    <script src="../agents/security-manager.js"></script>
+
+    <script>
+        let securityLayer;
+        let testResults = [];
+
+        // Initialize security layer
+        function initializeSecurityLayer() {
+            try {
+                securityLayer = new SecurityEnhancementLayer({
+                    rateLimiting: true,
+                    requestValidation: true,
+                    auditLogging: true,
+                    rateLimits: {
+                        api: { requests: 5, window: 10000 }, // 5 requests per 10 seconds for testing
+                        user: { requests: 3, window: 10000 },
+                        ip: { requests: 10, window: 10000 }
+                    }
+                });
+                
+                updateStatus('Security layer initialized successfully', 'success');
+                return true;
+            } catch (error) {
+                updateStatus(`Failed to initialize security layer: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        // Update test status
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('test-status');
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+        }
+
+        // Add test result
+        function addTestResult(testName, success, message, details = null) {
+            const result = {
+                testName,
+                success,
+                message,
+                details,
+                timestamp: new Date().toISOString()
+            };
+            
+            testResults.push(result);
+            displayTestResults();
+        }
+
+        // Display test results
+        function displayTestResults() {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '';
+            
+            testResults.forEach(result => {
+                const resultDiv = document.createElement('div');
+                resultDiv.className = `test-section ${result.success ? 'success' : 'error'}`;
+                
+                let html = `
+                    <h4>${result.testName} - ${result.success ? 'PASSED' : 'FAILED'}</h4>
+                    <p>${result.message}</p>
+                    <small>Time: ${result.timestamp}</small>
+                `;
+                
+                if (result.details) {
+                    html += `<pre>${JSON.stringify(result.details, null, 2)}</pre>`;
+                }
+                
+                resultDiv.innerHTML = html;
+                resultsDiv.appendChild(resultDiv);
+            });
+        }
+
+        // Test rate limiting functionality
+        async function testRateLimiting() {
+            updateStatus('Testing rate limiting...', 'info');
+            
+            try {
+                const rateLimiter = new RateLimiter({
+                    limits: {
+                        test: { requests: 2, window: 5000 } // 2 requests per 5 seconds
+                    }
+                });
+
+                // Test 1: Should allow first request
+                await rateLimiter.checkLimit('test-user', 'test');
+                addTestResult('Rate Limiting - First Request', true, 'First request allowed');
+
+                // Test 2: Should allow second request
+                await rateLimiter.checkLimit('test-user', 'test');
+                addTestResult('Rate Limiting - Second Request', true, 'Second request allowed');
+
+                // Test 3: Should block third request
+                try {
+                    await rateLimiter.checkLimit('test-user', 'test');
+                    addTestResult('Rate Limiting - Third Request', false, 'Third request should have been blocked');
+                } catch (error) {
+                    if (error instanceof RateLimitError) {
+                        addTestResult('Rate Limiting - Third Request', true, 'Third request correctly blocked', {
+                            error: error.message,
+                            retryAfter: error.retryAfter
+                        });
+                    } else {
+                        throw error;
+                    }
+                }
+
+                // Test 4: Check usage stats
+                const usage = rateLimiter.getUsage('test-user', 'test');
+                addTestResult('Rate Limiting - Usage Stats', true, 'Usage stats retrieved', usage);
+
+            } catch (error) {
+                addTestResult('Rate Limiting', false, `Rate limiting test failed: ${error.message}`);
+            }
+        }
+
+        // Test request validation functionality
+        async function testRequestValidation() {
+            updateStatus('Testing request validation...', 'info');
+            
+            try {
+                const validator = new RequestValidator();
+
+                // Test 1: Valid chat completion request
+                const validRequest = {
+                    messages: [{ role: 'user', content: 'Hello' }],
+                    model: 'gpt-3.5-turbo',
+                    temperature: 0.7,
+                    max_tokens: 100
+                };
+
+                const validated = validator.validate(validRequest, 'chatCompletion');
+                addTestResult('Request Validation - Valid Request', true, 'Valid request passed validation', validated);
+
+                // Test 2: Invalid request (missing required field)
+                try {
+                    const invalidRequest = {
+                        model: 'gpt-3.5-turbo',
+                        temperature: 0.7
+                        // missing required 'messages' field
+                    };
+                    
+                    validator.validate(invalidRequest, 'chatCompletion');
+                    addTestResult('Request Validation - Missing Field', false, 'Should have failed validation');
+                } catch (error) {
+                    if (error instanceof ValidationError) {
+                        addTestResult('Request Validation - Missing Field', true, 'Correctly caught missing field', {
+                            error: error.message,
+                            field: error.field
+                        });
+                    } else {
+                        throw error;
+                    }
+                }
+
+                // Test 3: Dangerous content detection
+                try {
+                    const dangerousRequest = {
+                        inputText: '<script>alert("xss")</script>',
+                        userId: 'test-user'
+                    };
+                    
+                    validator.validate(dangerousRequest, 'agentRouting');
+                    addTestResult('Request Validation - XSS Detection', false, 'Should have detected XSS');
+                } catch (error) {
+                    if (error instanceof ValidationError) {
+                        addTestResult('Request Validation - XSS Detection', true, 'Correctly detected dangerous content', {
+                            error: error.message
+                        });
+                    } else {
+                        throw error;
+                    }
+                }
+
+            } catch (error) {
+                addTestResult('Request Validation', false, `Request validation test failed: ${error.message}`);
+            }
+        }
+
+        // Test audit logging functionality
+        async function testAuditLogging() {
+            updateStatus('Testing audit logging...', 'info');
+            
+            try {
+                const auditLogger = new AuditLogger({
+                    storage: { console: false, memory: true }
+                });
+
+                // Test 1: Log API call
+                auditLogger.logApiCall({
+                    endpoint: '/api/chat',
+                    method: 'POST',
+                    requestId: 'test-123',
+                    userId: 'user-456',
+                    duration: 250,
+                    statusCode: 200,
+                    success: true,
+                    tokenUsage: { input: 10, output: 20 }
+                });
+
+                // Test 2: Log security event
+                auditLogger.logSecurityEvent({
+                    eventType: 'RATE_LIMIT_EXCEEDED',
+                    severity: 'HIGH',
+                    userId: 'user-456',
+                    ipAddress: '192.168.1.100',
+                    reason: 'Too many requests',
+                    action: 'BLOCKED'
+                });
+
+                // Test 3: Log agent routing
+                auditLogger.logAgentRouting({
+                    inputText: 'What is my balance?',
+                    selectedAgent: 'banking-info-agent',
+                    routingMethod: 'ai',
+                    confidence: 0.95,
+                    processingTime: 150,
+                    userId: 'user-456'
+                });
+
+                // Test 4: Get logs
+                const logs = auditLogger.getLogs();
+                addTestResult('Audit Logging - Log Creation', true, `Created ${logs.length} log entries`, {
+                    logCount: logs.length,
+                    logTypes: logs.map(log => log.type)
+                });
+
+                // Test 5: Get statistics
+                const stats = auditLogger.getStats();
+                addTestResult('Audit Logging - Statistics', true, 'Retrieved audit statistics', stats);
+
+            } catch (error) {
+                addTestResult('Audit Logging', false, `Audit logging test failed: ${error.message}`);
+            }
+        }
+
+        // Test security wrapper functionality
+        async function testSecurityWrapper() {
+            updateStatus('Testing security wrapper...', 'info');
+            
+            try {
+                // Test 1: Valid request processing
+                const validRequest = {
+                    data: {
+                        messages: [{ role: 'user', content: 'Hello' }],
+                        model: 'gpt-3.5-turbo'
+                    },
+                    userId: 'test-user',
+                    ipAddress: '192.168.1.100',
+                    userAgent: 'Test-Agent/1.0'
+                };
+
+                const mockProcessor = async (request) => {
+                    return { response: 'Hello! How can I help you?', processed: true };
+                };
+
+                const result = await securityLayer.validateAndProcess(
+                    validRequest,
+                    mockProcessor,
+                    { schema: 'chatCompletion', endpoint: '/api/chat' }
+                );
+
+                addTestResult('Security Wrapper - Valid Request', result.success, 
+                    result.success ? 'Request processed successfully' : 'Request processing failed',
+                    result
+                );
+
+                // Test 2: Rate limit exceeded (multiple rapid requests)
+                const rapidRequests = [];
+                for (let i = 0; i < 6; i++) { // Exceeds our test limit of 5
+                    rapidRequests.push(
+                        securityLayer.validateAndProcess(
+                            { ...validRequest, userId: `rapid-user-${i}` },
+                            mockProcessor,
+                            { schema: 'chatCompletion', endpoint: '/api/chat' }
+                        )
+                    );
+                }
+
+                const rapidResults = await Promise.allSettled(rapidRequests);
+                const blockedCount = rapidResults.filter(r => r.value && !r.value.success).length;
+                
+                addTestResult('Security Wrapper - Rate Limiting', blockedCount > 0, 
+                    `${blockedCount} requests were blocked due to rate limiting`,
+                    { totalRequests: rapidRequests.length, blockedCount }
+                );
+
+                // Test 3: Invalid request validation
+                const invalidRequest = {
+                    data: { invalid: 'data' }, // Missing required fields
+                    userId: 'test-user',
+                    ipAddress: '192.168.1.101'
+                };
+
+                const invalidResult = await securityLayer.validateAndProcess(
+                    invalidRequest,
+                    mockProcessor,
+                    { schema: 'chatCompletion', endpoint: '/api/chat' }
+                );
+
+                addTestResult('Security Wrapper - Invalid Request', !invalidResult.success,
+                    invalidResult.success ? 'Invalid request should have been rejected' : 'Invalid request correctly rejected',
+                    invalidResult
+                );
+
+            } catch (error) {
+                addTestResult('Security Wrapper', false, `Security wrapper test failed: ${error.message}`);
+            }
+        }
+
+        // Show security metrics
+        function showMetrics() {
+            if (!securityLayer) {
+                updateStatus('Security layer not initialized', 'error');
+                return;
+            }
+
+            const metrics = securityLayer.getMetrics();
+            const metricsDiv = document.getElementById('metrics-display');
+            metricsDiv.innerHTML = `<pre>${JSON.stringify(metrics, null, 2)}</pre>`;
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            if (!securityLayer) {
+                updateStatus('Security layer not initialized', 'error');
+                return;
+            }
+
+            clearResults();
+            updateStatus('Running all tests...', 'info');
+
+            await testRateLimiting();
+            await testRequestValidation();
+            await testAuditLogging();
+            await testSecurityWrapper();
+
+            const passedTests = testResults.filter(r => r.success).length;
+            const totalTests = testResults.length;
+            
+            updateStatus(`Tests completed: ${passedTests}/${totalTests} passed`, 
+                passedTests === totalTests ? 'success' : 'error');
+        }
+
+        // Clear test results
+        function clearResults() {
+            testResults = [];
+            displayTestResults();
+            document.getElementById('metrics-display').innerHTML = '';
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            if (initializeSecurityLayer()) {
+                updateStatus('Ready to run tests', 'success');
+            }
+        });
+    </script>
+</body>
+</html>

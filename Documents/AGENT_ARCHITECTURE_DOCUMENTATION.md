@@ -937,7 +937,7 @@ class CustomLoanAgent extends BaseAgent {
             
             return {
                 success: true,
-                response: response.content,
+                response: response.text,
                 agentName: this.name,
                 processingTime: Date.now() - startTime,
                 tokensUsed: response.tokensUsed || 0,

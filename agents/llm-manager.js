@@ -32,6 +32,9 @@ class LLMManager {
         // Load existing configurations from storage
         this.loadConfigurations();
         
+        // Clean up any invalid agents that might have been loaded
+        this.cleanupInvalidAgents();
+        
         // Set up default configurations if none exist
         if (this.configurations.size === 0) {
             this.initializeDefaultConfigurations();
@@ -353,6 +356,30 @@ class LLMManager {
     }
     
     /**
+     * Clean up invalid agent configurations
+     * Removes any agents that don't correspond to actual agent classes
+     */
+    cleanupInvalidAgents() {
+        const validAgentNames = ['IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+        const initialSize = this.configurations.size;
+        
+        for (const [agentName, config] of this.configurations) {
+            if (!validAgentNames.includes(agentName)) {
+                this.configurations.delete(agentName);
+                this.debug.warn(`Removed invalid agent configuration: ${agentName}`);
+            }
+        }
+        
+        if (this.configurations.size !== initialSize) {
+            this.saveConfigurations();
+            this.debug.log(`Cleaned up ${initialSize - this.configurations.size} invalid agent configurations`);
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
      * Get configuration statistics
      * @returns {Object} Configuration statistics
      */
@@ -459,8 +486,28 @@ class LLMManager {
             if (stored) {
                 const data = JSON.parse(stored);
                 if (data.configurations) {
-                    this.configurations = new Map(Object.entries(data.configurations));
-                    this.debug.log('Loaded configurations from storage');
+                    // Load configurations and validate they correspond to real agents
+                    const loadedConfigs = new Map(Object.entries(data.configurations));
+                    
+                    // Define valid agent names (should match actual agent classes)
+                    const validAgentNames = ['IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+                    
+                    // Filter out any invalid agents (like test agents or corrupted data)
+                    for (const [agentName, config] of loadedConfigs) {
+                        if (validAgentNames.includes(agentName)) {
+                            this.configurations.set(agentName, config);
+                        } else {
+                            this.debug.warn(`Removing invalid agent configuration: ${agentName}`);
+                        }
+                    }
+                    
+                    this.debug.log('Loaded and validated configurations from storage');
+                    
+                    // If we removed invalid agents, save the cleaned configurations
+                    if (this.configurations.size !== loadedConfigs.size) {
+                        this.saveConfigurations();
+                        this.debug.log('Cleaned up invalid agent configurations');
+                    }
                 }
             }
         } catch (error) {

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Variable Conflict Fix</title>
+</head>
+<body>
+    <h1>Testing Variable Conflict Fix</h1>
+    <div id="results"></div>
+
+    <script>
+        // Test loading scripts in the same order as index.html to catch conflicts
+        const scripts = [
+            'debug-manager.js',
+            'agents/rate-limiter.js',
+            'agents/request-validator.js',
+            'agents/audit-logger.js',
+            'agents/security-manager.js'
+        ];
+        
+        let loadedCount = 0;
+        let errors = [];
+        
+        function loadNextScript() {
+            if (loadedCount >= scripts.length) {
+                showResults();
+                return;
+            }
+            
+            const script = document.createElement('script');
+            script.src = scripts[loadedCount];
+            script.onload = () => {
+                console.log(`✅ Loaded: ${scripts[loadedCount]}`);
+                loadedCount++;
+                loadNextScript();
+            };
+            script.onerror = (error) => {
+                errors.push(`❌ Failed to load: ${scripts[loadedCount]} - ${error.message}`);
+                loadedCount++;
+                loadNextScript();
+            };
+            
+            // Catch syntax errors
+            script.addEventListener('error', (event) => {
+                errors.push(`❌ Script error in ${scripts[loadedCount-1]}: ${event.message || 'Syntax error'}`);
+            });
+            
+            document.head.appendChild(script);
+        }
+        
+        function showResults() {
+            const resultsDiv = document.getElementById('results');
+            
+            if (errors.length === 0) {
+                resultsDiv.innerHTML += `<p style="color: green;">✅ All scripts loaded successfully without variable conflicts!</p>`;
+                
+                // Test that classes are available
+                const classes = ['RateLimiter', 'RequestValidator', 'AuditLogger', 'SecurityManager'];
+                classes.forEach(className => {
+                    if (window[className]) {
+                        resultsDiv.innerHTML += `<p style="color: green;">✅ ${className}: Available</p>`;
+                    } else {
+                        resultsDiv.innerHTML += `<p style="color: red;">❌ ${className}: Missing</p>`;
+                    }
+                });
+                
+                // Test SecurityManager instantiation
+                try {
+                    const securityManager = new SecurityManager();
+                    resultsDiv.innerHTML += `<p style="color: green;">✅ SecurityManager: Successfully instantiated</p>`;
+                } catch (error) {
+                    resultsDiv.innerHTML += `<p style="color: red;">❌ SecurityManager instantiation failed: ${error.message}</p>`;
+                }
+                
+            } else {
+                resultsDiv.innerHTML += `<p style="color: red;">❌ Errors occurred:</p>`;
+                errors.forEach(error => {
+                    resultsDiv.innerHTML += `<p style="color: red;">${error}</p>`;
+                });
+            }
+        }
+        
+        // Catch global errors
+        window.addEventListener('error', (event) => {
+            if (event.message.includes('duplicate variable') || event.message.includes('RequestValidator')) {
+                errors.push(`❌ Global error: ${event.message} in ${event.filename}:${event.lineno}`);
+            }
+        });
+        
+        // Start loading scripts
+        loadNextScript();
+    </script>
+</body>
+</html>

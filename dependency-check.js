@@ -20,7 +20,18 @@ const requiredClasses = [
     'LLMManager',
     'AgentConfigManager',
     'AgentRouter',
-    'LLMManagerAdminUI'
+    'LLMManagerAdminUI',
+    // AgentRouter dependencies
+    'LRUCache',
+    'RoutingFallbackChain',
+    'ConversationContextManager',
+    'FallbackHandler',
+    // SecurityManager dependencies
+    'RateLimiter',
+    'RateLimitError',
+    'RequestValidator',
+    'ValidationError',
+    'AuditLogger'
 ];
 
 const missingClasses = [];

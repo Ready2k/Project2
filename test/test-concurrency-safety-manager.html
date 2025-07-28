@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concurrency Safety Manager Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        .status-monitor { background: #f9f9f9; padding: 10px; margin: 10px 0; border-left: 4px solid #007cba; }
+        .concurrent-test { background: #fff3cd; padding: 10px; margin: 10px 0; border-left: 4px solid #ffc107; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Concurrency Safety Manager Test</h1>
+    <div id="test-results"></div>
+    <div id="status-monitor"></div>
+
+    <script src="../agents/concurrency-safety-manager.js"></script>
+    <script>
+        class ConcurrencySafetyManagerTest {
+            constructor() {
+                this.results = [];
+                this.manager = new ConcurrencySafetyManager({
+                    debug: {
+                        log: (...args) => console.log('[LOG]', ...args),
+                        warn: (...args) => console.warn('[WARN]', ...args),
+                        error: (...args) => console.error('[ERROR]', ...args),
+                        info: (...args) => console.info('[INFO]', ...args)
+                    },
+                    maxConcurrentOperations: 5,
+                    defaultTimeout: 10000,
+                    lockTimeout: 2000
+                });
+                
+                this.setupStatusMonitor();
+            }
+
+            test(name, testFn) {
+                try {
+                    const result = testFn();
+                    if (result) {
+                        this.results.push({ name, status: 'PASS', message: 'Test passed' });
+                    } else {
+                        this.results.push({ name, status: 'FAIL', message: 'Test failed' });
+                    }
+                } catch (error) {
+                    this.results.push({ name, status: 'FAIL', message: error.message });
+                }
+            }
+
+            async testAsync(name, testFn) {
+                try {
+                    const result = await testFn();
+                    if (result) {
+                        this.results.push({ name, status: 'PASS', message: 'Test passed' });
+                    } else {
+                        this.results.push({ name, status: 'FAIL', message: 'Test failed' });
+                    }
+                } catch (error) {
+                    this.results.push({ name, status: 'FAIL', message: error.message });
+                }
+            }
+
+            setupStatusMonitor() {
+                // Update status monitor every 2 seconds
+                setInterval(() => {
+                    this.updateStatusMonitor();
+                }, 2000);
+            }
+
+            updateStatusMonitor() {
+                const status = this.manager.getConcurrencyStatus();
+                const monitor = document.getElementById('status-monitor');
+                
+                monitor.innerHTML = `
+                    <h3>Concurrency Status Monitor</h3>
+                    <div class="status-monitor">
+                        <p><strong>Active Locks:</strong> ${status.locks.active}</p>
+                        <p><strong>Locked Mutexes:</strong> ${status.mutexes.locked}/${status.mutexes.count}</p>
+                        <p><strong>Active Operations:</strong> ${status.operations.active}/${status.operations.maximum}</p>
+                        <p><strong>Operation Queues:</strong> ${status.operations.queues}</p>
+                        <p><strong>Semaphores:</strong> ${status.semaphores.count}</p>
+                    </div>
+                `;
+            }
+
+            async runTests() {
+                console.log('Starting Concurrency Safety Manager Tests...');
+
+                // Test basic functionality
+                this.test('Manager initialization', () => {
+                    return this.manager && typeof this.manager.acquireLock === 'function';
+                });
+
+                this.test('Get concurrency status', () => {
+                    const status = this.manager.getConcurrencyStatus();
+                    return status && typeof status.locks === 'object' && 
+                           typeof status.operations === 'object';
+                });
+
+                // Test lock functionality
+                this.testAsync('Acquire and release lock', async () => {
+                    const lockId = await this.manager.acquireLock('test_resource');
+                    const released = this.manager.releaseLock('test_resource', lockId);
+                    return lockId && released;
+                });
+
+                this.testAsync('Lock with operation', async () => {
+                    let operationExecuted = false;
+                    await this.manager.withLock('test_resource_2', async () => {
+                        operationExecuted = true;
+                        return 'success';
+                    });
+                    return operationExecuted;
+                });
+
+                this.testAsync('Lock timeout', async () => {
+                    try {
+                        // Acquire lock and don't release it
+                        await this.manager.acquireLock('timeout_resource');
+                        
+                        // Try to acquire same lock with short timeout
+                        await this.manager.acquireLock('timeout_resource', 100);
+                        return false; // Should not reach here
+                    } catch (error) {
+                        return error.message.includes('Failed to acquire lock');
+                    }
+                });
+
+                // Test mutex functionality
+                this.testAsync('Create and use mutex', async () => {
+                    const mutex = this.manager.createMutex('test_mutex');
+                    const operationId = await this.manager.acquireMutex('test_mutex');
+                    const released = this.manager.releaseMutex('test_mutex', operationId);
+                    return mutex && operationId && released;
+                });
+
+                this.testAsync('Mutex with operation', async () => {
+                    let operationExecuted = false;
+                    await this.manager.withMutex('test_mutex_2', async () => {
+                        operationExecuted = true;
+                        return 'success';
+                    });
+                    return operationExecuted;
+                });
+
+                // Test semaphore functionality
+                this.testAsync('Create and use semaphore', async () => {
+                    const semaphore = this.manager.createSemaphore('test_semaphore', 2);
+                    const operationId = await this.manager.acquireSemaphore('test_semaphore');
+                    const released = this.manager.releaseSemaphore('test_semaphore', operationId);
+                    return semaphore && operationId && released;
+                });
+
+                this.testAsync('Semaphore with operation', async () => {
+                    let operationExecuted = false;
+                    await this.manager.withSemaphore('test_semaphore_2', async () => {
+                        operationExecuted = true;
+                        return 'success';
+                    }, 1);
+                    return operationExecuted;
+                });
+
+                this.testAsync('Semaphore counting', async () => {
+                    // Create semaphore with count of 2
+                    this.manager.createSemaphore('counting_semaphore', 2);
+                    
+                    // Acquire both permits
+                    const op1 = await this.manager.acquireSemaphore('counting_semaphore');
+                    const op2 = await this.manager.acquireSemaphore('counting_semaphore');
+                    
+                    // Try to acquire third (should timeout quickly)
+                    try {
+                        await this.manager.acquireSemaphore('counting_semaphore', 100);
+                        return false; // Should not succeed
+                    } catch (error) {
+                        // Release the permits
+                        this.manager.releaseSemaphore('counting_semaphore', op1);
+                        this.manager.releaseSemaphore('counting_semaphore', op2);
+                        return error.message.includes('Failed to acquire semaphore');
+                    }
+                });
+
+                // Test operation queuing
+                this.testAsync('Queue operation', async () => {
+                    let operationExecuted = false;
+                    const result = await this.manager.queueOperation('test_queue', async () => {
+                        operationExecuted = true;
+                        return 'queued_result';
+                    });
+                    return operationExecuted && result === 'queued_result';
+                });
+
+                this.testAsync('Queue operation with priority', async () => {
+                    const results = [];
+                    
+                    // Queue operations with different priorities
+                    const promises = [
+                        this.manager.queueOperation('priority_queue', async () => {
+                            results.push('low');
+                            return 'low';
+                        }, 1),
+                        this.manager.queueOperation('priority_queue', async () => {
+                            results.push('high');
+                            return 'high';
+                        }, 10),
+                        this.manager.queueOperation('priority_queue', async () => {
+                            results.push('medium');
+                            return 'medium';
+                        }, 5)
+                    ];
+                    
+                    await Promise.all(promises);
+                    
+                    // High priority should execute first
+                    return results[0] === 'high';
+                });
+
+                // Test concurrent operation tracking
+                this.testAsync('Track concurrent operation', async () => {
+                    let operationExecuted = false;
+                    await this.manager.trackConcurrentOperation('test_op', async () => {
+                        operationExecuted = true;
+                        return 'tracked_result';
+                    });
+                    return operationExecuted;
+                });
+
+                this.testAsync('Concurrent operation limit', async () => {
+                    const promises = [];
+                    
+                    // Try to exceed the limit (5 operations)
+                    for (let i = 0; i < 7; i++) {
+                        promises.push(
+                            this.manager.trackConcurrentOperation(`op_${i}`, async () => {
+                                await new Promise(resolve => setTimeout(resolve, 100));
+                                return i;
+                            }).catch(error => error)
+                        );
+                    }
+                    
+                    const results = await Promise.all(promises);
+                    
+                    // Some operations should fail due to limit
+                    const errors = results.filter(r => r instanceof Error);
+                    return errors.length > 0 && errors[0].message.includes('Maximum concurrent operations');
+                });
+
+                // Test atomic operations
+                this.testAsync('Atomic operation', async () => {
+                    const atomicOp = this.manager.createAtomicOperation('test_atomic');
+                    
+                    let operationExecuted = false;
+                    const result = await atomicOp(async () => {
+                        operationExecuted = true;
+                        return 'atomic_result';
+                    }, ['resource1', 'resource2']);
+                    
+                    return operationExecuted && result === 'atomic_result';
+                });
+
+                // Test concurrent safety validation
+                this.test('Validate concurrent safety - safe operation', () => {
+                    const validation = this.manager.validateConcurrentSafety('test_op', ['free_resource']);
+                    return validation.safe === true && validation.conflicts.length === 0;
+                });
+
+                this.testAsync('Validate concurrent safety - unsafe operation', async () => {
+                    // Acquire a lock first
+                    const lockId = await this.manager.acquireLock('locked_resource');
+                    
+                    // Try to validate operation on same resource
+                    const validation = this.manager.validateConcurrentSafety('test_op', ['locked_resource']);
+                    
+                    // Release the lock
+                    this.manager.releaseLock('locked_resource', lockId);
+                    
+                    return validation.safe === false && validation.conflicts.length > 0;
+                });
+
+                // Test complex concurrent scenarios
+                this.testAsync('Multiple concurrent locks', async () => {
+                    const promises = [];
+                    const results = [];
+                    
+                    // Create multiple concurrent operations that need different locks
+                    for (let i = 0; i < 3; i++) {
+                        promises.push(
+                            this.manager.withLock(`resource_${i}`, async () => {
+                                await new Promise(resolve => setTimeout(resolve, 50));
+                                results.push(i);
+                                return i;
+                            })
+                        );
+                    }
+                    
+                    await Promise.all(promises);
+                    return results.length === 3;
+                });
+
+                this.testAsync('Deadlock prevention test', async () => {
+                    // This test ensures locks are acquired in sorted order to prevent deadlocks
+                    const atomicOp = this.manager.createAtomicOperation('deadlock_test');
+                    
+                    const promises = [
+                        atomicOp(async () => {
+                            await new Promise(resolve => setTimeout(resolve, 50));
+                            return 'op1';
+                        }, ['resource_b', 'resource_a']), // Note: unsorted order
+                        
+                        atomicOp(async () => {
+                            await new Promise(resolve => setTimeout(resolve, 50));
+                            return 'op2';
+                        }, ['resource_a', 'resource_b']) // Note: different order
+                    ];
+                    
+                    const results = await Promise.all(promises);
+                    return results.length === 2;
+                });
+
+                // Test cleanup functionality
+                this.test('Cleanup expired locks', () => {
+                    this.manager.cleanupExpiredLocks();
+                    // Should not throw errors
+                    return true;
+                });
+
+                this.test('Cleanup expired operations', () => {
+                    this.manager.cleanupExpiredOperations();
+                    // Should not throw errors
+                    return true;
+                });
+
+                // Test ID generation
+                this.test('Generate unique lock IDs', () => {
+                    const id1 = this.manager.generateLockId();
+                    const id2 = this.manager.generateLockId();
+                    return id1 !== id2 && id1.startsWith('lock_') && id2.startsWith('lock_');
+                });
+
+                this.test('Generate unique operation IDs', () => {
+                    const id1 = this.manager.generateOperationId();
+                    const id2 = this.manager.generateOperationId();
+                    return id1 !== id2 && id1.startsWith('op_') && id2.startsWith('op_');
+                });
+
+                // Test error handling
+                this.testAsync('Invalid lock release', async () => {
+                    const result = this.manager.releaseLock('nonexistent_resource', 'invalid_id');
+                    return result === false;
+                });
+
+                this.testAsync('Invalid mutex release', async () => {
+                    const result = this.manager.releaseMutex('nonexistent_mutex', 'invalid_id');
+                    return result === false;
+                });
+
+                this.testAsync('Invalid semaphore release', async () => {
+                    const result = this.manager.releaseSemaphore('nonexistent_semaphore', 'invalid_id');
+                    return result === false;
+                });
+
+                // Performance test
+                this.testAsync('Performance test - many locks', async () => {
+                    const startTime = Date.now();
+                    const promises = [];
+                    
+                    for (let i = 0; i < 50; i++) {
+                        promises.push(
+                            this.manager.withLock(`perf_resource_${i}`, async () => {
+                                return i;
+                            })
+                        );
+                    }
+                    
+                    await Promise.all(promises);
+                    const duration = Date.now() - startTime;
+                    
+                    console.log(`Performance test completed in ${duration}ms`);
+                    return duration < 5000; // Should complete within 5 seconds
+                });
+
+                setTimeout(() => this.displayResults(), 100);
+            }
+
+            displayResults() {
+                const container = document.getElementById('test-results');
+                let html = '<h2>Test Results</h2>';
+                
+                const passed = this.results.filter(r => r.status === 'PASS').length;
+                const failed = this.results.filter(r => r.status === 'FAIL').length;
+                
+                html += `<div class="test-section">
+                    <h3>Summary</h3>
+                    <p class="pass">Passed: ${passed}</p>
+                    <p class="fail">Failed: ${failed}</p>
+                    <p class="info">Total: ${this.results.length}</p>
+                </div>`;
+
+                // Add concurrency status
+                const status = this.manager.getConcurrencyStatus();
+                html += `<div class="test-section">
+                    <h3>Final Concurrency Status</h3>
+                    <div class="status-monitor">
+                        <p><strong>Active Locks:</strong> ${status.locks.active}</p>
+                        <p><strong>Mutexes:</strong> ${status.mutexes.count} (${status.mutexes.locked} locked)</p>
+                        <p><strong>Semaphores:</strong> ${status.semaphores.count}</p>
+                        <p><strong>Active Operations:</strong> ${status.operations.active}/${status.operations.maximum}</p>
+                        <p><strong>Operation Queues:</strong> ${status.operations.queues}</p>
+                    </div>
+                </div>`;
+
+                // Add concurrent test demonstration
+                html += `<div class="test-section">
+                    <h3>Concurrent Test Demonstration</h3>
+                    <div class="concurrent-test">
+                        <button onclick="runConcurrentDemo()">Run Concurrent Demo</button>
+                        <div id="concurrent-demo-results"></div>
+                    </div>
+                </div>`;
+
+                this.results.forEach(result => {
+                    const className = result.status === 'PASS' ? 'pass' : 'fail';
+                    html += `<div class="test-section">
+                        <h4 class="${className}">${result.status}: ${result.name}</h4>
+                        <p>${result.message}</p>
+                    </div>`;
+                });
+
+                container.innerHTML = html;
+                console.log('Concurrency Safety Manager Tests completed:', { passed, failed, total: this.results.length });
+            }
+        }
+
+        // Global function for concurrent demo
+        async function runConcurrentDemo() {
+            const demoResults = document.getElementById('concurrent-demo-results');
+            demoResults.innerHTML = '<p>Running concurrent demo...</p>';
+            
+            const tester = new ConcurrencySafetyManagerTest();
+            const manager = tester.manager;
+            
+            try {
+                const startTime = Date.now();
+                const promises = [];
+                
+                // Simulate concurrent operations with shared resources
+                for (let i = 0; i < 10; i++) {
+                    promises.push(
+                        manager.withLock(`shared_resource_${i % 3}`, async () => {
+                            await new Promise(resolve => setTimeout(resolve, Math.random() * 100));
+                            return `Operation ${i} completed`;
+                        })
+                    );
+                }
+                
+                const results = await Promise.all(promises);
+                const duration = Date.now() - startTime;
+                
+                demoResults.innerHTML = `
+                    <p><strong>Demo completed in ${duration}ms</strong></p>
+                    <p>Successfully executed ${results.length} concurrent operations</p>
+                    <p>All operations completed safely with proper locking</p>
+                `;
+                
+            } catch (error) {
+                demoResults.innerHTML = `<p class="fail">Demo failed: ${error.message}</p>`;
+            }
+        }
+
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const tester = new ConcurrencySafetyManagerTest();
+            tester.runTests();
+        });
+    </script>
+</body>
+</html>

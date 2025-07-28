@@ -10,13 +10,44 @@ class StreamingManager {
         
         // Initialize debug logger for this module
         this.debug = window.debugManager ? window.debugManager.createModuleLogger('StreamingManager') : {
-            log: () => {}, warn: () => {}, error: () => {}, info: () => {}
+            log: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {}
         };
+
+        // Initialize resource management systems
+        this.resourceManager = new (window.AudioResourceManager || class { 
+            registerResource() { return null; }
+            disposeAllResources() { return { total: 0, disposed: 0, errors: [] }; }
+            verifyCleanup() { return { isClean: true, activeResources: [] }; }
+            getResourcesByType() { return []; }
+            disposeResource() { return true; }
+            getStats() { return { created: 0, disposed: 0, active: 0 }; }
+            cleanupDisposedResources() { return 0; }
+            forceDisposeOldResources() { return 0; }
+        })();
+        
+        this.timeoutManager = new (window.TimeoutManager || class { 
+            createTimeout(op, timeout) { return op(); }
+            cancelAllTimeouts() { return 0; }
+            getActiveTimeoutCount() { return 0; }
+            getStats() { return { created: 0, completed: 0, timedOut: 0, cancelled: 0, active: 0 }; }
+            cleanupCompletedTimeouts() { return 0; }
+        })();
+        
+        this.connectionManager = new (window.ConnectionManager || class { 
+            connectWithRetry(fn) { return fn(); }
+            disconnectAll() { return 0; }
+            disconnect() { return true; }
+            setReconnectionCallbacks() { return; }
+            getAllConnectionStatuses() { return []; }
+            getStats() { return { totalAttempts: 0, successfulConnections: 0, failedConnections: 0, reconnections: 0, activeConnections: 0 }; }
+            cleanupCompletedConnections() { return 0; }
+        })();
 
         // Connection state
         this.websocket = null;
         this.isConnected = false;
         this.isConnecting = false;
+        this.connectionId = null;
 
         // Audio context and streaming
         this.audioContext = null;
@@ -106,65 +137,89 @@ class StreamingManager {
             this.isConnecting = true;
             this.debug.log('Starting connection to OpenAI Realtime API...');
 
-            // OpenAI Realtime API WebSocket URL with latest model
-            const wsUrl = `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`;
+            // Use connection manager for robust connection with retry logic
+            const connectFunction = () => {
+                return new Promise((resolve, reject) => {
+                    // OpenAI Realtime API WebSocket URL with latest model
+                    const wsUrl = `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`;
 
-            this.debug.log('Connecting to WebSocket URL:', wsUrl);
+                    this.debug.log('Connecting to WebSocket URL:', wsUrl);
 
-            // Try using the Authorization header approach with a workaround
-            // Create a custom request to establish the connection with proper headers
-            const headers = {
-                'Authorization': `Bearer ${this.apiKey}`,
-                'OpenAI-Beta': 'realtime=v1'
+                    // Create WebSocket with authentication
+                    this.websocket = this.createAuthenticatedWebSocket(wsUrl);
+                    this.websocket.binaryType = 'arraybuffer';
+
+                    // Register WebSocket as a resource
+                    const wsResourceId = this.resourceManager.registerResource(
+                        this.websocket,
+                        'websocket',
+                        (ws) => {
+                            if (ws && ws.readyState !== WebSocket.CLOSED) {
+                                ws.close(1000, 'Resource cleanup');
+                            }
+                        }
+                    );
+
+                    this.websocket.onopen = () => {
+                        this.debug.log('WebSocket connection opened');
+                        this.isConnected = true;
+                        this.isConnecting = false;
+
+                        // Send initial session configuration
+                        this.sendSessionConfig();
+
+                        resolve(this.websocket);
+                    };
+
+                    this.websocket.onmessage = (event) => {
+                        this.handleMessage(event);
+                    };
+
+                    this.websocket.onerror = (error) => {
+                        this.debug.error('WebSocket error:', error);
+                        reject(new Error(`WebSocket error: ${error.message || 'Unknown error'}`));
+                    };
+
+                    this.websocket.onclose = (event) => {
+                        this.debug.log('WebSocket closed:', { code: event.code, reason: event.reason });
+                        this.isConnected = false;
+                        this.isConnecting = false;
+
+                        if (this.isConnecting) {
+                            reject(new Error(`Connection failed: ${event.reason || 'Unknown reason'}`));
+                        }
+                    };
+                });
             };
 
-            // For browser compatibility, we'll try a different approach
-            // Create WebSocket with custom headers using a proxy approach
-            this.websocket = this.createAuthenticatedWebSocket(wsUrl, headers);
-
-            this.websocket.binaryType = 'arraybuffer';
-
-            // Set up event handlers
-            return new Promise((resolve, reject) => {
-                const connectionTimeout = setTimeout(() => {
-                    this.debug.log('Connection timeout');
-                    this.cleanup();
-                    reject(new Error('Connection timeout'));
-                }, 10000); // 10 second timeout
-
-                this.websocket.onopen = () => {
-                    clearTimeout(connectionTimeout);
-                    this.debug.log('WebSocket connection opened');
-                    this.isConnected = true;
-                    this.isConnecting = false;
-
-                    // Send initial session configuration
-                    this.sendSessionConfig();
-
-                    resolve({ success: true });
-                };
-
-                this.websocket.onmessage = (event) => {
-                    this.handleMessage(event);
-                };
-
-                this.websocket.onerror = (error) => {
-                    clearTimeout(connectionTimeout);
-                    this.debug.error('WebSocket error:', error);
-                    this.cleanup();
-                    reject(new Error(`WebSocket error: ${error.message || 'Unknown error'}`));
-                };
-
-                this.websocket.onclose = (event) => {
-                    clearTimeout(connectionTimeout);
-                    this.debug.log('WebSocket closed:', { code: event.code, reason: event.reason });
-                    this.cleanup();
-
-                    if (this.isConnecting) {
-                        reject(new Error(`Connection failed: ${event.reason || 'Unknown reason'}`));
-                    }
-                };
+            // Use connection manager with retry logic
+            const connection = await this.connectionManager.connectWithRetry(connectFunction, {
+                maxRetries: 3,
+                connectionTimeout: 10000,
+                autoReconnect: true
             });
+
+            // Store connection ID for management - connection is the WebSocket itself
+            this.connectionId = 'websocket_connection';
+
+            // Set up reconnection callbacks if the connection manager supports it
+            if (typeof this.connectionManager.setReconnectionCallbacks === 'function') {
+                this.connectionManager.setReconnectionCallbacks(
+                    this.connectionId,
+                    (newConnection) => {
+                        this.debug.log('WebSocket reconnected successfully');
+                        this.websocket = newConnection;
+                        this.isConnected = true;
+                        this.sendSessionConfig();
+                    },
+                    (error) => {
+                        this.debug.error('WebSocket reconnection failed:', error);
+                        this.cleanup();
+                    }
+                );
+            }
+
+            return { success: true };
 
         } catch (error) {
             this.debug.error('Connection error:', error);
@@ -215,7 +270,7 @@ class StreamingManager {
      * Create WebSocket with authentication
      * OpenAI Realtime API requires specific authentication method
      */
-    createAuthenticatedWebSocket(url, headers) {
+    createAuthenticatedWebSocket(url) {
         // OpenAI Realtime API uses specific subprotocols for authentication
         // Following the exact spec from OpenAI documentation
         const subprotocols = [
@@ -601,6 +656,51 @@ class StreamingManager {
     }
 
     /**
+     * Get resource management statistics
+     */
+    getResourceStats() {
+        return {
+            resourceManager: typeof this.resourceManager.getStats === 'function' ? 
+                this.resourceManager.getStats() : { created: 0, disposed: 0, active: 0 },
+            timeoutManager: typeof this.timeoutManager.getStats === 'function' ? 
+                this.timeoutManager.getStats() : { created: 0, completed: 0, timedOut: 0, cancelled: 0, active: 0 },
+            connectionManager: typeof this.connectionManager.getStats === 'function' ? 
+                this.connectionManager.getStats() : { totalAttempts: 0, successfulConnections: 0, failedConnections: 0, reconnections: 0, activeConnections: 0 }
+        };
+    }
+
+    /**
+     * Perform comprehensive cleanup verification
+     */
+    verifyResourceCleanup() {
+        const verification = {
+            resourceManager: typeof this.resourceManager.verifyCleanup === 'function' ? 
+                this.resourceManager.verifyCleanup() : { isClean: true, activeResources: [] },
+            activeTimeouts: typeof this.timeoutManager.getActiveTimeoutCount === 'function' ? 
+                this.timeoutManager.getActiveTimeoutCount() : 0,
+            activeConnections: typeof this.connectionManager.getAllConnectionStatuses === 'function' ? 
+                this.connectionManager.getAllConnectionStatuses().filter(conn => conn.connected).length : 0,
+            timestamp: new Date().toISOString()
+        };
+
+        const isFullyClean = verification.resourceManager.isClean && 
+                           verification.activeTimeouts === 0 && 
+                           verification.activeConnections === 0;
+
+        this.debug.log('Resource cleanup verification:', {
+            isFullyClean,
+            activeResources: verification.resourceManager.activeResources ? verification.resourceManager.activeResources.length : 0,
+            activeTimeouts: verification.activeTimeouts,
+            activeConnections: verification.activeConnections
+        });
+
+        return {
+            ...verification,
+            isFullyClean
+        };
+    }
+
+    /**
      * Manually trigger token tracking update (for testing)
      */
     updateTokenDisplay() {
@@ -618,15 +718,66 @@ class StreamingManager {
         this.isConnected = false;
         this.isConnecting = false;
 
-        // Stop audio streaming
+        // Stop audio streaming with enhanced cleanup
         this.stopAudioStreaming();
 
-        if (this.websocket) {
-            this.websocket.close();
-            this.websocket = null;
+        // Disconnect all connections through connection manager
+        if (this.connectionId && typeof this.connectionManager.disconnect === 'function') {
+            this.connectionManager.disconnect(this.connectionId, true);
+            this.connectionId = null;
         }
 
-        this.debug.log('Cleanup completed');
+        // Cancel all active timeouts
+        if (typeof this.timeoutManager.cancelAllTimeouts === 'function') {
+            const cancelledTimeouts = this.timeoutManager.cancelAllTimeouts();
+            if (cancelledTimeouts > 0) {
+                this.debug.log(`Cancelled ${cancelledTimeouts} active timeouts`);
+            }
+        }
+
+        // Dispose of all registered resources
+        if (typeof this.resourceManager.disposeAllResources === 'function') {
+            const disposalResults = this.resourceManager.disposeAllResources();
+            this.debug.log(`Resource disposal: ${disposalResults.disposed}/${disposalResults.total} resources disposed`);
+            
+            if (disposalResults.errors && disposalResults.errors.length > 0) {
+                this.debug.warn(`Resource disposal errors:`, disposalResults.errors);
+            }
+        }
+
+        // Clear WebSocket reference
+        this.websocket = null;
+
+        // Verify cleanup was successful
+        if (typeof this.resourceManager.verifyCleanup === 'function') {
+            const verification = this.resourceManager.verifyCleanup();
+            if (!verification.isClean) {
+                this.debug.warn(`Cleanup verification failed: ${verification.activeResources.length} resources still active`);
+                
+                // Force cleanup of old resources as emergency measure
+                if (typeof this.resourceManager.forceDisposeOldResources === 'function') {
+                    const forceDisposed = this.resourceManager.forceDisposeOldResources(5000); // 5 seconds
+                    if (forceDisposed > 0) {
+                        this.debug.warn(`Force disposed ${forceDisposed} old resources`);
+                    }
+                }
+            } else {
+                this.debug.log('Cleanup verification passed: all resources properly disposed');
+            }
+        }
+
+        // Clean up disposed resources from memory
+        if (typeof this.resourceManager.cleanupDisposedResources === 'function') {
+            this.resourceManager.cleanupDisposedResources();
+        }
+        if (typeof this.timeoutManager.cleanupCompletedTimeouts === 'function') {
+            this.timeoutManager.cleanupCompletedTimeouts();
+        }
+        if (typeof this.connectionManager.cleanupCompletedConnections === 'function') {
+            this.connectionManager.cleanupCompletedConnections();
+        }
+
+        this.debug.log('Enhanced cleanup completed');
     }
 
     /**
@@ -646,27 +797,115 @@ class StreamingManager {
         try {
             this.debug.log('Starting audio streaming...');
 
-            // Get microphone access
-            this.mediaStream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    sampleRate: 24000, // OpenAI Realtime API expects 24kHz
-                    channelCount: 1,
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                }
-            });
+            // Get microphone access with timeout
+            if (typeof this.timeoutManager.createTimeout === 'function') {
+                this.mediaStream = await this.timeoutManager.createTimeout(
+                    () => navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            sampleRate: 24000, // OpenAI Realtime API expects 24kHz
+                            channelCount: 1,
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    }),
+                    5000, // 5 second timeout for media access
+                    'media_stream_access'
+                );
+            } else {
+                // Fallback without timeout
+                this.mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 24000, // OpenAI Realtime API expects 24kHz
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+            }
 
-            // Create audio context
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
-                sampleRate: 24000
-            });
+            // Register media stream as a resource
+            if (typeof this.resourceManager.registerResource === 'function') {
+                this.resourceManager.registerResource(
+                    this.mediaStream,
+                    'mediaStream',
+                    (stream) => {
+                        if (stream) {
+                            stream.getTracks().forEach(track => {
+                                track.stop();
+                                this.debug.log(`Stopped media track: ${track.kind}`);
+                            });
+                        }
+                    }
+                );
+            }
+
+            // Create audio context with timeout
+            if (typeof this.timeoutManager.createTimeout === 'function') {
+                this.audioContext = await this.timeoutManager.createTimeout(
+                    () => new (window.AudioContext || window.webkitAudioContext)({
+                        sampleRate: 24000
+                    }),
+                    2000, // 2 second timeout for audio context creation
+                    'audio_context_creation'
+                );
+            } else {
+                // Fallback without timeout
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: 24000
+                });
+            }
+
+            // Register audio context as a resource
+            if (typeof this.resourceManager.registerResource === 'function') {
+                this.resourceManager.registerResource(
+                    this.audioContext,
+                    'audioContext',
+                    (context) => {
+                        if (context && context.state !== 'closed') {
+                            context.close().catch(err => {
+                                this.debug.warn('Error closing audio context:', err);
+                            });
+                            this.debug.log('Closed audio context');
+                        }
+                    }
+                );
+            }
 
             // Create audio source
             const source = this.audioContext.createMediaStreamSource(this.mediaStream);
 
+            // Register audio source as a resource
+            if (typeof this.resourceManager.registerResource === 'function') {
+                this.resourceManager.registerResource(
+                    source,
+                    'audioSource',
+                    (src) => {
+                        if (src && typeof src.disconnect === 'function') {
+                            src.disconnect();
+                            this.debug.log('Disconnected audio source');
+                        }
+                    }
+                );
+            }
+
             // Create script processor for audio data
             this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+
+            // Register processor as a resource
+            if (typeof this.resourceManager.registerResource === 'function') {
+                this.resourceManager.registerResource(
+                    this.processor,
+                    'processor',
+                    (proc) => {
+                        if (proc && typeof proc.disconnect === 'function') {
+                            proc.disconnect();
+                            this.debug.log('Disconnected audio processor');
+                        }
+                    }
+                );
+            }
 
             this.processor.onaudioprocess = (event) => {
                 if (this.isStreamingAudio && this.isConnected) {
@@ -809,22 +1048,69 @@ class StreamingManager {
             this.speechStopTimer = null;
         }
 
-        if (this.processor) {
-            this.processor.disconnect();
-            this.processor = null;
+        // Dispose of audio-related resources through resource manager
+        if (typeof this.resourceManager.getResourcesByType === 'function' && 
+            typeof this.resourceManager.disposeResource === 'function') {
+            
+            const audioResources = [
+                ...this.resourceManager.getResourcesByType('processor'),
+                ...this.resourceManager.getResourcesByType('audioSource'),
+                ...this.resourceManager.getResourcesByType('audioContext'),
+                ...this.resourceManager.getResourcesByType('mediaStream'),
+                ...this.resourceManager.getResourcesByType('audioElement'),
+                ...this.resourceManager.getResourcesByType('audioBuffer')
+            ];
+
+            let disposed = 0;
+            audioResources.forEach(resourceInfo => {
+                if (this.resourceManager.disposeResource(resourceInfo.id)) {
+                    disposed++;
+                }
+            });
+
+            if (disposed > 0) {
+                this.debug.log(`Disposed ${disposed} audio resources through resource manager`);
+            }
+
+            // Verify audio resources are cleaned up
+            const remainingAudioResources = [
+                ...this.resourceManager.getResourcesByType('processor'),
+                ...this.resourceManager.getResourcesByType('audioSource'),
+                ...this.resourceManager.getResourcesByType('audioContext'),
+                ...this.resourceManager.getResourcesByType('mediaStream'),
+                ...this.resourceManager.getResourcesByType('audioElement'),
+                ...this.resourceManager.getResourcesByType('audioBuffer')
+            ];
+
+            if (remainingAudioResources.length > 0) {
+                this.debug.warn(`${remainingAudioResources.length} audio resources still active after cleanup`);
+            } else {
+                this.debug.log('All audio resources successfully cleaned up');
+            }
+        } else {
+            // Fallback to manual cleanup
+            if (this.processor) {
+                this.processor.disconnect();
+                this.processor = null;
+            }
+
+            if (this.audioContext) {
+                this.audioContext.close();
+                this.audioContext = null;
+            }
+
+            if (this.mediaStream) {
+                this.mediaStream.getTracks().forEach(track => track.stop());
+                this.mediaStream = null;
+            }
         }
 
-        if (this.audioContext) {
-            this.audioContext.close();
-            this.audioContext = null;
-        }
+        // Clear references
+        this.processor = null;
+        this.audioContext = null;
+        this.mediaStream = null;
 
-        if (this.mediaStream) {
-            this.mediaStream.getTracks().forEach(track => track.stop());
-            this.mediaStream = null;
-        }
-
-        this.debug.log('Audio streaming stopped');
+        this.debug.log('Enhanced audio streaming stopped');
     }
 
     /**

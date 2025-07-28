@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetricsCollector Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        .metrics-display { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .alert { background: #ffe6e6; border: 1px solid #ff9999; padding: 10px; margin: 5px 0; }
+        button { margin: 5px; padding: 8px 16px; }
+    </style>
+</head>
+<body>
+    <h1>MetricsCollector Test Suite</h1>
+    
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="startMetricsCollection()">Start Collection</button>
+        <button onclick="stopMetricsCollection()">Stop Collection</button>
+        <button onclick="simulateHighMemory()">Simulate High Memory</button>
+        <button onclick="simulateHighErrorRate()">Simulate High Error Rate</button>
+        <button onclick="resetMetrics()">Reset Metrics</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Current Metrics</h2>
+        <div id="metricsDisplay" class="metrics-display"></div>
+        <button onclick="updateMetricsDisplay()">Refresh Metrics</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Recent Alerts</h2>
+        <div id="alertsDisplay"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Health Summary</h2>
+        <div id="healthDisplay"></div>
+        <button onclick="updateHealthDisplay()">Refresh Health</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Export Test</h2>
+        <button onclick="testExportJSON()">Export JSON</button>
+        <button onclick="testExportPrometheus()">Export Prometheus</button>
+        <div id="exportDisplay"></div>
+    </div>
+
+    <div id="testResults"></div>
+
+    <script src="../agents/metrics-collector.js"></script>
+    <script>
+        let metricsCollector;
+        let testResults = [];
+
+        function log(message, type = 'info') {
+            console.log(message);
+            const className = type === 'pass' ? 'pass' : type === 'fail' ? 'fail' : 'info';
+            testResults.push(`<div class="${className}">${message}</div>`);
+            updateTestDisplay();
+        }
+
+        function updateTestDisplay() {
+            document.getElementById('testResults').innerHTML = testResults.join('');
+        }
+
+        function initializeMetricsCollector() {
+            if (!metricsCollector) {
+                metricsCollector = new MetricsCollector({
+                    collectionInterval: 5000, // 5 seconds for testing
+                    thresholds: {
+                        memoryUsage: 50, // Lower threshold for testing
+                        errorRate: 10,
+                        responseTime: 1000
+                    }
+                });
+
+                // Listen for alerts
+                window.addEventListener('metricsAlert', (event) => {
+                    displayAlert(event.detail);
+                });
+
+                log('MetricsCollector initialized', 'pass');
+            }
+        }
+
+        function displayAlert(alert) {
+            const alertsDiv = document.getElementById('alertsDisplay');
+            const alertElement = document.createElement('div');
+            alertElement.className = 'alert';
+            alertElement.innerHTML = `
+                <strong>${alert.severity}</strong> - ${alert.message}<br>
+                <small>Time: ${new Date(alert.timestamp).toLocaleTimeString()}</small>
+            `;
+            alertsDiv.insertBefore(alertElement, alertsDiv.firstChild);
+        }
+
+        function testBasicFunctionality() {
+            log('Testing basic functionality...', 'info');
+            
+            try {
+                initializeMetricsCollector();
+                
+                // Test metric recording
+                metricsCollector.recordMetric('memory_usage', 45);
+                metricsCollector.recordMetric('response_time', 800);
+                metricsCollector.recordMetric('error_rate', 2);
+                
+                // Test metric retrieval
+                const memoryUsage = metricsCollector.getMetric('memory_usage');
+                const responseTime = metricsCollector.getMetric('response_time');
+                
+                if (memoryUsage === 45 && responseTime === 800) {
+                    log('✓ Basic metric recording and retrieval works', 'pass');
+                } else {
+                    log('✗ Basic metric recording failed', 'fail');
+                }
+                
+                // Test metric history
+                const history = metricsCollector.getMetricHistory('memory_usage');
+                if (history.length > 0) {
+                    log('✓ Metric history recording works', 'pass');
+                } else {
+                    log('✗ Metric history recording failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Basic functionality test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testThresholdMonitoring() {
+            log('Testing threshold monitoring...', 'info');
+            
+            try {
+                initializeMetricsCollector();
+                
+                // Clear existing alerts
+                metricsCollector.alerts = [];
+                
+                // Record metric above threshold
+                metricsCollector.recordMetric('memory_usage', 75); // Above 50% threshold
+                metricsCollector.checkThresholds(Date.now());
+                
+                const alerts = metricsCollector.getAlerts();
+                if (alerts.length > 0 && alerts[0].metric === 'memory_usage') {
+                    log('✓ Threshold monitoring generates alerts', 'pass');
+                } else {
+                    log('✗ Threshold monitoring failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Threshold monitoring test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testMetricsExport() {
+            log('Testing metrics export...', 'info');
+            
+            try {
+                initializeMetricsCollector();
+                
+                // Record some metrics
+                metricsCollector.recordMetric('memory_usage', 60);
+                metricsCollector.recordMetric('response_time', 1200);
+                
+                // Test JSON export
+                const jsonExport = metricsCollector.exportMetrics('json');
+                if (jsonExport.metrics && jsonExport.timestamp) {
+                    log('✓ JSON export works', 'pass');
+                } else {
+                    log('✗ JSON export failed', 'fail');
+                }
+                
+                // Test Prometheus export
+                const prometheusExport = metricsCollector.exportMetrics('prometheus');
+                if (prometheusExport.includes('memory_usage') && prometheusExport.includes('# HELP')) {
+                    log('✓ Prometheus export works', 'pass');
+                } else {
+                    log('✗ Prometheus export failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Metrics export test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testHealthSummary() {
+            log('Testing health summary...', 'info');
+            
+            try {
+                initializeMetricsCollector();
+                
+                // Record normal metrics
+                metricsCollector.recordMetric('memory_usage', 30);
+                metricsCollector.recordMetric('error_rate', 1);
+                
+                const health = metricsCollector.getHealthSummary();
+                
+                if (health.status && health.healthScore !== undefined && health.metrics) {
+                    log(`✓ Health summary works - Status: ${health.status}, Score: ${health.healthScore}`, 'pass');
+                } else {
+                    log('✗ Health summary failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Health summary test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testCollectionLifecycle() {
+            log('Testing collection lifecycle...', 'info');
+            
+            try {
+                initializeMetricsCollector();
+                
+                // Test start collection
+                metricsCollector.startCollection();
+                if (metricsCollector.isCollecting) {
+                    log('✓ Collection start works', 'pass');
+                } else {
+                    log('✗ Collection start failed', 'fail');
+                }
+                
+                // Test stop collection
+                metricsCollector.stopCollection();
+                if (!metricsCollector.isCollecting) {
+                    log('✓ Collection stop works', 'pass');
+                } else {
+                    log('✗ Collection stop failed', 'fail');
+                }
+                
+            } catch (error) {
+                log(`✗ Collection lifecycle test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function runAllTests() {
+            testResults = [];
+            log('Starting MetricsCollector test suite...', 'info');
+            
+            testBasicFunctionality();
+            testThresholdMonitoring();
+            testMetricsExport();
+            testHealthSummary();
+            testCollectionLifecycle();
+            
+            log('Test suite completed!', 'info');
+        }
+
+        function startMetricsCollection() {
+            initializeMetricsCollector();
+            metricsCollector.startCollection();
+            log('Started metrics collection', 'info');
+        }
+
+        function stopMetricsCollection() {
+            if (metricsCollector) {
+                metricsCollector.stopCollection();
+                log('Stopped metrics collection', 'info');
+            }
+        }
+
+        function simulateHighMemory() {
+            initializeMetricsCollector();
+            metricsCollector.recordMetric('memory_usage', 85);
+            log('Simulated high memory usage (85%)', 'info');
+            updateMetricsDisplay();
+        }
+
+        function simulateHighErrorRate() {
+            initializeMetricsCollector();
+            metricsCollector.recordMetric('error_rate', 15);
+            log('Simulated high error rate (15%)', 'info');
+            updateMetricsDisplay();
+        }
+
+        function resetMetrics() {
+            if (metricsCollector) {
+                metricsCollector.reset();
+                log('Reset all metrics', 'info');
+                updateMetricsDisplay();
+                document.getElementById('alertsDisplay').innerHTML = '';
+            }
+        }
+
+        function updateMetricsDisplay() {
+            if (!metricsCollector) return;
+            
+            const metrics = metricsCollector.getAllMetrics();
+            const display = document.getElementById('metricsDisplay');
+            
+            let html = '<h3>Current Metrics:</h3>';
+            Object.entries(metrics).forEach(([type, metric]) => {
+                const status = metric.threshold && metric.current > metric.threshold ? '⚠️' : '✅';
+                html += `<div>${status} <strong>${type}:</strong> ${metric.current} ${metric.threshold ? `(threshold: ${metric.threshold})` : ''}</div>`;
+            });
+            
+            display.innerHTML = html;
+        }
+
+        function updateHealthDisplay() {
+            if (!metricsCollector) return;
+            
+            const health = metricsCollector.getHealthSummary();
+            const display = document.getElementById('healthDisplay');
+            
+            const statusColor = {
+                'HEALTHY': 'green',
+                'DEGRADED': 'orange', 
+                'WARNING': 'orange',
+                'CRITICAL': 'red'
+            };
+            
+            display.innerHTML = `
+                <h3>System Health</h3>
+                <div style="color: ${statusColor[health.status] || 'black'}">
+                    <strong>Status:</strong> ${health.status}<br>
+                    <strong>Health Score:</strong> ${health.healthScore}/100<br>
+                    <strong>Recent Alerts:</strong> ${health.recentAlerts.length}
+                </div>
+            `;
+        }
+
+        function testExportJSON() {
+            if (!metricsCollector) {
+                initializeMetricsCollector();
+                metricsCollector.recordMetric('memory_usage', 45);
+                metricsCollector.recordMetric('response_time', 800);
+            }
+            
+            const exported = metricsCollector.exportMetrics('json');
+            document.getElementById('exportDisplay').innerHTML = `
+                <h4>JSON Export:</h4>
+                <pre>${JSON.stringify(exported, null, 2)}</pre>
+            `;
+        }
+
+        function testExportPrometheus() {
+            if (!metricsCollector) {
+                initializeMetricsCollector();
+                metricsCollector.recordMetric('memory_usage', 45);
+                metricsCollector.recordMetric('response_time', 800);
+            }
+            
+            const exported = metricsCollector.exportMetrics('prometheus');
+            document.getElementById('exportDisplay').innerHTML = `
+                <h4>Prometheus Export:</h4>
+                <pre>${exported}</pre>
+            `;
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            log('MetricsCollector test page loaded', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Manager Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Debug Manager Fix Test</h1>
+    <p>This page tests the fix for the "this.debug.debug is not a function" error.</p>
+
+    <div class="test-container">
+        <h2>🧪 Test Results</h2>
+        <div id="testResults"></div>
+        <button onclick="runTests()">🔄 Run Tests</button>
+        <button onclick="testAgentRouting()">🤖 Test Agent Routing</button>
+    </div>
+
+    <div class="test-container">
+        <h2>📋 Console Output</h2>
+        <p>Check the browser console for debug output. Make sure to enable debug mode first.</p>
+        <button onclick="enableDebug()">🔍 Enable Debug Mode</button>
+        <button onclick="disableDebug()">🔇 Disable Debug Mode</button>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/lru-cache.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+
+    <script>
+        let debugManager = null;
+
+        function logResult(test, result, message, type = 'info') {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = `<strong>${test}:</strong> ${message} ${result ? '✅' : '❌'}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function runTests() {
+            document.getElementById('testResults').innerHTML = '';
+            
+            try {
+                // Test 1: Initialize debug manager
+                debugManager = new DebugManager();
+                debugManager.enable();
+                window.debugManager = debugManager;
+                logResult('Debug Manager Init', true, 'Debug manager initialized successfully', 'success');
+
+                // Test 2: Test createModuleLogger
+                const moduleLogger = debugManager.createModuleLogger('TestModule');
+                logResult('Module Logger Creation', !!moduleLogger, 'Module logger created successfully', 'success');
+
+                // Test 3: Test that debug method exists
+                const hasDebugMethod = typeof moduleLogger.debug === 'function';
+                logResult('Debug Method Exists', hasDebugMethod, 'Module logger has debug method', hasDebugMethod ? 'success' : 'error');
+
+                // Test 4: Test calling debug method
+                try {
+                    moduleLogger.debug('Test debug message', { test: 'data' });
+                    logResult('Debug Method Call', true, 'Debug method called without error', 'success');
+                } catch (error) {
+                    logResult('Debug Method Call', false, `Debug method failed: ${error.message}`, 'error');
+                }
+
+                // Test 5: Test all logger methods
+                const methods = ['log', 'debug', 'info', 'warn', 'error'];
+                let allMethodsWork = true;
+                for (const method of methods) {
+                    try {
+                        if (typeof moduleLogger[method] === 'function') {
+                            moduleLogger[method](`Test ${method} message`, { method });
+                        } else {
+                            allMethodsWork = false;
+                            break;
+                        }
+                    } catch (error) {
+                        allMethodsWork = false;
+                        console.error(`Method ${method} failed:`, error);
+                        break;
+                    }
+                }
+                logResult('All Logger Methods', allMethodsWork, 'All logger methods work correctly', allMethodsWork ? 'success' : 'error');
+
+                // Test 6: Test LRU Cache (which uses debug.debug)
+                try {
+                    const cache = new LRUCache(5);
+                    cache.set('test', 'value');
+                    const value = cache.get('test');
+                    logResult('LRU Cache Test', value === 'value', 'LRU Cache works without debug errors', 'success');
+                } catch (error) {
+                    logResult('LRU Cache Test', false, `LRU Cache failed: ${error.message}`, 'error');
+                }
+
+                // Test 7: Test Conversation Context Manager (which uses debug.debug)
+                try {
+                    const contextManager = new ConversationContextManager();
+                    contextManager.addMessage('user', 'test message', 'TestAgent');
+                    logResult('Context Manager Test', true, 'Context Manager works without debug errors', 'success');
+                } catch (error) {
+                    logResult('Context Manager Test', false, `Context Manager failed: ${error.message}`, 'error');
+                }
+
+            } catch (error) {
+                logResult('Overall Test', false, `Test suite failed: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+
+        function testAgentRouting() {
+            if (!debugManager) {
+                alert('Please run tests first to initialize debug manager');
+                return;
+            }
+
+            try {
+                // Test routing fallback chain (which uses debug.debug)
+                const mockRouter = {
+                    agents: [],
+                    findBestAgent: () => null,
+                    routeWithPriority: () => null,
+                    routeWithKeywords: () => null
+                };
+                
+                const fallbackChain = new RoutingFallbackChain(mockRouter);
+                const result = fallbackChain.route('test input', {});
+                
+                logResult('Routing Fallback Chain', true, 'Routing fallback chain works without debug errors', 'success');
+            } catch (error) {
+                logResult('Routing Fallback Chain', false, `Routing failed: ${error.message}`, 'error');
+                console.error('Routing error:', error);
+            }
+        }
+
+        function enableDebug() {
+            if (debugManager) {
+                debugManager.enable();
+                console.log('Debug mode enabled - you should see debug messages in the console');
+            } else {
+                alert('Please run tests first to initialize debug manager');
+            }
+        }
+
+        function disableDebug() {
+            if (debugManager) {
+                debugManager.disable();
+                console.log('Debug mode disabled');
+            } else {
+                alert('Please run tests first to initialize debug manager');
+            }
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(runTests, 500);
+        });
+    </script>
+</body>
+</html>

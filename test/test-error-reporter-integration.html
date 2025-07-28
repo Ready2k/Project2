@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Reporter Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .alert-box {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .log-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Error Reporter Integration Test</h1>
+    <p>This test demonstrates how the ErrorReporter integrates with other system components.</p>
+    
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <button onclick="simulateApiClientError()">Simulate API Client Error</button>
+        <button onclick="simulateTokenTrackerError()">Simulate Token Tracker Error</button>
+        <button onclick="simulateStreamingError()">Simulate Streaming Error</button>
+        <button onclick="simulateSecurityError()">Simulate Security Error</button>
+        <button onclick="simulateErrorStorm()">Simulate Error Storm</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <div class="test-section">
+        <h2>System Alerts</h2>
+        <div id="alerts"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Error Logs</h2>
+        <div id="logs" class="log-box"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Error Rate Statistics</h2>
+        <div id="stats"></div>
+        <button onclick="updateStats()">Update Statistics</button>
+    </div>
+
+    <script src="../agents/error-reporter.js"></script>
+    <script>
+        // Initialize global error reporter
+        const globalErrorReporter = new ErrorReporter({
+            alertThreshold: 'MEDIUM',
+            maxContextSize: 1000
+        });
+
+        // Set up logging and alerting
+        globalErrorReporter.onLog((report) => {
+            displayLog(report);
+        });
+
+        globalErrorReporter.onAlert((alert) => {
+            displayAlert(alert);
+        });
+
+        function displayAlert(alert) {
+            const alertsDiv = document.getElementById('alerts');
+            const alertElement = document.createElement('div');
+            alertElement.className = 'alert-box';
+            alertElement.innerHTML = `
+                <strong>🚨 ${alert.severity} ALERT</strong><br>
+                ${alert.message || alert.error?.message}<br>
+                <small>Component: ${alert.metadata?.component || alert.component} | ${alert.timestamp}</small>
+            `;
+            alertsDiv.appendChild(alertElement);
+            
+            // Auto-remove after 10 seconds
+            setTimeout(() => {
+                if (alertElement.parentNode) {
+                    alertElement.parentNode.removeChild(alertElement);
+                }
+            }, 10000);
+        }
+
+        function displayLog(report) {
+            const logsDiv = document.getElementById('logs');
+            const logElement = document.createElement('div');
+            logElement.innerHTML = `
+                [${new Date(report.timestamp).toLocaleTimeString()}] 
+                <strong>${report.severity}</strong> 
+                ${report.error.message} 
+                (${report.metadata.component})
+            `;
+            logsDiv.appendChild(logElement);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        function updateStats() {
+            const statsDiv = document.getElementById('stats');
+            const allStats = globalErrorReporter.getAllErrorRateStats();
+            
+            if (allStats.length === 0) {
+                statsDiv.innerHTML = '<p>No error statistics available.</p>';
+                return;
+            }
+
+            let html = '<table border="1" style="width: 100%; border-collapse: collapse;">';
+            html += '<tr><th>Component</th><th>Total Errors</th><th>High Severity</th><th>Time Window</th></tr>';
+            
+            allStats.forEach(stat => {
+                html += `<tr>
+                    <td>${stat.component}</td>
+                    <td>${stat.totalErrors}</td>
+                    <td>${stat.highSeverityErrors}</td>
+                    <td>${stat.timeWindow}</td>
+                </tr>`;
+            });
+            
+            html += '</table>';
+            statsDiv.innerHTML = html;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+            document.getElementById('alerts').innerHTML = '';
+            globalErrorReporter.clearErrorRates();
+            updateStats();
+        }
+
+        // Simulate different types of errors
+
+        function simulateApiClientError() {
+            const error = new Error('Failed to connect to OpenAI API: timeout after 30 seconds');
+            error.name = 'NetworkError';
+            
+            globalErrorReporter.report(error, {
+                component: 'api-client',
+                operation: 'generateChatCompletion',
+                apiEndpoint: 'https://api.openai.com/v1/chat/completions',
+                requestId: 'req_' + Math.random().toString(36).substr(2, 9),
+                timeout: 30000
+            }, {
+                recoveryAttempted: true,
+                recoverySuccessful: false,
+                recoveryStrategy: 'retry-with-backoff'
+            });
+        }
+
+        function simulateTokenTrackerError() {
+            const error = new Error('Token usage data corrupted in localStorage');
+            error.name = 'DataError';
+            
+            globalErrorReporter.report(error, {
+                component: 'token-tracker',
+                operation: 'loadUsage',
+                storageKey: 'token_usage',
+                dataSize: 1024,
+                corruptionType: 'json-parse-error'
+            }, {
+                recoveryAttempted: true,
+                recoverySuccessful: true,
+                recoveryStrategy: 'fallback-to-backup'
+            });
+        }
+
+        function simulateStreamingError() {
+            const error = new Error('WebSocket connection lost during audio streaming');
+            error.name = 'NetworkError';
+            
+            globalErrorReporter.report(error, {
+                component: 'streaming',
+                operation: 'processAudioStream',
+                connectionId: 'ws_' + Math.random().toString(36).substr(2, 9),
+                bufferSize: 4096,
+                duration: 15.5
+            }, {
+                recoveryAttempted: true,
+                recoverySuccessful: true,
+                recoveryStrategy: 'reconnect-with-exponential-backoff'
+            });
+        }
+
+        function simulateSecurityError() {
+            const error = new Error('Rate limit exceeded: 150 requests in 60 seconds');
+            error.name = 'RateLimitError';
+            
+            globalErrorReporter.report(error, {
+                component: 'security',
+                operation: 'validateRequest',
+                clientIp: '192.168.1.100',
+                userId: 'user_12345',
+                requestCount: 150,
+                timeWindow: 60
+            });
+        }
+
+        function simulateErrorStorm() {
+            // Simulate multiple errors in quick succession to trigger rate alerts
+            const components = ['api-client', 'streaming', 'token-tracker', 'agent-router'];
+            const errorTypes = ['NetworkError', 'ValidationError', 'DataError', 'ConfigurationError'];
+            
+            for (let i = 0; i < 15; i++) {
+                setTimeout(() => {
+                    const component = components[Math.floor(Math.random() * components.length)];
+                    const errorType = errorTypes[Math.floor(Math.random() * errorTypes.length)];
+                    
+                    const error = new Error(`Simulated ${errorType} #${i + 1}`);
+                    error.name = errorType;
+                    
+                    globalErrorReporter.report(error, {
+                        component: component,
+                        operation: 'simulate',
+                        errorIndex: i + 1,
+                        timestamp: Date.now()
+                    });
+                }, i * 100); // Spread errors over 1.5 seconds
+            }
+            
+            // Update stats after the storm
+            setTimeout(() => {
+                updateStats();
+            }, 2000);
+        }
+
+        // Initialize page
+        window.onload = function() {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.innerHTML = '<strong>✅ Error Reporter Integration Test Ready</strong><br>Use the buttons above to simulate different error scenarios.';
+            document.body.insertBefore(successDiv, document.body.firstChild.nextSibling);
+            
+            updateStats();
+        };
+
+        // Global error handler to catch any unhandled errors
+        window.onerror = function(message, source, lineno, colno, error) {
+            globalErrorReporter.report(error || new Error(message), {
+                component: 'global',
+                operation: 'unhandled-error',
+                source: source,
+                line: lineno,
+                column: colno
+            });
+        };
+
+        // Promise rejection handler
+        window.addEventListener('unhandledrejection', function(event) {
+            globalErrorReporter.report(new Error(event.reason), {
+                component: 'global',
+                operation: 'unhandled-promise-rejection',
+                reason: event.reason
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Resource Management Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status.warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .status.info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .stats {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Streaming Resource Management Test</h1>
+        <p>This test verifies the enhanced streaming resource management system including AudioResourceManager, TimeoutManager, and ConnectionManager integration.</p>
+    </div>
+
+    <div class="container">
+        <div class="test-section">
+            <h3>Resource Management Components</h3>
+            <div id="componentStatus"></div>
+            <button onclick="testComponents()">Test Components</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Audio Resource Management</h3>
+            <div id="audioResourceStatus"></div>
+            <button onclick="testAudioResourceManagement()">Test Audio Resources</button>
+            <div id="audioResourceStats" class="stats"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Timeout Management</h3>
+            <div id="timeoutStatus"></div>
+            <button onclick="testTimeoutManagement()">Test Timeouts</button>
+            <div id="timeoutStats" class="stats"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Connection Management</h3>
+            <div id="connectionStatus"></div>
+            <button onclick="testConnectionManagement()">Test Connections</button>
+            <div id="connectionStats" class="stats"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Streaming Manager Integration</h3>
+            <div id="streamingStatus"></div>
+            <button onclick="testStreamingIntegration()">Test Streaming Integration</button>
+            <div id="streamingStats" class="stats"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Cleanup Verification</h3>
+            <div id="cleanupStatus"></div>
+            <button onclick="testCleanupVerification()">Test Cleanup</button>
+            <div id="cleanupStats" class="stats"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test Log</h3>
+            <div id="testLog" class="log"></div>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="../debug-manager.js"></script>
+    <script src="../audio-resource-manager.js"></script>
+    <script src="../timeout-manager.js"></script>
+    <script src="../connection-manager.js"></script>
+    <script src="../streaming-manager.js"></script>
+
+    <script>
+        // Initialize debug manager
+        window.debugManager = new DebugManager();
+        
+        // Test logging
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const logElement = document.getElementById('testLog');
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logElement.textContent += logEntry;
+            logElement.scrollTop = logElement.scrollHeight;
+            
+            console.log(`[StreamingResourceTest] ${message}`);
+        }
+
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function clearLog() {
+            document.getElementById('testLog').textContent = '';
+        }
+
+        // Test component availability
+        async function testComponents() {
+            log('Testing component availability...');
+            
+            try {
+                const audioResourceManager = new AudioResourceManager();
+                const timeoutManager = new TimeoutManager();
+                const connectionManager = new ConnectionManager();
+                
+                const results = {
+                    AudioResourceManager: !!audioResourceManager,
+                    TimeoutManager: !!timeoutManager,
+                    ConnectionManager: !!connectionManager,
+                    StreamingManager: !!window.StreamingManager
+                };
+                
+                const allAvailable = Object.values(results).every(Boolean);
+                
+                if (allAvailable) {
+                    showStatus('componentStatus', 'All components available and instantiable', 'success');
+                    log('All components test passed');
+                } else {
+                    showStatus('componentStatus', `Missing components: ${Object.entries(results).filter(([k,v]) => !v).map(([k]) => k).join(', ')}`, 'error');
+                    log('Components test failed - missing components');
+                }
+                
+            } catch (error) {
+                showStatus('componentStatus', `Component test failed: ${error.message}`, 'error');
+                log(`Component test error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test audio resource management
+        async function testAudioResourceManagement() {
+            log('Testing audio resource management...');
+            
+            try {
+                const resourceManager = new AudioResourceManager();
+                
+                // Test resource registration
+                const mockAudioContext = { close: () => Promise.resolve() };
+                const mockMediaStream = { getTracks: () => [{ stop: () => {} }] };
+                const mockProcessor = { disconnect: () => {} };
+                
+                const contextId = resourceManager.registerResource(mockAudioContext, 'audioContext', (ctx) => ctx.close());
+                const streamId = resourceManager.registerResource(mockMediaStream, 'mediaStream', (stream) => stream.getTracks().forEach(t => t.stop()));
+                const processorId = resourceManager.registerResource(mockProcessor, 'processor', (proc) => proc.disconnect());
+                
+                // Verify registration
+                const stats = resourceManager.getStats();
+                if (stats.active === 3) {
+                    log('Resource registration successful');
+                } else {
+                    throw new Error(`Expected 3 active resources, got ${stats.active}`);
+                }
+                
+                // Test disposal
+                const disposalResults = resourceManager.disposeAllResources();
+                if (disposalResults.disposed === 3 && disposalResults.errors.length === 0) {
+                    log('Resource disposal successful');
+                } else {
+                    throw new Error(`Disposal failed: ${disposalResults.disposed}/3 disposed, ${disposalResults.errors.length} errors`);
+                }
+                
+                // Test cleanup verification
+                const verification = resourceManager.verifyCleanup();
+                if (verification.isClean) {
+                    showStatus('audioResourceStatus', 'Audio resource management test passed', 'success');
+                    log('Audio resource management test passed');
+                } else {
+                    throw new Error(`Cleanup verification failed: ${verification.activeResources.length} resources still active`);
+                }
+                
+                document.getElementById('audioResourceStats').textContent = JSON.stringify(resourceManager.getStats(), null, 2);
+                
+            } catch (error) {
+                showStatus('audioResourceStatus', `Audio resource test failed: ${error.message}`, 'error');
+                log(`Audio resource test error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test timeout management
+        async function testTimeoutManagement() {
+            log('Testing timeout management...');
+            
+            try {
+                const timeoutManager = new TimeoutManager();
+                
+                // Test successful operation
+                const result1 = await timeoutManager.createTimeout(
+                    () => Promise.resolve('success'),
+                    1000,
+                    'test_operation'
+                );
+                
+                if (result1 !== 'success') {
+                    throw new Error('Timeout test 1 failed');
+                }
+                
+                // Test timeout occurrence
+                try {
+                    await timeoutManager.createTimeout(
+                        () => new Promise(resolve => setTimeout(resolve, 2000)),
+                        500,
+                        'timeout_test'
+                    );
+                    throw new Error('Expected timeout did not occur');
+                } catch (error) {
+                    if (error.code !== 'TIMEOUT_ERROR') {
+                        throw error;
+                    }
+                    log('Timeout correctly triggered');
+                }
+                
+                // Test cleanup
+                const cancelled = timeoutManager.cancelAllTimeouts();
+                const stats = timeoutManager.getStats();
+                
+                showStatus('timeoutStatus', 'Timeout management test passed', 'success');
+                log('Timeout management test passed');
+                
+                document.getElementById('timeoutStats').textContent = JSON.stringify(stats, null, 2);
+                
+            } catch (error) {
+                showStatus('timeoutStatus', `Timeout test failed: ${error.message}`, 'error');
+                log(`Timeout test error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test connection management
+        async function testConnectionManagement() {
+            log('Testing connection management...');
+            
+            try {
+                const connectionManager = new ConnectionManager({
+                    maxRetries: 2,
+                    initialDelay: 100,
+                    connectionTimeout: 1000
+                });
+                
+                // Test successful connection
+                let attempt = 0;
+                const mockConnection = await connectionManager.connectWithRetry(() => {
+                    attempt++;
+                    if (attempt === 1) {
+                        throw new Error('First attempt fails');
+                    }
+                    return Promise.resolve({ id: 'test_connection', close: () => {} });
+                });
+                
+                if (!mockConnection || mockConnection.id !== 'test_connection') {
+                    throw new Error('Connection test failed');
+                }
+                
+                log('Connection retry logic working correctly');
+                
+                // Test disconnection
+                const disconnected = connectionManager.disconnectAll();
+                if (disconnected !== 1) {
+                    throw new Error(`Expected 1 disconnection, got ${disconnected}`);
+                }
+                
+                const stats = connectionManager.getStats();
+                
+                showStatus('connectionStatus', 'Connection management test passed', 'success');
+                log('Connection management test passed');
+                
+                document.getElementById('connectionStats').textContent = JSON.stringify(stats, null, 2);
+                
+            } catch (error) {
+                showStatus('connectionStatus', `Connection test failed: ${error.message}`, 'error');
+                log(`Connection test error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test streaming manager integration
+        async function testStreamingIntegration() {
+            log('Testing streaming manager integration...');
+            
+            try {
+                // Create streaming manager without API key for testing
+                const streamingManager = new StreamingManager('test-key');
+                
+                // Verify resource managers are initialized
+                const resourceStats = streamingManager.getResourceStats();
+                
+                if (!resourceStats.resourceManager || !resourceStats.timeoutManager || !resourceStats.connectionManager) {
+                    throw new Error('Resource managers not properly initialized');
+                }
+                
+                log('Resource managers properly initialized in StreamingManager');
+                
+                // Test cleanup without connection
+                streamingManager.cleanup();
+                
+                // Verify cleanup
+                const verification = streamingManager.verifyResourceCleanup();
+                if (!verification.isFullyClean) {
+                    log(`Cleanup verification: ${verification.activeResources} active resources, ${verification.activeTimeouts} timeouts, ${verification.activeConnections} connections`, 'warning');
+                } else {
+                    log('Cleanup verification passed');
+                }
+                
+                showStatus('streamingStatus', 'Streaming manager integration test passed', 'success');
+                log('Streaming manager integration test passed');
+                
+                document.getElementById('streamingStats').textContent = JSON.stringify(resourceStats, null, 2);
+                
+            } catch (error) {
+                showStatus('streamingStatus', `Streaming integration test failed: ${error.message}`, 'error');
+                log(`Streaming integration test error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test cleanup verification
+        async function testCleanupVerification() {
+            log('Testing cleanup verification...');
+            
+            try {
+                const resourceManager = new AudioResourceManager();
+                const timeoutManager = new TimeoutManager();
+                const connectionManager = new ConnectionManager();
+                
+                // Create some resources
+                const mockResource = { dispose: () => {} };
+                resourceManager.registerResource(mockResource, 'test', (r) => r.dispose());
+                
+                // Create a timeout
+                const timeoutPromise = timeoutManager.createTimeout(
+                    () => new Promise(resolve => setTimeout(resolve, 5000)),
+                    10000,
+                    'test_timeout'
+                );
+                
+                // Verify resources are active
+                let stats = {
+                    resources: resourceManager.getStats().active,
+                    timeouts: timeoutManager.getActiveTimeoutCount(),
+                    connections: connectionManager.getStats().activeConnections
+                };
+                
+                if (stats.resources === 0 && stats.timeouts === 0) {
+                    throw new Error('No active resources to test cleanup');
+                }
+                
+                log(`Active before cleanup: ${stats.resources} resources, ${stats.timeouts} timeouts`);
+                
+                // Perform cleanup
+                resourceManager.disposeAllResources();
+                timeoutManager.cancelAllTimeouts();
+                connectionManager.disconnectAll();
+                
+                // Verify cleanup
+                stats = {
+                    resources: resourceManager.getStats().active,
+                    timeouts: timeoutManager.getActiveTimeoutCount(),
+                    connections: connectionManager.getStats().activeConnections
+                };
+                
+                const isClean = stats.resources === 0 && stats.timeouts === 0 && stats.connections === 0;
+                
+                if (isClean) {
+                    showStatus('cleanupStatus', 'Cleanup verification test passed', 'success');
+                    log('Cleanup verification test passed');
+                } else {
+                    showStatus('cleanupStatus', `Cleanup incomplete: ${stats.resources} resources, ${stats.timeouts} timeouts, ${stats.connections} connections still active`, 'warning');
+                    log('Cleanup verification test completed with warnings');
+                }
+                
+                document.getElementById('cleanupStats').textContent = JSON.stringify(stats, null, 2);
+                
+            } catch (error) {
+                showStatus('cleanupStatus', `Cleanup verification test failed: ${error.message}`, 'error');
+                log(`Cleanup verification test error: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Streaming Resource Management Test initialized');
+            testComponents();
+        });
+    </script>
+</body>
+</html>

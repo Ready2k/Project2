@@ -38,6 +38,8 @@ class LLMManagerAdminUI {
             window.debugManager = {
                 createModuleLogger: (module) => ({
                     log: (...args) => console.log(`[${module}]`, ...args),
+                    debug: (...args) => console.debug(`[${module}]`, ...args),
+                    info: (...args) => console.info(`[${module}]`, ...args),
                     warn: (...args) => console.warn(`[${module}]`, ...args),
                     error: (...args) => console.error(`[${module}]`, ...args)
                 })
@@ -1373,6 +1375,29 @@ class LLMManagerAdminUI {
     }
     
     /**
+     * Clean up invalid agent configurations
+     */
+    cleanupInvalidAgents() {
+        try {
+            if (this.llmManager) {
+                const cleaned = this.llmManager.cleanupInvalidAgents();
+                if (cleaned) {
+                    this.refreshAgentData();
+                    this.showSuccess('Invalid agent configurations cleaned up');
+                    this.logAuditEvent('system', 'Cleaned up invalid agent configurations');
+                } else {
+                    this.showSuccess('No invalid agents found - all configurations are valid');
+                }
+            } else {
+                this.showError('LLM Manager not available');
+            }
+        } catch (error) {
+            this.debug.error('Error cleaning up invalid agents:', error);
+            this.showError('Failed to cleanup invalid agents');
+        }
+    }
+    
+    /**
      * Load audit log
      */
     loadAuditLog() {
@@ -1594,6 +1619,7 @@ window.refreshAgentData = () => adminUI?.refreshAgentData();
 window.exportConfiguration = () => adminUI?.exportConfiguration();
 window.importConfiguration = () => adminUI?.importConfiguration();
 window.resetToDefaults = () => adminUI?.resetToDefaults();
+window.cleanupInvalidAgents = () => adminUI?.cleanupInvalidAgents();
 window.clearAuditLog = () => adminUI?.clearAuditLog();
 window.closeModal = (modalId) => adminUI?.closeModal(modalId);
 window.saveAgentConfiguration = () => adminUI?.saveAgentConfiguration();

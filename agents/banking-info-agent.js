@@ -115,9 +115,20 @@ class BankingInfoAgent extends BaseAgent {
                 temperature: 0.3 // Lower temperature for more consistent financial information
             });
             
-            if (!apiResponse.success) {
-                throw new Error(apiResponse.error);
-            }
+            if (!apiResponse || !apiResponse.choices || !apiResponse.choices.length) {
+                throw new Error("No response from LLM");
+              }
+              
+              const content = apiResponse.choices[0].message.content;
+              
+              return {
+                success: true,
+                response: content,
+                agentName: "BankingInfoAgent",
+                tokensUsed: apiResponse.usage?.total_tokens || 0,
+                processingTime: Date.now() - startTime,
+              };
+              
             
             // Demonstrate secure domain API access for banking data with guardrails
             try {
@@ -157,7 +168,7 @@ class BankingInfoAgent extends BaseAgent {
                 this.debug.info('Guardrails working: BankingInfoAgent correctly blocked from transaction capability');
             }
             
-            const response = apiResponse.content;
+            const response = apiResponse.text;
             const tokensUsed = apiResponse.tokensUsed || 0;
             const processingTime = Date.now() - startTime;
             

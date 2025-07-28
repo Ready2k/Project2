@@ -5,7 +5,7 @@ class SystemPromptsManager {
         
         // Initialize debug logger for this module
         this.debug = window.debugManager ? window.debugManager.createModuleLogger('SystemPromptsManager') : {
-            log: () => {}, warn: () => {}, error: () => {}, info: () => {}
+            log: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {}
         };
     }
 

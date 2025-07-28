@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Count Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .cleanup-btn {
+            background: #28a745;
+        }
+        .cleanup-btn:hover {
+            background: #1e7e34;
+        }
+        .reset-btn {
+            background: #dc3545;
+        }
+        .reset-btn:hover {
+            background: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Agent Count Debug Test</h1>
+    <p>This page helps debug the discrepancy between the main page (4 agents) and LLM Manager admin UI (5 agents including NonExistentAgent).</p>
+
+    <div class="test-container">
+        <h2>🧪 Test Results</h2>
+        <div id="testResults"></div>
+        <button onclick="runTests()">🔄 Run Tests</button>
+        <button onclick="checkLocalStorage()" class="cleanup-btn">📋 Check localStorage</button>
+        <button onclick="cleanupInvalidAgents()" class="cleanup-btn">🧹 Cleanup Invalid Agents</button>
+        <button onclick="clearLLMStorage()" class="reset-btn">🗑️ Clear LLM Storage</button>
+    </div>
+
+    <div class="test-container">
+        <h2>📊 Agent Counts Comparison</h2>
+        <div id="agentComparison"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>🗂️ localStorage Data</h2>
+        <div id="storageData"></div>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/agent-router.js"></script>
+    <script src="agents/security-manager.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/lru-cache.js"></script>
+
+    <script>
+        let llmManager = null;
+        let agentRouter = null;
+
+        function logResult(test, result, message, type = 'info') {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = `<strong>${test}:</strong> ${message} ${result ? '✅' : '❌'}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function initializeManagers() {
+            try {
+                // Initialize debug manager
+                if (!window.debugManager) {
+                    window.debugManager = {
+                        createModuleLogger: (module) => ({
+                            log: (...args) => console.log(`[${module}]`, ...args),
+                            warn: (...args) => console.warn(`[${module}]`, ...args),
+                            error: (...args) => console.error(`[${module}]`, ...args)
+                        })
+                    };
+                }
+
+                // Initialize LLM Manager
+                llmManager = new LLMManager();
+                
+                // Initialize other managers
+                const guardrailsManager = new GuardrailsManager();
+                const voiceConfigManager = new VoiceConfigManager();
+                
+                // Set up dependencies
+                llmManager.setManagers(guardrailsManager, voiceConfigManager, null);
+
+                // Initialize Agent Router
+                agentRouter = new AgentRouter({ agents: [], apiClient: null });
+                
+                // Register agents
+                const agents = [
+                    new PaymentsAgent(),
+                    new FraudAgent(),
+                    new IDVAgent(),
+                    new BankingInfoAgent()
+                ];
+
+                agents.forEach(agent => {
+                    agentRouter.registerAgent(agent);
+                });
+
+                return true;
+            } catch (error) {
+                console.error('Failed to initialize managers:', error);
+                return false;
+            }
+        }
+
+        function runTests() {
+            document.getElementById('testResults').innerHTML = '';
+            
+            const initialized = initializeManagers();
+            logResult('Manager Initialization', initialized, 'Managers initialized successfully', initialized ? 'success' : 'error');
+            
+            if (!initialized) return;
+
+            // Test LLM Manager agent count
+            const llmConfigs = llmManager.getAgentConfigurations();
+            const llmCount = Object.keys(llmConfigs).length;
+            logResult('LLM Manager Agent Count', llmCount === 4, `LLM Manager shows ${llmCount} agents (expected 4)`, llmCount === 4 ? 'success' : 'warning');
+
+            // Test Agent Router agent count
+            const routerStats = agentRouter.getStats();
+            const routerCount = routerStats.totalAgents;
+            logResult('Agent Router Agent Count', routerCount === 4, `Agent Router shows ${routerCount} agents (expected 4)`, routerCount === 4 ? 'success' : 'warning');
+
+            // Check for consistency
+            const consistent = llmCount === routerCount;
+            logResult('Count Consistency', consistent, `Agent counts are ${consistent ? 'consistent' : 'inconsistent'}`, consistent ? 'success' : 'error');
+
+            // List agents from both sources
+            console.log('LLM Manager agents:', Object.keys(llmConfigs));
+            console.log('Agent Router agents:', routerStats.agentNames);
+
+            // Update comparison display
+            updateAgentComparison(llmConfigs, routerStats);
+        }
+
+        function updateAgentComparison(llmConfigs, routerStats) {
+            const comparisonDiv = document.getElementById('agentComparison');
+            
+            const llmAgents = Object.keys(llmConfigs);
+            const routerAgents = routerStats.agentNames;
+            
+            comparisonDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h3>LLM Manager (${llmAgents.length} agents)</h3>
+                        <ul>
+                            ${llmAgents.map(name => `<li>${name}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Agent Router (${routerAgents.length} agents)</h3>
+                        <ul>
+                            ${routerAgents.map(name => `<li>${name}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <h4>Differences:</h4>
+                    <div>
+                        <strong>Only in LLM Manager:</strong> ${llmAgents.filter(a => !routerAgents.includes(a)).join(', ') || 'None'}
+                    </div>
+                    <div>
+                        <strong>Only in Agent Router:</strong> ${routerAgents.filter(a => !llmAgents.includes(a)).join(', ') || 'None'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function checkLocalStorage() {
+            const storageDiv = document.getElementById('storageData');
+            
+            const llmData = localStorage.getItem('llm_manager_config');
+            const agentConfigData = localStorage.getItem('agent_configurations');
+            
+            let content = '<h3>localStorage Contents:</h3>';
+            
+            if (llmData) {
+                try {
+                    const parsed = JSON.parse(llmData);
+                    content += '<h4>llm_manager_config:</h4>';
+                    content += `<pre>${JSON.stringify(parsed, null, 2)}</pre>`;
+                    
+                    if (parsed.configurations) {
+                        const agentNames = Object.keys(parsed.configurations);
+                        content += `<p><strong>Stored agents:</strong> ${agentNames.join(', ')}</p>`;
+                    }
+                } catch (e) {
+                    content += '<p class="error">Error parsing llm_manager_config: ' + e.message + '</p>';
+                }
+            } else {
+                content += '<p>No llm_manager_config found in localStorage</p>';
+            }
+            
+            if (agentConfigData) {
+                try {
+                    const parsed = JSON.parse(agentConfigData);
+                    content += '<h4>agent_configurations:</h4>';
+                    content += `<pre>${JSON.stringify(parsed, null, 2)}</pre>`;
+                } catch (e) {
+                    content += '<p class="error">Error parsing agent_configurations: ' + e.message + '</p>';
+                }
+            } else {
+                content += '<p>No agent_configurations found in localStorage</p>';
+            }
+            
+            storageDiv.innerHTML = content;
+        }
+
+        function cleanupInvalidAgents() {
+            if (!llmManager) {
+                alert('Please run tests first to initialize managers');
+                return;
+            }
+            
+            try {
+                const cleaned = llmManager.cleanupInvalidAgents();
+                if (cleaned) {
+                    alert('Invalid agents cleaned up successfully!');
+                    runTests(); // Re-run tests to show updated counts
+                } else {
+                    alert('No invalid agents found - all configurations are valid');
+                }
+            } catch (error) {
+                alert('Error cleaning up invalid agents: ' + error.message);
+            }
+        }
+
+        function clearLLMStorage() {
+            if (confirm('This will clear all LLM Manager configuration data. Are you sure?')) {
+                localStorage.removeItem('llm_manager_config');
+                localStorage.removeItem('agent_configurations');
+                alert('LLM storage cleared. Please refresh the page and run tests again.');
+            }
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(runTests, 500);
+            checkLocalStorage();
+        });
+    </script>
+</body>
+</html>

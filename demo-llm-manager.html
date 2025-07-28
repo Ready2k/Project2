@@ -186,6 +186,8 @@
             window.debugManager = {
                 createModuleLogger: (module) => ({
                     log: (...args) => console.log(`[${module}]`, ...args),
+                    debug: (...args) => console.debug(`[${module}]`, ...args),
+                    info: (...args) => console.info(`[${module}]`, ...args),
                     warn: (...args) => console.warn(`[${module}]`, ...args),
                     error: (...args) => console.error(`[${module}]`, ...args)
                 })

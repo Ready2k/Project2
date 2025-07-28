@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Client Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .danger-btn {
+            background: #dc3545;
+        }
+        .danger-btn:hover {
+            background: #c82333;
+        }
+        input[type="password"] {
+            width: 300px;
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .api-key-section {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 API Client Debug Test</h1>
+    <p>This page helps debug the "Type error" in api-client.js during speech-to-text processing.</p>
+
+    <div class="api-key-section">
+        <h3>⚠️ API Key Configuration</h3>
+        <p>Enter your OpenAI API key to test the speech-to-text functionality:</p>
+        <input type="password" id="apiKeyInput" placeholder="Enter OpenAI API key">
+        <button onclick="setApiKey()">Set API Key</button>
+        <button onclick="clearApiKey()" class="danger-btn">Clear API Key</button>
+        <div id="apiKeyStatus" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>🧪 Test Results</h2>
+        <div id="testResults"></div>
+        <button onclick="runBasicTests()">🔄 Run Basic Tests</button>
+        <button onclick="testSpeechToText()">🎤 Test Speech-to-Text</button>
+        <button onclick="generateTestAudio()">🔊 Generate Test Audio</button>
+    </div>
+
+    <div class="test-container">
+        <h2>📊 API Client Status</h2>
+        <div id="apiStatus"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>🎵 Audio Recording Test</h2>
+        <p>Test audio recording to ensure the audio blob is valid:</p>
+        <button onclick="startRecording()" id="recordBtn">🎤 Start Recording</button>
+        <button onclick="stopRecording()" id="stopBtn" disabled>⏹️ Stop Recording</button>
+        <div id="recordingStatus"></div>
+        <div id="audioInfo"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>📋 Error Details</h2>
+        <div id="errorDetails"></div>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="debug-manager.js"></script>
+    <script src="token-tracker.js"></script>
+    <script src="api-client.js"></script>
+
+    <script>
+        let apiClient = null;
+        let debugManager = null;
+        let tokenTracker = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let testAudioBlob = null;
+
+        function logResult(test, result, message, type = 'info') {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = `<strong>${test}:</strong> ${message} ${result ? '✅' : '❌'}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function updateApiKeyStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('apiKeyStatus');
+            statusDiv.className = `test-result ${type}`;
+            statusDiv.innerHTML = message;
+        }
+
+        function setApiKey() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            if (!apiKey) {
+                updateApiKeyStatus('Please enter an API key', 'error');
+                return;
+            }
+            
+            if (apiClient) {
+                apiClient.setApiKey(apiKey);
+                updateApiKeyStatus('API key set successfully', 'success');
+                localStorage.setItem('openai_api_key', apiKey);
+            } else {
+                updateApiKeyStatus('API client not initialized', 'error');
+            }
+        }
+
+        function clearApiKey() {
+            if (apiClient) {
+                apiClient.setApiKey('');
+                updateApiKeyStatus('API key cleared', 'info');
+                localStorage.removeItem('openai_api_key');
+                document.getElementById('apiKeyInput').value = '';
+            }
+        }
+
+        function initializeComponents() {
+            try {
+                // Initialize debug manager
+                debugManager = new DebugManager();
+                debugManager.enable();
+                window.debugManager = debugManager;
+
+                // Initialize token tracker
+                tokenTracker = new TokenTracker();
+
+                // Initialize API client
+                const savedApiKey = localStorage.getItem('openai_api_key') || '';
+                apiClient = new OpenAIClient(savedApiKey, tokenTracker);
+                
+                if (savedApiKey) {
+                    document.getElementById('apiKeyInput').value = savedApiKey;
+                    updateApiKeyStatus('API key loaded from storage', 'success');
+                } else {
+                    updateApiKeyStatus('No API key found - please enter one above', 'warning');
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Failed to initialize components:', error);
+                return false;
+            }
+        }
+
+        function runBasicTests() {
+            document.getElementById('testResults').innerHTML = '';
+            
+            const initialized = initializeComponents();
+            logResult('Component Initialization', initialized, 'Components initialized successfully', initialized ? 'success' : 'error');
+            
+            if (!initialized) return;
+
+            // Test API client creation
+            logResult('API Client Creation', !!apiClient, 'API client created successfully', 'success');
+
+            // Test API key validation
+            const hasApiKey = apiClient.apiKey && apiClient.apiKey.length > 0;
+            logResult('API Key Present', hasApiKey, hasApiKey ? 'API key is set' : 'No API key configured', hasApiKey ? 'success' : 'warning');
+
+            // Test convertToISO639 method
+            try {
+                const result1 = apiClient.convertToISO639('en-GB');
+                const result2 = apiClient.convertToISO639('fr');
+                logResult('Language Conversion', result1 === 'en' && result2 === 'fr', 'Language conversion works correctly', 'success');
+            } catch (error) {
+                logResult('Language Conversion', false, `Language conversion failed: ${error.message}`, 'error');
+            }
+
+            // Update API status
+            updateApiStatus();
+        }
+
+        function updateApiStatus() {
+            const statusDiv = document.getElementById('apiStatus');
+            if (!apiClient) {
+                statusDiv.innerHTML = '<div class="test-result error">API Client not initialized</div>';
+                return;
+            }
+
+            const hasApiKey = apiClient.apiKey && apiClient.apiKey.length > 0;
+            const keyStatus = hasApiKey ? 'Set' : 'Not Set';
+            const keyType = hasApiKey ? 'success' : 'warning';
+
+            statusDiv.innerHTML = `
+                <div class="test-result ${keyType}">
+                    <strong>API Key Status:</strong> ${keyStatus}
+                </div>
+                <div class="test-result info">
+                    <strong>Token Tracker:</strong> ${tokenTracker ? 'Available' : 'Not Available'}
+                </div>
+                <div class="test-result info">
+                    <strong>Debug Manager:</strong> ${debugManager ? 'Available' : 'Not Available'}
+                </div>
+            `;
+        }
+
+        async function testSpeechToText() {
+            if (!apiClient) {
+                logResult('Speech-to-Text Test', false, 'API client not initialized', 'error');
+                return;
+            }
+
+            if (!apiClient.apiKey) {
+                logResult('Speech-to-Text Test', false, 'API key not set', 'error');
+                return;
+            }
+
+            if (!testAudioBlob) {
+                logResult('Speech-to-Text Test', false, 'No test audio available - please record some audio first', 'warning');
+                return;
+            }
+
+            try {
+                logResult('Speech-to-Text Test', null, 'Starting speech-to-text conversion...', 'info');
+                
+                const startTime = Date.now();
+                const result = await apiClient.speechToText(testAudioBlob, { language: 'en-GB' });
+                const duration = Date.now() - startTime;
+                
+                logResult('Speech-to-Text Test', true, `Conversion successful in ${duration}ms: "${result}"`, 'success');
+                
+                // Show detailed results
+                const errorDetails = document.getElementById('errorDetails');
+                errorDetails.innerHTML = `
+                    <h4>✅ Speech-to-Text Success</h4>
+                    <pre>Result: ${result}
+Duration: ${duration}ms
+Audio size: ${testAudioBlob.size} bytes
+Audio type: ${testAudioBlob.type}</pre>
+                `;
+                
+            } catch (error) {
+                logResult('Speech-to-Text Test', false, `Conversion failed: ${error.message}`, 'error');
+                
+                // Show detailed error information
+                const errorDetails = document.getElementById('errorDetails');
+                errorDetails.innerHTML = `
+                    <h4>❌ Speech-to-Text Error</h4>
+                    <pre>Error: ${error.message}
+Error Type: ${error.constructor.name}
+Stack: ${error.stack || 'No stack trace available'}
+Audio size: ${testAudioBlob ? testAudioBlob.size : 'No audio'} bytes
+Audio type: ${testAudioBlob ? testAudioBlob.type : 'No audio'}</pre>
+                `;
+                
+                console.error('Detailed error:', error);
+            }
+        }
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    testAudioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    updateAudioInfo();
+                    
+                    // Stop all tracks to release microphone
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
+                
+                document.getElementById('recordBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                
+                updateRecordingStatus('🔴 Recording... Speak now!', 'info');
+                
+            } catch (error) {
+                updateRecordingStatus(`❌ Recording failed: ${error.message}`, 'error');
+                console.error('Recording error:', error);
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                
+                document.getElementById('recordBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                
+                updateRecordingStatus('⏹️ Recording stopped', 'success');
+            }
+        }
+
+        function updateRecordingStatus(message, type) {
+            const statusDiv = document.getElementById('recordingStatus');
+            statusDiv.className = `test-result ${type}`;
+            statusDiv.innerHTML = message;
+        }
+
+        function updateAudioInfo() {
+            const infoDiv = document.getElementById('audioInfo');
+            if (testAudioBlob) {
+                infoDiv.innerHTML = `
+                    <div class="test-result success">
+                        <strong>Audio Ready:</strong> ${testAudioBlob.size} bytes, ${testAudioBlob.type}
+                    </div>
+                `;
+            } else {
+                infoDiv.innerHTML = `
+                    <div class="test-result warning">
+                        <strong>No Audio:</strong> Please record some audio first
+                    </div>
+                `;
+            }
+        }
+
+        function generateTestAudio() {
+            // Create a simple test audio blob (silence)
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const sampleRate = audioContext.sampleRate;
+            const duration = 2; // 2 seconds
+            const numSamples = sampleRate * duration;
+            
+            const buffer = audioContext.createBuffer(1, numSamples, sampleRate);
+            const channelData = buffer.getChannelData(0);
+            
+            // Generate a simple tone for testing
+            for (let i = 0; i < numSamples; i++) {
+                channelData[i] = Math.sin(2 * Math.PI * 440 * i / sampleRate) * 0.1; // 440Hz tone at low volume
+            }
+            
+            // Convert to WAV blob (simplified)
+            const wavData = new ArrayBuffer(44 + numSamples * 2);
+            const view = new DataView(wavData);
+            
+            // WAV header
+            const writeString = (offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            };
+            
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + numSamples * 2, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, numSamples * 2, true);
+            
+            // Audio data
+            let offset = 44;
+            for (let i = 0; i < numSamples; i++) {
+                const sample = Math.max(-1, Math.min(1, channelData[i]));
+                view.setInt16(offset, sample * 0x7FFF, true);
+                offset += 2;
+            }
+            
+            testAudioBlob = new Blob([wavData], { type: 'audio/wav' });
+            updateAudioInfo();
+            
+            logResult('Test Audio Generation', true, 'Generated 2-second test tone', 'success');
+        }
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(runBasicTests, 500);
+        });
+    </script>
+</body>
+</html>

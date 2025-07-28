@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Debug Logging Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; max-height: 300px; }
+        button { margin: 5px; padding: 10px; }
+        .log-display { background: #f9f9f9; padding: 10px; margin: 10px 0; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Comprehensive Debug Logging Test</h1>
+    <div id="results"></div>
+
+    <script src="../agents/debug-manager.js"></script>
+    <script>
+        class DebugLoggingTest {
+            constructor() {
+                this.results = document.getElementById('results');
+                this.debugManager = new DebugManager({
+                    enabled: true,
+                    logLevel: 'TRACE',
+                    maxLogHistory: 1000,
+                    enableConsoleOutput: false, // Disable for testing
+                    enablePersistence: false
+                });
+                this.testResults = [];
+            }
+
+            log(message, type = 'info') {
+                const div = document.createElement('div');
+                div.className = type;
+                div.innerHTML = message;
+                this.results.appendChild(div);
+                console.log(`[${type.toUpperCase()}] ${message}`);
+            }
+
+            async runAllTests() {
+                this.log('<h2>Testing Comprehensive Debug Logging (Requirement 7.3)</h2>');
+                
+                await this.testBasicLogging();
+                await this.testRoutingDecisionLogging();
+                await this.testStateTransitionLogging();
+                await this.testPerformanceLogging();
+                await this.testLogFiltering();
+                await this.testLogAnalysis();
+                await this.testLogExport();
+                
+                this.showSummary();
+            }
+
+            async testBasicLogging() {
+                this.log('<h3>Test: Basic Logging Functionality</h3>');
+                
+                try {
+                    // Test different log levels
+                    const traceLog = this.debugManager.trace('Trace message', {
+                        component: 'test-component',
+                        operation: 'trace-test'
+                    });
+                    
+                    const debugLog = this.debugManager.debug('Debug message', {
+                        component: 'test-component',
+                        operation: 'debug-test'
+                    });
+                    
+                    const infoLog = this.debugManager.info('Info message', {
+                        component: 'test-component',
+                        operation: 'info-test'
+                    });
+                    
+                    const warnLog = this.debugManager.warn('Warning message', {
+                        component: 'test-component',
+                        operation: 'warn-test'
+                    });
+                    
+                    const errorLog = this.debugManager.error('Error message', {
+                        component: 'test-component',
+                        operation: 'error-test'
+                    });
+                    
+                    // Verify log entries
+                    const hasTraceLog = traceLog && traceLog.level === 'TRACE';
+                    const hasDebugLog = debugLog && debugLog.level === 'DEBUG';
+                    const hasInfoLog = infoLog && infoLog.level === 'INFO';
+                    const hasWarnLog = warnLog && warnLog.level === 'WARN';
+                    const hasErrorLog = errorLog && errorLog.level === 'ERROR';
+                    
+                    // Check log structure
+                    const hasCorrectStructure = infoLog && 
+                        infoLog.id && 
+                        infoLog.timestamp && 
+                        infoLog.component === 'test-component' &&
+                        infoLog.operation === 'info-test';
+                    
+                    if (hasTraceLog && hasDebugLog && hasInfoLog && hasWarnLog && hasErrorLog && hasCorrectStructure) {
+                        this.log('✓ Basic logging functionality working correctly', 'pass');
+                        this.log(`Sample log entry: ${JSON.stringify(infoLog, null, 2).substring(0, 200)}...`, 'info');
+                        this.testResults.push({ test: 'Basic Logging', passed: true });
+                    } else {
+                        this.log('✗ Basic logging functionality failed', 'fail');
+                        this.testResults.push({ test: 'Basic Logging', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Basic logging error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Basic Logging', passed: false });
+                }
+            }
+
+            async testRoutingDecisionLogging() {
+                this.log('<h3>Test: Routing Decision Logging</h3>');
+                
+                try {
+                    // Create mock routing context
+                    const routingContext = {
+                        inputText: 'I want to check my balance',
+                        selectedAgent: {
+                            name: 'banking-info-agent',
+                            type: 'banking',
+                            confidence: 0.85
+                        },
+                        allAgents: [
+                            { name: 'banking-info-agent', type: 'banking', score: 0.85 },
+                            { name: 'payments-agent', type: 'payments', score: 0.3 },
+                            { name: 'fraud-agent', type: 'fraud', score: 0.1 }
+                        ],
+                        decisionProcess: {
+                            strategy: 'ai-routing',
+                            steps: ['analyze-input', 'score-agents', 'select-best'],
+                            fallbackUsed: false,
+                            processingTime: 45
+                        },
+                        confidence: 0.85,
+                        fallbackUsed: false,
+                        processingTime: 45,
+                        context: { sessionId: 'test-session-123' }
+                    };
+                    
+                    // Log routing decision
+                    const routingLog = this.debugManager.logRoutingDecision(routingContext);
+                    
+                    // Verify routing log structure
+                    const hasCorrectType = routingLog.type === 'ROUTING_DECISION';
+                    const hasInputText = routingLog.inputText === 'I want to check my balance';
+                    const hasSelectedAgent = routingLog.selectedAgent && 
+                        routingLog.selectedAgent.name === 'banking-info-agent';
+                    const hasDecisionProcess = routingLog.decisionProcess && 
+                        routingLog.decisionProcess.strategy === 'ai-routing';
+                    const hasAnalysis = routingLog.analysis && 
+                        routingLog.analysis.confidenceLevel === 'HIGH';
+                    
+                    // Check if routing decisions are stored
+                    const routingAnalysis = this.debugManager.analyzeRoutingDecisions();
+                    const hasRoutingAnalysis = routingAnalysis.summary.totalDecisions > 0;
+                    
+                    if (hasCorrectType && hasInputText && hasSelectedAgent && hasDecisionProcess && hasAnalysis && hasRoutingAnalysis) {
+                        this.log('✓ Routing decision logging working correctly', 'pass');
+                        this.log(`<div class="log-display">
+                            <strong>Routing Decision:</strong><br>
+                            Selected Agent: ${routingLog.selectedAgent.name}<br>
+                            Confidence: ${routingLog.selectedAgent.confidence}<br>
+                            Processing Time: ${routingLog.decisionProcess.processingTime}ms<br>
+                            Strategy: ${routingLog.decisionProcess.strategy}
+                        </div>`, 'info');
+                        this.testResults.push({ test: 'Routing Decision Logging', passed: true });
+                    } else {
+                        this.log('✗ Routing decision logging failed', 'fail');
+                        this.testResults.push({ test: 'Routing Decision Logging', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Routing decision logging error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Routing Decision Logging', passed: false });
+                }
+            }
+
+            async testStateTransitionLogging() {
+                this.log('<h3>Test: State Transition Logging</h3>');
+                
+                try {
+                    const component = 'test-streaming-manager';
+                    
+                    // Log multiple state transitions
+                    const transition1 = this.debugManager.logStateTransition(
+                        component, 'IDLE', 'CONNECTING', 
+                        { trigger: 'user-request', duration: 100 }
+                    );
+                    
+                    const transition2 = this.debugManager.logStateTransition(
+                        component, 'CONNECTING', 'CONNECTED',
+                        { trigger: 'connection-established', duration: 250 }
+                    );
+                    
+                    const transition3 = this.debugManager.logStateTransition(
+                        component, 'CONNECTED', 'STREAMING',
+                        { trigger: 'start-stream', duration: 50 }
+                    );
+                    
+                    // Verify state transition structure
+                    const hasCorrectComponent = transition1.component === component;
+                    const hasCorrectStates = transition1.fromState === 'IDLE' && 
+                        transition1.toState === 'CONNECTING';
+                    const hasContext = transition1.context && transition1.context.trigger === 'user-request';
+                    const hasMetadata = transition1.metadata && transition1.metadata.transitionCount;
+                    
+                    // Check state transition analysis
+                    const stateAnalysis = this.debugManager.analyzeStateTransitions(component);
+                    const hasStateAnalysis = stateAnalysis.summary.totalTransitions === 3;
+                    const hasUniqueStates = stateAnalysis.summary.uniqueStates.length === 4; // IDLE, CONNECTING, CONNECTED, STREAMING
+                    
+                    if (hasCorrectComponent && hasCorrectStates && hasContext && hasMetadata && hasStateAnalysis && hasUniqueStates) {
+                        this.log('✓ State transition logging working correctly', 'pass');
+                        this.log(`<div class="log-display">
+                            <strong>State Analysis for ${component}:</strong><br>
+                            Total Transitions: ${stateAnalysis.summary.totalTransitions}<br>
+                            Unique States: ${stateAnalysis.summary.uniqueStates.join(', ')}<br>
+                            Average Transition Time: ${stateAnalysis.summary.averageTransitionTime}ms
+                        </div>`, 'info');
+                        this.testResults.push({ test: 'State Transition Logging', passed: true });
+                    } else {
+                        this.log('✗ State transition logging failed', 'fail');
+                        this.testResults.push({ test: 'State Transition Logging', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ State transition logging error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'State Transition Logging', passed: false });
+                }
+            }
+
+            async testPerformanceLogging() {
+                this.log('<h3>Test: Performance Logging</h3>');
+                
+                try {
+                    // Create mock performance data
+                    const performanceData = {
+                        operation: 'api-call',
+                        component: 'api-client',
+                        duration: 1250, // Slow operation to trigger warning
+                        success: true,
+                        startTime: performance.now() - 1250,
+                        endTime: performance.now(),
+                        memoryBefore: 50000000,
+                        memoryAfter: 52000000,
+                        context: { endpoint: '/api/chat', method: 'POST' }
+                    };
+                    
+                    // Log performance data
+                    const performanceLog = this.debugManager.logPerformance(performanceData);
+                    
+                    // Verify performance log structure
+                    const hasCorrectType = performanceLog.type === 'PERFORMANCE';
+                    const hasOperation = performanceLog.operation === 'api-call';
+                    const hasComponent = performanceLog.component === 'api-client';
+                    const hasDuration = performanceLog.duration === 1250;
+                    const hasMetrics = performanceLog.metrics && 
+                        performanceLog.metrics.memoryBefore === 50000000;
+                    
+                    // Check if slow operation warning was logged
+                    const allLogs = this.debugManager.filterLogs({ level: 'WARN' });
+                    const hasSlowOperationWarning = allLogs.some(log => 
+                        log.message.includes('Slow operation detected') && 
+                        log.tags.includes('performance')
+                    );
+                    
+                    if (hasCorrectType && hasOperation && hasComponent && hasDuration && hasMetrics && hasSlowOperationWarning) {
+                        this.log('✓ Performance logging working correctly', 'pass');
+                        this.log(`Performance log created for ${performanceData.operation} (${performanceData.duration}ms)`, 'info');
+                        this.testResults.push({ test: 'Performance Logging', passed: true });
+                    } else {
+                        this.log('✗ Performance logging failed', 'fail');
+                        this.testResults.push({ test: 'Performance Logging', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Performance logging error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Performance Logging', passed: false });
+                }
+            }
+
+            async testLogFiltering() {
+                this.log('<h3>Test: Log Filtering</h3>');
+                
+                try {
+                    // Add some test logs with different criteria
+                    this.debugManager.info('Test message 1', { 
+                        component: 'filter-test-1', 
+                        operation: 'test-op' 
+                    }, { tags: ['test', 'filtering'] });
+                    
+                    this.debugManager.warn('Test message 2', { 
+                        component: 'filter-test-2', 
+                        operation: 'test-op' 
+                    }, { tags: ['test'] });
+                    
+                    this.debugManager.error('Test message 3', { 
+                        component: 'filter-test-1', 
+                        operation: 'error-op' 
+                    }, { tags: ['error'] });
+                    
+                    // Test various filters
+                    const levelFilter = this.debugManager.filterLogs({ level: 'WARN' });
+                    const componentFilter = this.debugManager.filterLogs({ component: 'filter-test-1' });
+                    const operationFilter = this.debugManager.filterLogs({ operation: 'test-op' });
+                    const tagFilter = this.debugManager.filterLogs({ tags: ['test'] });
+                    const messageFilter = this.debugManager.filterLogs({ messageContains: 'Test message 2' });
+                    
+                    // Verify filtering results
+                    const hasLevelFilter = levelFilter.length >= 2; // WARN and ERROR logs
+                    const hasComponentFilter = componentFilter.length >= 2; // Two logs from filter-test-1
+                    const hasOperationFilter = operationFilter.length >= 2; // Two logs with test-op
+                    const hasTagFilter = tagFilter.length >= 2; // Two logs with 'test' tag
+                    const hasMessageFilter = messageFilter.length === 1; // One specific message
+                    
+                    if (hasLevelFilter && hasComponentFilter && hasOperationFilter && hasTagFilter && hasMessageFilter) {
+                        this.log('✓ Log filtering working correctly', 'pass');
+                        this.log(`Filter results: Level(${levelFilter.length}), Component(${componentFilter.length}), Operation(${operationFilter.length}), Tag(${tagFilter.length}), Message(${messageFilter.length})`, 'info');
+                        this.testResults.push({ test: 'Log Filtering', passed: true });
+                    } else {
+                        this.log('✗ Log filtering failed', 'fail');
+                        this.testResults.push({ test: 'Log Filtering', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Log filtering error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Log Filtering', passed: false });
+                }
+            }
+
+            async testLogAnalysis() {
+                this.log('<h3>Test: Log Analysis</h3>');
+                
+                try {
+                    // Add some logs for analysis
+                    for (let i = 0; i < 5; i++) {
+                        this.debugManager.info(`Analysis test message ${i}`, {
+                            component: 'analysis-component',
+                            operation: 'analysis-operation'
+                        });
+                    }
+                    
+                    // Add some error logs
+                    for (let i = 0; i < 2; i++) {
+                        this.debugManager.error(`Analysis error ${i}`, {
+                            component: 'analysis-component',
+                            operation: 'error-operation'
+                        });
+                    }
+                    
+                    // Perform log analysis
+                    const analysis = this.debugManager.analyzeLogs();
+                    
+                    // Verify analysis structure
+                    const hasSummary = analysis.summary && 
+                        analysis.summary.totalLogs > 0 &&
+                        analysis.summary.levelDistribution &&
+                        analysis.summary.componentDistribution;
+                    
+                    const hasPatterns = analysis.patterns &&
+                        analysis.patterns.errorPatterns &&
+                        analysis.patterns.frequentOperations;
+                    
+                    const hasRecommendations = Array.isArray(analysis.recommendations);
+                    
+                    // Check specific analysis results
+                    const hasErrorPatterns = analysis.patterns.errorPatterns.length > 0;
+                    const hasFrequentOps = analysis.patterns.frequentOperations.length > 0;
+                    
+                    if (hasSummary && hasPatterns && hasRecommendations && hasErrorPatterns && hasFrequentOps) {
+                        this.log('✓ Log analysis working correctly', 'pass');
+                        this.log(`<div class="log-display">
+                            <strong>Analysis Summary:</strong><br>
+                            Total Logs: ${analysis.summary.totalLogs}<br>
+                            Error Patterns: ${analysis.patterns.errorPatterns.length}<br>
+                            Frequent Operations: ${analysis.patterns.frequentOperations.length}<br>
+                            Recommendations: ${analysis.recommendations.length}
+                        </div>`, 'info');
+                        this.testResults.push({ test: 'Log Analysis', passed: true });
+                    } else {
+                        this.log('✗ Log analysis failed', 'fail');
+                        this.testResults.push({ test: 'Log Analysis', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Log analysis error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Log Analysis', passed: false });
+                }
+            }
+
+            async testLogExport() {
+                this.log('<h3>Test: Log Export</h3>');
+                
+                try {
+                    // Add some test logs
+                    this.debugManager.info('Export test message', {
+                        component: 'export-test',
+                        operation: 'export-operation'
+                    });
+                    
+                    // Test different export formats
+                    const jsonExport = this.debugManager.exportLogs('json', { component: 'export-test' });
+                    const csvExport = this.debugManager.exportLogs('csv', { component: 'export-test' });
+                    const textExport = this.debugManager.exportLogs('text', { component: 'export-test' });
+                    
+                    // Verify exports
+                    const hasJsonExport = jsonExport && jsonExport.startsWith('[');
+                    const hasCsvExport = csvExport && csvExport.includes('timestamp,level,component');
+                    const hasTextExport = textExport && textExport.includes('Export test message');
+                    
+                    // Test invalid format handling
+                    let invalidFormatHandled = false;
+                    try {
+                        this.debugManager.exportLogs('invalid-format');
+                    } catch (error) {
+                        invalidFormatHandled = error.message.includes('Unsupported export format');
+                    }
+                    
+                    if (hasJsonExport && hasCsvExport && hasTextExport && invalidFormatHandled) {
+                        this.log('✓ Log export working correctly', 'pass');
+                        this.log(`Export formats: JSON(${jsonExport.length} chars), CSV(${csvExport.length} chars), Text(${textExport.length} chars)`, 'info');
+                        this.testResults.push({ test: 'Log Export', passed: true });
+                    } else {
+                        this.log('✗ Log export failed', 'fail');
+                        this.testResults.push({ test: 'Log Export', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Log export error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Log Export', passed: false });
+                }
+            }
+
+            showSummary() {
+                const passed = this.testResults.filter(r => r.passed).length;
+                const total = this.testResults.length;
+                
+                this.log('<h2>Test Summary</h2>');
+                this.log(`Passed: ${passed}/${total} tests`, passed === total ? 'pass' : 'fail');
+                
+                if (passed === total) {
+                    this.log('✓ All comprehensive debug logging tests passed! Task 7.3 requirements met.', 'pass');
+                } else {
+                    this.log('✗ Some tests failed. Please review the implementation.', 'fail');
+                }
+                
+                // Show debug manager statistics
+                const allLogs = this.debugManager.filterLogs({});
+                const analysis = this.debugManager.analyzeLogs();
+                
+                this.log('<h3>Debug Manager Statistics</h3>');
+                this.log(`<div class="log-display">
+                    <strong>Current State:</strong><br>
+                    Total Logs: ${allLogs.length}<br>
+                    Log Level: ${this.debugManager.getLogLevel()}<br>
+                    Enabled: ${this.debugManager.enabled}<br>
+                    Components Tracked: ${Object.keys(analysis.summary.componentDistribution).length}<br>
+                    Error Patterns: ${analysis.patterns.errorPatterns.length}<br>
+                    Recommendations: ${analysis.recommendations.length}
+                </div>`, 'info');
+            }
+        }
+
+        // Run tests when page loads
+        window.addEventListener('load', () => {
+            const tester = new DebugLoggingTest();
+            tester.runAllTests();
+        });
+    </script>
+</body>
+</html>

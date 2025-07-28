@@ -1,4 +1,5 @@
-import { buildPromptMessages } from './agents/prompt-composer.js';
+// Import will be handled by loading the script in HTML
+// import { buildPromptMessages } from './agents/prompt-composer.js';
 class SpeechToSpeechApp {
     constructor() {
         this.openaiApiKey = '';
@@ -13,9 +14,10 @@ class SpeechToSpeechApp {
             // Fallback debug logger if debugManager isn't available yet
             this.debug = {
                 log: (...args) => console.log('[SpeechToSpeechApp]', ...args),
+                debug: (...args) => console.debug('[SpeechToSpeechApp]', ...args),
+                info: (...args) => console.info('[SpeechToSpeechApp]', ...args),
                 warn: (...args) => console.warn('[SpeechToSpeechApp]', ...args),
-                error: (...args) => console.error('[SpeechToSpeechApp]', ...args),
-                info: (...args) => console.info('[SpeechToSpeechApp]', ...args)
+                error: (...args) => console.error('[SpeechToSpeechApp]', ...args)
             };
             console.warn('[SpeechToSpeechApp] debugManager not available, using fallback logger');
         }
@@ -189,15 +191,17 @@ this.apiClient = {
      */
     initializeAgentRouter() {
         try {
-            // Check if required classes are available
-            if (typeof BaseAgent === 'undefined' || 
-                typeof IDVAgent === 'undefined' || 
-                typeof BankingInfoAgent === 'undefined' || 
-                typeof FraudAgent === 'undefined' || 
-                typeof PaymentsAgent === 'undefined' || 
-                typeof AgentRouter === 'undefined' ||
-                typeof AgentConfigManager === 'undefined' ||
-                typeof SecurityManager === 'undefined') {
+            // Check if required classes are available (try both global and window scope)
+            const BaseAgent = window.BaseAgent || (typeof BaseAgent !== 'undefined' ? BaseAgent : undefined);
+            const IDVAgent = window.IDVAgent || (typeof IDVAgent !== 'undefined' ? IDVAgent : undefined);
+            const BankingInfoAgent = window.BankingInfoAgent || (typeof BankingInfoAgent !== 'undefined' ? BankingInfoAgent : undefined);
+            const FraudAgent = window.FraudAgent || (typeof FraudAgent !== 'undefined' ? FraudAgent : undefined);
+            const PaymentsAgent = window.PaymentsAgent || (typeof PaymentsAgent !== 'undefined' ? PaymentsAgent : undefined);
+            const AgentRouter = window.AgentRouter || (typeof AgentRouter !== 'undefined' ? AgentRouter : undefined);
+            const AgentConfigManager = window.AgentConfigManager || (typeof AgentConfigManager !== 'undefined' ? AgentConfigManager : undefined);
+            const SecurityManager = window.SecurityManager || (typeof SecurityManager !== 'undefined' ? SecurityManager : undefined);
+            
+            if (!BaseAgent || !IDVAgent || !BankingInfoAgent || !FraudAgent || !PaymentsAgent || !AgentRouter || !AgentConfigManager || !SecurityManager) {
                 throw new Error('Agent classes not loaded - falling back to original behavior');
             }
 
@@ -888,20 +892,16 @@ this.apiClient = {
             });
 
             if (result.success) {
-                console.log('AI response received:', result.content);
-                this.updateDebugOutput('gptResponse', result.content);
+                console.log('AI response received:', result.text);
+                this.updateDebugOutput('gptResponse', result.text);
                 
                 // Update conversation context for fallback responses too
-                this.updateConversationContext(userMessage, result.content, 'FallbackHandler');
+                this.updateConversationContext(userMessage, result.text, 'FallbackHandler');
                 
-                return result.content;
+                return result.text;
             } else {
                 throw new Error(result.error);
             }
-            if (!result || !result.success) {
-                const errorMsg = result?.error || 'Invalid GPT result';
-                throw new Error(errorMsg);
-              }
               
 
         } catch (error) {
@@ -924,6 +924,12 @@ this.apiClient = {
 
     async textToSpeechOpenAI(text, voiceConfig = null) {
         try {
+            // Check for undefined or empty text
+            if (!text || text.trim() === '') {
+                console.error('OpenAI TTS error: No text provided');
+                throw new Error('No text provided for TTS');
+            }
+            
             console.log('Converting text to speech with OpenAI:', text);
             this.updateStatus('🔊 Generating voice...');
             
@@ -1034,6 +1040,13 @@ this.apiClient = {
     async textToSpeechBrowser(text, voiceConfig = null) {
         return new Promise((resolve, reject) => {;
             try {
+                // Check for undefined or empty text
+                if (!text || text.trim() === '') {
+                    console.error('Browser TTS error: No text provided');
+                    reject(new Error('No text provided for TTS'));
+                    return;
+                }
+                
                 console.log('Converting text to speech with Browser TTS:', text);
                 this.updateStatus('🔊 Generating voice with browser...');
                 
@@ -1089,7 +1102,7 @@ this.apiClient = {
                 utterance.onend = () => {
                     console.log('Browser TTS ended');
                     this.updateStatus('Ready to listen');
-                    this.updateDebugOutput('ttsOutput', `Browser TTS completed successfully\nCharacters: ${text.length}\nVoice: ${utterance.voice ? utterance.voice.name : 'Default'}`);
+                    this.updateDebugOutput('ttsOutput', `Browser TTS completed successfully\nCharacters: ${text ? text.length : 0}\nVoice: ${utterance.voice ? utterance.voice.name : 'Default'}`);
                     resolve();
                 };
 
@@ -4013,4 +4026,4 @@ function loadGuardrailsEditor(agentName) {
         window.app.loadLLMGuardrailsEditor(agentName);
     }
 }
-window.buildPromptMessages = buildPromptMessages;
+// buildPromptMessages is now loaded from prompt-composer.js

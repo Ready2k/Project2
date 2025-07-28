@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API Response Fixes</title>
+</head>
+<body>
+    <h1>Testing API Response Fixes</h1>
+    <div id="results"></div>
+
+    <script>
+        // Mock API client to test the response format
+        class MockApiClient {
+            async generateChatCompletion(messages, options) {
+                // Simulate the corrected API response format
+                return {
+                    success: true,
+                    text: "Hello! This is a test response.",  // Using 'text' not 'content'
+                    usage: { total_tokens: 50 },
+                    model: "gpt-4-0613"
+                };
+            }
+
+            async textToSpeech(text, options) {
+                if (!text || text.trim() === '') {
+                    return { success: false, error: 'No text provided for TTS' };
+                }
+                return { success: true, audioBlob: new Blob() };
+            }
+        }
+
+        // Test the response handling
+        async function testResponseHandling() {
+            const apiClient = new MockApiClient();
+            const result = await apiClient.generateChatCompletion([
+                { role: 'user', content: 'Hello' }
+            ]);
+
+            const resultsDiv = document.getElementById('results');
+            
+            if (result.success) {
+                resultsDiv.innerHTML += `<p>✅ API Response: ${result.text}</p>`;
+                
+                // Test TTS with valid text
+                const ttsResult = await apiClient.textToSpeech(result.text);
+                if (ttsResult.success) {
+                    resultsDiv.innerHTML += `<p>✅ TTS with valid text: Success</p>`;
+                } else {
+                    resultsDiv.innerHTML += `<p>❌ TTS with valid text: ${ttsResult.error}</p>`;
+                }
+                
+                // Test TTS with undefined text
+                const ttsResultUndefined = await apiClient.textToSpeech(undefined);
+                if (!ttsResultUndefined.success) {
+                    resultsDiv.innerHTML += `<p>✅ TTS with undefined text properly rejected: ${ttsResultUndefined.error}</p>`;
+                } else {
+                    resultsDiv.innerHTML += `<p>❌ TTS with undefined text should have failed</p>`;
+                }
+                
+            } else {
+                resultsDiv.innerHTML += `<p>❌ API Response failed: ${result.error}</p>`;
+            }
+        }
+
+        // Run test when page loads
+        testResponseHandling();
+    </script>
+</body>
+</html>

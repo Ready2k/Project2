@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Assistant - Professional Edition</title>
+    <link rel="stylesheet" href="main-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Top Navigation Bar -->
+        <nav class="top-nav">
+            <div class="nav-brand">
+                <i class="fas fa-microphone-alt"></i>
+                <span>AI Voice Assistant</span>
+            </div>
+            <div class="nav-controls">
+                <button class="nav-btn" id="settingsBtn" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button class="nav-btn" id="adminBtn" title="Administration">
+                    <i class="fas fa-user-shield"></i>
+                </button>
+                <button class="nav-btn" id="debugBtn" title="Debug Tools">
+                    <i class="fas fa-bug"></i>
+                </button>
+                <button class="nav-btn" id="helpBtn" title="Help">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Voice Interface Section -->
+            <section class="voice-interface">
+                <div class="interface-header">
+                    <h1>Voice Conversation</h1>
+                    <div class="persona-selector">
+                        <label>Customer Profile:</label>
+                        <select id="personaSelect">
+                            <option value="">Loading personas...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Conversation Display -->
+                <div class="conversation-container">
+                    <div class="conversation-display" id="conversationDisplay">
+                        <div class="message system-message">
+                            <div class="message-content">
+                                <p>Welcome to your AI Voice Assistant. Click the microphone to start speaking.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Voice Controls -->
+                <div class="voice-controls">
+                    <button class="voice-btn" id="recordBtn" title="Click to speak">
+                        <i class="fas fa-microphone"></i>
+                        <span class="btn-text">Click to Speak</span>
+                    </button>
+                    <div class="status-indicator" id="statusIndicator">Ready to listen</div>
+                </div>
+
+                <!-- Agent Indicator -->
+                <div class="agent-indicator" id="agentIndicator">
+                    <span class="agent-label">Agent:</span>
+                    <span class="agent-name" id="agentName">Default Agent</span>
+                </div>
+            </section>
+
+            <!-- Tabbed Interface -->
+            <section class="tabbed-interface">
+                <div class="tab-navigation">
+                    <button class="tab-btn active" data-tab="settings">Settings</button>
+                    <button class="tab-btn" data-tab="debug">Debug</button>
+                    <button class="tab-btn" data-tab="admin">Administration</button>
+                    <button class="tab-btn" data-tab="help">Help</button>
+                </div>
+
+                <!-- Settings Tab -->
+                <div class="tab-content active" id="settingsTab">
+                    <div class="settings-grid">
+                        <!-- API Configuration -->
+                        <div class="settings-section">
+                            <h3><i class="fas fa-key"></i> API Configuration</h3>
+                            <div class="form-group">
+                                <label for="apiKey">OpenAI API Key:</label>
+                                <div class="input-group">
+                                    <input type="password" id="apiKey" placeholder="Enter your OpenAI API key">
+                                    <button class="btn-secondary" id="toggleApiKey" title="Show/Hide API Key">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <small class="help-text">Your API key is stored locally and never transmitted to our servers.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="gptModel">GPT Model:</label>
+                                <select id="gptModel">
+                                    <option value="gpt-4-0613">GPT-4 (Recommended)</option>
+                                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Faster)</option>
+                                </select>
+                            </div>
+                            <div class="key-status" id="keyStatus">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>API key not configured</span>
+                            </div>
+                        </div>
+
+                        <!-- Voice Settings -->
+                        <div class="settings-section">
+                            <h3><i class="fas fa-volume-up"></i> Voice Settings</h3>
+                            <div class="form-group">
+                                <label for="ttsMode">Text-to-Speech Mode:</label>
+                                <select id="ttsMode">
+                                    <option value="openai">OpenAI TTS (Premium)</option>
+                                    <option value="browser">Browser TTS (Free)</option>
+                                </select>
+                            </div>
+                            
+                            <!-- OpenAI TTS Settings -->
+                            <div id="openaiTtsSettings" class="tts-settings">
+                                <div class="form-group">
+                                    <label for="ttsModel">TTS Model:</label>
+                                    <select id="ttsModel">
+                                        <option value="tts-1-hd">TTS-1-HD (High Quality)</option>
+                                        <option value="tts-1">TTS-1 (Standard)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="ttsVoice">Voice:</label>
+                                    <select id="ttsVoice">
+                                        <option value="alloy">Alloy</option>
+                                        <option value="echo">Echo</option>
+                                        <option value="fable">Fable</option>
+                                        <option value="onyx">Onyx</option>
+                                        <option value="nova">Nova</option>
+                                        <option value="shimmer">Shimmer</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="ttsSpeed">Speed:</label>
+                                    <input type="range" id="ttsSpeed" min="0.25" max="4.0" step="0.25" value="1.0">
+                                    <span class="range-value" id="ttsSpeedValue">1.0x</span>
+                                </div>
+                            </div>
+
+                            <!-- Browser TTS Settings -->
+                            <div id="browserTtsSettings" class="tts-settings" style="display: none;">
+                                <div class="form-group">
+                                    <label for="browserTtsVoice">Voice:</label>
+                                    <select id="browserTtsVoice">
+                                        <option value="">Loading voices...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="browserTtsRate">Rate:</label>
+                                    <input type="range" id="browserTtsRate" min="0.1" max="10" step="0.1" value="1">
+                                    <span class="range-value" id="browserTtsRateValue">1.0</span>
+                                </div>
+                                <div class="form-group">
+                                    <label for="browserTtsPitch">Pitch:</label>
+                                    <input type="range" id="browserTtsPitch" min="0" max="2" step="0.1" value="1">
+                                    <span class="range-value" id="browserTtsPitchValue">1.0</span>
+                                </div>
+                                <div class="form-group">
+                                    <label for="browserTtsVolume">Volume:</label>
+                                    <input type="range" id="browserTtsVolume" min="0" max="1" step="0.1" value="1">
+                                    <span class="range-value" id="browserTtsVolumeValue">1.0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recording Settings -->
+                        <div class="settings-section">
+                            <h3><i class="fas fa-microphone"></i> Recording Settings</h3>
+                            <div class="form-group">
+                                <label for="recordingMode">Recording Mode:</label>
+                                <select id="recordingMode">
+                                    <option value="push-to-talk">Push to Talk</option>
+                                    <option value="voice-activation">Voice Activation</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="silenceThreshold">Silence Detection:</label>
+                                <input type="range" id="silenceThreshold" min="1" max="10" value="3">
+                                <span class="range-value" id="silenceThresholdValue">3 seconds</span>
+                            </div>
+                        </div>
+
+                        <!-- Token Usage -->
+                        <div class="settings-section">
+                            <h3><i class="fas fa-chart-bar"></i> Token Usage</h3>
+                            <div class="token-display" id="tokenDisplay">
+                                <div class="token-stat">
+                                    <span class="token-label">Session:</span>
+                                    <span class="token-value" id="sessionTokens">0</span>
+                                </div>
+                                <div class="token-stat">
+                                    <span class="token-label">Total:</span>
+                                    <span class="token-value" id="totalTokens">0</span>
+                                </div>
+                                <div class="token-stat">
+                                    <span class="token-label">Cost:</span>
+                                    <span class="token-value" id="estimatedCost">$0.00</span>
+                                </div>
+                            </div>
+                            <button class="btn-secondary" id="resetTokens">Reset Counters</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Debug Tab -->
+                <div class="tab-content" id="debugTab">
+                    <div class="debug-grid">
+                        <div class="debug-section">
+                            <h3><i class="fas fa-bug"></i> System Prompt</h3>
+                            <div class="debug-output" id="systemPrompt">System prompt will appear here...</div>
+                        </div>
+                        <div class="debug-section">
+                            <h3><i class="fas fa-robot"></i> GPT Response</h3>
+                            <div class="debug-output" id="gptResponse">GPT response will appear here...</div>
+                        </div>
+                        <div class="debug-section">
+                            <h3><i class="fas fa-volume-up"></i> TTS Output</h3>
+                            <div class="debug-output" id="ttsOutput">TTS information will appear here...</div>
+                        </div>
+                        <div class="debug-section">
+                            <h3><i class="fas fa-microphone"></i> Speech Input</h3>
+                            <div class="debug-output" id="speechInput">Speech recognition results will appear here...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Administration Tab -->
+                <div class="tab-content" id="adminTab">
+                    <div class="admin-grid">
+                        <div class="admin-section">
+                            <h3><i class="fas fa-cogs"></i> System Status</h3>
+                            <div class="status-grid">
+                                <div class="status-item">
+                                    <span class="status-label">API Connection:</span>
+                                    <span class="status-value" id="apiStatus">Not Connected</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Microphone:</span>
+                                    <span class="status-value" id="micStatus">Not Initialized</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Speech Recognition:</span>
+                                    <span class="status-value" id="speechStatus">Not Available</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Text-to-Speech:</span>
+                                    <span class="status-value" id="ttsStatus">Not Initialized</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="admin-section">
+                            <h3><i class="fas fa-download"></i> Data Management</h3>
+                            <div class="admin-actions">
+                                <button class="btn-secondary" id="exportSettings">Export Settings</button>
+                                <button class="btn-secondary" id="importSettings">Import Settings</button>
+                                <button class="btn-danger" id="clearData">Clear All Data</button>
+                            </div>
+                        </div>
+
+                        <div class="admin-section">
+                            <h3><i class="fas fa-shield-alt"></i> Security</h3>
+                            <div class="security-info">
+                                <p><i class="fas fa-lock"></i> All data is stored locally in your browser</p>
+                                <p><i class="fas fa-eye-slash"></i> API keys are never transmitted to our servers</p>
+                                <p><i class="fas fa-trash"></i> Clear browser data to remove all information</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Help Tab -->
+                <div class="tab-content" id="helpTab">
+                    <div class="help-content">
+                        <div class="help-section">
+                            <h3><i class="fas fa-question-circle"></i> Getting Started</h3>
+                            <ol>
+                                <li>Enter your OpenAI API key in the Settings tab</li>
+                                <li>Choose your preferred voice settings</li>
+                                <li>Click the microphone button to start speaking</li>
+                                <li>The AI will respond with both text and voice</li>
+                            </ol>
+                        </div>
+
+                        <div class="help-section">
+                            <h3><i class="fas fa-keyboard"></i> Keyboard Shortcuts</h3>
+                            <ul>
+                                <li><kbd>Space</kbd> - Start/Stop recording (when focused)</li>
+                                <li><kbd>Esc</kbd> - Cancel current recording</li>
+                                <li><kbd>Tab</kbd> - Navigate between interface elements</li>
+                            </ul>
+                        </div>
+
+                        <div class="help-section">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Troubleshooting</h3>
+                            <ul>
+                                <li><strong>No microphone access:</strong> Check browser permissions</li>
+                                <li><strong>API errors:</strong> Verify your OpenAI API key is correct</li>
+                                <li><strong>No voice output:</strong> Check your speaker settings and TTS mode</li>
+                                <li><strong>Poor recognition:</strong> Speak clearly and check microphone levels</li>
+                            </ul>
+                        </div>
+
+                        <div class="help-section">
+                            <h3><i class="fas fa-info-circle"></i> About</h3>
+                            <p>AI Voice Assistant Professional Edition - A sophisticated voice interface for OpenAI's GPT models with advanced features for professional use.</p>
+                            <p><strong>Version:</strong> 2.0.0</p>
+                            <p><strong>Privacy:</strong> All processing happens locally in your browser. Your conversations and API keys are never sent to our servers.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Scripts with cache busting -->
+    <script>
+        // Add cache busting timestamp
+        const cacheBust = Date.now();
+        const scripts = [
+            'debug-manager.js',
+            'persona-manager.js',
+            'system-prompts-manager.js',
+            'token-tracker.js',
+            'api-client.js',
+            'audio-resource-manager.js',
+            'timeout-manager.js',
+            'connection-manager.js',
+            'streaming-manager.js',
+            'agents/base-agent.js',
+            'agents/payments-agent.js',
+            'agents/fraud-agent.js',
+            'agents/idv-agent.js',
+            'agents/banking-info-agent.js',
+            'agents/guardrails-manager.js',
+            'agents/rate-limiter.js',
+            'agents/request-validator.js',
+            'agents/audit-logger.js',
+            'agents/security-manager.js',
+            'agents/voice-config-manager.js',
+            'agents/llm-manager.js',
+            'agents/agent-config-manager.js',
+            'agents/prompt-composer.js',
+            'agents/lru-cache.js',
+            'agents/routing-fallback-chain.js',
+            'agents/conversation-context-manager.js',
+            'agents/agent-router.js',
+            'agent-telemetry.js',
+            'llm-manager-admin-ui.js',
+            'dependency-check.js',
+            'script.js',
+            'main-interface.js'
+        ];
+        
+        // Load scripts sequentially with cache busting
+        let scriptIndex = 0;
+        function loadNextScript() {
+            if (scriptIndex >= scripts.length) return;
+            
+            const script = document.createElement('script');
+            script.src = scripts[scriptIndex] + '?v=' + cacheBust;
+            script.onload = () => {
+                scriptIndex++;
+                loadNextScript();
+            };
+            script.onerror = (error) => {
+                console.error('Failed to load script:', scripts[scriptIndex], error);
+                scriptIndex++;
+                loadNextScript();
+            };
+            document.head.appendChild(script);
+        }
+        
+        // Start loading scripts
+        loadNextScript();
+    </script>
+</body>
+</html>

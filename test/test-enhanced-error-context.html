@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Error Context Logging Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        button { margin: 5px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Enhanced Error Context Logging Test</h1>
+    <div id="results"></div>
+
+    <script src="../agents/error-reporter.js"></script>
+    <script>
+        class EnhancedErrorContextTest {
+            constructor() {
+                this.results = document.getElementById('results');
+                this.errorReporter = new ErrorReporter({
+                    alertThreshold: 'MEDIUM',
+                    maxContextSize: 2000
+                });
+                this.testResults = [];
+            }
+
+            log(message, type = 'info') {
+                const div = document.createElement('div');
+                div.className = type;
+                div.innerHTML = message;
+                this.results.appendChild(div);
+                console.log(`[${type.toUpperCase()}] ${message}`);
+            }
+
+            async runAllTests() {
+                this.log('<h2>Testing Enhanced Error Context Logging (Requirement 7.1)</h2>');
+                
+                await this.testCorrelationIdGeneration();
+                await this.testSystemStateCapture();
+                await this.testDetailedStackTraceCapture();
+                await this.testErrorCorrelationTracking();
+                await this.testContextHistoryTracking();
+                await this.testEnhancedErrorSerialization();
+                await this.testComponentStateMonitoring();
+                
+                this.showSummary();
+            }
+
+            async testCorrelationIdGeneration() {
+                this.log('<h3>Test: Correlation ID Generation</h3>');
+                
+                try {
+                    // Test correlation ID generation
+                    const correlationId1 = this.errorReporter.generateCorrelationId();
+                    const correlationId2 = this.errorReporter.generateCorrelationId();
+                    
+                    // Verify format
+                    const formatRegex = /^corr_\d+_[a-z0-9]+$/;
+                    const test1 = formatRegex.test(correlationId1);
+                    const test2 = formatRegex.test(correlationId2);
+                    const test3 = correlationId1 !== correlationId2;
+                    
+                    if (test1 && test2 && test3) {
+                        this.log('✓ Correlation ID generation working correctly', 'pass');
+                        this.log(`Generated IDs: ${correlationId1}, ${correlationId2}`, 'info');
+                        this.testResults.push({ test: 'Correlation ID Generation', passed: true });
+                    } else {
+                        this.log('✗ Correlation ID generation failed', 'fail');
+                        this.testResults.push({ test: 'Correlation ID Generation', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Correlation ID test error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Correlation ID Generation', passed: false });
+                }
+            }
+
+            async testSystemStateCapture() {
+                this.log('<h3>Test: System State Capture</h3>');
+                
+                try {
+                    const systemState = this.errorReporter.captureSystemState();
+                    
+                    // Verify system state structure
+                    const hasTimestamp = typeof systemState.timestamp === 'number';
+                    const hasMemory = systemState.memory !== undefined;
+                    const hasPerformance = systemState.performance !== undefined;
+                    const hasComponents = systemState.components !== undefined;
+                    const hasNetwork = systemState.network !== undefined;
+                    const hasStorage = systemState.storage !== undefined;
+                    
+                    if (hasTimestamp && hasMemory && hasPerformance && hasComponents && hasNetwork && hasStorage) {
+                        this.log('✓ System state capture working correctly', 'pass');
+                        this.log(`<pre>${JSON.stringify(systemState, null, 2)}</pre>`, 'info');
+                        this.testResults.push({ test: 'System State Capture', passed: true });
+                    } else {
+                        this.log('✗ System state capture incomplete', 'fail');
+                        this.testResults.push({ test: 'System State Capture', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ System state capture error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'System State Capture', passed: false });
+                }
+            }
+
+            async testDetailedStackTraceCapture() {
+                this.log('<h3>Test: Detailed Stack Trace Capture</h3>');
+                
+                try {
+                    // Create a test error with stack trace
+                    const testError = new Error('Test error for stack trace');
+                    const stackTrace = this.errorReporter.captureDetailedStackTrace(testError);
+                    
+                    // Verify stack trace structure
+                    const hasRaw = stackTrace.raw !== null;
+                    const hasParsed = Array.isArray(stackTrace.parsed);
+                    const hasDepth = typeof stackTrace.depth === 'number';
+                    const hasTopFrame = stackTrace.topFrame !== undefined;
+                    
+                    if (hasRaw && hasParsed && hasDepth && hasTopFrame) {
+                        this.log('✓ Detailed stack trace capture working correctly', 'pass');
+                        this.log(`Stack depth: ${stackTrace.depth}, Top frame: ${stackTrace.topFrame?.function || 'N/A'}`, 'info');
+                        this.testResults.push({ test: 'Detailed Stack Trace Capture', passed: true });
+                    } else {
+                        this.log('✗ Detailed stack trace capture incomplete', 'fail');
+                        this.testResults.push({ test: 'Detailed Stack Trace Capture', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Stack trace capture error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Detailed Stack Trace Capture', passed: false });
+                }
+            }
+
+            async testErrorCorrelationTracking() {
+                this.log('<h3>Test: Error Correlation Tracking</h3>');
+                
+                try {
+                    const correlationId = 'test_correlation_123';
+                    
+                    // Create multiple related errors
+                    const error1 = new Error('First related error');
+                    const error2 = new Error('Second related error');
+                    
+                    const report1 = this.errorReporter.report(error1, 
+                        { component: 'test-component', operation: 'test-op-1' },
+                        { correlationId }
+                    );
+                    
+                    const report2 = this.errorReporter.report(error2,
+                        { component: 'test-component', operation: 'test-op-2' },
+                        { correlationId }
+                    );
+                    
+                    // Verify correlation tracking
+                    const relatedErrors = this.errorReporter.getRelatedErrors(correlationId);
+                    const hasCorrectCount = relatedErrors.length === 2;
+                    const hasCorrectIds = relatedErrors.some(e => e.reportId === report1.id) &&
+                                         relatedErrors.some(e => e.reportId === report2.id);
+                    
+                    if (hasCorrectCount && hasCorrectIds) {
+                        this.log('✓ Error correlation tracking working correctly', 'pass');
+                        this.log(`Tracked ${relatedErrors.length} related errors`, 'info');
+                        this.testResults.push({ test: 'Error Correlation Tracking', passed: true });
+                    } else {
+                        this.log('✗ Error correlation tracking failed', 'fail');
+                        this.testResults.push({ test: 'Error Correlation Tracking', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Error correlation tracking error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Error Correlation Tracking', passed: false });
+                }
+            }
+
+            async testContextHistoryTracking() {
+                this.log('<h3>Test: Context History Tracking</h3>');
+                
+                try {
+                    const component = 'test-history-component';
+                    
+                    // Create errors with different contexts
+                    const error1 = new Error('Context history test 1');
+                    const error2 = new Error('Context history test 2');
+                    
+                    this.errorReporter.report(error1, {
+                        component,
+                        operation: 'operation-1',
+                        data: { test: 'value1' }
+                    });
+                    
+                    this.errorReporter.report(error2, {
+                        component,
+                        operation: 'operation-2',
+                        data: { test: 'value2' }
+                    });
+                    
+                    // Verify context history
+                    const contextHistory = this.errorReporter.getRecentContextHistory(component);
+                    const hasHistory = contextHistory.length === 2;
+                    const hasCorrectOperations = contextHistory.some(h => h.operation === 'operation-1') &&
+                                                contextHistory.some(h => h.operation === 'operation-2');
+                    
+                    if (hasHistory && hasCorrectOperations) {
+                        this.log('✓ Context history tracking working correctly', 'pass');
+                        this.log(`Tracked ${contextHistory.length} context entries`, 'info');
+                        this.testResults.push({ test: 'Context History Tracking', passed: true });
+                    } else {
+                        this.log('✗ Context history tracking failed', 'fail');
+                        this.testResults.push({ test: 'Context History Tracking', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Context history tracking error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Context History Tracking', passed: false });
+                }
+            }
+
+            async testEnhancedErrorSerialization() {
+                this.log('<h3>Test: Enhanced Error Serialization</h3>');
+                
+                try {
+                    // Create a complex error with custom properties
+                    const testError = new Error('Enhanced serialization test');
+                    testError.code = 'TEST_ERROR_CODE';
+                    testError.customProperty = 'custom value';
+                    testError.fileName = 'test-file.js';
+                    testError.lineNumber = 42;
+                    
+                    const serialized = this.errorReporter.serializeErrorWithEnhancedDetails(testError);
+                    
+                    // Verify enhanced serialization
+                    const hasBasicProps = serialized.name && serialized.message && serialized.type;
+                    const hasEnhancedProps = serialized.fileName && serialized.lineNumber;
+                    const hasCustomProps = serialized.customProperty === 'custom value';
+                    const hasCode = serialized.code === 'TEST_ERROR_CODE';
+                    
+                    if (hasBasicProps && hasEnhancedProps && hasCustomProps && hasCode) {
+                        this.log('✓ Enhanced error serialization working correctly', 'pass');
+                        this.log(`<pre>${JSON.stringify(serialized, null, 2)}</pre>`, 'info');
+                        this.testResults.push({ test: 'Enhanced Error Serialization', passed: true });
+                    } else {
+                        this.log('✗ Enhanced error serialization incomplete', 'fail');
+                        this.testResults.push({ test: 'Enhanced Error Serialization', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Enhanced error serialization error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Enhanced Error Serialization', passed: false });
+                }
+            }
+
+            async testComponentStateMonitoring() {
+                this.log('<h3>Test: Component State Monitoring</h3>');
+                
+                try {
+                    const component = 'test-component';
+                    const testState = {
+                        status: 'active',
+                        connections: 5,
+                        lastActivity: Date.now()
+                    };
+                    
+                    // Update component state
+                    this.errorReporter.updateComponentState(component, testState);
+                    
+                    // Capture system state to verify component state is included
+                    const systemState = this.errorReporter.captureSystemState();
+                    const componentState = systemState.components[component];
+                    
+                    const hasComponentState = componentState !== undefined;
+                    const hasCorrectState = componentState && componentState.status === 'active';
+                    const hasTimestamp = componentState && componentState.lastUpdated;
+                    
+                    if (hasComponentState && hasCorrectState && hasTimestamp) {
+                        this.log('✓ Component state monitoring working correctly', 'pass');
+                        this.log(`Component state: ${JSON.stringify(componentState)}`, 'info');
+                        this.testResults.push({ test: 'Component State Monitoring', passed: true });
+                    } else {
+                        this.log('✗ Component state monitoring failed', 'fail');
+                        this.testResults.push({ test: 'Component State Monitoring', passed: false });
+                    }
+                } catch (error) {
+                    this.log(`✗ Component state monitoring error: ${error.message}`, 'fail');
+                    this.testResults.push({ test: 'Component State Monitoring', passed: false });
+                }
+            }
+
+            showSummary() {
+                const passed = this.testResults.filter(r => r.passed).length;
+                const total = this.testResults.length;
+                
+                this.log('<h2>Test Summary</h2>');
+                this.log(`Passed: ${passed}/${total} tests`, passed === total ? 'pass' : 'fail');
+                
+                if (passed === total) {
+                    this.log('✓ All enhanced error context logging tests passed! Task 7.1 requirements met.', 'pass');
+                } else {
+                    this.log('✗ Some tests failed. Please review the implementation.', 'fail');
+                }
+            }
+        }
+
+        // Run tests when page loads
+        window.addEventListener('load', () => {
+            const tester = new EnhancedErrorContextTest();
+            tester.runAllTests();
+        });
+    </script>
+</body>
+</html>

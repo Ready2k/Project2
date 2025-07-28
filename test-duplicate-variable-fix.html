@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Duplicate Variable Fix</title>
+</head>
+<body>
+    <h1>Testing Duplicate Variable Fix</h1>
+    <div id="results"></div>
+
+    <!-- Load dependencies in the same order as index.html -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/rate-limiter.js"></script>
+    <script src="agents/request-validator.js"></script>
+    <script src="agents/audit-logger.js"></script>
+    <script src="agents/security-manager.js"></script>
+
+    <script>
+        function testDuplicateVariableFix() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                // Test that all classes are available
+                if (window.RateLimiter) {
+                    resultsDiv.innerHTML += `<p>✅ RateLimiter: Available</p>`;
+                } else {
+                    resultsDiv.innerHTML += `<p>❌ RateLimiter: Missing</p>`;
+                }
+                
+                if (window.RequestValidator) {
+                    resultsDiv.innerHTML += `<p>✅ RequestValidator: Available</p>`;
+                } else {
+                    resultsDiv.innerHTML += `<p>❌ RequestValidator: Missing</p>`;
+                }
+                
+                if (window.AuditLogger) {
+                    resultsDiv.innerHTML += `<p>✅ AuditLogger: Available</p>`;
+                } else {
+                    resultsDiv.innerHTML += `<p>❌ AuditLogger: Missing</p>`;
+                }
+                
+                if (window.SecurityManager) {
+                    resultsDiv.innerHTML += `<p>✅ SecurityManager: Available</p>`;
+                } else {
+                    resultsDiv.innerHTML += `<p>❌ SecurityManager: Missing</p>`;
+                }
+                
+                // Test SecurityManager instantiation
+                const securityManager = new SecurityManager();
+                resultsDiv.innerHTML += `<p>✅ SecurityManager: Successfully instantiated without duplicate variable error</p>`;
+                
+                // Test that the internal components were created
+                if (securityManager.rateLimiter) {
+                    resultsDiv.innerHTML += `<p>✅ SecurityManager.rateLimiter: Created successfully</p>`;
+                }
+                if (securityManager.requestValidator) {
+                    resultsDiv.innerHTML += `<p>✅ SecurityManager.requestValidator: Created successfully</p>`;
+                }
+                if (securityManager.auditLogger) {
+                    resultsDiv.innerHTML += `<p>✅ SecurityManager.auditLogger: Created successfully</p>`;
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML += `<p>❌ Error: ${error.message}</p>`;
+                console.error('Test error:', error);
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('load', testDuplicateVariableFix);
+    </script>
+</body>
+</html>

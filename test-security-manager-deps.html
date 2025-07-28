@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test SecurityManager Dependencies</title>
+</head>
+<body>
+    <h1>Testing SecurityManager Dependencies</h1>
+    <div id="results"></div>
+
+    <!-- Load dependencies in correct order -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/rate-limiter.js"></script>
+    <script src="agents/request-validator.js"></script>
+    <script src="agents/audit-logger.js"></script>
+    <script src="agents/security-manager.js"></script>
+
+    <script>
+        function testSecurityManagerDeps() {
+            const resultsDiv = document.getElementById('results');
+            
+            // Test all SecurityManager dependencies
+            const dependencies = [
+                'RateLimiter',
+                'RateLimitError',
+                'RequestValidator', 
+                'ValidationError',
+                'AuditLogger',
+                'SecurityEnhancementLayer',
+                'SecurityManager' // alias
+            ];
+            
+            dependencies.forEach(dep => {
+                if (window[dep]) {
+                    resultsDiv.innerHTML += `<p>✅ ${dep}: Available</p>`;
+                } else {
+                    resultsDiv.innerHTML += `<p>❌ ${dep}: Missing</p>`;
+                }
+            });
+            
+            // Test SecurityManager instantiation
+            try {
+                const securityManager = new SecurityManager();
+                resultsDiv.innerHTML += `<p>✅ SecurityManager: Successfully instantiated</p>`;
+                
+                // Test basic methods
+                if (typeof securityManager.validateDataAccess === 'function') {
+                    resultsDiv.innerHTML += `<p>✅ SecurityManager.validateDataAccess: Method available</p>`;
+                }
+                if (typeof securityManager.validateApiAccess === 'function') {
+                    resultsDiv.innerHTML += `<p>✅ SecurityManager.validateApiAccess: Method available</p>`;
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML += `<p>❌ SecurityManager instantiation failed: ${error.message}</p>`;
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('load', testSecurityManagerDeps);
+    </script>
+</body>
+</html>

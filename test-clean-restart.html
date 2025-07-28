@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Clean Restart - Security Manager</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Clean Restart Test - Security Manager</h1>
+    <div id="results"></div>
+
+    <script>
+        // Add cache busting to all script loads
+        const cacheBust = Date.now();
+        
+        const scripts = [
+            'debug-manager.js',
+            'agents/rate-limiter.js',
+            'agents/request-validator.js', 
+            'agents/audit-logger.js',
+            'agents/security-manager.js'
+        ];
+        
+        let loadedScripts = 0;
+        let errors = [];
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = message;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src + '?v=' + cacheBust;
+                script.onload = () => {
+                    addResult(`✅ Loaded: ${src}`, 'success');
+                    resolve();
+                };
+                script.onerror = (error) => {
+                    addResult(`❌ Failed to load: ${src}`, 'error');
+                    reject(error);
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        async function runTest() {
+            addResult('<h2>Loading Scripts with Cache Busting...</h2>');
+            
+            try {
+                // Load all scripts sequentially
+                for (const script of scripts) {
+                    await loadScript(script);
+                }
+                
+                addResult('<h2>Testing Security Manager...</h2>');
+                
+                // Test that all classes are available
+                const requiredClasses = ['RateLimiter', 'RequestValidator', 'AuditLogger', 'SecurityManager'];
+                let allAvailable = true;
+                
+                for (const className of requiredClasses) {
+                    if (window[className]) {
+                        addResult(`✅ ${className}: Available`, 'success');
+                    } else {
+                        addResult(`❌ ${className}: Missing`, 'error');
+                        allAvailable = false;
+                    }
+                }
+                
+                if (allAvailable) {
+                    // Test SecurityManager instantiation
+                    const securityManager = new SecurityManager();
+                    addResult('✅ SecurityManager: Successfully instantiated without variable conflicts!', 'success');
+                    
+                    // Test components
+                    if (securityManager.rateLimiter) {
+                        addResult('✅ RateLimiter component: Created', 'success');
+                    }
+                    if (securityManager.requestValidator) {
+                        addResult('✅ RequestValidator component: Created', 'success');
+                    }
+                    if (securityManager.auditLogger) {
+                        addResult('✅ AuditLogger component: Created', 'success');
+                    }
+                    
+                    addResult('<h2>🎉 All tests passed! Security Manager is working correctly.</h2>', 'success');
+                } else {
+                    addResult('<h2>❌ Some classes are missing. Check console for errors.</h2>', 'error');
+                }
+                
+            } catch (error) {
+                addResult(`❌ Error during testing: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+        
+        // Catch any global errors
+        window.addEventListener('error', (event) => {
+            if (event.message.includes('duplicate variable') || event.message.includes('RequestValidator')) {
+                addResult(`❌ Variable conflict detected: ${event.message}`, 'error');
+            }
+        });
+        
+        // Start the test
+        runTest();
+    </script>
+</body>
+</html>

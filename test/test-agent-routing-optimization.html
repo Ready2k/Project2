@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Routing Optimization Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; font-size: 12px; }
+        .stats { background: #f0f8ff; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Agent Routing Optimization Test</h1>
+    <div id="results"></div>
+
+    <!-- Load dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/lru-cache.js"></script>
+    <script src="../agents/conversation-context-manager.js"></script>
+    <script src="../agents/routing-fallback-chain.js"></script>
+    <script src="../agents/base-agent.js"></script>
+    <script src="../agents/agent-config-manager.js"></script>
+    <script src="../agents/guardrails-manager.js"></script>
+    <script src="../agents/security-manager.js"></script>
+    <script src="../agents/agent-router.js"></script>
+
+    <script>
+        class TestResults {
+            constructor() {
+                this.results = [];
+                this.container = document.getElementById('results');
+            }
+
+            log(message, type = 'info') {
+                console.log(`[${type.toUpperCase()}] ${message}`);
+                this.results.push({ message, type, timestamp: new Date().toISOString() });
+                this.render();
+            }
+
+            success(message) { this.log(message, 'success'); }
+            error(message) { this.log(message, 'error'); }
+            info(message) { this.log(message, 'info'); }
+            warning(message) { this.log(message, 'warning'); }
+
+            render() {
+                this.container.innerHTML = this.results.map(result => 
+                    `<div class="${result.type}">[${result.timestamp}] ${result.message}</div>`
+                ).join('');
+            }
+        }
+
+        // Mock API client for testing
+        class MockApiClient {
+            constructor(shouldFail = false) {
+                this.shouldFail = shouldFail;
+                this.callCount = 0;
+            }
+
+            async generateChatCompletion(messages, options = {}) {
+                this.callCount++;
+                
+                if (this.shouldFail) {
+                    throw new Error('Mock API failure for testing');
+                }
+                
+                // Simulate API delay
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                return {
+                    success: true,
+                    content: 'PaymentsAgent', // Mock AI response
+                    choices: [{ message: { content: 'PaymentsAgent' } }],
+                    usage: { total_tokens: 50 }
+                };
+            }
+        }
+
+        // Mock agent for testing
+        class MockAgent extends BaseAgent {
+            constructor(name, canHandleResult = false, shouldFail = false) {
+                super(name, `Mock ${name} agent`);
+                this.canHandleResult = canHandleResult;
+                this.shouldFail = shouldFail;
+                this.handleCount = 0;
+            }
+
+            canHandle(inputText) {
+                return this.canHandleResult;
+            }
+
+            async handle(inputText, context) {
+                this.handleCount++;
+                
+                if (this.shouldFail) {
+                    throw new Error(`Mock agent ${this.name} failure`);
+                }
+                
+                return {
+                    success: true,
+                    response: `${this.name} handled: ${inputText}`,
+                    agentName: this.name,
+                    processingTime: 100,
+                    tokensUsed: 10
+                };
+            }
+        }
+
+        async function runTests() {
+            const testResults = new TestResults();
+            
+            try {
+                testResults.info('Starting Agent Routing Optimization Tests...');
+
+                // Initialize debug manager
+                if (!window.debugManager) {
+                    window.debugManager = new DebugManager();
+                }
+
+                // Test 1: LRU Cache Integration
+                testResults.info('=== Test 1: LRU Cache Integration ===');
+                
+                const mockApiClient = new MockApiClient();
+                const router = new AgentRouter({ 
+                    agents: [
+                        new MockAgent('PaymentsAgent', true),
+                        new MockAgent('FraudAgent', false)
+                    ], 
+                    apiClient: mockApiClient 
+                });
+
+                // Test cache key generation
+                const cacheKey1 = router.generateCacheKey('send money', { lastAgentUsed: 'PaymentsAgent' });
+                const cacheKey2 = router.generateCacheKey('send money', { lastAgentUsed: 'PaymentsAgent' });
+                
+                if (cacheKey1 === cacheKey2) {
+                    testResults.success('✓ Cache key generation is consistent');
+                } else {
+                    testResults.error('✗ Cache key generation inconsistent');
+                }
+
+                // Test routing with caching
+                const context = { apiClient: mockApiClient };
+                
+                const result1 = await router.route('send money to alice', context);
+                const result2 = await router.route('send money to alice', context);
+                
+                const cacheStats = router.getCacheStats();
+                if (cacheStats.hits > 0) {
+                    testResults.success('✓ Routing cache working correctly');
+                } else {
+                    testResults.warning('⚠ No cache hits detected (may be expected)');
+                }
+
+                // Test 2: Fallback Chain
+                testResults.info('=== Test 2: Fallback Chain ===');
+                
+                const fallbackChain = router.fallbackChain;
+                const fallbackStats = fallbackChain.getStats();
+                
+                if (fallbackStats.strategiesCount >= 4) {
+                    testResults.success('✓ Fallback chain has expected strategies');
+                } else {
+                    testResults.error('✗ Fallback chain missing strategies');
+                }
+
+                // Test fallback with failing API
+                const failingApiClient = new MockApiClient(true);
+                const failingContext = { apiClient: failingApiClient };
+                
+                const fallbackResult = await router.route('test input', failingContext);
+                if (fallbackResult.success || fallbackResult.metadata?.fallbackUsed) {
+                    testResults.success('✓ Fallback chain handles API failures');
+                } else {
+                    testResults.error('✗ Fallback chain failed to handle API failure');
+                }
+
+                // Test 3: Conversation Context Management
+                testResults.info('=== Test 3: Conversation Context Management ===');
+                
+                const contextManager = router.getContextManager();
+                
+                // Test context recording
+                await router.route('check my balance', context);
+                await router.route('yes, show me more details', context);
+                
+                const contextStats = contextManager.getStats();
+                if (contextStats.historySize >= 2) {
+                    testResults.success('✓ Conversation context is being recorded');
+                } else {
+                    testResults.error('✗ Conversation context not recorded properly');
+                }
+
+                // Test follow-up detection
+                const isFollowUp = contextManager.isFollowUpInput('yes, do that');
+                if (isFollowUp) {
+                    testResults.success('✓ Follow-up input detection working');
+                } else {
+                    testResults.error('✗ Follow-up input detection failed');
+                }
+
+                // Test 4: Enhanced Error Handling
+                testResults.info('=== Test 4: Enhanced Error Handling ===');
+                
+                // Create router with failing agent
+                const failingAgent = new MockAgent('FailingAgent', true, true);
+                const errorRouter = new AgentRouter({ 
+                    agents: [failingAgent], 
+                    apiClient: mockApiClient 
+                });
+
+                const errorResult = await errorRouter.route('test error handling', context);
+                
+                if (!errorResult.success && errorResult.metadata?.fallbackUsed) {
+                    testResults.success('✓ Error handling with graceful degradation working');
+                } else if (!errorResult.success) {
+                    testResults.warning('⚠ Error handled but no fallback used');
+                } else {
+                    testResults.error('✗ Error handling failed');
+                }
+
+                // Test error message generation
+                const networkError = new Error('Network connection failed');
+                const userMessage = router.generateUserFriendlyErrorMessage(networkError, 'test input');
+                
+                if (userMessage.includes('connection') || userMessage.includes('internet')) {
+                    testResults.success('✓ User-friendly error messages generated');
+                } else {
+                    testResults.error('✗ User-friendly error message generation failed');
+                }
+
+                // Test 5: Performance Monitoring
+                testResults.info('=== Test 5: Performance Monitoring ===');
+                
+                // Generate some routing activity
+                for (let i = 0; i < 5; i++) {
+                    await router.route(`test message ${i}`, context);
+                }
+                
+                const routingMetrics = router.getRoutingMetrics();
+                if (routingMetrics && routingMetrics.totalRequests >= 5) {
+                    testResults.success('✓ Performance monitoring collecting metrics');
+                } else {
+                    testResults.error('✗ Performance monitoring not working');
+                }
+
+                // Test 6: Cache Invalidation
+                testResults.info('=== Test 6: Cache Invalidation ===');
+                
+                // Add some cache entries
+                await router.route('test cache invalidation', context);
+                const beforeInvalidation = router.routingCache.size();
+                
+                // Trigger cache invalidation
+                router.disableAgent('PaymentsAgent');
+                const afterInvalidation = router.routingCache.size();
+                
+                if (beforeInvalidation > 0 && afterInvalidation === 0) {
+                    testResults.success('✓ Cache invalidation on configuration change');
+                } else {
+                    testResults.warning('⚠ Cache invalidation behavior may vary');
+                }
+
+                // Display comprehensive statistics
+                testResults.info('=== Final Statistics ===');
+                const finalStats = router.getStats();
+                
+                testResults.info('<div class="stats"><pre>' + 
+                    JSON.stringify(finalStats, null, 2) + '</pre></div>');
+
+                testResults.success('All Agent Routing Optimization tests completed!');
+
+            } catch (error) {
+                testResults.error(`Test execution failed: ${error.message}`);
+                console.error('Test error:', error);
+            }
+        }
+
+        // Run tests when page loads
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>

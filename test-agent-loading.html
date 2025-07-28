@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Agent Loading</title>
+</head>
+<body>
+    <h1>Testing Agent Class Loading</h1>
+    <div id="results"></div>
+
+    <!-- Load agent dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/security-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        function testAgentLoading() {
+            const resultsDiv = document.getElementById('results');
+            
+            // Test if classes are available
+            const classes = [
+                'BaseAgent',
+                'IDVAgent', 
+                'BankingInfoAgent',
+                'FraudAgent',
+                'PaymentsAgent',
+                'AgentRouter',
+                'AgentConfigManager',
+                'SecurityManager'
+            ];
+            
+            classes.forEach(className => {
+                const isGlobal = typeof window[className] !== 'undefined';
+                const isDirect = typeof eval(className) !== 'undefined';
+                
+                if (isGlobal || isDirect) {
+                    resultsDiv.innerHTML += `<p>✅ ${className}: Available (global: ${isGlobal}, direct: ${isDirect})</p>`;
+                } else {
+                    resultsDiv.innerHTML += `<p>❌ ${className}: Not available</p>`;
+                }
+            });
+            
+            // Test the same logic as in script.js
+            try {
+                const BaseAgent = window.BaseAgent || (typeof BaseAgent !== 'undefined' ? BaseAgent : undefined);
+                const IDVAgent = window.IDVAgent || (typeof IDVAgent !== 'undefined' ? IDVAgent : undefined);
+                const BankingInfoAgent = window.BankingInfoAgent || (typeof BankingInfoAgent !== 'undefined' ? BankingInfoAgent : undefined);
+                const FraudAgent = window.FraudAgent || (typeof FraudAgent !== 'undefined' ? FraudAgent : undefined);
+                const PaymentsAgent = window.PaymentsAgent || (typeof PaymentsAgent !== 'undefined' ? PaymentsAgent : undefined);
+                const AgentRouter = window.AgentRouter || (typeof AgentRouter !== 'undefined' ? AgentRouter : undefined);
+                const AgentConfigManager = window.AgentConfigManager || (typeof AgentConfigManager !== 'undefined' ? AgentConfigManager : undefined);
+                const SecurityManager = window.SecurityManager || (typeof SecurityManager !== 'undefined' ? SecurityManager : undefined);
+                
+                if (!BaseAgent || !IDVAgent || !BankingInfoAgent || !FraudAgent || !PaymentsAgent || !AgentRouter || !AgentConfigManager || !SecurityManager) {
+                    throw new Error('Some agent classes not loaded');
+                }
+                
+                resultsDiv.innerHTML += `<p>✅ All agent classes loaded successfully!</p>`;
+                
+            } catch (error) {
+                resultsDiv.innerHTML += `<p>❌ Agent loading test failed: ${error.message}</p>`;
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('load', testAgentLoading);
+    </script>
+</body>
+</html>

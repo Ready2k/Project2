@@ -168,7 +168,7 @@ class BankingInfoAgent extends BaseAgent {
                 this.debug.info('Guardrails working: BankingInfoAgent correctly blocked from transaction capability');
             }
             
-            const response = apiResponse.content;
+            const response = apiResponse.text;
             const tokensUsed = apiResponse.tokensUsed || 0;
             const processingTime = Date.now() - startTime;
             

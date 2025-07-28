@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Methods Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Security Methods Fix Test</h1>
+    <p>This page tests all the security manager methods to ensure they work correctly.</p>
+
+    <div class="test-container">
+        <h2>🧪 Test Results</h2>
+        <div id="testResults"></div>
+        <button onclick="runAllTests()">🔄 Run All Tests</button>
+        <button onclick="testDataAccess()">🔒 Test Data Access</button>
+        <button onclick="testApiAccess()">🌐 Test API Access</button>
+        <button onclick="testAuditLog()">📋 Test Audit Log</button>
+    </div>
+
+    <div class="test-container">
+        <h2>📊 Security Manager Methods</h2>
+        <div id="methodStatus"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>🎯 Agent Integration Tests</h2>
+        <div id="agentTests"></div>
+        <button onclick="testAgentIntegration()">🤖 Test Agent Integration</button>
+    </div>
+
+    <div class="test-container">
+        <h2>📋 Detailed Logs</h2>
+        <div id="detailedLogs"></div>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="debug-manager.js"></script>
+    <script src="token-tracker.js"></script>
+    <script src="api-client.js"></script>
+    <script src="agents/rate-limiter.js"></script>
+    <script src="agents/request-validator.js"></script>
+    <script src="agents/audit-logger.js"></script>
+    <script src="agents/security-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/lru-cache.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        let securityManager = null;
+        let apiClient = null;
+        let tokenTracker = null;
+        let debugManager = null;
+
+        function logResult(test, result, message, type = 'info') {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = `<strong>${test}:</strong> ${message} ${result ? '✅' : '❌'}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function logDetailed(message) {
+            const logsDiv = document.getElementById('detailedLogs');
+            const logDiv = document.createElement('div');
+            logDiv.innerHTML = `<pre>${new Date().toLocaleTimeString()}: ${message}</pre>`;
+            logsDiv.appendChild(logDiv);
+        }
+
+        function initializeComponents() {
+            try {
+                // Initialize debug manager
+                debugManager = new DebugManager();
+                debugManager.enable();
+                window.debugManager = debugManager;
+
+                // Initialize token tracker
+                tokenTracker = new TokenTracker();
+
+                // Initialize API client
+                apiClient = new OpenAIClient('test-key');
+                apiClient.setTokenTracker(tokenTracker);
+
+                // Initialize security manager
+                securityManager = new SecurityManager();
+
+                return true;
+            } catch (error) {
+                console.error('Failed to initialize components:', error);
+                logDetailed(`Initialization error: ${error.message}\nStack: ${error.stack}`);
+                return false;
+            }
+        }
+
+        function runAllTests() {
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('detailedLogs').innerHTML = '';
+            
+            const initialized = initializeComponents();
+            logResult('Component Initialization', initialized, 'Components initialized successfully', initialized ? 'success' : 'error');
+            
+            if (!initialized) return;
+
+            // Test all required methods exist
+            const methods = [
+                'createSandboxedApiClient',
+                'validateDataAccess',
+                'validateApiAccess',
+                'getAuditLog',
+                'getSecurityStats'
+            ];
+
+            let allMethodsExist = true;
+            methods.forEach(method => {
+                const exists = typeof securityManager[method] === 'function';
+                logResult(`${method} Method`, exists, 
+                    exists ? 'Method exists' : 'Method missing', 
+                    exists ? 'success' : 'error');
+                if (!exists) allMethodsExist = false;
+            });
+
+            logResult('All Methods Available', allMethodsExist, 
+                allMethodsExist ? 'All required methods available' : 'Some methods missing', 
+                allMethodsExist ? 'success' : 'error');
+
+            updateMethodStatus();
+        }
+
+        function testDataAccess() {
+            if (!securityManager) {
+                logResult('Data Access Test', false, 'Security manager not available', 'error');
+                return;
+            }
+
+            try {
+                // Test valid data access for IDVAgent
+                const validResult = securityManager.validateDataAccess('IDVAgent', ['identity', 'verification']);
+                const validSuccess = validResult.success && validResult.allowedDataTypes.length === 2;
+                
+                logResult('Valid Data Access', validSuccess, 
+                    validSuccess ? 'IDVAgent can access identity and verification data' : 'Valid access failed', 
+                    validSuccess ? 'success' : 'error');
+
+                logDetailed(`Valid access result: ${JSON.stringify(validResult, null, 2)}`);
+
+                // Test invalid data access for IDVAgent
+                const invalidResult = securityManager.validateDataAccess('IDVAgent', ['payment', 'transfer']);
+                const invalidSuccess = !invalidResult.success && invalidResult.deniedDataTypes.length === 2;
+                
+                logResult('Invalid Data Access', invalidSuccess, 
+                    invalidSuccess ? 'IDVAgent correctly denied payment/transfer data' : 'Invalid access not properly denied', 
+                    invalidSuccess ? 'success' : 'error');
+
+                logDetailed(`Invalid access result: ${JSON.stringify(invalidResult, null, 2)}`);
+
+                // Test mixed access
+                const mixedResult = securityManager.validateDataAccess('IDVAgent', ['identity', 'payment']);
+                const mixedCorrect = !mixedResult.success && 
+                                   mixedResult.allowedDataTypes.includes('identity') && 
+                                   mixedResult.deniedDataTypes.includes('payment');
+                
+                logResult('Mixed Data Access', mixedCorrect, 
+                    mixedCorrect ? 'Mixed access correctly handled' : 'Mixed access not properly handled', 
+                    mixedCorrect ? 'success' : 'error');
+
+                logDetailed(`Mixed access result: ${JSON.stringify(mixedResult, null, 2)}`);
+
+            } catch (error) {
+                logResult('Data Access Test', false, `Test failed: ${error.message}`, 'error');
+                logDetailed(`Data access error: ${error.stack}`);
+            }
+        }
+
+        function testApiAccess() {
+            if (!securityManager) {
+                logResult('API Access Test', false, 'Security manager not available', 'error');
+                return;
+            }
+
+            try {
+                // Test valid API access
+                const validResult = securityManager.validateApiAccess('IDVAgent', ['speechToText', 'generateChatCompletion']);
+                const validSuccess = validResult.success && validResult.allowedApiCalls.length === 2;
+                
+                logResult('Valid API Access', validSuccess, 
+                    validSuccess ? 'IDVAgent can access speech and chat APIs' : 'Valid API access failed', 
+                    validSuccess ? 'success' : 'error');
+
+                logDetailed(`Valid API access result: ${JSON.stringify(validResult, null, 2)}`);
+
+                // Test with unknown agent
+                const unknownResult = securityManager.validateApiAccess('UnknownAgent', ['speechToText']);
+                const unknownCorrect = !unknownResult.success && unknownResult.deniedApiCalls.length === 1;
+                
+                logResult('Unknown Agent API Access', unknownCorrect, 
+                    unknownCorrect ? 'Unknown agent correctly denied API access' : 'Unknown agent access not properly handled', 
+                    unknownCorrect ? 'success' : 'error');
+
+                logDetailed(`Unknown agent result: ${JSON.stringify(unknownResult, null, 2)}`);
+
+                // Test all agents have basic API access
+                const agents = ['IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+                let allAgentsHaveAccess = true;
+                
+                agents.forEach(agentName => {
+                    const result = securityManager.validateApiAccess(agentName, ['generateChatCompletion']);
+                    if (!result.success) {
+                        allAgentsHaveAccess = false;
+                        logDetailed(`${agentName} denied basic API access: ${JSON.stringify(result)}`);
+                    }
+                });
+
+                logResult('All Agents API Access', allAgentsHaveAccess, 
+                    allAgentsHaveAccess ? 'All agents have basic API access' : 'Some agents denied basic access', 
+                    allAgentsHaveAccess ? 'success' : 'error');
+
+            } catch (error) {
+                logResult('API Access Test', false, `Test failed: ${error.message}`, 'error');
+                logDetailed(`API access error: ${error.stack}`);
+            }
+        }
+
+        function testAuditLog() {
+            if (!securityManager) {
+                logResult('Audit Log Test', false, 'Security manager not available', 'error');
+                return;
+            }
+
+            try {
+                // Test getting audit log
+                const auditLog = securityManager.getAuditLog();
+                const isArray = Array.isArray(auditLog);
+                
+                logResult('Audit Log Retrieval', isArray, 
+                    isArray ? `Audit log retrieved (${auditLog.length} entries)` : 'Audit log not an array', 
+                    isArray ? 'success' : 'error');
+
+                logDetailed(`Audit log: ${JSON.stringify(auditLog.slice(0, 3), null, 2)}`);
+
+                // Test with filters
+                const filteredLog = securityManager.getAuditLog({ eventType: 'DATA_ACCESS_VALIDATION' });
+                const isFilteredArray = Array.isArray(filteredLog);
+                
+                logResult('Filtered Audit Log', isFilteredArray, 
+                    isFilteredArray ? `Filtered audit log retrieved (${filteredLog.length} entries)` : 'Filtered audit log failed', 
+                    isFilteredArray ? 'success' : 'warning');
+
+            } catch (error) {
+                logResult('Audit Log Test', false, `Test failed: ${error.message}`, 'error');
+                logDetailed(`Audit log error: ${error.stack}`);
+            }
+        }
+
+        function testAgentIntegration() {
+            const agentTestsDiv = document.getElementById('agentTests');
+            agentTestsDiv.innerHTML = '';
+
+            if (!securityManager) {
+                agentTestsDiv.innerHTML = '<div class="test-result error">Security manager not available</div>';
+                return;
+            }
+
+            try {
+                // Test creating agents with security manager
+                const agents = [
+                    { class: IDVAgent, name: 'IDVAgent' },
+                    { class: BankingInfoAgent, name: 'BankingInfoAgent' },
+                    { class: FraudAgent, name: 'FraudAgent' },
+                    { class: PaymentsAgent, name: 'PaymentsAgent' }
+                ];
+
+                let allAgentsWork = true;
+                const results = [];
+
+                agents.forEach(({ class: AgentClass, name }) => {
+                    try {
+                        const agent = new AgentClass();
+                        agent.setSecurityManager(securityManager);
+                        
+                        // Test data access validation
+                        const testDataTypes = name === 'IDVAgent' ? ['identity'] : 
+                                            name === 'BankingInfoAgent' ? ['account'] :
+                                            name === 'FraudAgent' ? ['fraud'] : ['payment'];
+                        
+                        const dataValidation = agent.validateDataAccess(testDataTypes);
+                        const dataSuccess = dataValidation.success;
+                        
+                        // Test API access validation
+                        const apiValidation = agent.validateApiAccess(['generateChatCompletion']);
+                        const apiSuccess = apiValidation.success;
+                        
+                        const agentSuccess = dataSuccess && apiSuccess;
+                        if (!agentSuccess) allAgentsWork = false;
+                        
+                        results.push({
+                            name,
+                            dataSuccess,
+                            apiSuccess,
+                            overall: agentSuccess
+                        });
+                        
+                        logDetailed(`${name} integration: data=${dataSuccess}, api=${apiSuccess}`);
+                        
+                    } catch (error) {
+                        allAgentsWork = false;
+                        results.push({
+                            name,
+                            error: error.message,
+                            overall: false
+                        });
+                        logDetailed(`${name} integration error: ${error.message}`);
+                    }
+                });
+
+                // Display results
+                let html = '';
+                results.forEach(result => {
+                    const type = result.overall ? 'success' : 'error';
+                    const message = result.error ? 
+                        `Error: ${result.error}` : 
+                        `Data: ${result.dataSuccess ? '✅' : '❌'}, API: ${result.apiSuccess ? '✅' : '❌'}`;
+                    
+                    html += `<div class="test-result ${type}"><strong>${result.name}:</strong> ${message}</div>`;
+                });
+
+                html += `<div class="test-result ${allAgentsWork ? 'success' : 'error'}">
+                    <strong>Overall Integration:</strong> ${allAgentsWork ? 'All agents working' : 'Some agents failed'} ${allAgentsWork ? '✅' : '❌'}
+                </div>`;
+
+                agentTestsDiv.innerHTML = html;
+
+            } catch (error) {
+                agentTestsDiv.innerHTML = `<div class="test-result error">Integration test failed: ${error.message}</div>`;
+                logDetailed(`Agent integration error: ${error.stack}`);
+            }
+        }
+
+        function updateMethodStatus() {
+            const statusDiv = document.getElementById('methodStatus');
+            if (!securityManager) {
+                statusDiv.innerHTML = '<div class="test-result error">Security Manager not initialized</div>';
+                return;
+            }
+
+            const methods = [
+                { name: 'createSandboxedApiClient', description: 'Creates sandboxed API clients for agents' },
+                { name: 'validateDataAccess', description: 'Validates agent data access permissions' },
+                { name: 'validateApiAccess', description: 'Validates agent API access permissions' },
+                { name: 'getAuditLog', description: 'Retrieves security audit log entries' },
+                { name: 'getSecurityStats', description: 'Gets security statistics and metrics' }
+            ];
+
+            let html = '';
+            methods.forEach(method => {
+                const exists = typeof securityManager[method.name] === 'function';
+                const type = exists ? 'success' : 'error';
+                html += `
+                    <div class="test-result ${type}">
+                        <strong>${method.name}:</strong> ${method.description} ${exists ? '✅' : '❌'}
+                    </div>
+                `;
+            });
+
+            statusDiv.innerHTML = html;
+        }
+
+        function clearLogs() {
+            document.getElementById('detailedLogs').innerHTML = '';
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 500);
+        });
+    </script>
+</body>
+</html>

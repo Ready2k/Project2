@@ -654,6 +654,12 @@
     <script src="system-prompts-manager.js"></script>
     <script src="token-tracker.js"></script>
     <script src="api-client.js"></script>
+    
+    <!-- Resource Management Scripts -->
+    <script src="audio-resource-manager.js"></script>
+    <script src="timeout-manager.js"></script>
+    <script src="connection-manager.js"></script>
+    
     <script src="streaming-manager.js"></script>
     <!-- Agent system scripts (must load before main script) -->
     <script src="agents/base-agent.js"></script>
@@ -662,17 +668,24 @@
     <script src="agents/idv-agent.js"></script>
     <script src="agents/banking-info-agent.js"></script>
     <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/rate-limiter.js"></script>
+    <script src="agents/request-validator.js"></script>
+    <script src="agents/audit-logger.js"></script>
     <script src="agents/security-manager.js"></script>
     <script src="agents/voice-config-manager.js"></script>
     <script src="agents/llm-manager.js"></script>
     <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/prompt-composer.js"></script>
+    <script src="agents/lru-cache.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
     <script src="agents/agent-router.js"></script>
     <script src="agent-telemetry.js"></script>
     <script src="llm-manager-admin-ui.js"></script>
     <!-- Dependency check (optional, for debugging) -->
     <script src="dependency-check.js"></script>
     <!-- Main application scripts -->
-    <script type="module" src="script.js"></script>
+    <script src="script.js"></script>
     <script src="main-interface.js"></script>
 </body>
 

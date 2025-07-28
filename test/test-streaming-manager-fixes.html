@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Manager Fixes Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.success { background-color: #d4edda; color: #155724; }
+        .status.error { background-color: #f8d7da; color: #721c24; }
+        .status.warning { background-color: #fff3cd; color: #856404; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Streaming Manager Fixes Test</h1>
+    <p>This test verifies that the streaming manager works correctly with and without resource management scripts loaded.</p>
+
+    <div class="test-section">
+        <h3>Test 1: Without Resource Management Scripts</h3>
+        <div id="test1Status"></div>
+        <button onclick="testWithoutScripts()">Test Without Scripts</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 2: With Resource Management Scripts</h3>
+        <div id="test2Status"></div>
+        <button onclick="testWithScripts()">Test With Scripts</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Log</h3>
+        <div id="testLog" class="log"></div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <!-- Load debug manager first -->
+    <script src="../debug-manager.js"></script>
+
+    <script>
+        // Initialize debug manager
+        window.debugManager = new DebugManager();
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const logElement = document.getElementById('testLog');
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logElement.textContent += logEntry;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(`[StreamingManagerTest] ${message}`);
+        }
+
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function clearLog() {
+            document.getElementById('testLog').textContent = '';
+        }
+
+        // Test without resource management scripts (fallback mode)
+        async function testWithoutScripts() {
+            log('Testing streaming manager without resource management scripts...');
+            
+            try {
+                // Clear any existing resource management classes
+                delete window.AudioResourceManager;
+                delete window.TimeoutManager;
+                delete window.ConnectionManager;
+                
+                // Load streaming manager
+                const script = document.createElement('script');
+                script.src = '../streaming-manager.js';
+                document.head.appendChild(script);
+                
+                await new Promise((resolve, reject) => {
+                    script.onload = resolve;
+                    script.onerror = reject;
+                });
+                
+                // Test streaming manager creation
+                const streamingManager = new StreamingManager('test-key');
+                
+                // Test resource stats (should use fallback values)
+                const stats = streamingManager.getResourceStats();
+                log(`Resource stats: ${JSON.stringify(stats)}`);
+                
+                // Test cleanup verification
+                const verification = streamingManager.verifyResourceCleanup();
+                log(`Cleanup verification: ${JSON.stringify(verification)}`);
+                
+                // Test cleanup
+                streamingManager.cleanup();
+                
+                showStatus('test1Status', 'Test passed - streaming manager works with fallback classes', 'success');
+                log('Test 1 passed');
+                
+            } catch (error) {
+                showStatus('test1Status', `Test failed: ${error.message}`, 'error');
+                log(`Test 1 failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Test with resource management scripts loaded
+        async function testWithScripts() {
+            log('Testing streaming manager with resource management scripts...');
+            
+            try {
+                // Load resource management scripts
+                const scripts = [
+                    '../audio-resource-manager.js',
+                    '../timeout-manager.js',
+                    '../connection-manager.js'
+                ];
+                
+                for (const scriptSrc of scripts) {
+                    const script = document.createElement('script');
+                    script.src = scriptSrc;
+                    document.head.appendChild(script);
+                    
+                    await new Promise((resolve, reject) => {
+                        script.onload = resolve;
+                        script.onerror = reject;
+                    });
+                }
+                
+                // Verify classes are loaded
+                if (!window.AudioResourceManager || !window.TimeoutManager || !window.ConnectionManager) {
+                    throw new Error('Resource management classes not loaded');
+                }
+                
+                log('Resource management scripts loaded successfully');
+                
+                // Test streaming manager creation
+                const streamingManager = new StreamingManager('test-key');
+                
+                // Test resource stats (should use actual classes)
+                const stats = streamingManager.getResourceStats();
+                log(`Resource stats: ${JSON.stringify(stats)}`);
+                
+                // Test cleanup verification
+                const verification = streamingManager.verifyResourceCleanup();
+                log(`Cleanup verification: ${JSON.stringify(verification)}`);
+                
+                // Test cleanup
+                streamingManager.cleanup();
+                
+                showStatus('test2Status', 'Test passed - streaming manager works with resource management classes', 'success');
+                log('Test 2 passed');
+                
+            } catch (error) {
+                showStatus('test2Status', `Test failed: ${error.message}`, 'error');
+                log(`Test 2 failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Streaming Manager Fixes Test initialized');
+        });
+    </script>
+</body>
+</html>

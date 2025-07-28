@@ -1,5 +1,5 @@
 
-export function buildPromptMessages({ systemPrompt, agentPrompt, guardrails }) {
+function buildPromptMessages({ systemPrompt, agentPrompt, guardrails }) {
     if (!systemPrompt) throw new Error("Global system prompt is required");
 
     const auditLog = [];
@@ -27,4 +27,10 @@ export function buildPromptMessages({ systemPrompt, agentPrompt, guardrails }) {
     // Attach audit log for external access
     messages.auditLog = auditLog;
     return messages;
+}
+// Export to global scope for non-module usage
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { buildPromptMessages };
+} else {
+    window.buildPromptMessages = buildPromptMessages;
 }

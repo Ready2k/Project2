@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test AgentRouter Dependencies</title>
+</head>
+<body>
+    <h1>Testing AgentRouter Dependencies</h1>
+    <div id="results"></div>
+
+    <!-- Load dependencies in correct order -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/security-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/lru-cache.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        function testAgentRouterDeps() {
+            const resultsDiv = document.getElementById('results');
+            
+            // Test all AgentRouter dependencies
+            const dependencies = [
+                'LRUCache',
+                'RoutingFallbackChain', 
+                'ConversationContextManager',
+                'AgentConfigManager',
+                'SecurityManager',
+                'AgentRouter',
+                'FallbackHandler'
+            ];
+            
+            dependencies.forEach(dep => {
+                if (window[dep]) {
+                    resultsDiv.innerHTML += `<p>✅ ${dep}: Available</p>`;
+                } else {
+                    resultsDiv.innerHTML += `<p>❌ ${dep}: Missing</p>`;
+                }
+            });
+            
+            // Test AgentRouter instantiation
+            try {
+                const mockApiClient = { generateChatCompletion: () => {} };
+                const router = new AgentRouter({ agents: [], apiClient: mockApiClient });
+                resultsDiv.innerHTML += `<p>✅ AgentRouter: Successfully instantiated</p>`;
+                
+                // Test basic methods
+                if (typeof router.registerAgent === 'function') {
+                    resultsDiv.innerHTML += `<p>✅ AgentRouter.registerAgent: Method available</p>`;
+                }
+                if (typeof router.getStats === 'function') {
+                    resultsDiv.innerHTML += `<p>✅ AgentRouter.getStats: Method available</p>`;
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML += `<p>❌ AgentRouter instantiation failed: ${error.message}</p>`;
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('load', testAgentRouterDeps);
+    </script>
+</body>
+</html>

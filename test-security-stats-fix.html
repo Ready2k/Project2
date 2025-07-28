@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Security Stats Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Test Security Stats Fix</h1>
+    <div id="results"></div>
+
+    <!-- Load dependencies with cache busting -->
+    <script>
+        const cacheBust = Date.now();
+        const scripts = [
+            'debug-manager.js',
+            'agents/rate-limiter.js',
+            'agents/request-validator.js',
+            'agents/audit-logger.js',
+            'agents/security-manager.js',
+            'agents/agent-config-manager.js',
+            'agents/lru-cache.js',
+            'agents/routing-fallback-chain.js',
+            'agents/conversation-context-manager.js',
+            'agents/agent-router.js'
+        ];
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = message;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src + '?v=' + cacheBust;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+        
+        async function runTest() {
+            try {
+                addResult('<h2>Loading Scripts...</h2>');
+                
+                // Load all scripts
+                for (const script of scripts) {
+                    await loadScript(script);
+                    addResult(`✅ Loaded: ${script}`, 'success');
+                }
+                
+                addResult('<h2>Testing SecurityManager...</h2>');
+                
+                // Test SecurityManager instantiation
+                const securityManager = new SecurityManager();
+                addResult('✅ SecurityManager: Successfully instantiated', 'success');
+                
+                // Test getSecurityStats method
+                if (typeof securityManager.getSecurityStats === 'function') {
+                    addResult('✅ getSecurityStats method: Available', 'success');
+                    
+                    const stats = securityManager.getSecurityStats();
+                    if (stats && typeof stats === 'object') {
+                        addResult('✅ getSecurityStats: Returns valid stats object', 'success');
+                        addResult(`📊 Stats: ${JSON.stringify(stats, null, 2)}`, 'info');
+                    } else {
+                        addResult('❌ getSecurityStats: Invalid return value', 'error');
+                    }
+                } else {
+                    addResult('❌ getSecurityStats method: Missing', 'error');
+                }
+                
+                addResult('<h2>Testing AgentRouter with SecurityManager...</h2>');
+                
+                // Test AgentRouter instantiation
+                const mockApiClient = { 
+                    generateChatCompletion: () => Promise.resolve({ success: true, text: 'test' }) 
+                };
+                const agentRouter = new AgentRouter({ agents: [], apiClient: mockApiClient });
+                addResult('✅ AgentRouter: Successfully instantiated', 'success');
+                
+                // Test getStats method (this was failing before)
+                if (typeof agentRouter.getStats === 'function') {
+                    const routerStats = agentRouter.getStats();
+                    if (routerStats && routerStats.securityStats) {
+                        addResult('✅ AgentRouter.getStats: Successfully includes securityStats', 'success');
+                        addResult(`📊 Router Stats: ${JSON.stringify(routerStats, null, 2)}`, 'info');
+                    } else {
+                        addResult('❌ AgentRouter.getStats: Missing securityStats', 'error');
+                    }
+                } else {
+                    addResult('❌ AgentRouter.getStats method: Missing', 'error');
+                }
+                
+                addResult('<h2>🎉 All tests completed!</h2>', 'success');
+                
+            } catch (error) {
+                addResult(`❌ Error: ${error.message}`, 'error');
+                console.error('Test error:', error);
+            }
+        }
+        
+        // Start the test
+        runTest();
+    </script>
+</body>
+</html>

@@ -468,14 +468,14 @@ Examples:
             });
 
             if (response.success) {
-                const agentName = response.content.trim();
+                const agentName = response.text.trim();
                 const selectedAgent = enabledAgents.find(agent => agent.name === agentName);
                 
                 if (selectedAgent) {
                     this.debug.info('AI selected agent', { 
                         agentName,
                         inputText: inputText.substring(0, 50),
-                        aiResponse: response.content
+                        aiResponse: response.text
                     });
                     return selectedAgent;
                 }

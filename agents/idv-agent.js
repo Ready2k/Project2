@@ -138,7 +138,7 @@ class IDVAgent extends BaseAgent {
                 });
             }
             
-            const response = apiResponse.content;
+            const response = apiResponse.text;
             const tokensUsed = apiResponse.tokensUsed || 0;
             const processingTime = Date.now() - startTime;
             

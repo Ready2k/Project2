@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Permissions Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .agent-section {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .agent-section h4 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Agent Permissions Fix Test</h1>
+    <p>This page tests that all agents can access their required data types without permission errors.</p>
+
+    <div class="test-container">
+        <h2>🧪 Test Results</h2>
+        <div id="testResults"></div>
+        <button onclick="runAllTests()">🔄 Run All Tests</button>
+        <button onclick="testSpecificPermissions()">🔒 Test Specific Permissions</button>
+        <button onclick="testAgentValidation()">🤖 Test Agent Validation</button>
+    </div>
+
+    <div class="test-container">
+        <h2>👥 Agent Permission Details</h2>
+        <div id="agentPermissions"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>📋 Detailed Logs</h2>
+        <div id="detailedLogs"></div>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="debug-manager.js"></script>
+    <script src="token-tracker.js"></script>
+    <script src="api-client.js"></script>
+    <script src="agents/rate-limiter.js"></script>
+    <script src="agents/request-validator.js"></script>
+    <script src="agents/audit-logger.js"></script>
+    <script src="agents/security-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/lru-cache.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        let securityManager = null;
+        let debugManager = null;
+
+        function logResult(test, result, message, type = 'info') {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = `<strong>${test}:</strong> ${message} ${result ? '✅' : '❌'}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function logDetailed(message) {
+            const logsDiv = document.getElementById('detailedLogs');
+            const logDiv = document.createElement('div');
+            logDiv.innerHTML = `<pre>${new Date().toLocaleTimeString()}: ${message}</pre>`;
+            logsDiv.appendChild(logDiv);
+        }
+
+        function initializeComponents() {
+            try {
+                // Initialize debug manager
+                debugManager = new DebugManager();
+                debugManager.enable();
+                window.debugManager = debugManager;
+
+                // Initialize security manager
+                securityManager = new SecurityManager();
+
+                return true;
+            } catch (error) {
+                console.error('Failed to initialize components:', error);
+                logDetailed(`Initialization error: ${error.message}\nStack: ${error.stack}`);
+                return false;
+            }
+        }
+
+        function runAllTests() {
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('detailedLogs').innerHTML = '';
+            
+            const initialized = initializeComponents();
+            logResult('Component Initialization', initialized, 'Components initialized successfully', initialized ? 'success' : 'error');
+            
+            if (!initialized) return;
+
+            // Test that security manager has the validateDataAccess method
+            const hasMethod = typeof securityManager.validateDataAccess === 'function';
+            logResult('Security Manager Method', hasMethod, 
+                hasMethod ? 'validateDataAccess method available' : 'validateDataAccess method missing', 
+                hasMethod ? 'success' : 'error');
+
+            if (!hasMethod) return;
+
+            // Test each agent's specific data access requirements
+            testAgentDataAccess();
+            displayAgentPermissions();
+        }
+
+        function testAgentDataAccess() {
+            const agentRequirements = {
+                'IDVAgent': ['identity', 'verification', 'authentication'],
+                'BankingInfoAgent': ['balance', 'transactions', 'account_info'],
+                'FraudAgent': ['fraud_alerts', 'security_actions', 'card_status'],
+                'PaymentsAgent': ['payments', 'transfers', 'payment_history']
+            };
+
+            let allAgentsPass = true;
+
+            Object.entries(agentRequirements).forEach(([agentName, requiredDataTypes]) => {
+                try {
+                    const result = securityManager.validateDataAccess(agentName, requiredDataTypes);
+                    const success = result.success && result.deniedDataTypes.length === 0;
+                    
+                    if (!success) allAgentsPass = false;
+                    
+                    logResult(`${agentName} Data Access`, success, 
+                        success ? 
+                            `Can access all required data types: ${requiredDataTypes.join(', ')}` : 
+                            `Denied access to: ${result.deniedDataTypes.join(', ')}`, 
+                        success ? 'success' : 'error');
+
+                    logDetailed(`${agentName} validation result: ${JSON.stringify(result, null, 2)}`);
+
+                } catch (error) {
+                    allAgentsPass = false;
+                    logResult(`${agentName} Data Access`, false, `Validation failed: ${error.message}`, 'error');
+                    logDetailed(`${agentName} error: ${error.stack}`);
+                }
+            });
+
+            logResult('All Agents Data Access', allAgentsPass, 
+                allAgentsPass ? 'All agents can access their required data types' : 'Some agents have permission issues', 
+                allAgentsPass ? 'success' : 'error');
+        }
+
+        function testSpecificPermissions() {
+            if (!securityManager) {
+                logResult('Specific Permissions Test', false, 'Security manager not available', 'error');
+                return;
+            }
+
+            // Test specific problematic data types that were causing errors
+            const problematicTests = [
+                { agent: 'FraudAgent', dataTypes: ['fraud_alerts'] },
+                { agent: 'FraudAgent', dataTypes: ['security_actions'] },
+                { agent: 'FraudAgent', dataTypes: ['card_status'] },
+                { agent: 'FraudAgent', dataTypes: ['fraud_alerts', 'security_actions', 'card_status'] },
+                { agent: 'PaymentsAgent', dataTypes: ['payments', 'transfers'] },
+                { agent: 'BankingInfoAgent', dataTypes: ['balance', 'transactions'] },
+                { agent: 'IDVAgent', dataTypes: ['identity', 'verification'] }
+            ];
+
+            let allTestsPass = true;
+
+            problematicTests.forEach(test => {
+                try {
+                    const result = securityManager.validateDataAccess(test.agent, test.dataTypes);
+                    const success = result.success;
+                    
+                    if (!success) allTestsPass = false;
+                    
+                    logResult(`${test.agent} - ${test.dataTypes.join(', ')}`, success, 
+                        success ? 'Access granted' : `Access denied: ${result.deniedDataTypes.join(', ')}`, 
+                        success ? 'success' : 'error');
+
+                } catch (error) {
+                    allTestsPass = false;
+                    logResult(`${test.agent} - ${test.dataTypes.join(', ')}`, false, `Error: ${error.message}`, 'error');
+                }
+            });
+
+            logResult('Specific Permission Tests', allTestsPass, 
+                allTestsPass ? 'All specific permission tests passed' : 'Some specific tests failed', 
+                allTestsPass ? 'success' : 'error');
+        }
+
+        function testAgentValidation() {
+            if (!securityManager) {
+                logResult('Agent Validation Test', false, 'Security manager not available', 'error');
+                return;
+            }
+
+            try {
+                // Test creating actual agents and validating their data access
+                const agents = [
+                    { class: IDVAgent, name: 'IDVAgent', dataTypes: ['identity', 'verification', 'authentication'] },
+                    { class: BankingInfoAgent, name: 'BankingInfoAgent', dataTypes: ['balance', 'transactions', 'account_info'] },
+                    { class: FraudAgent, name: 'FraudAgent', dataTypes: ['fraud_alerts', 'security_actions', 'card_status'] },
+                    { class: PaymentsAgent, name: 'PaymentsAgent', dataTypes: ['payments', 'transfers', 'payment_history'] }
+                ];
+
+                let allAgentsValidate = true;
+
+                agents.forEach(({ class: AgentClass, name, dataTypes }) => {
+                    try {
+                        const agent = new AgentClass();
+                        agent.setSecurityManager(securityManager);
+                        
+                        // Test the agent's validateDataAccess method directly
+                        const validation = agent.validateDataAccess(dataTypes);
+                        const success = validation.success;
+                        
+                        if (!success) allAgentsValidate = false;
+                        
+                        logResult(`${name} Agent Validation`, success, 
+                            success ? 'Agent can validate its data access' : 'Agent validation failed', 
+                            success ? 'success' : 'error');
+
+                        logDetailed(`${name} agent validation: ${JSON.stringify(validation, null, 2)}`);
+
+                    } catch (error) {
+                        allAgentsValidate = false;
+                        logResult(`${name} Agent Validation`, false, `Validation error: ${error.message}`, 'error');
+                        logDetailed(`${name} agent error: ${error.stack}`);
+                    }
+                });
+
+                logResult('All Agent Validations', allAgentsValidate, 
+                    allAgentsValidate ? 'All agents can validate their data access' : 'Some agent validations failed', 
+                    allAgentsValidate ? 'success' : 'error');
+
+            } catch (error) {
+                logResult('Agent Validation Test', false, `Test failed: ${error.message}`, 'error');
+                logDetailed(`Agent validation test error: ${error.stack}`);
+            }
+        }
+
+        function displayAgentPermissions() {
+            const permissionsDiv = document.getElementById('agentPermissions');
+            
+            if (!securityManager) {
+                permissionsDiv.innerHTML = '<div class="test-result error">Security manager not available</div>';
+                return;
+            }
+
+            const agents = ['IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+            let html = '';
+
+            agents.forEach(agentName => {
+                // Get all possible data types for this agent
+                const testDataTypes = [
+                    'identity', 'verification', 'authentication', 'personal',
+                    'account', 'balance', 'transaction', 'statement', 'account_info', 'transactions',
+                    'fraud', 'security', 'fraud_alerts', 'security_actions', 'card_status',
+                    'payment', 'transfer', 'payments', 'transfers', 'payment_history'
+                ];
+
+                const result = securityManager.validateDataAccess(agentName, testDataTypes);
+                
+                html += `
+                    <div class="agent-section">
+                        <h4>${agentName}</h4>
+                        <div class="test-result success">
+                            <strong>Allowed Data Types:</strong> ${result.allowedDataTypes.join(', ') || 'None'}
+                        </div>
+                        <div class="test-result ${result.deniedDataTypes.length > 0 ? 'warning' : 'info'}">
+                            <strong>Denied Data Types:</strong> ${result.deniedDataTypes.join(', ') || 'None'}
+                        </div>
+                    </div>
+                `;
+            });
+
+            permissionsDiv.innerHTML = html;
+        }
+
+        function clearLogs() {
+            document.getElementById('detailedLogs').innerHTML = '';
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 500);
+        });
+    </script>
+</body>
+</html>

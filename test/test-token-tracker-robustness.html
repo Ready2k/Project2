@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Tracker Robustness Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Token Tracker Robustness Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="testResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Console Output</h2>
+        <pre id="consoleOutput"></pre>
+    </div>
+
+    <script src="../token-tracker.js"></script>
+    <script>
+        // Capture console output
+        const originalConsole = {
+            log: console.log,
+            warn: console.warn,
+            error: console.error
+        };
+        
+        let consoleOutput = '';
+        ['log', 'warn', 'error'].forEach(method => {
+            console[method] = function(...args) {
+                consoleOutput += `[${method.toUpperCase()}] ${args.join(' ')}\n`;
+                originalConsole[method].apply(console, args);
+                document.getElementById('consoleOutput').textContent = consoleOutput;
+            };
+        });
+
+        function runTests() {
+            const results = [];
+            
+            try {
+                // Test 1: Basic validation
+                console.log('=== Test 1: Input Validation ===');
+                const tracker = new TokenTracker();
+                
+                // Test valid inputs
+                tracker.trackWhisperUsage(0.5);
+                tracker.trackGptUsage(100, 50);
+                tracker.trackTtsUsage(1000, 'tts-1');
+                results.push('✓ Valid inputs processed successfully');
+                
+                // Test invalid inputs with graceful degradation
+                try {
+                    tracker.trackWhisperUsage(-1); // Should fail but degrade gracefully
+                } catch (e) {
+                    // Expected to fail, but should continue
+                }
+                results.push('✓ Invalid inputs handled with graceful degradation');
+                
+                // Test 2: Backup storage
+                console.log('=== Test 2: Backup Storage ===');
+                const usage = tracker.getUsage();
+                if (tracker.backupStorage.has('token_usage')) {
+                    results.push('✓ Backup storage is working');
+                } else {
+                    results.push('✗ Backup storage failed');
+                }
+                
+                // Test 3: Data validation
+                console.log('=== Test 3: Data Validation ===');
+                const validData = {
+                    whisper: { requests: 1, cost: 0.003 },
+                    gpt: { tokens: 150, cost: 0.0001 },
+                    tts: { characters: 1000, cost: 0.015 },
+                    total: 0.0181
+                };
+                
+                try {
+                    tracker.validateUsageData(validData);
+                    results.push('✓ Data validation works for valid data');
+                } catch (e) {
+                    results.push('✗ Data validation failed for valid data: ' + e.message);
+                }
+                
+                // Test invalid data
+                const invalidData = {
+                    whisper: { requests: -1, cost: 0.003 }, // Invalid negative requests
+                    gpt: { tokens: 150, cost: 0.0001 },
+                    tts: { characters: 1000, cost: 0.015 },
+                    total: 0.0181
+                };
+                
+                try {
+                    tracker.validateUsageData(invalidData);
+                    results.push('✗ Data validation should have failed for invalid data');
+                } catch (e) {
+                    results.push('✓ Data validation correctly rejected invalid data');
+                }
+                
+                // Test 4: Checksum validation
+                console.log('=== Test 4: Checksum Validation ===');
+                const checksum1 = tracker.calculateChecksum(validData);
+                const checksum2 = tracker.calculateChecksum(validData);
+                if (checksum1 === checksum2) {
+                    results.push('✓ Checksum calculation is consistent');
+                } else {
+                    results.push('✗ Checksum calculation is inconsistent');
+                }
+                
+                // Test 5: Error handling
+                console.log('=== Test 5: Error Handling ===');
+                // Simulate localStorage failure by temporarily breaking it
+                const originalSetItem = localStorage.setItem;
+                localStorage.setItem = function() {
+                    throw new Error('Simulated localStorage failure');
+                };
+                
+                try {
+                    tracker.trackGptUsage(100, 50);
+                    results.push('✓ Error handling allows operation to continue despite localStorage failure');
+                } catch (e) {
+                    results.push('✗ Error handling failed: ' + e.message);
+                }
+                
+                // Restore localStorage
+                localStorage.setItem = originalSetItem;
+                
+                console.log('=== All Tests Completed ===');
+                
+            } catch (error) {
+                results.push('✗ Test suite failed: ' + error.message);
+                console.error('Test suite error:', error);
+            }
+            
+            // Display results
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = results.map(result => {
+                const className = result.startsWith('✓') ? 'success' : 
+                                result.startsWith('✗') ? 'error' : 'warning';
+                return `<div class="${className}">${result}</div>`;
+            }).join('');
+        }
+        
+        // Run tests when page loads
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>
+</content>

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Message Generator Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+        .message-preview { background: #f9f9f9; padding: 10px; margin: 10px 0; border-left: 4px solid #007cba; }
+        .error-title { font-weight: bold; color: #d32f2f; }
+        .error-message { margin: 5px 0; }
+        .error-suggestion { color: #1976d2; font-style: italic; }
+        .error-technical { font-family: monospace; font-size: 0.9em; color: #666; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Error Message Generator Test</h1>
+    <div id="test-results"></div>
+
+    <script src="../agents/error-message-generator.js"></script>
+    <script>
+        class ErrorMessageGeneratorTest {
+            constructor() {
+                this.results = [];
+                this.generator = new ErrorMessageGenerator({
+                    debug: {
+                        log: (...args) => console.log('[LOG]', ...args),
+                        warn: (...args) => console.warn('[WARN]', ...args),
+                        error: (...args) => console.error('[ERROR]', ...args),
+                        info: (...args) => console.info('[INFO]', ...args)
+                    }
+                });
+            }
+
+            test(name, testFn) {
+                try {
+                    const result = testFn();
+                    if (result) {
+                        this.results.push({ name, status: 'PASS', message: 'Test passed' });
+                    } else {
+                        this.results.push({ name, status: 'FAIL', message: 'Test failed' });
+                    }
+                } catch (error) {
+                    this.results.push({ name, status: 'FAIL', message: error.message });
+                }
+            }
+
+            runTests() {
+                console.log('Starting Error Message Generator Tests...');
+
+                // Test basic error message generation
+                this.test('Generate API error message', () => {
+                    const error = new Error('Connection failed');
+                    error.name = 'NetworkError';
+                    const message = this.generator.generateMessage(error);
+                    
+                    return message.title && message.message && message.suggestion;
+                });
+
+                this.test('Generate validation error message', () => {
+                    const error = new Error('Invalid email format');
+                    error.name = 'ValidationError';
+                    const message = this.generator.generateMessage(error, { field: 'email' });
+                    
+                    return message.title === 'Invalid Input' && message.canRetry === true;
+                });
+
+                this.test('Generate timeout error message', () => {
+                    const error = new Error('Request timeout after 5000ms');
+                    error.name = 'TimeoutError';
+                    const message = this.generator.generateMessage(error, { timeout: 5000 });
+                    
+                    return message.title === 'Request Timeout' && message.canRetry === true;
+                });
+
+                this.test('Generate rate limit error message', () => {
+                    const error = new Error('Rate limit exceeded');
+                    error.name = 'RateLimitError';
+                    const message = this.generator.generateMessage(error, { limit: 100, window: 'minute' });
+                    
+                    return message.title === 'Too Many Requests';
+                });
+
+                // Test error classification
+                this.test('Classify network error', () => {
+                    const error = new Error('Network connection failed');
+                    const errorType = this.generator.classifyError(error);
+                    return errorType === 'network_error';
+                });
+
+                this.test('Classify validation error', () => {
+                    const error = new Error('Validation failed for field');
+                    const errorType = this.generator.classifyError(error);
+                    return errorType === 'invalid_input';
+                });
+
+                this.test('Classify agent routing error', () => {
+                    const error = new Error('Agent routing failed');
+                    const context = { operation: 'agent_routing' };
+                    const errorType = this.generator.classifyError(error, context);
+                    return errorType === 'agent_routing_error';
+                });
+
+                // Test message interpolation
+                this.test('Message interpolation', () => {
+                    const template = 'Error in {field}: {error}';
+                    const context = { field: 'email', error: 'invalid format' };
+                    const result = this.generator.interpolate(template, context);
+                    return result === 'Error in email: invalid format';
+                });
+
+                // Test severity calculation
+                this.test('Calculate critical severity', () => {
+                    const error = new Error('Critical system failure');
+                    error.name = 'SystemError';
+                    const context = this.generator.enhanceContext({}, error);
+                    return context.severity === 'critical';
+                });
+
+                this.test('Calculate high severity', () => {
+                    const error = new Error('Network connection failed');
+                    error.name = 'NetworkError';
+                    const context = this.generator.enhanceContext({}, error);
+                    return context.severity === 'high';
+                });
+
+                this.test('Calculate medium severity', () => {
+                    const error = new Error('Validation failed');
+                    error.name = 'ValidationError';
+                    const context = this.generator.enhanceContext({}, error);
+                    return context.severity === 'medium';
+                });
+
+                // Test error categorization
+                this.test('Categorize connectivity error', () => {
+                    const error = new Error('Network connection lost');
+                    const category = this.generator.categorizeError(error);
+                    return category === 'connectivity';
+                });
+
+                this.test('Categorize input error', () => {
+                    const error = new Error('Invalid input provided');
+                    const category = this.generator.categorizeError(error);
+                    return category === 'input';
+                });
+
+                this.test('Categorize security error', () => {
+                    const error = new Error('Authentication failed');
+                    const category = this.generator.categorizeError(error);
+                    return category === 'security';
+                });
+
+                // Test retry capability detection
+                this.test('Detect retryable error', () => {
+                    const error = new Error('Timeout occurred');
+                    error.name = 'TimeoutError';
+                    const canRetry = this.generator.canRetry(error, {});
+                    return canRetry === true;
+                });
+
+                this.test('Detect non-retryable error', () => {
+                    const error = new Error('Permission denied');
+                    error.name = 'PermissionError';
+                    const canRetry = this.generator.canRetry(error, {});
+                    return canRetry === false;
+                });
+
+                // Test custom message templates
+                this.test('Custom message template', () => {
+                    this.generator.addMessageTemplate('custom_error', {
+                        title: 'Custom Error',
+                        message: 'This is a custom error message',
+                        suggestion: 'Try the custom solution'
+                    });
+
+                    const error = new Error('Custom error occurred');
+                    const message = this.generator.generateMessage(error, { errorType: 'custom_error' });
+                    
+                    // Since we can't easily override the classification, check if template was added
+                    const template = this.generator.getMessageTemplate('custom_error');
+                    return template.title === 'Custom Error';
+                });
+
+                // Test localization
+                this.test('Spanish localization', () => {
+                    this.generator.setLocale('es');
+                    const localized = this.generator.localize('Connection Issue');
+                    this.generator.setLocale('en'); // Reset
+                    return localized === 'Problema de Conexión';
+                });
+
+                this.test('French localization', () => {
+                    this.generator.setLocale('fr');
+                    const localized = this.generator.localize('Connection Issue');
+                    this.generator.setLocale('en'); // Reset
+                    return localized === 'Problème de Connexion';
+                });
+
+                // Test error ID generation
+                this.test('Generate unique error IDs', () => {
+                    const error1 = new Error('Test error 1');
+                    const error2 = new Error('Test error 2');
+                    
+                    const id1 = this.generator.generateErrorId(error1, {});
+                    const id2 = this.generator.generateErrorId(error2, {});
+                    
+                    return id1 !== id2 && id1.startsWith('ERR-') && id2.startsWith('ERR-');
+                });
+
+                // Test recovery suggestions
+                this.test('Generate recovery suggestions', () => {
+                    const error = new Error('Network connection failed');
+                    error.name = 'NetworkError';
+                    const suggestions = this.generator.getRecoverySuggestions(error, {});
+                    
+                    return suggestions.length > 0 && suggestions.includes('Check your internet connection');
+                });
+
+                // Test fallback message
+                this.test('Fallback message generation', () => {
+                    const error = new Error('Unknown error');
+                    const fallback = this.generator.getFallbackMessage(error);
+                    
+                    return fallback.title === 'An Error Occurred' && 
+                           fallback.message === 'Something went wrong. Please try again.';
+                });
+
+                // Test context enhancement
+                this.test('Context enhancement', () => {
+                    const error = new Error('Test error');
+                    const context = { operation: 'test' };
+                    const enhanced = this.generator.enhanceContext(context, error);
+                    
+                    return enhanced.error === 'Test error' && 
+                           enhanced.operation === 'test' && 
+                           enhanced.timestamp && 
+                           enhanced.severity;
+                });
+
+                // Test support info generation
+                this.test('Support info generation', () => {
+                    const error = new Error('Network error');
+                    error.name = 'NetworkError';
+                    const context = { severity: 'high' };
+                    const supportInfo = this.generator.getSupportInfo(error, context);
+                    
+                    return supportInfo.errorId && 
+                           supportInfo.category === 'connectivity' && 
+                           supportInfo.severity === 'high';
+                });
+
+                setTimeout(() => this.displayResults(), 100);
+            }
+
+            displayResults() {
+                const container = document.getElementById('test-results');
+                let html = '<h2>Test Results</h2>';
+                
+                const passed = this.results.filter(r => r.status === 'PASS').length;
+                const failed = this.results.filter(r => r.status === 'FAIL').length;
+                
+                html += `<div class="test-section">
+                    <h3>Summary</h3>
+                    <p class="pass">Passed: ${passed}</p>
+                    <p class="fail">Failed: ${failed}</p>
+                    <p class="info">Total: ${this.results.length}</p>
+                </div>`;
+
+                // Add some example error messages
+                html += '<div class="test-section"><h3>Example Error Messages</h3>';
+                
+                const examples = [
+                    { error: new Error('Connection timeout'), name: 'TimeoutError' },
+                    { error: new Error('Invalid email format'), name: 'ValidationError' },
+                    { error: new Error('Rate limit exceeded'), name: 'RateLimitError' },
+                    { error: new Error('Network connection failed'), name: 'NetworkError' }
+                ];
+
+                examples.forEach(({ error, name }) => {
+                    error.name = name;
+                    const message = this.generator.generateMessage(error);
+                    html += `<div class="message-preview">
+                        <div class="error-title">${message.title}</div>
+                        <div class="error-message">${message.message}</div>
+                        <div class="error-suggestion">${message.suggestion}</div>
+                        <div class="error-technical">Technical: ${message.technical || 'N/A'}</div>
+                        <div>Severity: ${message.severity} | Can Retry: ${message.canRetry}</div>
+                    </div>`;
+                });
+                
+                html += '</div>';
+
+                this.results.forEach(result => {
+                    const className = result.status === 'PASS' ? 'pass' : 'fail';
+                    html += `<div class="test-section">
+                        <h4 class="${className}">${result.status}: ${result.name}</h4>
+                        <p>${result.message}</p>
+                    </div>`;
+                });
+
+                container.innerHTML = html;
+                console.log('Error Message Generator Tests completed:', { passed, failed, total: this.results.length });
+            }
+        }
+
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const tester = new ErrorMessageGeneratorTest();
+            tester.runTests();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Exact Loading Sequence</title>
+</head>
+<body>
+    <h1>Testing Exact Loading Sequence from index.html</h1>
+    <div id="results"></div>
+
+    <!-- Load scripts in the exact same order as index.html -->
+    <script src="debug-manager.js"></script>
+    <script src="persona-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
+    <script src="token-tracker.js"></script>
+    <script src="api-client.js"></script>
+    <script src="audio-resource-manager.js"></script>
+    <script src="timeout-manager.js"></script>
+    <script src="connection-manager.js"></script>
+    <script src="streaming-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/idv-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/rate-limiter.js"></script>
+    <script src="agents/request-validator.js"></script>
+    <script src="agents/audit-logger.js"></script>
+    <script src="agents/security-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="agents/prompt-composer.js"></script>
+    <script src="agents/lru-cache.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        function testExactSequence() {
+            const resultsDiv = document.getElementById('results');
+            let successCount = 0;
+            let totalTests = 0;
+            
+            function addResult(test, success, message) {
+                totalTests++;
+                if (success) {
+                    successCount++;
+                    resultsDiv.innerHTML += `<p style="color: green;">✅ ${test}: ${message}</p>`;
+                } else {
+                    resultsDiv.innerHTML += `<p style="color: red;">❌ ${test}: ${message}</p>`;
+                }
+            }
+            
+            try {
+                // Test 1: Check that all critical classes loaded without conflicts
+                const criticalClasses = [
+                    'RateLimiter', 'RateLimitError', 'RequestValidator', 'ValidationError', 
+                    'AuditLogger', 'SecurityManager', 'AgentRouter', 'BaseAgent'
+                ];
+                
+                criticalClasses.forEach(className => {
+                    addResult(`${className} loaded`, !!window[className], 
+                        window[className] ? 'Available' : 'Missing');
+                });
+                
+                // Test 2: SecurityManager instantiation (this was failing before)
+                const securityManager = new SecurityManager();
+                addResult('SecurityManager instantiation', true, 'No duplicate variable error');
+                
+                // Test 3: AgentRouter instantiation with SecurityManager
+                const mockApiClient = { 
+                    generateChatCompletion: () => Promise.resolve({ success: true, text: 'test' }) 
+                };
+                const agentRouter = new AgentRouter({ agents: [], apiClient: mockApiClient });
+                addResult('AgentRouter instantiation', true, 'Successfully created with SecurityManager');
+                
+                // Test 4: Test that SecurityManager components work
+                addResult('SecurityManager.rateLimiter', !!securityManager.rateLimiter, 'Component created');
+                addResult('SecurityManager.requestValidator', !!securityManager.requestValidator, 'Component created');
+                addResult('SecurityManager.auditLogger', !!securityManager.auditLogger, 'Component created');
+                
+                // Test 5: Test error handling (this was problematic before)
+                if (window.RateLimitError && window.ValidationError) {
+                    const rateLimitError = new window.RateLimitError('Test error');
+                    const validationError = new window.ValidationError('Test error');
+                    
+                    const rateLimitMsg = securityManager.getSafeErrorMessage(rateLimitError);
+                    const validationMsg = securityManager.getSafeErrorMessage(validationError);
+                    
+                    addResult('RateLimitError handling', rateLimitMsg.includes('Rate limit'), 'Error handled correctly');
+                    addResult('ValidationError handling', validationMsg.includes('Invalid request'), 'Error handled correctly');
+                }
+                
+            } catch (error) {
+                addResult('Overall test', false, `Error: ${error.message}`);
+                console.error('Test error:', error);
+            }
+            
+            // Summary
+            resultsDiv.innerHTML += `<hr><h3>Summary: ${successCount}/${totalTests} tests passed</h3>`;
+            if (successCount === totalTests) {
+                resultsDiv.innerHTML += `<p style="color: green; font-weight: bold;">🎉 All tests passed! No duplicate variable conflicts!</p>`;
+            } else {
+                resultsDiv.innerHTML += `<p style="color: red; font-weight: bold;">⚠️ Some tests failed.</p>`;
+            }
+        }
+        
+        // Catch any global errors
+        window.addEventListener('error', (event) => {
+            if (event.message.includes('duplicate variable') || event.message.includes('RequestValidator')) {
+                document.getElementById('results').innerHTML += 
+                    `<p style="color: red;">❌ Global error caught: ${event.message}</p>`;
+            }
+        });
+        
+        // Run test when page loads
+        window.addEventListener('load', testExactSequence);
+    </script>
+</body>
+</html>

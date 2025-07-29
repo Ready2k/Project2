@@ -70,16 +70,38 @@ class PaymentsAgent extends BaseAgent {
             lowerInput.includes(keyword.toLowerCase())
         );
         
-        const hasAmountIndicator = this.amountKeywords.some(keyword => 
-            lowerInput.includes(keyword.toLowerCase())
-        ) || /\d+/.test(lowerInput); // Contains numbers
+        // More specific amount detection - look for currency with intent to send/pay
+        const hasPaymentAmountPattern = [
+            /send\s+£\d+/,           // "send £50"
+            /transfer\s+£\d+/,       // "transfer £100"
+            /pay\s+£\d+/,           // "pay £25"
+            /£\d+\s+to\s+/,         // "£50 to Alice"
+            /\d+\s+pounds?\s+to/,   // "50 pounds to"
+            /send\s+\d+/,           // "send 50"
+            /transfer\s+\d+/,       // "transfer 100"
+        ].some(pattern => pattern.test(lowerInput));
         
-        // High confidence if both payment and amount keywords are present
-        if (hasPaymentKeyword && hasAmountIndicator) {
-            this.debug.info('PaymentsAgent can handle input - payment + amount match', { 
+        // Only match if we have clear payment intent, not just currency mentions
+        if (hasPaymentKeyword && hasPaymentAmountPattern) {
+            this.debug.info('PaymentsAgent can handle input - payment intent + amount match', { 
                 inputText: inputText.substring(0, 50) + '...' 
             });
             return true;
+        }
+        
+        // Don't match on transaction history patterns (common in fraud verification)
+        const isTransactionHistory = [
+            /£\d+(\.\d{2})?\s+(at|from)\s+/,  // "£50 at shop"
+            /\d+\s+(at|from)\s+the\s+/,       // "50 at the store"
+            /spent\s+£\d+/,                   // "spent £50"
+            /transaction.*£\d+/,              // "transaction of £50"
+        ].some(pattern => pattern.test(lowerInput));
+        
+        if (isTransactionHistory) {
+            this.debug.info('PaymentsAgent rejecting transaction history pattern', { 
+                inputText: inputText.substring(0, 50) + '...' 
+            });
+            return false;
         }
         
         // Check for standalone payment keywords that are transaction-related
@@ -122,9 +144,11 @@ class PaymentsAgent extends BaseAgent {
             this.validateDataAccess(['payments', 'transfers', 'payment_history']);
             
             // Validate guardrails for payment processing actions
+            // Check if secondary auth is required based on guardrails configuration
+            const requiresSecondaryAuth = this.checkSecondaryAuthRequired('initiateTransfer', context);
             this.validateGuardrails('initiateTransfer', { 
                 action: 'payment_processing',
-                requiresSecondaryAuth: true 
+                requiresSecondaryAuth 
             });
             
             // Get current persona data for account validation
@@ -330,12 +354,13 @@ class PaymentsAgent extends BaseAgent {
     }
     
     /**
-     * Override system prompt components for payment processing context
+     * Get agent-specific prompt overrides (fallback for when no configuration exists)
      * @param {Object} context - Context object containing SystemPromptsManager
      * @param {Object} personaData - Current persona data
      * @returns {Object} - System prompt overrides
      */
-    getSystemPromptOverrides(context, personaData) {
+    getAgentSpecificPromptOverrides(context, personaData) {
+        // These are now the fallback defaults - configuration takes precedence
         return {
             basePersonality: "You are a highly secure, professional payment processing assistant. You prioritize security, accuracy, and clear communication in all financial transactions. You are thorough, careful, and always confirm details before processing.",
             financialContext: "When handling payment requests, apply the highest security standards. Always validate transaction details, confirm amounts, and ensure secure processing. Never process transactions without explicit confirmation.",

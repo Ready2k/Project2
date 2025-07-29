@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraud Context Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .conversation { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .user { color: #0066cc; font-weight: bold; }
+        .bot { color: #cc6600; font-weight: bold; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .context-info { background: #e6f3ff; padding: 10px; margin: 10px 0; font-size: 12px; }
+        button { padding: 10px 20px; margin: 5px; }
+        #output { margin-top: 20px; padding: 10px; background: #f9f9f9; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Fraud Context Fix Test</h1>
+    <p>This test specifically verifies that transaction information is routed to FraudAgent when provided in response to a fraud verification request.</p>
+
+    <div class="test-section">
+        <h2>Exact Scenario from Your Issue</h2>
+        <div class="conversation">
+            <div class="user">USER: I think someone has my card details</div>
+            <div class="bot">FRAUD AGENT: I understand your concern, John. To block your card ending in 1234, I will need to confirm your identity for security purposes. Please provide any two recent transaction amounts from your account for verification.</div>
+            <div class="user">USER: £120 at the grocery store and £45.67 at the coffee shop</div>
+            <div class="bot">EXPECTED: Should route to FraudAgent (not PaymentsAgent)</div>
+        </div>
+        
+        <button onclick="testExactScenario()">Test Exact Scenario</button>
+        <div id="exact-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Follow-up Detection Test</h2>
+        <button onclick="testFollowUpDetection()">Test Follow-up Detection</button>
+        <div id="followup-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Context Manager Debug</h2>
+        <button onclick="debugContextManager()">Debug Context Manager</button>
+        <div id="debug-result"></div>
+    </div>
+
+    <div id="output"></div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/lru-cache.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+
+    <script>
+        // Initialize debug manager
+        window.debugManager = new DebugManager();
+        window.debugManager.enable();
+
+        // Create a mock context manager for testing
+        let contextManager = new ConversationContextManager();
+        let output = document.getElementById('output');
+
+        function log(message, data = null) {
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            if (data) {
+                div.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function testExactScenario() {
+            log('Testing exact fraud scenario...');
+            
+            // Clear context
+            contextManager.clearContext();
+            
+            // Simulate the exact conversation
+            contextManager.addMessage('user', 'I think someone has my card details');
+            contextManager.addMessage('assistant', 'I understand your concern, John. To block your card ending in 1234, I will need to confirm your identity for security purposes. Please provide any two recent transaction amounts from your account for verification.', 'FraudAgent');
+            
+            // Test the problematic input
+            const transactionInput = '£120 at the grocery store and £45.67 at the coffee shop';
+            
+            // Test follow-up detection
+            const isFollowUp = contextManager.isFollowUpInput(transactionInput);
+            log(`Follow-up detection result: ${isFollowUp}`);
+            
+            // Get routing context
+            const routingContext = contextManager.getRoutingContext();
+            log('Routing context:', routingContext);
+            
+            // Test suggested agent
+            const mockAgents = [
+                { name: 'FraudAgent', enabled: true },
+                { name: 'PaymentsAgent', enabled: true },
+                { name: 'BankingInfoAgent', enabled: true },
+                { name: 'IDVAgent', enabled: true }
+            ];
+            
+            const suggestedAgent = contextManager.getSuggestedAgent(transactionInput, mockAgents);
+            
+            const result = {
+                input: transactionInput,
+                isFollowUp: isFollowUp,
+                lastAgent: routingContext.lastAgentUsed,
+                suggestedAgent: suggestedAgent ? suggestedAgent.name : 'None',
+                expected: 'FraudAgent',
+                success: suggestedAgent && suggestedAgent.name === 'FraudAgent'
+            };
+            
+            log('Test result:', result);
+            
+            document.getElementById('exact-result').innerHTML = `
+                <div class="context-info">
+                    <strong>Input:</strong> ${result.input}<br>
+                    <strong>Follow-up detected:</strong> ${result.isFollowUp ? 'YES' : 'NO'}<br>
+                    <strong>Last agent:</strong> ${result.lastAgent}<br>
+                    <strong>Suggested agent:</strong> ${result.suggestedAgent}<br>
+                    <strong>Expected:</strong> ${result.expected}<br>
+                    <strong>Result:</strong> <span class="${result.success ? 'success' : 'error'}">${result.success ? 'SUCCESS' : 'FAILED'}</span>
+                </div>
+            `;
+        }
+
+        function testFollowUpDetection() {
+            log('Testing follow-up detection patterns...');
+            
+            const testCases = [
+                '£120 at the grocery store and £45.67 at the coffee shop',
+                'yes, block it',
+                'no, don\'t do that',
+                '15th March 1985',
+                'john.doe@email.com',
+                'What\'s my balance?', // Should NOT be follow-up
+                'Send money to Alice' // Should NOT be follow-up
+            ];
+            
+            // Set up context with a question
+            contextManager.clearContext();
+            contextManager.addMessage('assistant', 'Please provide any two recent transaction amounts from your account for verification.', 'FraudAgent');
+            
+            const results = testCases.map(input => ({
+                input,
+                isFollowUp: contextManager.isFollowUpInput(input),
+                expected: !input.includes('balance') && !input.includes('Send money')
+            }));
+            
+            log('Follow-up detection results:', results);
+            
+            document.getElementById('followup-result').innerHTML = results.map(r => 
+                `<div><strong>${r.input}:</strong> ${r.isFollowUp ? 'YES' : 'NO'} ${r.isFollowUp === r.expected ? '✓' : '✗'}</div>`
+            ).join('');
+        }
+
+        function debugContextManager() {
+            const stats = contextManager.getStats();
+            const history = contextManager.getHistory();
+            
+            log('Context Manager Debug Info:', {
+                stats,
+                history,
+                contextData: {
+                    lastAgentUsed: contextManager.getContextData('lastAgentUsed'),
+                    lastAgentTimestamp: contextManager.getContextData('lastAgentTimestamp')
+                }
+            });
+            
+            document.getElementById('debug-result').innerHTML = `
+                <div class="context-info">
+                    <strong>History Size:</strong> ${stats.historySize}<br>
+                    <strong>Last Agent:</strong> ${stats.lastAgentUsed}<br>
+                    <strong>Session Duration:</strong> ${stats.sessionDuration}s<br>
+                    <strong>Context Entries:</strong> ${stats.contextEntries}
+                </div>
+            `;
+        }
+
+        // Initialize
+        log('Fraud Context Fix Test initialized');
+    </script>
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Routing & Icons Test</title>
+    <link rel="stylesheet" href="main-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .test-btn {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            background: #007bff;
+            color: white;
+            transition: background 0.3s ease;
+        }
+        .test-btn:hover {
+            background: #0056b3;
+        }
+        .conversation-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+        }
+        .status-info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .current-agent {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 4px;
+            background: white;
+            border: 1px solid #ccc;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔄 Agent Routing & Icons Integration Test</h1>
+        <p>This page tests the integration between agent routing and icon display.</p>
+        
+        <div class="status-info">
+            <strong>Current Agent:</strong> <span id="currentAgent" class="current-agent agent-name">Loading...</span><br>
+            <strong>Last Routing Result:</strong> <span id="lastRouting">None</span>
+        </div>
+        
+        <h3>Test Scenarios</h3>
+        <div class="test-controls">
+            <button class="test-btn" onclick="testBankingQuery()">
+                🏛️ Test Banking Query
+            </button>
+            <button class="test-btn" onclick="testFraudQuery()">
+                🛡️ Test Fraud Query
+            </button>
+            <button class="test-btn" onclick="testIDVQuery()">
+                ✅ Test Identity Query
+            </button>
+            <button class="test-btn" onclick="testPaymentQuery()">
+                💳 Test Payment Query
+            </button>
+            <button class="test-btn" onclick="testGenericQuery()">
+                🤖 Test Generic Query
+            </button>
+            <button class="test-btn" onclick="testConversationFlow()">
+                💬 Test Full Conversation
+            </button>
+            <button class="test-btn" onclick="clearConversation()">
+                🗑️ Clear Conversation
+            </button>
+        </div>
+        
+        <h3>Conversation</h3>
+        <div class="conversation-container">
+            <div id="conversation" class="conversation">
+                <!-- Messages will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Load all required scripts in correct order -->
+    <script src="debug-manager.js"></script>
+    <script src="system-logger.js"></script>
+    <script src="agent-icon-manager.js"></script>
+    
+    <!-- Mock agent routing for testing -->
+    <script>
+        // Mock agent routing function for testing
+        function mockAgentRouting(inputText) {
+            const text = inputText.toLowerCase();
+            
+            // Simple keyword-based routing for testing
+            if (text.includes('balance') || text.includes('account') || text.includes('transaction')) {
+                return {
+                    agentName: 'BankingInfoAgent',
+                    response: `Your current account balance is £2,450.75. Your last transaction was a payment to Amazon for £29.99 on March 15th.`
+                };
+            }
+            
+            if (text.includes('fraud') || text.includes('block') || text.includes('stolen') || text.includes('suspicious')) {
+                return {
+                    agentName: 'FraudAgent',
+                    response: `I understand your concern about potential fraud. I'm immediately blocking your card ending in 1234 for security. A replacement card will be sent within 2-3 business days.`
+                };
+            }
+            
+            if (text.includes('verify') || text.includes('password') || text.includes('identity') || text.includes('forgot')) {
+                return {
+                    agentName: 'IDVAgent',
+                    response: `I need to verify your identity before proceeding. Can you please confirm your date of birth and the first line of your registered address?`
+                };
+            }
+            
+            if (text.includes('send') || text.includes('transfer') || text.includes('pay') || text.includes('payment')) {
+                return {
+                    agentName: 'PaymentsAgent',
+                    response: `I can help you send money securely. To transfer funds, I'll need to verify the recipient's account details. What's the sort code and account number?`
+                };
+            }
+            
+            return {
+                agentName: 'DefaultAgent',
+                response: `I'm here to help you with banking, payments, security issues, and identity verification. What would you like to do today?`
+            };
+        }
+        
+        // Mock addMessage function that simulates the main app
+        function simulateAddMessage(content, type, agentName = null) {
+            if (window.agentIconManager) {
+                window.agentIconManager.addMessage(content, type, agentName);
+                
+                // Update status
+                if (type === 'bot' && agentName) {
+                    document.getElementById('lastRouting').textContent = `Routed to ${agentName}`;
+                }
+            }
+        }
+        
+        // Test functions
+        function testBankingQuery() {
+            const query = "What's my account balance?";
+            simulateAddMessage(query, 'user');
+            
+            setTimeout(() => {
+                const result = mockAgentRouting(query);
+                simulateAddMessage(result.response, 'bot', result.agentName);
+            }, 500);
+        }
+        
+        function testFraudQuery() {
+            const query = "I think there's fraud on my account";
+            simulateAddMessage(query, 'user');
+            
+            setTimeout(() => {
+                const result = mockAgentRouting(query);
+                simulateAddMessage(result.response, 'bot', result.agentName);
+            }, 500);
+        }
+        
+        function testIDVQuery() {
+            const query = "I forgot my password";
+            simulateAddMessage(query, 'user');
+            
+            setTimeout(() => {
+                const result = mockAgentRouting(query);
+                simulateAddMessage(result.response, 'bot', result.agentName);
+            }, 500);
+        }
+        
+        function testPaymentQuery() {
+            const query = "I need to send money to someone";
+            simulateAddMessage(query, 'user');
+            
+            setTimeout(() => {
+                const result = mockAgentRouting(query);
+                simulateAddMessage(result.response, 'bot', result.agentName);
+            }, 500);
+        }
+        
+        function testGenericQuery() {
+            const query = "Can you help me?";
+            simulateAddMessage(query, 'user');
+            
+            setTimeout(() => {
+                const result = mockAgentRouting(query);
+                simulateAddMessage(result.response, 'bot', result.agentName);
+            }, 500);
+        }
+        
+        function testConversationFlow() {
+            clearConversation();
+            
+            const scenarios = [
+                { query: "What's my balance?", delay: 1000 },
+                { query: "I think someone used my card fraudulently", delay: 3000 },
+                { query: "I need to verify my identity", delay: 5000 },
+                { query: "Can I send money to my friend?", delay: 7000 }
+            ];
+            
+            scenarios.forEach(scenario => {
+                setTimeout(() => {
+                    simulateAddMessage(scenario.query, 'user');
+                    
+                    setTimeout(() => {
+                        const result = mockAgentRouting(scenario.query);
+                        simulateAddMessage(result.response, 'bot', result.agentName);
+                    }, 500);
+                }, scenario.delay);
+            });
+        }
+        
+        function clearConversation() {
+            if (window.agentIconManager) {
+                window.agentIconManager.clearConversation();
+                document.getElementById('lastRouting').textContent = 'None';
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                if (window.agentIconManager) {
+                    window.agentIconManager.setCurrentAgent('DefaultAgent');
+                    window.agentIconManager.addMessage(
+                        "Hello! I'm your AI assistant. Try the test buttons above to see agent routing and icon switching in action.",
+                        'bot',
+                        'DefaultAgent'
+                    );
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>

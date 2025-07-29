@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agent Orchestration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .conversation { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .user { color: #0066cc; font-weight: bold; margin: 5px 0; }
+        .expected { color: #009900; font-weight: bold; margin: 5px 0; }
+        .workflow-step { background: #fff3cd; padding: 10px; margin: 5px 0; border-left: 4px solid #ffc107; }
+        .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 12px; }
+        .success { color: green; }
+        .error { color: red; }
+        button { padding: 10px 20px; margin: 10px 5px; }
+        #output { margin-top: 20px; padding: 10px; background: #f9f9f9; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Multi-Agent Orchestration Test</h1>
+    <p>This test verifies that complex multi-step requests are properly handled by multiple agents working together.</p>
+
+    <div class="test-section">
+        <h2>Balance Check + Conditional Payment</h2>
+        <div class="conversation">
+            <div class="user">USER: Hi, check my balance and if I have enough money pay £100 off my credit card bill</div>
+            <div class="expected">EXPECTED WORKFLOW:</div>
+            <div class="workflow-step">1. BankingInfoAgent: Check account balance</div>
+            <div class="workflow-step">2. Conditional Logic: If balance >= £100</div>
+            <div class="workflow-step">3. PaymentsAgent: Process credit card payment of £100</div>
+            <div class="workflow-step">4. Summary: Provide combined response</div>
+        </div>
+        
+        <button onclick="testBalanceAndPayment()">Test Balance + Payment Workflow</button>
+        <div id="balance-payment-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Transfer with Verification</h2>
+        <div class="conversation">
+            <div class="user">USER: Transfer £500 from savings to checking if you can verify my identity first</div>
+            <div class="expected">EXPECTED WORKFLOW:</div>
+            <div class="workflow-step">1. IDVAgent: Verify user identity</div>
+            <div class="workflow-step">2. Conditional Logic: If verification successful</div>
+            <div class="workflow-step">3. PaymentsAgent: Process transfer</div>
+        </div>
+        
+        <button onclick="testTransferWithVerification()">Test Transfer + Verification Workflow</button>
+        <div id="transfer-verification-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Check Transactions + Report Fraud</h2>
+        <div class="conversation">
+            <div class="user">USER: Check my recent transactions and if there's anything suspicious, report it as fraud</div>
+            <div class="expected">EXPECTED WORKFLOW:</div>
+            <div class="workflow-step">1. BankingInfoAgent: Get recent transactions</div>
+            <div class="workflow-step">2. Analysis: Check for suspicious activity</div>
+            <div class="workflow-step">3. FraudAgent: Report if suspicious activity found</div>
+        </div>
+        
+        <button onclick="testCheckAndReport()">Test Check + Report Workflow</button>
+        <div id="check-report-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Workflow Analysis Test</h2>
+        <button onclick="testWorkflowAnalysis()">Test Workflow Detection</button>
+        <div id="workflow-analysis-result"></div>
+    </div>
+
+    <div id="output"></div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/multi-agent-orchestrator.js"></script>
+
+    <script>
+        // Initialize debug manager
+        window.debugManager = new DebugManager();
+        window.debugManager.enable();
+
+        let output = document.getElementById('output');
+
+        function log(message, data = null) {
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            if (data) {
+                div.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        // Mock router for testing
+        const mockRouter = {
+            agents: [
+                { name: 'BankingInfoAgent' },
+                { name: 'PaymentsAgent' },
+                { name: 'FraudAgent' },
+                { name: 'IDVAgent' }
+            ]
+        };
+
+        const orchestrator = new MultiAgentOrchestrator(mockRouter);
+
+        function testBalanceAndPayment() {
+            log('Testing balance check + conditional payment workflow...');
+            
+            const input = "Hi, check my balance and if I have enough money pay £100 off my credit card bill";
+            const workflow = orchestrator.analyzeMultiAgentRequest(input);
+            
+            log('Workflow analysis result:', workflow);
+            
+            const isCorrectType = workflow && workflow.type === 'balance_and_payment';
+            const hasCorrectSteps = workflow && workflow.steps.length === 2;
+            const hasBalanceStep = workflow && workflow.steps.some(s => s.id === 'check_balance' && s.agent === 'BankingInfoAgent');
+            const hasPaymentStep = workflow && workflow.steps.some(s => s.id === 'conditional_payment' && s.agent === 'PaymentsAgent');
+            const hasCondition = workflow && workflow.steps.some(s => s.condition && s.condition.type === 'balance_check');
+            
+            document.getElementById('balance-payment-result').innerHTML = `
+                <div class="debug">
+                    <strong>Workflow Detection Results:</strong><br>
+                    Correct type (balance_and_payment): <span class="${isCorrectType ? 'success' : 'error'}">${isCorrectType ? 'YES' : 'NO'}</span><br>
+                    Has 2 steps: <span class="${hasCorrectSteps ? 'success' : 'error'}">${hasCorrectSteps ? 'YES' : 'NO'}</span><br>
+                    Has balance check step: <span class="${hasBalanceStep ? 'success' : 'error'}">${hasBalanceStep ? 'YES' : 'NO'}</span><br>
+                    Has payment step: <span class="${hasPaymentStep ? 'success' : 'error'}">${hasPaymentStep ? 'YES' : 'NO'}</span><br>
+                    Has condition logic: <span class="${hasCondition ? 'success' : 'error'}">${hasCondition ? 'YES' : 'NO'}</span><br>
+                    <br>
+                    <strong>Extracted Amount:</strong> £${workflow ? workflow.context.amount : 'N/A'}<br>
+                    <strong>Target:</strong> ${workflow ? workflow.context.target : 'N/A'}
+                </div>
+            `;
+        }
+
+        function testTransferWithVerification() {
+            log('Testing transfer with verification workflow...');
+            
+            const input = "Transfer £500 from savings to checking if you can verify my identity first";
+            const workflow = orchestrator.analyzeMultiAgentRequest(input);
+            
+            log('Transfer workflow analysis:', workflow);
+            
+            const isCorrectType = workflow && workflow.type === 'transfer_with_verification';
+            const hasVerificationStep = workflow && workflow.steps.some(s => s.agent === 'IDVAgent');
+            const hasTransferStep = workflow && workflow.steps.some(s => s.agent === 'PaymentsAgent');
+            
+            document.getElementById('transfer-verification-result').innerHTML = `
+                <div class="debug">
+                    <strong>Transfer Workflow Results:</strong><br>
+                    Correct type: <span class="${isCorrectType ? 'success' : 'error'}">${isCorrectType ? 'YES' : 'NO'}</span><br>
+                    Has verification step: <span class="${hasVerificationStep ? 'success' : 'error'}">${hasVerificationStep ? 'YES' : 'NO'}</span><br>
+                    Has transfer step: <span class="${hasTransferStep ? 'success' : 'error'}">${hasTransferStep ? 'YES' : 'NO'}</span>
+                </div>
+            `;
+        }
+
+        function testCheckAndReport() {
+            log('Testing check transactions + report fraud workflow...');
+            
+            const input = "Check my recent transactions and if there's anything suspicious, report it as fraud";
+            const workflow = orchestrator.analyzeMultiAgentRequest(input);
+            
+            log('Check and report workflow analysis:', workflow);
+            
+            const isCorrectType = workflow && workflow.type === 'check_and_report';
+            const hasBankingStep = workflow && workflow.steps.some(s => s.agent === 'BankingInfoAgent');
+            const hasFraudStep = workflow && workflow.steps.some(s => s.agent === 'FraudAgent');
+            
+            document.getElementById('check-report-result').innerHTML = `
+                <div class="debug">
+                    <strong>Check and Report Workflow Results:</strong><br>
+                    Correct type: <span class="${isCorrectType ? 'success' : 'error'}">${isCorrectType ? 'YES' : 'NO'}</span><br>
+                    Has banking info step: <span class="${hasBankingStep ? 'success' : 'error'}">${hasBankingStep ? 'YES' : 'NO'}</span><br>
+                    Has fraud report step: <span class="${hasFraudStep ? 'success' : 'error'}">${hasFraudStep ? 'YES' : 'NO'}</span>
+                </div>
+            `;
+        }
+
+        function testWorkflowAnalysis() {
+            log('Testing workflow detection patterns...');
+            
+            const testCases = [
+                {
+                    input: "Check my balance and if I have enough money pay £100 off my credit card bill",
+                    expectedType: "balance_and_payment"
+                },
+                {
+                    input: "What's my balance?",
+                    expectedType: null
+                },
+                {
+                    input: "Send £50 to Alice",
+                    expectedType: null
+                },
+                {
+                    input: "Transfer money from savings to checking if you verify my identity",
+                    expectedType: "transfer_with_verification"
+                },
+                {
+                    input: "Check transactions and report suspicious activity",
+                    expectedType: "check_and_report"
+                }
+            ];
+            
+            const results = testCases.map(testCase => {
+                const workflow = orchestrator.analyzeMultiAgentRequest(testCase.input);
+                return {
+                    input: testCase.input,
+                    detected: workflow ? workflow.type : null,
+                    expected: testCase.expectedType,
+                    correct: (workflow ? workflow.type : null) === testCase.expectedType
+                };
+            });
+            
+            log('Workflow detection test results:', results);
+            
+            document.getElementById('workflow-analysis-result').innerHTML = `
+                <div class="debug">
+                    <strong>Workflow Detection Test Results:</strong><br>
+                    ${results.map(r => 
+                        `<div style="margin: 5px 0;">
+                            <strong>Input:</strong> ${r.input.substring(0, 50)}...<br>
+                            <strong>Detected:</strong> ${r.detected || 'None'} | 
+                            <strong>Expected:</strong> ${r.expected || 'None'} | 
+                            <span class="${r.correct ? 'success' : 'error'}">${r.correct ? '✓' : '✗'}</span>
+                        </div>`
+                    ).join('')}
+                </div>
+            `;
+        }
+
+        // Initialize
+        log('Multi-Agent Orchestration Test initialized');
+    </script>
+</body>
+</html>

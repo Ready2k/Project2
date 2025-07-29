@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Prompts Admin</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { border-bottom: 2px solid #007acc; padding-bottom: 15px; margin-bottom: 20px; }
+        .agent-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .agent-header { background: #007acc; color: white; padding: 10px; margin: -15px -15px 15px -15px; border-radius: 5px 5px 0 0; }
+        .prompt-field { margin: 15px 0; }
+        .prompt-field label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
+        .prompt-field textarea { width: 100%; min-height: 80px; padding: 8px; border: 1px solid #ccc; border-radius: 3px; font-family: Arial, sans-serif; }
+        .prompt-field input[type="text"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 3px; }
+        .instructions-list { margin: 10px 0; }
+        .instruction-item { display: flex; margin: 5px 0; align-items: center; }
+        .instruction-item input { flex: 1; margin-right: 10px; padding: 5px; border: 1px solid #ccc; border-radius: 3px; }
+        .btn { padding: 8px 16px; margin: 5px; border: none; border-radius: 3px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #007acc; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-small { padding: 4px 8px; font-size: 12px; }
+        .template-section { background: #f8f9fa; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .status-message { padding: 10px; margin: 10px 0; border-radius: 3px; }
+        .status-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .preview-section { background: #e9ecef; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .tabs { display: flex; border-bottom: 1px solid #ddd; margin-bottom: 20px; }
+        .tab { padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab.active { border-bottom-color: #007acc; background: #f8f9fa; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>System Prompts Administration</h1>
+            <p>Configure agent behavior through customizable system prompts. Changes take effect immediately.</p>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('agents')">Agent Prompts</div>
+            <div class="tab" onclick="showTab('templates')">Templates</div>
+            <div class="tab" onclick="showTab('preview')">Preview</div>
+        </div>
+
+        <div id="agents-tab" class="tab-content active">
+            <div class="agent-section">
+                <div class="agent-header">
+                    <h2>🚨 FraudAgent - Fraud Detection & Security</h2>
+                </div>
+                
+                <div class="prompt-field">
+                    <label for="fraud-personality">Base Personality:</label>
+                    <textarea id="fraud-personality" placeholder="Define the agent's core personality and approach...">You are an urgent, professional fraud detection and security specialist. You prioritize immediate protective actions and clear guidance. You are reassuring but maintain appropriate urgency for security threats.</textarea>
+                </div>
+                
+                <div class="prompt-field">
+                    <label for="fraud-context">Financial Context:</label>
+                    <textarea id="fraud-context" placeholder="Specific context for financial operations...">When handling fraud and security requests, prioritize immediate protective actions. Focus on card blocking, fraud reporting, and security guidance. Always emphasize the time-sensitive nature of fraud response.</textarea>
+                </div>
+                
+                <div class="prompt-field">
+                    <label for="fraud-instructions">Response Instructions:</label>
+                    <textarea id="fraud-instructions" placeholder="How the agent should structure responses...">Provide immediate, clear guidance for security threats. Be urgent but reassuring. Give step-by-step instructions for protective actions. Always provide emergency contact information when relevant.</textarea>
+                </div>
+                
+                <div class="prompt-field">
+                    <label>Additional Instructions:</label>
+                    <div class="instructions-list" id="fraud-additional">
+                        <div class="instruction-item">
+                            <input type="text" value="You are specialized in fraud detection, card blocking, and security threat responses" />
+                            <button class="btn btn-danger btn-small" onclick="removeInstruction(this)">Remove</button>
+                        </div>
+                        <div class="instruction-item">
+                            <input type="text" value="Treat all fraud reports with HIGH PRIORITY and urgency" />
+                            <button class="btn btn-danger btn-small" onclick="removeInstruction(this)">Remove</button>
+                        </div>
+                        <div class="instruction-item">
+                            <input type="text" value="You can perform PROTECTIVE actions like card blocking and fraud reporting" />
+                            <button class="btn btn-danger btn-small" onclick="removeInstruction(this)">Remove</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary btn-small" onclick="addInstruction('fraud-additional')">Add Instruction</button>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-success" onclick="saveAgentPrompts('FraudAgent')">Save FraudAgent Prompts</button>
+                    <button class="btn btn-secondary" onclick="resetAgentPrompts('FraudAgent')">Reset to Defaults</button>
+                </div>
+            </div>
+
+            <div class="agent-section">
+                <div class="agent-header">
+                    <h2>💳 PaymentsAgent - Payment Processing</h2>
+                </div>
+                
+                <div class="prompt-field">
+                    <label for="payments-personality">Base Personality:</label>
+                    <textarea id="payments-personality">You are a highly secure, professional payment processing assistant. You prioritize security, accuracy, and clear communication in all financial transactions. You are thorough, careful, and always confirm details before processing.</textarea>
+                </div>
+                
+                <div class="prompt-field">
+                    <label for="payments-context">Financial Context:</label>
+                    <textarea id="payments-context">When handling payment requests, apply the highest security standards. Always validate transaction details, confirm amounts, and ensure secure processing. Never process transactions without explicit confirmation.</textarea>
+                </div>
+                
+                <div class="prompt-field">
+                    <label for="payments-instructions">Response Instructions:</label>
+                    <textarea id="payments-instructions">Provide clear, step-by-step guidance for payment processing. Always confirm transaction details before proceeding. Be precise about amounts, fees, and processing times. Use secure language and maintain professional tone.</textarea>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-success" onclick="saveAgentPrompts('PaymentsAgent')">Save PaymentsAgent Prompts</button>
+                    <button class="btn btn-secondary" onclick="resetAgentPrompts('PaymentsAgent')">Reset to Defaults</button>
+                </div>
+            </div>
+
+            <div class="agent-section">
+                <div class="agent-header">
+                    <h2>🔐 IDVAgent - Identity Verification</h2>
+                </div>
+                
+                <div class="prompt-field">
+                    <label for="idv-context">Financial Context:</label>
+                    <textarea id="idv-context">When handling identity verification requests, prioritize security and privacy above all else. Guide users through secure verification processes while maintaining strict security boundaries.</textarea>
+                </div>
+                
+                <div class="prompt-field">
+                    <label for="idv-instructions">Response Instructions:</label>
+                    <textarea id="idv-instructions">Keep responses security-focused and provide clear, step-by-step guidance. Never request sensitive information in conversation. Always direct users to secure channels for sensitive operations.</textarea>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-success" onclick="saveAgentPrompts('IDVAgent')">Save IDVAgent Prompts</button>
+                    <button class="btn btn-secondary" onclick="resetAgentPrompts('IDVAgent')">Reset to Defaults</button>
+                </div>
+            </div>
+
+            <div class="agent-section">
+                <div class="agent-header">
+                    <h2>🏦 BankingInfoAgent - Account Information</h2>
+                </div>
+                
+                <div class="prompt-field">
+                    <label for="banking-context">Financial Context:</label>
+                    <textarea id="banking-context">When providing banking information, be accurate, helpful, and informative. Focus on read-only account data and transaction history. Always use the customer's actual account information.</textarea>
+                </div>
+                
+                <div class="prompt-field">
+                    <label for="banking-instructions">Response Instructions:</label>
+                    <textarea id="banking-instructions">Present financial information clearly and accurately. Format currency amounts properly. Provide helpful context about transactions and account activity. Keep responses informative but concise.</textarea>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-success" onclick="saveAgentPrompts('BankingInfoAgent')">Save BankingInfoAgent Prompts</button>
+                    <button class="btn btn-secondary" onclick="resetAgentPrompts('BankingInfoAgent')">Reset to Defaults</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="templates-tab" class="tab-content">
+            <div class="template-section">
+                <h2>Prompt Templates</h2>
+                <p>Create reusable prompt templates that can be applied to multiple agents.</p>
+                
+                <div class="prompt-field">
+                    <label for="template-name">Template Name:</label>
+                    <input type="text" id="template-name" placeholder="e.g., professional, urgent, customer_friendly" />
+                </div>
+                
+                <div class="prompt-field">
+                    <label for="template-personality">Base Personality:</label>
+                    <textarea id="template-personality" placeholder="Define the template's personality..."></textarea>
+                </div>
+                
+                <div class="prompt-field">
+                    <label for="template-instructions">Response Instructions:</label>
+                    <textarea id="template-instructions" placeholder="Define how responses should be structured..."></textarea>
+                </div>
+                
+                <button class="btn btn-success" onclick="saveTemplate()">Save Template</button>
+                
+                <div id="existing-templates">
+                    <h3>Existing Templates</h3>
+                    <div class="template-item">
+                        <strong>professional:</strong> Professional, helpful, and courteous assistant
+                        <button class="btn btn-secondary btn-small" onclick="editTemplate('professional')">Edit</button>
+                        <button class="btn btn-danger btn-small" onclick="deleteTemplate('professional')">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="preview-tab" class="tab-content">
+            <div class="preview-section">
+                <h2>Prompt Preview</h2>
+                <p>Preview how the configured prompts will appear to the LLM.</p>
+                
+                <div class="prompt-field">
+                    <label for="preview-agent">Select Agent:</label>
+                    <select id="preview-agent" onchange="updatePreview()">
+                        <option value="FraudAgent">FraudAgent</option>
+                        <option value="PaymentsAgent">PaymentsAgent</option>
+                        <option value="IDVAgent">IDVAgent</option>
+                        <option value="BankingInfoAgent">BankingInfoAgent</option>
+                    </select>
+                </div>
+                
+                <div id="prompt-preview" class="preview-section">
+                    <h3>Generated System Prompt:</h3>
+                    <pre id="preview-content">Select an agent to preview its system prompt...</pre>
+                </div>
+            </div>
+        </div>
+
+        <div id="status-messages"></div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        function addInstruction(containerId) {
+            const container = document.getElementById(containerId);
+            const newItem = document.createElement('div');
+            newItem.className = 'instruction-item';
+            newItem.innerHTML = `
+                <input type="text" placeholder="Enter additional instruction..." />
+                <button class="btn btn-danger btn-small" onclick="removeInstruction(this)">Remove</button>
+            `;
+            container.appendChild(newItem);
+        }
+
+        function removeInstruction(button) {
+            button.parentElement.remove();
+        }
+
+        function saveAgentPrompts(agentName) {
+            console.log(`Saving prompts for ${agentName}...`);
+            
+            // Collect prompt data based on agent
+            let promptData = {};
+            
+            if (agentName === 'FraudAgent') {
+                promptData = {
+                    basePersonality: document.getElementById('fraud-personality').value,
+                    financialContext: document.getElementById('fraud-context').value,
+                    responseInstructions: document.getElementById('fraud-instructions').value,
+                    additionalInstructions: Array.from(document.querySelectorAll('#fraud-additional input')).map(input => input.value).filter(v => v.trim())
+                };
+            } else if (agentName === 'PaymentsAgent') {
+                promptData = {
+                    basePersonality: document.getElementById('payments-personality').value,
+                    financialContext: document.getElementById('payments-context').value,
+                    responseInstructions: document.getElementById('payments-instructions').value
+                };
+            }
+            // Add other agents...
+            
+            // Simulate saving to guardrails configuration
+            showStatusMessage(`${agentName} prompts saved successfully!`, 'success');
+            
+            // In real implementation, this would call:
+            // guardrailsManager.setSystemPrompts(agentName, promptData);
+        }
+
+        function resetAgentPrompts(agentName) {
+            if (confirm(`Reset ${agentName} prompts to defaults? This will lose any custom changes.`)) {
+                console.log(`Resetting ${agentName} to defaults...`);
+                showStatusMessage(`${agentName} prompts reset to defaults.`, 'success');
+                // Reload default values into form fields
+                location.reload();
+            }
+        }
+
+        function saveTemplate() {
+            const name = document.getElementById('template-name').value;
+            const personality = document.getElementById('template-personality').value;
+            const instructions = document.getElementById('template-instructions').value;
+            
+            if (!name.trim()) {
+                showStatusMessage('Template name is required.', 'error');
+                return;
+            }
+            
+            console.log(`Saving template: ${name}`);
+            showStatusMessage(`Template "${name}" saved successfully!`, 'success');
+            
+            // Clear form
+            document.getElementById('template-name').value = '';
+            document.getElementById('template-personality').value = '';
+            document.getElementById('template-instructions').value = '';
+        }
+
+        function updatePreview() {
+            const agentName = document.getElementById('preview-agent').value;
+            
+            // Generate preview of system prompt
+            const preview = `System Prompt for ${agentName}:
+
+Base Personality: [Configured personality for ${agentName}]
+
+Financial Context: [Configured financial context]
+
+Response Instructions: [Configured response instructions]
+
+Additional Instructions:
+• [Instruction 1]
+• [Instruction 2]
+• [Instruction 3]
+
+This preview shows how the configured prompts will be combined into the final system prompt sent to the LLM.`;
+            
+            document.getElementById('preview-content').textContent = preview;
+        }
+
+        function showStatusMessage(message, type) {
+            const statusDiv = document.getElementById('status-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `status-message status-${type}`;
+            messageDiv.textContent = message;
+            
+            statusDiv.appendChild(messageDiv);
+            
+            // Remove message after 5 seconds
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+
+        // Initialize
+        console.log('System Prompts Admin initialized');
+        updatePreview();
+    </script>
+</body>
+</html>

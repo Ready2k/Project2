@@ -181,6 +181,59 @@ class ConversationContextManager {
             return true;
         }
 
+        // Check if this looks like information being provided in response to a request
+        const informationPatterns = [
+            /£\d+(\.\d{2})?\s+(at|from|to)\s+/,  // Transaction amounts with locations
+            /\d{2}\/\d{2}\/\d{4}/,               // Dates
+            /\d{4}\s*\d{4}\s*\d{4}\s*\d{4}/,    // Card numbers
+            /^\d{2}[a-z]{2}\s+[a-z]+\s+\d{4}$/i, // Date formats like "15th March 1985"
+            /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i // Email addresses
+        ];
+        
+        // Check if this looks like a fraud-related confirmation/response
+        const fraudResponsePatterns = [
+            /yes.*block/, /yeah.*block/, /yes.*freeze/, /yeah.*freeze/,
+            /yes.*stop/, /yeah.*stop/, /yes.*cancel/, /yeah.*cancel/,
+            /block.*card/, /freeze.*card/, /stop.*card/,
+            /yes.*that.*card/, /block.*that/, /freeze.*that/
+        ];
+        
+        // If this looks like a fraud response, it's definitely a follow-up
+        if (fraudResponsePatterns.some(pattern => pattern.test(normalizedInput))) {
+            this.debug.info('Detected fraud-related follow-up response', {
+                inputText: inputText.substring(0, 50)
+            });
+            return true;
+        }
+
+        // If we have recent conversation history, check if this looks like a response to a question
+        if (this.conversationHistory.length > 0) {
+            const lastMessage = this.conversationHistory[this.conversationHistory.length - 1];
+            
+            // If the last message was from an assistant and contained question words
+            if (lastMessage.role === 'assistant') {
+                const questionWords = ['provide', 'please', 'confirm', 'verify', 'what', 'when', 'where', 'how'];
+                const containsQuestion = questionWords.some(word => 
+                    lastMessage.content.toLowerCase().includes(word)
+                );
+                
+                if (containsQuestion) {
+                    // Check if current input looks like information being provided
+                    const looksLikeInformation = informationPatterns.some(pattern => 
+                        pattern.test(normalizedInput)
+                    );
+                    
+                    if (looksLikeInformation) {
+                        this.debug.info('Detected information response to question', {
+                            inputText: inputText.substring(0, 50),
+                            lastMessage: lastMessage.content.substring(0, 50)
+                        });
+                        return true;
+                    }
+                }
+            }
+        }
+
         return followUpPatterns.some(pattern => pattern.test(normalizedInput));
     }
 
@@ -192,6 +245,67 @@ class ConversationContextManager {
      */
     getSuggestedAgent(inputText, availableAgents) {
         const lastAgentUsed = this.getContextData('lastAgentUsed');
+        const lastAgentTimestamp = this.getContextData('lastAgentTimestamp');
+        
+        console.log('DEBUG: getSuggestedAgent called', {
+            inputText: inputText.substring(0, 50),
+            lastAgentUsed,
+            lastAgentTimestamp,
+            timeSinceLastAgent: lastAgentTimestamp ? Math.round((Date.now() - lastAgentTimestamp) / 1000) : null
+        });
+        
+        // Check if last agent usage is very recent (within 2 minutes)
+        const isVeryRecentAgent = lastAgentTimestamp && 
+            (Date.now() - lastAgentTimestamp) < (2 * 60 * 1000);
+        
+        // Special handling for fraud-related follow-ups
+        const lowerInput = inputText.toLowerCase();
+        const fraudFollowUpPatterns = [
+            /yes.*block/, /yeah.*block/, /yes.*freeze/, /yeah.*freeze/,
+            /yes.*stop/, /yeah.*stop/, /yes.*cancel/, /yeah.*cancel/,
+            /block.*card/, /freeze.*card/, /stop.*card/,
+            /yes.*that.*card/, /block.*that/, /freeze.*that/
+        ];
+        
+        const isFraudFollowUp = fraudFollowUpPatterns.some(pattern => pattern.test(lowerInput));
+        
+        if (isFraudFollowUp) {
+            // For fraud follow-ups, always prefer FraudAgent regardless of last agent
+            const fraudAgent = availableAgents.find(a => a.name === 'FraudAgent');
+            if (fraudAgent && fraudAgent.enabled !== false) {
+                this.debug.info('Suggested FraudAgent for fraud follow-up', {
+                    inputText: inputText.substring(0, 50),
+                    reason: 'fraud-related follow-up detected'
+                });
+                return fraudAgent;
+            }
+        }
+        
+        // If we have a very recent agent and any kind of response, strongly prefer that agent
+        if (isVeryRecentAgent && lastAgentUsed) {
+            const lastAgent = availableAgents.find(a => a.name === lastAgentUsed);
+            if (lastAgent && lastAgent.enabled !== false) {
+                // Check if the last message was asking for information
+                const lastMessage = this.conversationHistory.length > 0 ? 
+                    this.conversationHistory[this.conversationHistory.length - 1] : null;
+                
+                if (lastMessage && lastMessage.role === 'assistant') {
+                    const askingForInfo = ['provide', 'please', 'confirm', 'verify', 'enter', 'give me'].some(word =>
+                        lastMessage.content.toLowerCase().includes(word)
+                    );
+                    
+                    if (askingForInfo) {
+                        this.debug.info('Suggested agent based on recent information request', {
+                            agentName: lastAgent.name,
+                            inputText: inputText.substring(0, 50),
+                            reason: 'responding to recent information request',
+                            timeSinceLastAgent: Math.round((Date.now() - lastAgentTimestamp) / 1000) + 's'
+                        });
+                        return lastAgent;
+                    }
+                }
+            }
+        }
         
         // If input is a follow-up and we have a recent agent, suggest that agent
         if (this.isFollowUpInput(inputText) && lastAgentUsed) {

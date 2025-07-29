@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraud Routing Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .input { color: #0066cc; font-weight: bold; margin: 5px 0; }
+        .expected { color: #009900; font-weight: bold; margin: 5px 0; }
+        .result { margin: 10px 0; padding: 10px; background: #f0f0f0; }
+        .success { color: green; }
+        .error { color: red; }
+        button { padding: 10px 20px; margin: 10px 5px; }
+        #console-output { margin-top: 20px; padding: 10px; background: #f9f9f9; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Fraud Routing Debug Test</h1>
+    <p>This test checks if fraud-related requests are properly routed to the FraudAgent.</p>
+
+    <div class="test-case">
+        <div class="input">INPUT: "Can I mark that as fraud? That was not me."</div>
+        <div class="expected">EXPECTED: FraudAgent</div>
+        <button onclick="testFraudMarking()">Test Fraud Marking</button>
+        <div id="fraud-marking-result"></div>
+    </div>
+
+    <div class="test-case">
+        <div class="input">INPUT: "Block my card"</div>
+        <div class="expected">EXPECTED: FraudAgent</div>
+        <button onclick="testCardBlocking()">Test Card Blocking</button>
+        <div id="card-blocking-result"></div>
+    </div>
+
+    <div class="test-case">
+        <div class="input">INPUT: "Yes, block that card"</div>
+        <div class="expected">EXPECTED: FraudAgent (with context)</div>
+        <button onclick="testCardBlockingConfirmation()">Test Card Blocking Confirmation</button>
+        <div id="card-blocking-confirmation-result"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Agent canHandle() Direct Test</h3>
+        <button onclick="testAgentCanHandle()">Test Agent canHandle Methods</button>
+        <div id="agent-canhandle-result"></div>
+    </div>
+
+    <div id="console-output"></div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/fraud-agent.js"></script>
+    <script src="agents/banking-info-agent.js"></script>
+    <script src="agents/payments-agent.js"></script>
+    <script src="agents/idv-agent.js"></script>
+
+    <script>
+        // Initialize debug manager
+        window.debugManager = new DebugManager();
+        window.debugManager.enable();
+
+        let consoleOutput = document.getElementById('console-output');
+        
+        // Capture console.log for debugging
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            const div = document.createElement('div');
+            div.textContent = args.join(' ');
+            consoleOutput.appendChild(div);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        };
+
+        function testFraudMarking() {
+            console.log('=== Testing: "Can I mark that as fraud? That was not me." ===');
+            
+            const input = "Can I mark that as fraud? That was not me.";
+            const results = testAllAgents(input);
+            
+            document.getElementById('fraud-marking-result').innerHTML = `
+                <div class="result">
+                    <strong>Agent Test Results:</strong><br>
+                    ${results.map(r => `${r.agent}: <span class="${r.canHandle ? 'success' : 'error'}">${r.canHandle ? 'CAN HANDLE' : 'CANNOT HANDLE'}</span>`).join('<br>')}
+                    <br><br>
+                    <strong>Expected Winner:</strong> FraudAgent<br>
+                    <strong>Actual Winner:</strong> ${results.find(r => r.canHandle)?.agent || 'None'}<br>
+                    <strong>Result:</strong> <span class="${results.find(r => r.canHandle)?.agent === 'FraudAgent' ? 'success' : 'error'}">${results.find(r => r.canHandle)?.agent === 'FraudAgent' ? 'CORRECT' : 'INCORRECT'}</span>
+                </div>
+            `;
+        }
+
+        function testCardBlocking() {
+            console.log('=== Testing: "Block my card" ===');
+            
+            const input = "Block my card";
+            const results = testAllAgents(input);
+            
+            document.getElementById('card-blocking-result').innerHTML = `
+                <div class="result">
+                    <strong>Agent Test Results:</strong><br>
+                    ${results.map(r => `${r.agent}: <span class="${r.canHandle ? 'success' : 'error'}">${r.canHandle ? 'CAN HANDLE' : 'CANNOT HANDLE'}</span>`).join('<br>')}
+                    <br><br>
+                    <strong>Expected Winner:</strong> FraudAgent<br>
+                    <strong>Actual Winner:</strong> ${results.find(r => r.canHandle)?.agent || 'None'}<br>
+                    <strong>Result:</strong> <span class="${results.find(r => r.canHandle)?.agent === 'FraudAgent' ? 'success' : 'error'}">${results.find(r => r.canHandle)?.agent === 'FraudAgent' ? 'CORRECT' : 'INCORRECT'}</span>
+                </div>
+            `;
+        }
+
+        function testCardBlockingConfirmation() {
+            console.log('=== Testing: "Yes, block that card" ===');
+            
+            const input = "Yes, block that card";
+            const results = testAllAgents(input);
+            
+            document.getElementById('card-blocking-confirmation-result').innerHTML = `
+                <div class="result">
+                    <strong>Agent Test Results:</strong><br>
+                    ${results.map(r => `${r.agent}: <span class="${r.canHandle ? 'success' : 'error'}">${r.canHandle ? 'CAN HANDLE' : 'CANNOT HANDLE'}</span>`).join('<br>')}
+                    <br><br>
+                    <strong>Expected Winner:</strong> FraudAgent (with context)<br>
+                    <strong>Actual Winner:</strong> ${results.find(r => r.canHandle)?.agent || 'None'}<br>
+                    <strong>Result:</strong> <span class="${results.find(r => r.canHandle)?.agent === 'FraudAgent' ? 'success' : 'error'}">${results.find(r => r.canHandle)?.agent === 'FraudAgent' ? 'CORRECT' : 'INCORRECT'}</span>
+                    <br><br>
+                    <strong>Note:</strong> This should rely on context-based routing since "Yes, block that card" is ambiguous without context.
+                </div>
+            `;
+        }
+
+        function testAllAgents(input) {
+            const agents = [
+                { name: 'FraudAgent', instance: new FraudAgent() },
+                { name: 'BankingInfoAgent', instance: new BankingInfoAgent() },
+                { name: 'PaymentsAgent', instance: new PaymentsAgent() },
+                { name: 'IDVAgent', instance: new IDVAgent() }
+            ];
+
+            return agents.map(({ name, instance }) => {
+                try {
+                    const canHandle = instance.canHandle(input);
+                    console.log(`${name}.canHandle("${input}") = ${canHandle}`);
+                    return { agent: name, canHandle };
+                } catch (error) {
+                    console.log(`${name}.canHandle("${input}") = ERROR: ${error.message}`);
+                    return { agent: name, canHandle: false, error: error.message };
+                }
+            });
+        }
+
+        function testAgentCanHandle() {
+            console.log('=== Testing Agent canHandle Methods Directly ===');
+            
+            const testCases = [
+                "Can I mark that as fraud? That was not me.",
+                "Block my card",
+                "Yes, block that card",
+                "fraud",
+                "block card",
+                "suspicious activity",
+                "What's my balance?"
+            ];
+
+            let allResults = [];
+            
+            testCases.forEach(input => {
+                console.log(`\n--- Testing: "${input}" ---`);
+                const results = testAllAgents(input);
+                allResults.push({ input, results });
+            });
+
+            const resultHtml = allResults.map(({ input, results }) => `
+                <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd;">
+                    <strong>"${input}"</strong><br>
+                    ${results.map(r => `${r.agent}: <span class="${r.canHandle ? 'success' : 'error'}">${r.canHandle ? 'YES' : 'NO'}</span>`).join(' | ')}
+                </div>
+            `).join('');
+
+            document.getElementById('agent-canhandle-result').innerHTML = `
+                <div class="result">
+                    <strong>Direct canHandle() Test Results:</strong><br>
+                    ${resultHtml}
+                </div>
+            `;
+        }
+
+        // Initialize
+        console.log('Fraud Routing Debug Test initialized');
+        console.log('Check the console output below for detailed debug information');
+    </script>
+</body>
+</html>

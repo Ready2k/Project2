@@ -29,6 +29,8 @@ class BankingInfoAgent extends BaseAgent {
      * @returns {boolean} - True if input contains banking information keywords
      */
     canHandle(inputText) {
+        console.log('DEBUG: BankingInfoAgent.canHandle called with:', inputText.substring(0, 50));
+        
         if (!inputText || typeof inputText !== 'string') {
             return false;
         }
@@ -255,12 +257,13 @@ class BankingInfoAgent extends BaseAgent {
     }
     
     /**
-     * Override system prompt components for banking information context
+     * Get agent-specific prompt overrides (fallback for when no configuration exists)
      * @param {Object} context - Context object containing SystemPromptsManager
      * @param {Object} personaData - Current persona data
      * @returns {Object} - System prompt overrides
      */
-    getSystemPromptOverrides(context, personaData) {
+    getAgentSpecificPromptOverrides(context, personaData) {
+        // These are now the fallback defaults - configuration takes precedence
         return {
             basePersonality: null, // Use default
             financialContext: "When providing banking information, be accurate, helpful, and informative. Focus on read-only account data and transaction history. Always use the customer's actual account information.",

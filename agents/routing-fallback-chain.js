@@ -8,21 +8,22 @@ class RoutingFallbackChain {
         this.debug = window.debugManager?.createModuleLogger('RoutingFallbackChain') || console;
         
         // Define routing strategies in order of preference
+        // Context and AI routing should come first to handle follow-up responses
         this.strategies = [
-            {
-                name: 'keyword',
-                method: this.findAgentWithKeywords.bind(this),
-                description: 'Keyword-based routing using agent canHandle() methods'
-            },
-            {
-                name: 'ai',
-                method: this.findAgentWithAI.bind(this),
-                description: 'AI-powered semantic routing'
-            },
             {
                 name: 'context',
                 method: this.findAgentWithContext.bind(this),
                 description: 'Context-based routing using conversation history'
+            },
+            {
+                name: 'ai',
+                method: this.findAgentWithAI.bind(this),
+                description: 'AI-powered semantic routing with conversation context'
+            },
+            {
+                name: 'keyword',
+                method: this.findAgentWithKeywords.bind(this),
+                description: 'Keyword-based routing using agent canHandle() methods'
             },
             {
                 name: 'default',
@@ -51,6 +52,10 @@ class RoutingFallbackChain {
             try {
                 this.debug.debug(`Trying routing strategy: ${strategy.name}`, {
                     description: strategy.description
+                });
+                
+                console.log(`DEBUG: Trying routing strategy: ${strategy.name}`, {
+                    inputText: inputText.substring(0, 50)
                 });
 
                 const agent = await strategy.method(inputText, context);

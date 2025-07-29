@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Orchestration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .conversation { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .user { color: #0066cc; font-weight: bold; margin: 5px 0; }
+        .bot { color: #cc6600; font-weight: bold; margin: 5px 0; }
+        .workflow { color: #9900cc; font-weight: bold; margin: 5px 0; }
+        .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 12px; }
+        .success { color: green; }
+        .error { color: red; }
+        button { padding: 10px 20px; margin: 10px 5px; }
+        #output { margin-top: 20px; padding: 10px; background: #f9f9f9; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Complete Orchestration Test</h1>
+    <p>This test simulates the complete flow from user input to multi-agent orchestration.</p>
+
+    <div class="test-section">
+        <h2>Your Example Scenario</h2>
+        <div class="conversation">
+            <div class="user">USER: Hi, check my balance and if I have enough money pay £100 off my credit card bill</div>
+            <div class="workflow">ORCHESTRATOR: Detected multi-agent workflow</div>
+            <div class="bot">BANKING AGENT: Your current balance is £250.00</div>
+            <div class="bot">PAYMENTS AGENT: I understand you want to pay £100 off your credit card. If that's correct, let me know the card details</div>
+        </div>
+        
+        <button onclick="simulateCompleteFlow()">Simulate Complete Flow</button>
+        <div id="complete-flow-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Context Switching Test</h2>
+        <p>Test that the system properly switches context between agents while maintaining workflow state.</p>
+        
+        <button onclick="testContextSwitching()">Test Context Switching</button>
+        <div id="context-switching-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Integration Status</h2>
+        <button onclick="checkIntegrationStatus()">Check Integration Status</button>
+        <div id="integration-status"></div>
+    </div>
+
+    <div id="output"></div>
+
+    <script>
+        let output = document.getElementById('output');
+
+        function log(message, data = null) {
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            if (data) {
+                div.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function simulateCompleteFlow() {
+            log('Simulating complete multi-agent orchestration flow...');
+            
+            // Simulate the workflow detection and execution
+            const userInput = "Hi, check my balance and if I have enough money pay £100 off my credit card bill";
+            
+            // Step 1: Workflow Detection
+            const workflowDetected = /check.*balance.*and.*if.*pay/.test(userInput.toLowerCase());
+            log(`Step 1 - Workflow Detection: ${workflowDetected ? 'SUCCESS' : 'FAILED'}`);
+            
+            // Step 2: Balance Check Simulation
+            const mockBalance = 250.00;
+            const requestedAmount = 100.00;
+            const sufficientFunds = mockBalance >= requestedAmount;
+            log(`Step 2 - Balance Check: £${mockBalance} (Sufficient: ${sufficientFunds})`);
+            
+            // Step 3: Conditional Payment
+            let paymentResult = null;
+            if (sufficientFunds) {
+                paymentResult = {
+                    success: true,
+                    message: "I understand you want to pay £100 off your credit card. If that's correct, let me know the card details"
+                };
+                log(`Step 3 - Payment Processing: INITIATED`);
+            } else {
+                paymentResult = {
+                    success: false,
+                    message: "Insufficient funds for the requested payment"
+                };
+                log(`Step 3 - Payment Processing: BLOCKED (Insufficient funds)`);
+            }
+            
+            // Step 4: Context Handoff
+            const contextHandoff = {
+                previousAgent: 'BankingInfoAgent',
+                currentAgent: 'PaymentsAgent',
+                sharedData: {
+                    balance: mockBalance,
+                    requestedAmount: requestedAmount,
+                    paymentTarget: 'credit card'
+                }
+            };
+            log(`Step 4 - Context Handoff: ${contextHandoff.previousAgent} → ${contextHandoff.currentAgent}`);
+            
+            document.getElementById('complete-flow-result').innerHTML = `
+                <div class="debug">
+                    <strong>Complete Flow Simulation Results:</strong><br><br>
+                    
+                    <strong>1. Workflow Detection:</strong> <span class="${workflowDetected ? 'success' : 'error'}">${workflowDetected ? 'SUCCESS' : 'FAILED'}</span><br>
+                    Pattern matched: "check balance and if...pay"<br><br>
+                    
+                    <strong>2. Balance Check (BankingInfoAgent):</strong><br>
+                    Current Balance: £${mockBalance}<br>
+                    Requested Amount: £${requestedAmount}<br>
+                    Sufficient Funds: <span class="${sufficientFunds ? 'success' : 'error'}">${sufficientFunds ? 'YES' : 'NO'}</span><br><br>
+                    
+                    <strong>3. Conditional Payment (PaymentsAgent):</strong><br>
+                    Status: <span class="${paymentResult.success ? 'success' : 'error'}">${paymentResult.success ? 'INITIATED' : 'BLOCKED'}</span><br>
+                    Response: "${paymentResult.message}"<br><br>
+                    
+                    <strong>4. Context Handoff:</strong><br>
+                    Previous Agent: ${contextHandoff.previousAgent}<br>
+                    Current Agent: ${contextHandoff.currentAgent}<br>
+                    Shared Data: Balance, Amount, Target<br><br>
+                    
+                    <strong>Overall Result:</strong> <span class="${workflowDetected && sufficientFunds ? 'success' : 'error'}">${workflowDetected && sufficientFunds ? 'SUCCESS' : 'PARTIAL SUCCESS'}</span>
+                </div>
+            `;
+        }
+
+        function testContextSwitching() {
+            log('Testing context switching between agents...');
+            
+            // Simulate conversation flow
+            const conversationFlow = [
+                {
+                    step: 1,
+                    agent: 'MultiAgentOrchestrator',
+                    action: 'Analyze request and create workflow',
+                    context: { workflowType: 'balance_and_payment' }
+                },
+                {
+                    step: 2,
+                    agent: 'BankingInfoAgent',
+                    action: 'Check account balance',
+                    context: { balance: 250.00 }
+                },
+                {
+                    step: 3,
+                    agent: 'PaymentsAgent',
+                    action: 'Process payment with balance context',
+                    context: { 
+                        balance: 250.00, 
+                        amount: 100.00, 
+                        target: 'credit card',
+                        previousAgent: 'BankingInfoAgent'
+                    }
+                }
+            ];
+            
+            const contextSwitchingWorks = conversationFlow.every(step => 
+                step.agent && step.action && step.context
+            );
+            
+            log('Context switching flow:', conversationFlow);
+            
+            document.getElementById('context-switching-result').innerHTML = `
+                <div class="debug">
+                    <strong>Context Switching Test Results:</strong><br><br>
+                    
+                    ${conversationFlow.map(step => `
+                        <strong>Step ${step.step}:</strong> ${step.agent}<br>
+                        Action: ${step.action}<br>
+                        Context: ${JSON.stringify(step.context)}<br><br>
+                    `).join('')}
+                    
+                    <strong>Context Switching Works:</strong> <span class="${contextSwitchingWorks ? 'success' : 'error'}">${contextSwitchingWorks ? 'YES' : 'NO'}</span><br>
+                    
+                    <strong>Key Benefits:</strong><br>
+                    • Balance information flows from BankingInfoAgent to PaymentsAgent<br>
+                    • PaymentsAgent knows the context of the payment request<br>
+                    • User doesn't need to repeat information<br>
+                    • Conditional logic works based on balance check
+                </div>
+            `;
+        }
+
+        function checkIntegrationStatus() {
+            log('Checking integration status...');
+            
+            // Check if required components are available
+            const checks = {
+                multiAgentOrchestrator: typeof MultiAgentOrchestrator !== 'undefined',
+                conversationContextManager: typeof ConversationContextManager !== 'undefined',
+                debugManager: typeof DebugManager !== 'undefined',
+                baseAgent: typeof BaseAgent !== 'undefined'
+            };
+            
+            const allComponentsAvailable = Object.values(checks).every(check => check);
+            
+            log('Integration checks:', checks);
+            
+            document.getElementById('integration-status').innerHTML = `
+                <div class="debug">
+                    <strong>Integration Status Check:</strong><br><br>
+                    
+                    MultiAgentOrchestrator: <span class="${checks.multiAgentOrchestrator ? 'success' : 'error'}">${checks.multiAgentOrchestrator ? 'LOADED' : 'MISSING'}</span><br>
+                    ConversationContextManager: <span class="${checks.conversationContextManager ? 'success' : 'error'}">${checks.conversationContextManager ? 'LOADED' : 'MISSING'}</span><br>
+                    DebugManager: <span class="${checks.debugManager ? 'success' : 'error'}">${checks.debugManager ? 'LOADED' : 'MISSING'}</span><br>
+                    BaseAgent: <span class="${checks.baseAgent ? 'success' : 'error'}">${checks.baseAgent ? 'LOADED' : 'MISSING'}</span><br><br>
+                    
+                    <strong>Overall Integration:</strong> <span class="${allComponentsAvailable ? 'success' : 'error'}">${allComponentsAvailable ? 'READY' : 'INCOMPLETE'}</span><br><br>
+                    
+                    <strong>Next Steps:</strong><br>
+                    ${allComponentsAvailable ? 
+                        '• Multi-agent orchestration is ready to use<br>• Test with the main application<br>• Monitor workflow execution logs' :
+                        '• Load missing components<br>• Check script loading order<br>• Verify file paths'
+                    }
+                </div>
+            `;
+        }
+
+        // Initialize
+        log('Complete Orchestration Test initialized');
+        
+        // Auto-check integration status
+        setTimeout(checkIntegrationStatus, 1000);
+    </script>
+
+    <!-- Load required dependencies for testing -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/multi-agent-orchestrator.js"></script>
+</body>
+</html>

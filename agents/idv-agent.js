@@ -127,8 +127,9 @@ class IDVAgent extends BaseAgent {
                 
                 // Test guardrails enforcement for password reset
                 if (inputText.toLowerCase().includes('password') || inputText.toLowerCase().includes('reset')) {
+                    const requiresSecondaryAuth = this.checkSecondaryAuthRequired('resetPassword', context);
                     this.validateGuardrails('resetPassword', { 
-                        requiresSecondaryAuth: true,
+                        requiresSecondaryAuth,
                         action: 'password_reset'
                     });
                 }
@@ -195,12 +196,13 @@ class IDVAgent extends BaseAgent {
     }
     
     /**
-     * Override system prompt components for identity verification context
+     * Get agent-specific prompt overrides (fallback for when no configuration exists)
      * @param {Object} context - Context object containing SystemPromptsManager
      * @param {Object} personaData - Current persona data
      * @returns {Object} - System prompt overrides
      */
-    getSystemPromptOverrides(context, personaData) {
+    getAgentSpecificPromptOverrides(context, personaData) {
+        // These are now the fallback defaults - configuration takes precedence
         return {
             basePersonality: null, // Use default
             financialContext: "When handling identity verification requests, prioritize security and privacy above all else. Guide users through secure verification processes while maintaining strict security boundaries.",

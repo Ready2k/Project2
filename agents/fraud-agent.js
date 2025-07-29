@@ -35,6 +35,8 @@ class FraudAgent extends BaseAgent {
      * @returns {boolean} - True if input contains fraud or security keywords
      */
     canHandle(inputText) {
+        console.log('DEBUG: FraudAgent.canHandle called with:', inputText.substring(0, 50));
+        
         if (!inputText || typeof inputText !== 'string') {
             return false;
         }
@@ -54,6 +56,10 @@ class FraudAgent extends BaseAgent {
 
         for (const phrase of exactPhrases) {
             if (lowerInput.includes(phrase)) {
+                console.log('DEBUG: FraudAgent EXACT MATCH found', {
+                    phrase,
+                    inputText: inputText.substring(0, 50)
+                });
                 this.debug.info('FraudAgent can handle input - exact phrase match', {
                     phrase,
                     inputText: inputText.substring(0, 50) + '...'
@@ -119,7 +125,11 @@ class FraudAgent extends BaseAgent {
             this.validateDataAccess(['fraud_alerts', 'security_actions', 'card_status']);
             
             // Validate guardrails for fraud detection actions
-            this.validateGuardrails('blockCard', { action: 'card_blocking', requiresSecondaryAuth: false });
+            const requiresSecondaryAuth = this.checkSecondaryAuthRequired('blockCard', context);
+            this.validateGuardrails('blockCard', { 
+                action: 'card_blocking', 
+                requiresSecondaryAuth 
+            });
 
             // Generate domain-specific system prompt
             const systemPrompt = this.generateSystemPrompt(context, inputText);
@@ -256,12 +266,13 @@ class FraudAgent extends BaseAgent {
     }
 
     /**
-     * Override system prompt components for fraud detection context
+     * Get agent-specific prompt overrides (fallback for when no configuration exists)
      * @param {Object} context - Context object containing SystemPromptsManager
      * @param {Object} personaData - Current persona data
      * @returns {Object} - System prompt overrides
      */
-    getSystemPromptOverrides(context, personaData) {
+    getAgentSpecificPromptOverrides(context, personaData) {
+        // These are now the fallback defaults - configuration takes precedence
         return {
             basePersonality: "You are an urgent, professional fraud detection and security specialist. You prioritize immediate protective actions and clear guidance. You are reassuring but maintain appropriate urgency for security threats.",
             financialContext: "When handling fraud and security requests, prioritize immediate protective actions. Focus on card blocking, fraud reporting, and security guidance. Always emphasize the time-sensitive nature of fraud response.",

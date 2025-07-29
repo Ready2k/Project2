@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Icons Test</title>
+    <link rel="stylesheet" href="main-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .agent-btn {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .agent-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .agent-btn.banking {
+            background: linear-gradient(135deg, #2c5aa0, #4a90e2);
+        }
+        .agent-btn.fraud {
+            background: linear-gradient(135deg, #dc3545, #e74c3c);
+        }
+        .agent-btn.idv {
+            background: linear-gradient(135deg, #28a745, #2ecc71);
+        }
+        .agent-btn.payments {
+            background: linear-gradient(135deg, #17a2b8, #3498db);
+        }
+        .agent-btn.default {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+        .agent-btn.user {
+            background: linear-gradient(135deg, #6c757d, #495057);
+        }
+        .conversation-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+        }
+        .current-agent {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .agent-showcase {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .agent-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            text-align: center;
+        }
+        .agent-card .agent-icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .agent-card .agent-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .agent-card .agent-description {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🤖 Agent Icons Test</h1>
+        <p>This page demonstrates the agent-specific icons and messaging system.</p>
+        
+        <div class="current-agent">
+            Current Agent: <span id="currentAgent" class="agent-name">Default Agent</span>
+        </div>
+        
+        <h3>Agent Showcase</h3>
+        <div class="agent-showcase" id="agentShowcase">
+            <!-- Agent cards will be populated here -->
+        </div>
+        
+        <h3>Test Controls</h3>
+        <div class="controls">
+            <button class="agent-btn banking" onclick="testBankingAgent()">
+                <i class="fas fa-university"></i>
+                Banking Info Agent
+            </button>
+            <button class="agent-btn fraud" onclick="testFraudAgent()">
+                <i class="fas fa-shield-alt"></i>
+                Fraud Agent
+            </button>
+            <button class="agent-btn idv" onclick="testIDVAgent()">
+                <i class="fas fa-user-check"></i>
+                IDV Agent
+            </button>
+            <button class="agent-btn payments" onclick="testPaymentsAgent()">
+                <i class="fas fa-credit-card"></i>
+                Payments Agent
+            </button>
+            <button class="agent-btn default" onclick="testDefaultAgent()">
+                <i class="fas fa-robot"></i>
+                Default Agent
+            </button>
+            <button class="agent-btn user" onclick="testUserMessage()">
+                <i class="fas fa-user"></i>
+                Add User Message
+            </button>
+        </div>
+        
+        <div class="controls">
+            <button class="agent-btn default" onclick="clearConversation()">
+                <i class="fas fa-trash"></i>
+                Clear Conversation
+            </button>
+            <button class="agent-btn default" onclick="testConversationFlow()">
+                <i class="fas fa-comments"></i>
+                Test Conversation Flow
+            </button>
+        </div>
+        
+        <h3>Conversation</h3>
+        <div class="conversation-container">
+            <div id="conversation" class="conversation">
+                <!-- Messages will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="debug-manager.js"></script>
+    <script src="system-logger.js"></script>
+    <script src="agent-icon-manager.js"></script>
+    
+    <script>
+        // Test functions
+        function testBankingAgent() {
+            window.agentIconManager.addMessage(
+                "Your current account balance is £2,450.75. Your last transaction was a payment to Amazon for £29.99 on March 15th.",
+                'bot',
+                'BankingInfoAgent'
+            );
+        }
+        
+        function testFraudAgent() {
+            window.agentIconManager.addMessage(
+                "I've immediately blocked your card ending in 1234 for security. A replacement card will be sent within 2-3 business days. Is there anything else I can help you with regarding this security issue?",
+                'bot',
+                'FraudAgent'
+            );
+        }
+        
+        function testIDVAgent() {
+            window.agentIconManager.addMessage(
+                "I need to verify your identity before proceeding. Can you please confirm your date of birth and the first line of your registered address?",
+                'bot',
+                'IDVAgent'
+            );
+        }
+        
+        function testPaymentsAgent() {
+            window.agentIconManager.addMessage(
+                "I can help you send money securely. To transfer £100 to John Smith, I'll need to verify the recipient's account details. What's the sort code and account number?",
+                'bot',
+                'PaymentsAgent'
+            );
+        }
+        
+        function testDefaultAgent() {
+            window.agentIconManager.addMessage(
+                "Hello! I'm your AI assistant. I can help you with banking, payments, security issues, and identity verification. What would you like to do today?",
+                'bot',
+                'DefaultAgent'
+            );
+        }
+        
+        function testUserMessage() {
+            const messages = [
+                "I think there's fraud on my account",
+                "What's my account balance?",
+                "I need to send money to someone",
+                "I forgot my password",
+                "Can you help me?"
+            ];
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            window.agentIconManager.addMessage(randomMessage, 'user');
+        }
+        
+        function clearConversation() {
+            window.agentIconManager.clearConversation();
+        }
+        
+        function testConversationFlow() {
+            // Clear first
+            clearConversation();
+            
+            // Simulate a conversation flow
+            setTimeout(() => {
+                window.agentIconManager.addMessage("I think someone has used my card fraudulently", 'user');
+            }, 500);
+            
+            setTimeout(() => {
+                window.agentIconManager.addMessage(
+                    "I understand your concern about potential fraud. Let me help you with this immediately. I'm blocking your card now for security.",
+                    'bot',
+                    'FraudAgent'
+                );
+            }, 1500);
+            
+            setTimeout(() => {
+                window.agentIconManager.addMessage("Thank you, what happens next?", 'user');
+            }, 3000);
+            
+            setTimeout(() => {
+                window.agentIconManager.addMessage(
+                    "Your card is now blocked. I'll arrange a replacement card to be sent to your registered address. Before I do that, I need to verify your identity.",
+                    'bot',
+                    'IDVAgent'
+                );
+            }, 4000);
+            
+            setTimeout(() => {
+                window.agentIconManager.addMessage("Sure, what do you need to know?", 'user');
+            }, 5500);
+            
+            setTimeout(() => {
+                window.agentIconManager.addMessage(
+                    "Perfect! Your identity is verified. Your replacement card will arrive in 2-3 business days. In the meantime, you can still access your account online and make payments through our app.",
+                    'bot',
+                    'BankingInfoAgent'
+                );
+            }, 6500);
+        }
+        
+        function populateAgentShowcase() {
+            const showcase = document.getElementById('agentShowcase');
+            const agents = window.agentIconManager.getAllAgentIcons();
+            
+            showcase.innerHTML = '';
+            
+            Object.entries(agents).forEach(([agentName, config]) => {
+                const card = document.createElement('div');
+                card.className = 'agent-card';
+                card.innerHTML = `
+                    <div class="agent-icon" style="color: ${config.color}">
+                        <i class="${config.icon}"></i>
+                    </div>
+                    <div class="agent-name">${config.name}</div>
+                    <div class="agent-description">${agentName}</div>
+                `;
+                showcase.appendChild(card);
+            });
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize with default message
+            setTimeout(() => {
+                populateAgentShowcase();
+                testDefaultAgent();
+            }, 100);
+        });
+    </script>
+</body>
+</html>

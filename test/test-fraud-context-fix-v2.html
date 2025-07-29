@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraud Context Fix V2</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .scenario { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .conversation { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .user { color: #0066cc; font-weight: bold; margin: 5px 0; }
+        .bot { color: #cc6600; font-weight: bold; margin: 5px 0; }
+        .expected { color: #009900; font-weight: bold; margin: 5px 0; }
+        .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 12px; }
+        .success { color: green; }
+        .error { color: red; }
+        button { padding: 10px 20px; margin: 10px 5px; }
+    </style>
+</head>
+<body>
+    <h1>Fraud Context Fix V2 Test</h1>
+    <p>Testing the improved fraud routing and context handling.</p>
+
+    <div class="scenario">
+        <h2>Scenario 1: Direct Fraud Request</h2>
+        <div class="conversation">
+            <div class="user">USER: Can I mark that as fraud? That was not me.</div>
+            <div class="expected">EXPECTED: Should route to FraudAgent</div>
+        </div>
+        <button onclick="testDirectFraudRequest()">Test Direct Fraud Request</button>
+        <div id="direct-fraud-result"></div>
+    </div>
+
+    <div class="scenario">
+        <h2>Scenario 2: Card Blocking Request</h2>
+        <div class="conversation">
+            <div class="user">USER: Block my card</div>
+            <div class="expected">EXPECTED: Should route to FraudAgent</div>
+        </div>
+        <button onclick="testCardBlocking()">Test Card Blocking</button>
+        <div id="card-blocking-result"></div>
+    </div>
+
+    <div class="scenario">
+        <h2>Scenario 3: Follow-up After Failed Routing</h2>
+        <div class="conversation">
+            <div class="user">USER: Block my card</div>
+            <div class="bot">SYSTEM: [Routing fails, goes to fallback]</div>
+            <div class="user">USER: Yes, block that card</div>
+            <div class="expected">EXPECTED: Should route to FraudAgent (despite previous failure)</div>
+        </div>
+        <button onclick="testFollowUpAfterFailure()">Test Follow-up After Failure</button>
+        <div id="followup-failure-result"></div>
+    </div>
+
+    <div class="scenario">
+        <h2>Agent Inference Test</h2>
+        <button onclick="testAgentInference()">Test Agent Inference</button>
+        <div id="agent-inference-result"></div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+
+    <script>
+        // Initialize debug manager
+        window.debugManager = new DebugManager();
+        window.debugManager.enable();
+
+        // Mock the inferCorrectAgent function from script.js
+        function inferCorrectAgent(userMessage) {
+            const lowerInput = userMessage.toLowerCase();
+            
+            // Fraud-related patterns
+            const fraudPatterns = [
+                /block.*card/, /freeze.*card/, /stop.*card/, /cancel.*card/,
+                /fraud/, /suspicious/, /unauthorized/, /unauthorised/,
+                /stolen/, /compromised/, /hacked/, /scam/,
+                /report.*fraud/, /mark.*fraud/, /dispute/
+            ];
+            
+            if (fraudPatterns.some(pattern => pattern.test(lowerInput))) {
+                return 'FraudAgent';
+            }
+            
+            // Payment patterns
+            const paymentPatterns = [
+                /send.*money/, /transfer.*money/, /pay.*£/, /send.*£/,
+                /make.*payment/, /wire.*money/
+            ];
+            
+            if (paymentPatterns.some(pattern => pattern.test(lowerInput))) {
+                return 'PaymentsAgent';
+            }
+            
+            // Banking info patterns
+            const bankingPatterns = [
+                /balance/, /transaction.*history/, /account.*statement/,
+                /recent.*transactions/, /account.*details/
+            ];
+            
+            if (bankingPatterns.some(pattern => pattern.test(lowerInput))) {
+                return 'BankingInfoAgent';
+            }
+            
+            return null;
+        }
+
+        function testDirectFraudRequest() {
+            const input = "Can I mark that as fraud? That was not me.";
+            const inferredAgent = inferCorrectAgent(input);
+            
+            const contextManager = new ConversationContextManager();
+            const isFollowUp = contextManager.isFollowUpInput(input);
+            
+            document.getElementById('direct-fraud-result').innerHTML = `
+                <div class="debug">
+                    <strong>Input:</strong> "${input}"<br>
+                    <strong>Inferred Agent:</strong> ${inferredAgent || 'None'}<br>
+                    <strong>Is Follow-up:</strong> ${isFollowUp ? 'Yes' : 'No'}<br>
+                    <strong>Expected:</strong> FraudAgent<br>
+                    <strong>Result:</strong> <span class="${inferredAgent === 'FraudAgent' ? 'success' : 'error'}">${inferredAgent === 'FraudAgent' ? 'CORRECT' : 'INCORRECT'}</span>
+                </div>
+            `;
+        }
+
+        function testCardBlocking() {
+            const input = "Block my card";
+            const inferredAgent = inferCorrectAgent(input);
+            
+            const contextManager = new ConversationContextManager();
+            const isFollowUp = contextManager.isFollowUpInput(input);
+            
+            document.getElementById('card-blocking-result').innerHTML = `
+                <div class="debug">
+                    <strong>Input:</strong> "${input}"<br>
+                    <strong>Inferred Agent:</strong> ${inferredAgent || 'None'}<br>
+                    <strong>Is Follow-up:</strong> ${isFollowUp ? 'Yes' : 'No'}<br>
+                    <strong>Expected:</strong> FraudAgent<br>
+                    <strong>Result:</strong> <span class="${inferredAgent === 'FraudAgent' ? 'success' : 'error'}">${inferredAgent === 'FraudAgent' ? 'CORRECT' : 'INCORRECT'}</span>
+                </div>
+            `;
+        }
+
+        function testFollowUpAfterFailure() {
+            const contextManager = new ConversationContextManager();
+            
+            // Simulate the scenario
+            // 1. First request fails, but we infer it should be FraudAgent
+            contextManager.addMessage('user', 'Block my card');
+            contextManager.addMessage('assistant', 'I can help you with that. Let me connect you to our security team.', 'FraudAgent'); // Using inferred agent
+            
+            // 2. Follow-up request
+            const followUpInput = "Yes, block that card";
+            const isFollowUp = contextManager.isFollowUpInput(followUpInput);
+            
+            const mockAgents = [
+                { name: 'FraudAgent', enabled: true },
+                { name: 'BankingInfoAgent', enabled: true },
+                { name: 'PaymentsAgent', enabled: true }
+            ];
+            
+            const suggestedAgent = contextManager.getSuggestedAgent(followUpInput, mockAgents);
+            
+            document.getElementById('followup-failure-result').innerHTML = `
+                <div class="debug">
+                    <strong>Scenario:</strong><br>
+                    1. "Block my card" → Routing fails → Inferred as FraudAgent<br>
+                    2. "Yes, block that card" → Should route to FraudAgent<br><br>
+                    
+                    <strong>Follow-up Input:</strong> "${followUpInput}"<br>
+                    <strong>Is Follow-up:</strong> ${isFollowUp ? 'Yes' : 'No'}<br>
+                    <strong>Suggested Agent:</strong> ${suggestedAgent ? suggestedAgent.name : 'None'}<br>
+                    <strong>Expected:</strong> FraudAgent<br>
+                    <strong>Result:</strong> <span class="${suggestedAgent && suggestedAgent.name === 'FraudAgent' ? 'success' : 'error'}">${suggestedAgent && suggestedAgent.name === 'FraudAgent' ? 'CORRECT' : 'INCORRECT'}</span>
+                </div>
+            `;
+        }
+
+        function testAgentInference() {
+            const testCases = [
+                { input: "Can I mark that as fraud? That was not me.", expected: "FraudAgent" },
+                { input: "Block my card", expected: "FraudAgent" },
+                { input: "Yes, block that card", expected: "FraudAgent" },
+                { input: "Suspicious activity on my account", expected: "FraudAgent" },
+                { input: "Send £50 to Alice", expected: "PaymentsAgent" },
+                { input: "What's my balance?", expected: "BankingInfoAgent" },
+                { input: "Hello there", expected: null }
+            ];
+            
+            const results = testCases.map(testCase => {
+                const inferred = inferCorrectAgent(testCase.input);
+                return {
+                    input: testCase.input,
+                    inferred,
+                    expected: testCase.expected,
+                    correct: inferred === testCase.expected
+                };
+            });
+            
+            document.getElementById('agent-inference-result').innerHTML = `
+                <div class="debug">
+                    <strong>Agent Inference Test Results:</strong><br><br>
+                    ${results.map(r => `
+                        <div style="margin: 5px 0;">
+                            <strong>Input:</strong> "${r.input}"<br>
+                            <strong>Inferred:</strong> ${r.inferred || 'None'} | 
+                            <strong>Expected:</strong> ${r.expected || 'None'} | 
+                            <span class="${r.correct ? 'success' : 'error'}">${r.correct ? '✓' : '✗'}</span>
+                        </div>
+                    `).join('')}
+                    <br>
+                    <strong>Overall Success Rate:</strong> ${Math.round((results.filter(r => r.correct).length / results.length) * 100)}%
+                </div>
+            `;
+        }
+
+        // Initialize
+        console.log('Fraud Context Fix V2 Test initialized');
+    </script>
+</body>
+</html>

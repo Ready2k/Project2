@@ -4,17 +4,27 @@
  */
 
 const VERSION_CONFIG = {
-    version: "v2.1.0",
+    version: "v2.2.0",
     buildDate: "2025-01-29",
-    lastUpdated: "Security & Performance Enhancements",
+    lastUpdated: "Complete Experience Restart Feature",
     releaseNotes: [
-        "Enhanced security manager with comprehensive validation",
-        "Improved agent routing with fallback mechanisms", 
-        "Added performance monitoring and error reporting",
-        "Implemented circuit breaker patterns for reliability",
-        "Enhanced debug tools and comprehensive logging"
+        "Enhanced clear chat functionality for complete experience restart",
+        "Comprehensive state reset including all active processes",
+        "Improved UI state management and button controls",
+        "Complete agent context and conversation history clearing",
+        "Enhanced user experience with fresh start capability"
     ],
     changelog: {
+        "v2.2.0": {
+            date: "2025-01-29",
+            changes: [
+                "Complete experience restart on clear chat",
+                "Enhanced state management and cleanup",
+                "Improved UI reset functionality",
+                "Comprehensive process termination",
+                "Better user experience flow"
+            ]
+        },
         "v2.1.0": {
             date: "2025-01-29",
             changes: [

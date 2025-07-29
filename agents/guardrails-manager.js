@@ -315,6 +315,88 @@ class GuardrailsManager {
             }
         }
         
+        // Validate systemPrompts (new section for agent behavior prompts)
+        if (guardrails.systemPrompts) {
+            if (typeof guardrails.systemPrompts !== 'object') {
+                errors.push('systemPrompts must be an object');
+            } else {
+                // Validate templates section
+                if (guardrails.systemPrompts.templates) {
+                    if (typeof guardrails.systemPrompts.templates !== 'object') {
+                        errors.push('systemPrompts.templates must be an object');
+                    } else {
+                        for (const [templateName, template] of Object.entries(guardrails.systemPrompts.templates)) {
+                            if (typeof template !== 'object') {
+                                errors.push(`systemPrompts.templates.${templateName} must be an object`);
+                                continue;
+                            }
+                            
+                            // Validate template properties
+                            const validTemplateProps = ['basePersonality', 'responseInstructions', 'financialContext', 'additionalInstructions'];
+                            for (const prop of Object.keys(template)) {
+                                if (!validTemplateProps.includes(prop)) {
+                                    errors.push(`Invalid template property: systemPrompts.templates.${templateName}.${prop}`);
+                                }
+                            }
+                            
+                            // Validate string properties
+                            ['basePersonality', 'responseInstructions', 'financialContext'].forEach(prop => {
+                                if (template[prop] !== undefined && typeof template[prop] !== 'string') {
+                                    errors.push(`systemPrompts.templates.${templateName}.${prop} must be a string`);
+                                }
+                            });
+                            
+                            // Validate additionalInstructions array
+                            if (template.additionalInstructions !== undefined) {
+                                if (!Array.isArray(template.additionalInstructions)) {
+                                    errors.push(`systemPrompts.templates.${templateName}.additionalInstructions must be an array`);
+                                } else {
+                                    template.additionalInstructions.forEach((instruction, index) => {
+                                        if (typeof instruction !== 'string') {
+                                            errors.push(`systemPrompts.templates.${templateName}.additionalInstructions[${index}] must be a string`);
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Validate agentOverrides section
+                if (guardrails.systemPrompts.agentOverrides) {
+                    if (typeof guardrails.systemPrompts.agentOverrides !== 'object') {
+                        errors.push('systemPrompts.agentOverrides must be an object');
+                    } else {
+                        const validAgents = ['FraudAgent', 'PaymentsAgent', 'IDVAgent', 'BankingInfoAgent'];
+                        for (const [agentName, overrides] of Object.entries(guardrails.systemPrompts.agentOverrides)) {
+                            if (!validAgents.includes(agentName)) {
+                                errors.push(`Invalid agent name in systemPrompts.agentOverrides: ${agentName}`);
+                                continue;
+                            }
+                            
+                            if (typeof overrides !== 'object') {
+                                errors.push(`systemPrompts.agentOverrides.${agentName} must be an object`);
+                                continue;
+                            }
+                            
+                            // Validate override properties (same as templates)
+                            const validOverrideProps = ['basePersonality', 'responseInstructions', 'financialContext', 'additionalInstructions', 'templateRef'];
+                            for (const prop of Object.keys(overrides)) {
+                                if (!validOverrideProps.includes(prop)) {
+                                    errors.push(`Invalid override property: systemPrompts.agentOverrides.${agentName}.${prop}`);
+                                }
+                            }
+                            
+                            // Validate template reference
+                            if (overrides.templateRef !== undefined && typeof overrides.templateRef !== 'string') {
+                                errors.push(`systemPrompts.agentOverrides.${agentName}.templateRef must be a string`);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         // Validate compliance rules
         if (guardrails.complianceRules) {
             if (typeof guardrails.complianceRules !== 'object') {
@@ -1105,6 +1187,193 @@ class GuardrailsManager {
                 riskLevel: 'high'
             };
         }
+    }
+    
+    /**
+     * Get system prompts for an agent
+     * @param {string} agentName - Name of the agent
+     * @returns {Object} System prompt configuration
+     */
+    getSystemPrompts(agentName) {
+        try {
+            const guardrails = this.guardrails.get(agentName);
+            if (!guardrails || !guardrails.systemPrompts) {
+                // Return default prompts if no configuration exists
+                return this.getDefaultSystemPrompts(agentName);
+            }
+            
+            const systemPrompts = guardrails.systemPrompts;
+            let prompts = {};
+            
+            // Start with template if referenced
+            if (systemPrompts.templateRef && guardrails.systemPrompts.templates) {
+                const template = guardrails.systemPrompts.templates[systemPrompts.templateRef];
+                if (template) {
+                    prompts = { ...template };
+                }
+            }
+            
+            // Apply agent-specific overrides
+            if (systemPrompts.agentOverrides && systemPrompts.agentOverrides[agentName]) {
+                const overrides = systemPrompts.agentOverrides[agentName];
+                prompts = { ...prompts, ...overrides };
+            }
+            
+            // Apply direct properties
+            ['basePersonality', 'responseInstructions', 'financialContext', 'additionalInstructions'].forEach(prop => {
+                if (systemPrompts[prop] !== undefined) {
+                    prompts[prop] = systemPrompts[prop];
+                }
+            });
+            
+            return prompts;
+            
+        } catch (error) {
+            this.debug.error('Error getting system prompts:', error);
+            return this.getDefaultSystemPrompts(agentName);
+        }
+    }
+    
+    /**
+     * Set system prompts for an agent
+     * @param {string} agentName - Name of the agent
+     * @param {Object} prompts - System prompt configuration
+     * @returns {boolean} Success status
+     */
+    setSystemPrompts(agentName, prompts) {
+        try {
+            let guardrails = this.guardrails.get(agentName);
+            if (!guardrails) {
+                guardrails = this.getDefaultGuardrails(agentName);
+                this.guardrails.set(agentName, guardrails);
+            }
+            
+            if (!guardrails.systemPrompts) {
+                guardrails.systemPrompts = {};
+            }
+            
+            // Validate prompts structure
+            const validProps = ['basePersonality', 'responseInstructions', 'financialContext', 'additionalInstructions', 'templateRef'];
+            for (const prop of Object.keys(prompts)) {
+                if (!validProps.includes(prop)) {
+                    this.debug.warn(`Invalid system prompt property: ${prop}`);
+                    continue;
+                }
+                guardrails.systemPrompts[prop] = prompts[prop];
+            }
+            
+            guardrails.lastUpdated = new Date().toISOString();
+            this.saveGuardrails();
+            
+            this.debug.log(`Updated system prompts for ${agentName}`);
+            return true;
+            
+        } catch (error) {
+            this.debug.error('Error setting system prompts:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * Get default system prompts for an agent (migrated from hardcoded values)
+     * @param {string} agentName - Name of the agent
+     * @returns {Object} Default system prompt configuration
+     */
+    getDefaultSystemPrompts(agentName) {
+        const defaults = {
+            FraudAgent: {
+                basePersonality: "You are an urgent, professional fraud detection and security specialist. You prioritize immediate protective actions and clear guidance. You are reassuring but maintain appropriate urgency for security threats.",
+                financialContext: "When handling fraud and security requests, prioritize immediate protective actions. Focus on card blocking, fraud reporting, and security guidance. Always emphasize the time-sensitive nature of fraud response.",
+                responseInstructions: "Provide immediate, clear guidance for security threats. Be urgent but reassuring. Give step-by-step instructions for protective actions. Always provide emergency contact information when relevant.",
+                additionalInstructions: [
+                    "You are specialized in fraud detection, card blocking, and security threat responses",
+                    "Treat all fraud reports with HIGH PRIORITY and urgency",
+                    "You can perform PROTECTIVE actions like card blocking and fraud reporting",
+                    "You CANNOT access payment processing, money transfers, or account balances",
+                    "Provide immediate protective actions when requested",
+                    "Never ask for sensitive information like card numbers or PINs",
+                    "Always emphasize time-sensitive nature of fraud response",
+                    "If asked about payments or transfers, redirect to appropriate agents"
+                ]
+            },
+            PaymentsAgent: {
+                basePersonality: "You are a highly secure, professional payment processing assistant. You prioritize security, accuracy, and clear communication in all financial transactions. You are thorough, careful, and always confirm details before processing.",
+                financialContext: "When handling payment requests, apply the highest security standards. Always validate transaction details, confirm amounts, and ensure secure processing. Never process transactions without explicit confirmation.",
+                responseInstructions: "Provide clear, step-by-step guidance for payment processing. Always confirm transaction details before proceeding. Be precise about amounts, fees, and processing times. Use secure language and maintain professional tone.",
+                additionalInstructions: [
+                    "You are specialized in money transfers, payments, and secure transaction processing",
+                    "Apply HIGHEST SECURITY LEVEL to all payment requests",
+                    "ALWAYS validate transaction amounts against available balance",
+                    "NEVER process payments exceeding account balance",
+                    "ALWAYS require explicit confirmation for payment amounts and recipient details",
+                    "Provide transaction reference numbers and confirmations",
+                    "If asked about balances, fraud, or identity verification, redirect to appropriate agents"
+                ]
+            },
+            IDVAgent: {
+                basePersonality: null, // Use default
+                financialContext: "When handling identity verification requests, prioritize security and privacy above all else. Guide users through secure verification processes while maintaining strict security boundaries.",
+                responseInstructions: "Keep responses security-focused and provide clear, step-by-step guidance. Never request sensitive information in conversation. Always direct users to secure channels for sensitive operations.",
+                additionalInstructions: [
+                    "You are specialized in identity verification, password resets, and account security",
+                    "You can ONLY access identity verification functions - no payments, transactions, or balances",
+                    "Always prioritize security and user privacy in all interactions",
+                    "Provide clear instructions but never ask for passwords or PINs in conversation",
+                    "If asked about payments, transfers, or fraud reporting, politely redirect as these are outside your domain"
+                ]
+            },
+            BankingInfoAgent: {
+                basePersonality: null, // Use default
+                financialContext: "When providing banking information, be accurate, helpful, and informative. Focus on read-only account data and transaction history. Always use the customer's actual account information.",
+                responseInstructions: "Present financial information clearly and accurately. Format currency amounts properly. Provide helpful context about transactions and account activity. Keep responses informative but concise.",
+                additionalInstructions: [
+                    "You are specialized in providing account balance, transaction history, and account information",
+                    "You can ONLY provide READ-ONLY access to banking information",
+                    "You CANNOT perform transactions, transfers, payments, or account modifications",
+                    "Always use the customer's actual account data when responding",
+                    "Format currency amounts clearly using GBP (£) symbol",
+                    "If asked about payments, transfers, or account modifications, redirect to appropriate services"
+                ]
+            }
+        };
+        
+        return defaults[agentName] || {};
+    }
+    
+    /**
+     * Get all available system prompt templates
+     * @returns {Object} Available templates
+     */
+    getSystemPromptTemplates() {
+        return {
+            professional: {
+                basePersonality: "You are a professional, helpful, and courteous assistant. You maintain a formal but friendly tone in all interactions.",
+                responseInstructions: "Provide clear, accurate, and helpful responses. Be concise but thorough. Always maintain professionalism.",
+                additionalInstructions: [
+                    "Maintain professional tone at all times",
+                    "Provide accurate and helpful information",
+                    "Be respectful and courteous"
+                ]
+            },
+            urgent: {
+                basePersonality: "You are an urgent, action-oriented assistant. You prioritize immediate responses and clear guidance for time-sensitive situations.",
+                responseInstructions: "Provide immediate, clear guidance. Be direct and actionable. Emphasize urgency when appropriate.",
+                additionalInstructions: [
+                    "Prioritize immediate action",
+                    "Be direct and clear",
+                    "Emphasize time-sensitive nature when relevant"
+                ]
+            },
+            security_focused: {
+                basePersonality: "You are a security-focused assistant who prioritizes safety, privacy, and secure practices in all interactions.",
+                responseInstructions: "Always prioritize security and privacy. Provide secure guidance and never request sensitive information directly.",
+                additionalInstructions: [
+                    "Prioritize security and privacy",
+                    "Never request sensitive information",
+                    "Guide users to secure channels for sensitive operations"
+                ]
+            }
+        };
     }
 }
 

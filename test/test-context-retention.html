@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context Retention Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .conversation { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .user { color: #0066cc; font-weight: bold; }
+        .bot { color: #cc6600; font-weight: bold; }
+        .context-info { background: #e6f3ff; padding: 10px; margin: 10px 0; font-size: 12px; }
+        button { padding: 10px 20px; margin: 5px; }
+        #output { margin-top: 20px; padding: 10px; background: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <h1>Context Retention Test</h1>
+    <p>This test verifies that the bot maintains context between messages, especially for follow-up responses.</p>
+
+    <div class="test-section">
+        <h2>Test Scenario: Fraud Protection Context</h2>
+        <div class="conversation">
+            <div class="user">USER: I think someone has my card details</div>
+            <div class="bot">BOT: I understand your concern, John. To block your card ending in 1234, I will need to confirm your identity for security purposes. Please provide any two recent transactions from your account for verification.</div>
+            <div class="user">USER: £45 at the coffee shop, £120 at grocery stores</div>
+            <div class="bot">BOT: <span id="expected-response">Should acknowledge the transactions and continue with fraud protection process</span></div>
+        </div>
+        
+        <button onclick="testFraudContext()">Test Fraud Context</button>
+        <div id="fraud-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Scenario: Payment Confirmation Context</h2>
+        <div class="conversation">
+            <div class="user">USER: Send £50 to Alice</div>
+            <div class="bot">BOT: I can send £50 to Alice. Please confirm you want to proceed with this transfer.</div>
+            <div class="user">USER: Yes, do it</div>
+            <div class="bot">BOT: <span id="expected-payment">Should process the payment confirmation</span></div>
+        </div>
+        
+        <button onclick="testPaymentContext()">Test Payment Context</button>
+        <div id="payment-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Context Manager Status</h2>
+        <button onclick="checkContextManager()">Check Context Manager</button>
+        <div id="context-status"></div>
+    </div>
+
+    <div id="output"></div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/lru-cache.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+    <script src="agents/agent-router.js"></script>
+
+    <script>
+        // Initialize debug manager
+        window.debugManager = new DebugManager();
+        window.debugManager.enable();
+
+        // Create a mock context manager for testing
+        let contextManager = new ConversationContextManager();
+        let output = document.getElementById('output');
+
+        function log(message, data = null) {
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            if (data) {
+                div.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function testFraudContext() {
+            log('Testing Fraud Context Retention...');
+            
+            // Simulate the conversation
+            contextManager.addMessage('user', 'I think someone has my card details');
+            contextManager.addMessage('assistant', 'I understand your concern, John. To block your card ending in 1234, I will need to confirm your identity for security purposes. Please provide any two recent transactions from your account for verification.', 'FraudAgent');
+            
+            // Test follow-up detection
+            const followUpInput = '£45 at the coffee shop, £120 at grocery stores';
+            const isFollowUp = contextManager.isFollowUpInput(followUpInput);
+            
+            // Get routing context
+            const routingContext = contextManager.getRoutingContext();
+            
+            log('Fraud Context Test Results:', {
+                isFollowUpDetected: isFollowUp,
+                lastAgentUsed: routingContext.lastAgentUsed,
+                conversationLength: routingContext.conversationHistory.length,
+                lastMessage: routingContext.conversationHistory[routingContext.conversationHistory.length - 1]
+            });
+
+            // Test suggested agent
+            const suggestedAgent = contextManager.getSuggestedAgent(followUpInput, [
+                { name: 'FraudAgent', enabled: true },
+                { name: 'PaymentsAgent', enabled: true },
+                { name: 'BankingInfoAgent', enabled: true }
+            ]);
+
+            document.getElementById('fraud-result').innerHTML = `
+                <div class="context-info">
+                    <strong>Follow-up detected:</strong> ${isFollowUp ? 'YES' : 'NO'}<br>
+                    <strong>Last agent:</strong> ${routingContext.lastAgentUsed}<br>
+                    <strong>Suggested agent:</strong> ${suggestedAgent ? suggestedAgent.name : 'None'}<br>
+                    <strong>Expected:</strong> FraudAgent (to handle transaction verification)
+                </div>
+            `;
+        }
+
+        function testPaymentContext() {
+            log('Testing Payment Context Retention...');
+            
+            // Clear previous context
+            contextManager.clearContext();
+            
+            // Simulate payment conversation
+            contextManager.addMessage('user', 'Send £50 to Alice');
+            contextManager.addMessage('assistant', 'I can send £50 to Alice. Please confirm you want to proceed with this transfer.', 'PaymentsAgent');
+            
+            // Test confirmation response
+            const confirmationInput = 'Yes, do it';
+            const isFollowUp = contextManager.isFollowUpInput(confirmationInput);
+            
+            // Get routing context
+            const routingContext = contextManager.getRoutingContext();
+            
+            log('Payment Context Test Results:', {
+                isFollowUpDetected: isFollowUp,
+                lastAgentUsed: routingContext.lastAgentUsed,
+                conversationLength: routingContext.conversationHistory.length
+            });
+
+            // Test suggested agent
+            const suggestedAgent = contextManager.getSuggestedAgent(confirmationInput, [
+                { name: 'FraudAgent', enabled: true },
+                { name: 'PaymentsAgent', enabled: true },
+                { name: 'BankingInfoAgent', enabled: true }
+            ]);
+
+            document.getElementById('payment-result').innerHTML = `
+                <div class="context-info">
+                    <strong>Follow-up detected:</strong> ${isFollowUp ? 'YES' : 'NO'}<br>
+                    <strong>Last agent:</strong> ${routingContext.lastAgentUsed}<br>
+                    <strong>Suggested agent:</strong> ${suggestedAgent ? suggestedAgent.name : 'None'}<br>
+                    <strong>Expected:</strong> PaymentsAgent (to handle payment confirmation)
+                </div>
+            `;
+        }
+
+        function checkContextManager() {
+            const stats = contextManager.getStats();
+            log('Context Manager Status:', stats);
+            
+            document.getElementById('context-status').innerHTML = `
+                <div class="context-info">
+                    <strong>History Size:</strong> ${stats.historySize}/${stats.maxHistorySize}<br>
+                    <strong>Context Entries:</strong> ${stats.contextEntries}<br>
+                    <strong>Session Duration:</strong> ${stats.sessionDuration}s<br>
+                    <strong>Last Agent:</strong> ${stats.lastAgentUsed || 'None'}<br>
+                    <strong>User Messages:</strong> ${stats.userMessages}<br>
+                    <strong>Assistant Messages:</strong> ${stats.assistantMessages}
+                </div>
+            `;
+        }
+
+        // Initialize
+        log('Context Retention Test initialized');
+        log('Context Manager created with max history:', contextManager.maxHistorySize);
+    </script>
+</body>
+</html>

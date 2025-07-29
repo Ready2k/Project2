@@ -744,6 +744,47 @@ class BaseAgent {
     }
     
     /**
+     * Checks if secondary authentication is required for an action
+     * @param {string} action - Action to check
+     * @param {Object} context - Context object
+     * @returns {boolean} - True if secondary auth is required
+     */
+    checkSecondaryAuthRequired(action, context = {}) {
+        if (!this.guardrailsManager) {
+            return false; // No guardrails manager, no secondary auth required
+        }
+        
+        try {
+            const agentConfig = this.guardrailsManager.getAgentConfig(this.name);
+            if (!agentConfig || !agentConfig.restrictions) {
+                return false;
+            }
+            
+            const restrictions = agentConfig.restrictions;
+            
+            // Check new object-based requiresSecondaryAuth
+            if (restrictions.requiresSecondaryAuth && typeof restrictions.requiresSecondaryAuth === 'object') {
+                const authConfig = restrictions.requiresSecondaryAuth[action];
+                if (authConfig && authConfig.enabled && !context.secondaryAuthCompleted) {
+                    return true;
+                }
+            }
+            
+            // Check legacy array-based requiresSecondaryAuth
+            if (Array.isArray(restrictions.requiresSecondaryAuth) && 
+                restrictions.requiresSecondaryAuth.includes(action) && 
+                !context.secondaryAuthCompleted) {
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            this.debug.warn('Error checking secondary auth requirements', { error: error.message });
+            return false; // Default to not requiring auth if there's an error
+        }
+    }
+
+    /**
      * Checks if a capability is allowed by guardrails
      * @param {string} capability - Capability to check
      * @returns {boolean} - True if capability is allowed
@@ -839,14 +880,51 @@ class BaseAgent {
      * @returns {Object} - Object with prompt overrides
      */
     getSystemPromptOverrides(context, personaData) {
+        // Try to get prompts from guardrails configuration first
+        if (this.guardrailsManager) {
+            try {
+                const configuredPrompts = this.guardrailsManager.getSystemPrompts(this.name);
+                if (configuredPrompts && Object.keys(configuredPrompts).length > 0) {
+                    this.debug.info('Using configured system prompts', { 
+                        agentName: this.name,
+                        hasBasePersonality: !!configuredPrompts.basePersonality,
+                        hasInstructions: !!configuredPrompts.additionalInstructions
+                    });
+                    return configuredPrompts;
+                }
+            } catch (error) {
+                this.debug.warn('Error loading configured system prompts, falling back to defaults', { 
+                    error: error.message 
+                });
+            }
+        }
+        
+        // Fallback to agent-specific overrides (for backward compatibility)
+        const agentOverrides = this.getAgentSpecificPromptOverrides(context, personaData);
+        if (agentOverrides && Object.keys(agentOverrides).length > 0) {
+            this.debug.info('Using agent-specific prompt overrides', { agentName: this.name });
+            return agentOverrides;
+        }
+        
         // Default implementation returns no overrides
-        // Subclasses can override this to provide specific prompt modifications
         return {
             basePersonality: null,      // Override base personality if needed
             financialContext: null,     // Override financial context if needed
             responseInstructions: null, // Override response instructions if needed
             additionalInstructions: []  // Add additional custom instructions
         };
+    }
+    
+    /**
+     * Get agent-specific prompt overrides (for backward compatibility)
+     * Subclasses can override this to provide hardcoded defaults
+     * @param {Object} context - Context object
+     * @param {Object} personaData - Current persona data
+     * @returns {Object} - Object with prompt overrides
+     */
+    getAgentSpecificPromptOverrides(context, personaData) {
+        // Default implementation - subclasses can override
+        return {};
     }
 }
 

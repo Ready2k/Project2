@@ -19,6 +19,9 @@ class AgentRouter {
         
         // Initialize conversation context manager
         this.contextManager = new ConversationContextManager();
+        
+        // Initialize multi-agent orchestrator
+        this.orchestrator = new MultiAgentOrchestrator(this);
 
         
         // Initialize configuration manager
@@ -326,6 +329,44 @@ class AgentRouter {
         try {
             this.debug.info('Routing request', { inputText: inputText.substring(0, 100) });
             
+            // Check if this requires multi-agent orchestration first
+            const workflow = this.orchestrator.analyzeMultiAgentRequest(inputText);
+            if (workflow) {
+                this.debug.info('Multi-agent workflow detected', { 
+                    workflowType: workflow.type,
+                    stepsCount: workflow.steps.length 
+                });
+                
+                // Record user message in conversation history
+                this.contextManager.addMessage('user', inputText);
+                
+                // Execute the workflow
+                const workflowResult = await this.orchestrator.executeWorkflow(workflow, context);
+                
+                // Record workflow response in conversation history
+                if (workflowResult.success && workflowResult.response) {
+                    this.contextManager.addMessage('assistant', workflowResult.response, 'MultiAgentOrchestrator', {
+                        processingTime: Date.now() - startTime,
+                        workflowId: workflowResult.workflowId,
+                        completedSteps: workflowResult.completedSteps,
+                        totalSteps: workflowResult.totalSteps,
+                        isWorkflow: true
+                    });
+                }
+                
+                // Always return workflow result, don't fall back to regular routing
+                return {
+                    success: workflowResult.success,
+                    response: workflowResult.response,
+                    agentName: 'MultiAgentOrchestrator',
+                    processingTime: Date.now() - startTime,
+                    workflowId: workflowResult.workflowId,
+                    isWorkflow: true,
+                    workflowSteps: workflowResult.steps,
+                    reason: workflowResult.reason
+                };
+            }
+            
             // Check cache first for routing decision
             const cacheKey = this.generateCacheKey(inputText, context);
             const cachedAgentName = this.routingCache.get(cacheKey);
@@ -353,10 +394,11 @@ class AgentRouter {
             if (!agent) {
                 this.cacheMisses++;
                 
-                // Enhance context with conversation history
+                // Enhance context with conversation history and current input
                 const enhancedContext = {
                     ...context,
-                    ...this.contextManager.getRoutingContext()
+                    ...this.contextManager.getRoutingContext(),
+                    currentInput: inputText
                 };
                 
                 agent = await this.findBestAgent(inputText, enhancedContext);
@@ -552,31 +594,35 @@ ${conversationContext}
 
 User Input: "${inputText}"
 
-IMPORTANT CONTEXTUAL ROUTING RULES:
-1. If the user gives a confirmation response (yes, yeah, ok, sure, do it, stop it, block it) and the last agent was FraudAgent, route to FraudAgent
-2. If the user gives a denial response (no, nope, don't) and the last agent was FraudAgent, still route to FraudAgent (they're responding about fraud)
-3. If the user says "cancel it" or "stop that" and the last agent was PaymentsAgent, route to PaymentsAgent
-4. If the user gives a confirmation response and the last agent was IDVAgent, route to IDVAgent
-5. Ambiguous responses like "yeah", "stop it", "cancel it" should use the conversation context heavily
+CRITICAL CONTEXTUAL ROUTING RULES:
+1. **FOLLOW-UP RESPONSES**: If the conversation context shows the bot just asked a question and the user is responding, route to the SAME agent that asked the question
+2. **CONFIRMATION RESPONSES**: "yes", "yeah", "ok", "sure", "do it", "block it", "stop it" → route to the last agent used
+3. **DENIAL RESPONSES**: "no", "nope", "don't", "cancel" → still route to the last agent used (they need to handle the denial)
+4. **INFORMATION RESPONSES**: When user provides requested information (like transactions, verification details) → route to the agent that requested it
+5. **AMBIGUOUS RESPONSES**: Short responses like "yeah", "stop it", "cancel it" MUST use conversation context to determine intent
 
-Analyze the user input considering:
-1. Conversation context is CRITICAL for ambiguous responses
-2. Direct intent (what they're explicitly asking for)
-3. Semantic meaning (understanding "yeah stop it" in fraud context means block card)
-4. Follow-up responses (confirmations, clarifications, denials)
+CONTEXT ANALYSIS PRIORITY:
+1. **HIGHEST**: If bot just asked for confirmation/information and user is responding → same agent
+2. **HIGH**: If user gives follow-up response and there's a recent agent → same agent  
+3. **MEDIUM**: Direct intent keywords in user input
+4. **LOW**: General topic classification
 
-Respond with ONLY the agent name that should handle this request, or "NONE" if no agent is appropriate.
+FRAUD CONTEXT EXAMPLES:
+- Bot: "I understand your concern, John. To block your card ending in 1234, I will need to confirm your identity for security purposes. Please provide any two recent transactions from your account for verification."
+- User: "£45 at the coffee shop, £120 at grocery stores" → FraudAgent (providing requested verification info)
+- User: "yes, block it" → FraudAgent (confirming fraud action)
+- User: "no, don't block it" → FraudAgent (denying fraud action, but still fraud context)
 
-Examples:
-- "What's my balance?" → BankingInfoAgent
-- "Send money to Alice" → PaymentsAgent
-- "Block my card" → FraudAgent
-- "Yeah, block it" (after fraud discussion) → FraudAgent
-- "Yes, stop it now" (after card security question) → FraudAgent
-- "Cancel that" (after payment discussion) → PaymentsAgent
-- "Yes, do that" (after IDV discussion) → IDVAgent
-- "Nope, don't do it" (after fraud discussion) → FraudAgent
-- "Verify my identity" → IDVAgent`;
+PAYMENT CONTEXT EXAMPLES:
+- Bot: "I can send £100 to Alice. Please confirm you want to proceed with this transfer."
+- User: "yes, send it" → PaymentsAgent (confirming payment)
+- User: "no, cancel that" → PaymentsAgent (canceling payment, but still payment context)
+
+IDV CONTEXT EXAMPLES:
+- Bot: "To reset your password, I need to verify your identity. Please provide your date of birth."
+- User: "15th March 1985" → IDVAgent (providing requested verification info)
+
+Respond with ONLY the agent name that should handle this request, or "NONE" if no agent is appropriate.`;
 
             const messages = [
                 { role: 'system', content: systemPrompt },
@@ -619,40 +665,79 @@ Examples:
     getConversationContext(context) {
         let contextInfo = [];
         
-        // Add last agent used information
-        if (context.lastAgentUsed) {
-            contextInfo.push(`Last agent used: ${context.lastAgentUsed}`);
+        // Get conversation history from context manager first, fallback to passed context
+        const conversationHistory = this.contextManager?.getHistory(6) || context.conversationHistory || [];
+        const lastAgentUsed = this.contextManager?.getContextData('lastAgentUsed') || context.lastAgentUsed;
+        
+        // Add last agent used information with timestamp
+        if (lastAgentUsed) {
+            const lastAgentTimestamp = this.contextManager?.getContextData('lastAgentTimestamp');
+            const timeSinceLastAgent = lastAgentTimestamp ? 
+                Math.round((Date.now() - lastAgentTimestamp) / 1000) : null;
+            
+            contextInfo.push(`Last agent used: ${lastAgentUsed}${timeSinceLastAgent ? ` (${timeSinceLastAgent}s ago)` : ''}`);
         }
         
-        // Try to get recent conversation history
-        if (context.conversationHistory && context.conversationHistory.length > 0) {
-            const recentMessages = context.conversationHistory.slice(-4); // Last 2 exchanges
+        // Add recent conversation history with better formatting
+        if (conversationHistory && conversationHistory.length > 0) {
+            const recentMessages = conversationHistory.slice(-6); // Last 3 exchanges
             contextInfo.push('Recent conversation:');
-            recentMessages.forEach(msg => {
-                if (msg.agent) {
-                    contextInfo.push(`${msg.role} (${msg.agent}): ${msg.content}`);
-                } else {
-                    contextInfo.push(`${msg.role}: ${msg.content}`);
-                }
+            
+            recentMessages.forEach((msg, index) => {
+                const prefix = msg.role === 'user' ? 'USER' : `ASSISTANT${msg.agent ? ` (${msg.agent})` : ''}`;
+                const content = msg.content.length > 100 ? 
+                    msg.content.substring(0, 100) + '...' : msg.content;
+                contextInfo.push(`${prefix}: ${content}`);
             });
         }
         
-        // Add contextual hints based on last agent
-        if (context.lastAgentUsed) {
-            switch (context.lastAgentUsed) {
+        // Add contextual hints based on last agent and recent conversation
+        if (lastAgentUsed) {
+            const lastMessage = conversationHistory.length > 0 ? 
+                conversationHistory[conversationHistory.length - 1] : null;
+            
+            switch (lastAgentUsed) {
                 case 'FraudAgent':
-                    contextInfo.push('Context: User was discussing card security/fraud issues');
+                    contextInfo.push('CONTEXT: User was discussing card security/fraud issues');
+                    if (lastMessage && lastMessage.role === 'assistant') {
+                        if (lastMessage.content.toLowerCase().includes('block') || 
+                            lastMessage.content.toLowerCase().includes('freeze') ||
+                            lastMessage.content.toLowerCase().includes('verify') ||
+                            lastMessage.content.toLowerCase().includes('confirm')) {
+                            contextInfo.push('IMPORTANT: Bot just asked for confirmation about card security action');
+                        }
+                    }
                     break;
                 case 'PaymentsAgent':
-                    contextInfo.push('Context: User was discussing payments/transfers');
+                    contextInfo.push('CONTEXT: User was discussing payments/transfers');
+                    if (lastMessage && lastMessage.role === 'assistant') {
+                        if (lastMessage.content.toLowerCase().includes('confirm') ||
+                            lastMessage.content.toLowerCase().includes('proceed') ||
+                            lastMessage.content.toLowerCase().includes('send')) {
+                            contextInfo.push('IMPORTANT: Bot just asked for confirmation about payment action');
+                        }
+                    }
                     break;
                 case 'IDVAgent':
-                    contextInfo.push('Context: User was discussing identity verification');
+                    contextInfo.push('CONTEXT: User was discussing identity verification');
+                    if (lastMessage && lastMessage.role === 'assistant') {
+                        if (lastMessage.content.toLowerCase().includes('verify') ||
+                            lastMessage.content.toLowerCase().includes('provide') ||
+                            lastMessage.content.toLowerCase().includes('confirm')) {
+                            contextInfo.push('IMPORTANT: Bot just asked for identity verification information');
+                        }
+                    }
                     break;
                 case 'BankingInfoAgent':
-                    contextInfo.push('Context: User was discussing account information');
+                    contextInfo.push('CONTEXT: User was discussing account information');
                     break;
             }
+        }
+        
+        // Add follow-up detection hints
+        const currentInput = context.currentInput || '';
+        if (this.contextManager?.isFollowUpInput(currentInput)) {
+            contextInfo.push('DETECTION: Current input appears to be a follow-up response');
         }
         
         return contextInfo.length > 0 ? contextInfo.join('\n') : 'No previous conversation context available.';

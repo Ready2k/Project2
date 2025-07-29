@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Routing Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 12px; }
+        button { padding: 10px 20px; margin: 5px; }
+        #output { margin-top: 20px; padding: 10px; background: #f9f9f9; max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Routing Debug Test</h1>
+    <p>This test debugs the exact routing issue with transaction information being sent to PaymentsAgent instead of FraudAgent.</p>
+
+    <div class="test-section">
+        <h2>PaymentsAgent Keyword Test</h2>
+        <button onclick="testPaymentsAgentKeywords()">Test PaymentsAgent Keywords</button>
+        <div id="payments-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Context Manager Test</h2>
+        <button onclick="testContextManager()">Test Context Manager</button>
+        <div id="context-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Routing Strategy Order Test</h2>
+        <button onclick="testRoutingOrder()">Test Routing Order</button>
+        <div id="routing-result"></div>
+    </div>
+
+    <div id="output"></div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/base-agent.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    <script src="agents/lru-cache.js"></script>
+    <script src="agents/routing-fallback-chain.js"></script>
+
+    <script>
+        // Initialize debug manager
+        window.debugManager = new DebugManager();
+        window.debugManager.enable();
+
+        let output = document.getElementById('output');
+
+        function log(message, data = null) {
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            if (data) {
+                div.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        // Mock PaymentsAgent for testing
+        class MockPaymentsAgent extends BaseAgent {
+            constructor() {
+                super('PaymentsAgent', 'Handles payments and transfers');
+                this.paymentKeywords = [
+                    'send', 'transfer', 'pay', 'payment', 'money',
+                    'send money', 'transfer money', 'make payment',
+                    'pay someone', 'send to', 'transfer to',
+                    'wire', 'remit', 'remittance'
+                ];
+                this.amountKeywords = [
+                    '£', '$', '€', 'pounds', 'dollars', 'euros',
+                    'amount', 'sum', 'total'
+                ];
+            }
+
+            canHandle(inputText) {
+                if (!inputText || typeof inputText !== 'string') {
+                    return false;
+                }
+                
+                const lowerInput = inputText.toLowerCase();
+                
+                // Check for exact phrase matches first
+                const exactPhrases = [
+                    'send money', 'transfer money', 'make payment', 'send £', 'send $',
+                    'transfer £', 'transfer $', 'pay £', 'pay $', 'send to',
+                    'transfer to', 'pay someone', 'make transfer', 'wire money'
+                ];
+                
+                for (const phrase of exactPhrases) {
+                    if (lowerInput.includes(phrase)) {
+                        log(`PaymentsAgent: Exact phrase match - ${phrase}`);
+                        return true;
+                    }
+                }
+                
+                // More specific amount detection
+                const hasPaymentAmountPattern = [
+                    /send\s+£\d+/,
+                    /transfer\s+£\d+/,
+                    /pay\s+£\d+/,
+                    /£\d+\s+to\s+/,
+                    /\d+\s+pounds?\s+to/,
+                    /send\s+\d+/,
+                    /transfer\s+\d+/,
+                ].some(pattern => pattern.test(lowerInput));
+                
+                if (hasPaymentAmountPattern) {
+                    log(`PaymentsAgent: Payment amount pattern match`);
+                    return true;
+                }
+                
+                // Don't match on transaction history patterns
+                const isTransactionHistory = [
+                    /£\d+(\.\d{2})?\s+(at|from)\s+/,
+                    /\d+\s+(at|from)\s+the\s+/,
+                    /spent\s+£\d+/,
+                    /transaction.*£\d+/,
+                ].some(pattern => pattern.test(lowerInput));
+                
+                if (isTransactionHistory) {
+                    log(`PaymentsAgent: Rejecting transaction history pattern`);
+                    return false;
+                }
+                
+                return false;
+            }
+
+            async handle(inputText, context) {
+                return {
+                    success: true,
+                    response: 'PaymentsAgent would handle this',
+                    agentName: 'PaymentsAgent'
+                };
+            }
+        }
+
+        // Mock FraudAgent
+        class MockFraudAgent extends BaseAgent {
+            constructor() {
+                super('FraudAgent', 'Handles fraud and security');
+            }
+
+            canHandle(inputText) {
+                const lowerInput = inputText.toLowerCase();
+                const fraudKeywords = ['fraud', 'block', 'freeze', 'suspicious', 'stolen', 'compromised'];
+                return fraudKeywords.some(keyword => lowerInput.includes(keyword));
+            }
+
+            async handle(inputText, context) {
+                return {
+                    success: true,
+                    response: 'FraudAgent would handle this',
+                    agentName: 'FraudAgent'
+                };
+            }
+        }
+
+        function testPaymentsAgentKeywords() {
+            log('Testing PaymentsAgent keyword matching...');
+            
+            const paymentsAgent = new MockPaymentsAgent();
+            
+            const testCases = [
+                '£120 at the grocery store and £45.67 at the coffee shop',
+                'send £50 to Alice',
+                'transfer £100',
+                'I spent £20 at the shop',
+                'transaction of £45',
+                'pay £30 to John'
+            ];
+            
+            const results = testCases.map(input => ({
+                input,
+                matches: paymentsAgent.canHandle(input)
+            }));
+            
+            log('PaymentsAgent keyword test results:', results);
+            
+            document.getElementById('payments-result').innerHTML = results.map(r => 
+                `<div><strong>${r.input}:</strong> ${r.matches ? 'MATCHES' : 'NO MATCH'} ${r.input.includes('at the') && !r.matches ? '✓' : r.input.includes('send') && r.matches ? '✓' : '✗'}</div>`
+            ).join('');
+        }
+
+        function testContextManager() {
+            log('Testing Context Manager...');
+            
+            const contextManager = new ConversationContextManager();
+            
+            // Simulate fraud conversation
+            contextManager.addMessage('user', 'I think someone has my card details');
+            contextManager.addMessage('assistant', 'I understand your concern, John. To block your card ending in 1234, I will need to confirm your identity for security purposes. Please provide any two recent transaction amounts from your account for verification.', 'FraudAgent');
+            
+            const transactionInput = '£120 at the grocery store and £45.67 at the coffee shop';
+            
+            const isFollowUp = contextManager.isFollowUpInput(transactionInput);
+            const routingContext = contextManager.getRoutingContext();
+            
+            const mockAgents = [
+                { name: 'FraudAgent', enabled: true },
+                { name: 'PaymentsAgent', enabled: true }
+            ];
+            
+            const suggestedAgent = contextManager.getSuggestedAgent(transactionInput, mockAgents);
+            
+            log('Context Manager test results:', {
+                isFollowUp,
+                lastAgent: routingContext.lastAgentUsed,
+                suggestedAgent: suggestedAgent ? suggestedAgent.name : 'None'
+            });
+            
+            document.getElementById('context-result').innerHTML = `
+                <div class="debug">
+                    <strong>Input:</strong> ${transactionInput}<br>
+                    <strong>Follow-up detected:</strong> ${isFollowUp ? 'YES' : 'NO'}<br>
+                    <strong>Last agent:</strong> ${routingContext.lastAgentUsed}<br>
+                    <strong>Suggested agent:</strong> ${suggestedAgent ? suggestedAgent.name : 'None'}<br>
+                    <strong>Expected:</strong> FraudAgent<br>
+                    <strong>Result:</strong> <span class="${suggestedAgent && suggestedAgent.name === 'FraudAgent' ? 'success' : 'error'}">${suggestedAgent && suggestedAgent.name === 'FraudAgent' ? 'SUCCESS' : 'FAILED'}</span>
+                </div>
+            `;
+        }
+
+        function testRoutingOrder() {
+            log('Testing routing strategy order...');
+            
+            // Mock router with agents
+            const mockRouter = {
+                getEnabledAgents: () => [
+                    new MockFraudAgent(),
+                    new MockPaymentsAgent()
+                ],
+                contextManager: new ConversationContextManager()
+            };
+            
+            // Set up fraud context
+            mockRouter.contextManager.addMessage('assistant', 'Please provide transaction amounts for verification.', 'FraudAgent');
+            
+            const fallbackChain = new RoutingFallbackChain(mockRouter);
+            
+            log('Routing strategies order:', fallbackChain.strategies.map(s => s.name));
+            
+            document.getElementById('routing-result').innerHTML = `
+                <div class="debug">
+                    <strong>Strategy Order:</strong><br>
+                    ${fallbackChain.strategies.map((s, i) => `${i + 1}. ${s.name} - ${s.description}`).join('<br>')}
+                </div>
+            `;
+        }
+
+        // Initialize
+        log('Routing Debug Test initialized');
+    </script>
+</body>
+</html>

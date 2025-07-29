@@ -49,6 +49,9 @@ class LLMManagerAdminUI {
         // Initialize managers
         this.initializeManagers();
         
+        // Initialize prompts section
+        setTimeout(() => this.initializePromptsSection(), 100);
+        
         // Set up event listeners
         this.setupEventListeners();
         
@@ -94,6 +97,20 @@ class LLMManagerAdminUI {
         }
     }
     
+    /**
+     * Initialize prompts section
+     */
+    initializePromptsSection() {
+        try {
+            // Call global initialization function
+            if (typeof initializePromptsSection === 'function') {
+                initializePromptsSection();
+            }
+        } catch (error) {
+            this.debug.error('Error initializing prompts section:', error);
+        }
+    }
+
     /**
      * Set up event listeners
      */
@@ -1613,6 +1630,387 @@ if (typeof window !== 'undefined') {
 
 // Global functions for HTML onclick handlers
 window.adminUI = null;
+
+// System Prompts Management Functions
+function saveAgentPrompts(agentName) {
+    console.log(`Saving prompts for ${agentName}...`);
+    
+    try {
+        let promptData = {};
+        
+        // Collect prompt data based on agent
+        switch (agentName) {
+            case 'FraudAgent':
+                promptData = {
+                    basePersonality: document.getElementById('fraud-personality')?.value || '',
+                    responseInstructions: document.getElementById('fraud-instructions')?.value || ''
+                };
+                break;
+            case 'PaymentsAgent':
+                promptData = {
+                    basePersonality: document.getElementById('payments-personality')?.value || '',
+                    responseInstructions: document.getElementById('payments-instructions')?.value || ''
+                };
+                break;
+            case 'IDVAgent':
+                promptData = {
+                    responseInstructions: document.getElementById('idv-instructions')?.value || '',
+                    financialContext: document.getElementById('idv-context')?.value || ''
+                };
+                break;
+            case 'BankingInfoAgent':
+                promptData = {
+                    responseInstructions: document.getElementById('banking-instructions')?.value || '',
+                    financialContext: document.getElementById('banking-context')?.value || ''
+                };
+                break;
+        }
+        
+        // Save to guardrails configuration
+        if (window.adminUI?.guardrailsManager) {
+            const success = window.adminUI.guardrailsManager.setSystemPrompts(agentName, promptData);
+            if (success) {
+                showNotification(`${agentName} prompts saved successfully!`, 'success');
+                logAuditEvent('prompts', `Updated system prompts for ${agentName}`);
+            } else {
+                showNotification(`Failed to save ${agentName} prompts`, 'error');
+            }
+        } else {
+            // Fallback - save to localStorage for demo
+            localStorage.setItem(`systemPrompts_${agentName}`, JSON.stringify(promptData));
+            showNotification(`${agentName} prompts saved successfully!`, 'success');
+        }
+        
+    } catch (error) {
+        console.error('Error saving agent prompts:', error);
+        showNotification(`Error saving ${agentName} prompts: ${error.message}`, 'error');
+    }
+}
+
+function resetAgentPrompts(agentName) {
+    if (confirm(`Reset ${agentName} prompts to defaults? This will lose any custom changes.`)) {
+        console.log(`Resetting ${agentName} to defaults...`);
+        
+        try {
+            // Get default prompts from guardrails manager
+            if (window.adminUI?.guardrailsManager) {
+                const defaults = window.adminUI.guardrailsManager.getDefaultSystemPrompts(agentName);
+                
+                // Update form fields with defaults
+                switch (agentName) {
+                    case 'FraudAgent':
+                        if (document.getElementById('fraud-personality')) {
+                            document.getElementById('fraud-personality').value = defaults.basePersonality || '';
+                        }
+                        if (document.getElementById('fraud-instructions')) {
+                            document.getElementById('fraud-instructions').value = defaults.responseInstructions || '';
+                        }
+                        break;
+                    case 'PaymentsAgent':
+                        if (document.getElementById('payments-personality')) {
+                            document.getElementById('payments-personality').value = defaults.basePersonality || '';
+                        }
+                        if (document.getElementById('payments-instructions')) {
+                            document.getElementById('payments-instructions').value = defaults.responseInstructions || '';
+                        }
+                        break;
+                    case 'IDVAgent':
+                        if (document.getElementById('idv-instructions')) {
+                            document.getElementById('idv-instructions').value = defaults.responseInstructions || '';
+                        }
+                        if (document.getElementById('idv-context')) {
+                            document.getElementById('idv-context').value = defaults.financialContext || '';
+                        }
+                        break;
+                    case 'BankingInfoAgent':
+                        if (document.getElementById('banking-instructions')) {
+                            document.getElementById('banking-instructions').value = defaults.responseInstructions || '';
+                        }
+                        if (document.getElementById('banking-context')) {
+                            document.getElementById('banking-context').value = defaults.financialContext || '';
+                        }
+                        break;
+                }
+                
+                showNotification(`${agentName} prompts reset to defaults`, 'success');
+                logAuditEvent('prompts', `Reset system prompts for ${agentName} to defaults`);
+            } else {
+                // Fallback - remove from localStorage
+                localStorage.removeItem(`systemPrompts_${agentName}`);
+                showNotification(`${agentName} prompts reset to defaults`, 'success');
+                location.reload(); // Reload to show defaults
+            }
+            
+        } catch (error) {
+            console.error('Error resetting agent prompts:', error);
+            showNotification(`Error resetting ${agentName} prompts: ${error.message}`, 'error');
+        }
+    }
+}
+
+function previewAgentPrompts(agentName) {
+    console.log(`Previewing prompts for ${agentName}...`);
+    
+    // Switch to preview tab and update preview
+    const previewTab = document.querySelector('[data-tab="prompt-preview"]');
+    const agentSelect = document.getElementById('preview-agent-select');
+    
+    if (previewTab && agentSelect) {
+        // Activate preview tab
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        
+        previewTab.classList.add('active');
+        document.getElementById('prompt-preview-tab').classList.add('active');
+        
+        // Set agent selection
+        agentSelect.value = agentName;
+        updatePromptPreview();
+    }
+}
+
+function saveTemplate() {
+    const name = document.getElementById('template-name')?.value?.trim();
+    const personality = document.getElementById('template-personality')?.value?.trim();
+    const instructions = document.getElementById('template-instructions')?.value?.trim();
+    
+    if (!name) {
+        showNotification('Template name is required.', 'error');
+        return;
+    }
+    
+    try {
+        const templateData = {
+            name,
+            basePersonality: personality,
+            responseInstructions: instructions,
+            created: new Date().toISOString()
+        };
+        
+        // Save template (in real implementation, this would go to guardrails manager)
+        const existingTemplates = JSON.parse(localStorage.getItem('promptTemplates') || '[]');
+        existingTemplates.push(templateData);
+        localStorage.setItem('promptTemplates', JSON.stringify(existingTemplates));
+        
+        // Clear form
+        document.getElementById('template-name').value = '';
+        document.getElementById('template-personality').value = '';
+        document.getElementById('template-instructions').value = '';
+        
+        showNotification(`Template "${name}" saved successfully!`, 'success');
+        logAuditEvent('prompts', `Created prompt template: ${name}`);
+        
+        // Refresh templates list
+        loadTemplatesList();
+        
+    } catch (error) {
+        console.error('Error saving template:', error);
+        showNotification(`Error saving template: ${error.message}`, 'error');
+    }
+}
+
+function editTemplate(templateName) {
+    console.log(`Editing template: ${templateName}`);
+    // Implementation for editing templates
+    showNotification(`Template editing for "${templateName}" - feature coming soon!`, 'info');
+}
+
+function deleteTemplate(templateName) {
+    if (confirm(`Delete template "${templateName}"? This action cannot be undone.`)) {
+        console.log(`Deleting template: ${templateName}`);
+        
+        try {
+            const existingTemplates = JSON.parse(localStorage.getItem('promptTemplates') || '[]');
+            const updatedTemplates = existingTemplates.filter(t => t.name !== templateName);
+            localStorage.setItem('promptTemplates', JSON.stringify(updatedTemplates));
+            
+            showNotification(`Template "${templateName}" deleted successfully!`, 'success');
+            logAuditEvent('prompts', `Deleted prompt template: ${templateName}`);
+            
+            // Refresh templates list
+            loadTemplatesList();
+            
+        } catch (error) {
+            console.error('Error deleting template:', error);
+            showNotification(`Error deleting template: ${error.message}`, 'error');
+        }
+    }
+}
+
+function updatePromptPreview() {
+    const agentName = document.getElementById('preview-agent-select')?.value;
+    const previewContent = document.getElementById('prompt-preview-content');
+    
+    if (!agentName || !previewContent) return;
+    
+    try {
+        // Get current prompt configuration for the agent
+        let promptConfig = {};
+        
+        // Try to get from form fields first
+        switch (agentName) {
+            case 'FraudAgent':
+                promptConfig = {
+                    basePersonality: document.getElementById('fraud-personality')?.value || '',
+                    responseInstructions: document.getElementById('fraud-instructions')?.value || ''
+                };
+                break;
+            case 'PaymentsAgent':
+                promptConfig = {
+                    basePersonality: document.getElementById('payments-personality')?.value || '',
+                    responseInstructions: document.getElementById('payments-instructions')?.value || ''
+                };
+                break;
+            case 'IDVAgent':
+                promptConfig = {
+                    responseInstructions: document.getElementById('idv-instructions')?.value || '',
+                    financialContext: document.getElementById('idv-context')?.value || ''
+                };
+                break;
+            case 'BankingInfoAgent':
+                promptConfig = {
+                    responseInstructions: document.getElementById('banking-instructions')?.value || '',
+                    financialContext: document.getElementById('banking-context')?.value || ''
+                };
+                break;
+        }
+        
+        // Generate preview
+        let preview = `System Prompt for ${agentName}:\n\n`;
+        
+        if (promptConfig.basePersonality) {
+            preview += `Base Personality:\n${promptConfig.basePersonality}\n\n`;
+        }
+        
+        if (promptConfig.financialContext) {
+            preview += `Financial Context:\n${promptConfig.financialContext}\n\n`;
+        }
+        
+        if (promptConfig.responseInstructions) {
+            preview += `Response Instructions:\n${promptConfig.responseInstructions}\n\n`;
+        }
+        
+        preview += `This preview shows how the configured prompts will be combined into the final system prompt sent to the LLM.`;
+        
+        previewContent.textContent = preview;
+        
+    } catch (error) {
+        console.error('Error updating prompt preview:', error);
+        previewContent.textContent = `Error generating preview: ${error.message}`;
+    }
+}
+
+function loadTemplatesList() {
+    const templatesList = document.getElementById('templates-list');
+    if (!templatesList) return;
+    
+    try {
+        const templates = JSON.parse(localStorage.getItem('promptTemplates') || '[]');
+        
+        if (templates.length === 0) {
+            templatesList.innerHTML = '<p style="color: #7f8c8d; text-align: center; padding: 20px;">No templates created yet.</p>';
+            return;
+        }
+        
+        templatesList.innerHTML = templates.map(template => `
+            <div class="template-item">
+                <div class="template-info">
+                    <strong>${template.name}</strong>
+                    <p>${template.basePersonality ? template.basePersonality.substring(0, 100) + '...' : 'No description'}</p>
+                </div>
+                <div class="template-actions">
+                    <button class="btn btn-info btn-sm" onclick="editTemplate('${template.name}')">✏️ Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteTemplate('${template.name}')">🗑️ Delete</button>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading templates list:', error);
+        templatesList.innerHTML = '<p style="color: #e74c3c;">Error loading templates</p>';
+    }
+}
+
+// Initialize prompts section when DOM is ready
+function initializePromptsSection() {
+    // Load existing prompt configurations
+    loadAgentPrompts();
+    
+    // Load templates list
+    loadTemplatesList();
+    
+    // Initialize preview
+    updatePromptPreview();
+}
+
+function loadAgentPrompts() {
+    const agents = ['FraudAgent', 'PaymentsAgent', 'IDVAgent', 'BankingInfoAgent'];
+    
+    agents.forEach(agentName => {
+        try {
+            // Try to load from guardrails manager first
+            let promptConfig = null;
+            
+            if (window.adminUI?.guardrailsManager) {
+                promptConfig = window.adminUI.guardrailsManager.getSystemPrompts(agentName);
+            }
+            
+            // Fallback to localStorage
+            if (!promptConfig) {
+                const stored = localStorage.getItem(`systemPrompts_${agentName}`);
+                if (stored) {
+                    promptConfig = JSON.parse(stored);
+                }
+            }
+            
+            // Fallback to defaults
+            if (!promptConfig && window.adminUI?.guardrailsManager) {
+                promptConfig = window.adminUI.guardrailsManager.getDefaultSystemPrompts(agentName);
+            }
+            
+            // Update form fields if we have configuration
+            if (promptConfig) {
+                switch (agentName) {
+                    case 'FraudAgent':
+                        if (document.getElementById('fraud-personality') && promptConfig.basePersonality) {
+                            document.getElementById('fraud-personality').value = promptConfig.basePersonality;
+                        }
+                        if (document.getElementById('fraud-instructions') && promptConfig.responseInstructions) {
+                            document.getElementById('fraud-instructions').value = promptConfig.responseInstructions;
+                        }
+                        break;
+                    case 'PaymentsAgent':
+                        if (document.getElementById('payments-personality') && promptConfig.basePersonality) {
+                            document.getElementById('payments-personality').value = promptConfig.basePersonality;
+                        }
+                        if (document.getElementById('payments-instructions') && promptConfig.responseInstructions) {
+                            document.getElementById('payments-instructions').value = promptConfig.responseInstructions;
+                        }
+                        break;
+                    case 'IDVAgent':
+                        if (document.getElementById('idv-instructions') && promptConfig.responseInstructions) {
+                            document.getElementById('idv-instructions').value = promptConfig.responseInstructions;
+                        }
+                        if (document.getElementById('idv-context') && promptConfig.financialContext) {
+                            document.getElementById('idv-context').value = promptConfig.financialContext;
+                        }
+                        break;
+                    case 'BankingInfoAgent':
+                        if (document.getElementById('banking-instructions') && promptConfig.responseInstructions) {
+                            document.getElementById('banking-instructions').value = promptConfig.responseInstructions;
+                        }
+                        if (document.getElementById('banking-context') && promptConfig.financialContext) {
+                            document.getElementById('banking-context').value = promptConfig.financialContext;
+                        }
+                        break;
+                }
+            }
+            
+        } catch (error) {
+            console.error(`Error loading prompts for ${agentName}:`, error);
+        }
+    });
+}
 
 // Global functions
 window.refreshAgentData = () => adminUI?.refreshAgentData();

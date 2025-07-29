@@ -762,6 +762,9 @@ this.apiClient = {
                     message: userMessage.substring(0, 50) + '...' 
                 });
 
+                // Get enhanced context from router's context manager if available
+                const routerContext = this.agentRouter?.contextManager?.getRoutingContext() || {};
+                
                 // Create context object for agents
                 const agentContext = {
                     personaManager: this.personaManager,
@@ -771,8 +774,13 @@ this.apiClient = {
                     currentPersona: this.personaManager.getCurrentPersona(),
                     sessionData: {},
                     debugMode: window.debugManager ? window.debugManager.isEnabled() : false,
-                    conversationHistory: this.conversationHistory,
-                    lastAgentUsed: this.lastAgentUsed
+                    // Use router's context if available, fallback to local history
+                    conversationHistory: routerContext.conversationHistory || this.conversationHistory,
+                    lastAgentUsed: routerContext.lastAgentUsed || this.lastAgentUsed,
+                    // Include additional router context for better routing decisions
+                    sessionDuration: routerContext.sessionDuration,
+                    messageCount: routerContext.messageCount,
+                    contextAge: routerContext.contextAge
                 };
 
                 // Route through agents
@@ -828,40 +836,105 @@ this.apiClient = {
     }
 
     /**
+     * Infer the correct agent for a request when routing fails
+     * @param {string} userMessage - User's message
+     * @returns {string|null} - Inferred agent name or null
+     */
+    inferCorrectAgent(userMessage) {
+        const lowerInput = userMessage.toLowerCase();
+        
+        // Fraud-related patterns
+        const fraudPatterns = [
+            /block.*card/, /freeze.*card/, /stop.*card/, /cancel.*card/,
+            /fraud/, /suspicious/, /unauthorized/, /unauthorised/,
+            /stolen/, /compromised/, /hacked/, /scam/,
+            /report.*fraud/, /mark.*fraud/, /dispute/
+        ];
+        
+        if (fraudPatterns.some(pattern => pattern.test(lowerInput))) {
+            this.debug.info('Inferred FraudAgent for failed routing', { 
+                userMessage: userMessage.substring(0, 50) 
+            });
+            return 'FraudAgent';
+        }
+        
+        // Payment patterns
+        const paymentPatterns = [
+            /send.*money/, /transfer.*money/, /pay.*£/, /send.*£/,
+            /make.*payment/, /wire.*money/
+        ];
+        
+        if (paymentPatterns.some(pattern => pattern.test(lowerInput))) {
+            this.debug.info('Inferred PaymentsAgent for failed routing', { 
+                userMessage: userMessage.substring(0, 50) 
+            });
+            return 'PaymentsAgent';
+        }
+        
+        // Banking info patterns
+        const bankingPatterns = [
+            /balance/, /transaction.*history/, /account.*statement/,
+            /recent.*transactions/, /account.*details/
+        ];
+        
+        if (bankingPatterns.some(pattern => pattern.test(lowerInput))) {
+            this.debug.info('Inferred BankingInfoAgent for failed routing', { 
+                userMessage: userMessage.substring(0, 50) 
+            });
+            return 'BankingInfoAgent';
+        }
+        
+        return null;
+    }
+
+    /**
      * Update conversation context for AI-powered agent routing
      * @param {string} userMessage - User's message
      * @param {string} agentResponse - Agent's response
      * @param {string} agentName - Name of the agent that handled the request
      */
     updateConversationContext(userMessage, agentResponse, agentName) {
-        // Add user message
-        this.conversationHistory.push({
-            role: 'user',
-            content: userMessage,
-            timestamp: new Date().toISOString()
-        });
+        // Use the router's context manager instead of maintaining separate history
+        if (this.agentRouter && this.agentRouter.contextManager) {
+            // The router's context manager already handles this during routing
+            // Just sync our simple tracking variables
+            this.lastAgentUsed = agentName;
+            
+            // Get updated history from router's context manager
+            this.conversationHistory = this.agentRouter.contextManager.getHistory(10);
+            
+            this.debug.info('Conversation context synced with router', {
+                agentName,
+                historyLength: this.conversationHistory.length,
+                lastAgent: this.lastAgentUsed
+            });
+        } else {
+            // Fallback to old method if router context manager not available
+            this.conversationHistory.push({
+                role: 'user',
+                content: userMessage,
+                timestamp: new Date().toISOString()
+            });
 
-        // Add agent response
-        this.conversationHistory.push({
-            role: 'assistant',
-            content: agentResponse,
-            agent: agentName,
-            timestamp: new Date().toISOString()
-        });
+            this.conversationHistory.push({
+                role: 'assistant',
+                content: agentResponse,
+                agent: agentName,
+                timestamp: new Date().toISOString()
+            });
 
-        // Keep only last 10 messages (5 exchanges) for context
-        if (this.conversationHistory.length > 10) {
-            this.conversationHistory = this.conversationHistory.slice(-10);
+            if (this.conversationHistory.length > 10) {
+                this.conversationHistory = this.conversationHistory.slice(-10);
+            }
+
+            this.lastAgentUsed = agentName;
+
+            this.debug.info('Conversation context updated (fallback)', {
+                agentName,
+                historyLength: this.conversationHistory.length,
+                lastAgent: this.lastAgentUsed
+            });
         }
-
-        // Update last agent used
-        this.lastAgentUsed = agentName;
-
-        this.debug.info('Conversation context updated', {
-            agentName,
-            historyLength: this.conversationHistory.length,
-            lastAgent: this.lastAgentUsed
-        });
     }
 
     async generateResponse(userMessage) {
@@ -895,8 +968,9 @@ this.apiClient = {
                 console.log('AI response received:', result.text);
                 this.updateDebugOutput('gptResponse', result.text);
                 
-                // Update conversation context for fallback responses too
-                this.updateConversationContext(userMessage, result.text, 'FallbackHandler');
+                // Try to infer the correct agent for context, don't just use FallbackHandler
+                const inferredAgent = this.inferCorrectAgent(userMessage);
+                this.updateConversationContext(userMessage, result.text, inferredAgent || 'FallbackHandler');
                 
                 return result.text;
             } else {
@@ -2087,50 +2161,174 @@ this.apiClient = {
 
     clearConversation() {
         // Show confirmation dialog
-        const confirmed = confirm('Are you sure you want to clear the conversation? This action cannot be undone.');
+        const confirmed = confirm('Are you sure you want to clear the conversation and restart the experience? This action cannot be undone.');
         
         if (confirmed) {
-            // Use agent icon manager if available
-            if (window.agentIconManager) {
-                window.agentIconManager.clearConversation();
-            } else {
-                // Fallback to old method
-                const conversation = document.getElementById('conversation');
-                if (conversation) {
-                    conversation.innerHTML = `
-                        <div class="bot-message">
-                            <div class="message-content">
-                                Hello! I'm your AI voice assistant. How can I help you today?
-                            </div>
+            this.debug.log('Starting complete conversation restart...');
+            
+            // 1. Stop all active processes
+            this.stopAllActiveProcesses();
+            
+            // 2. Clear conversation display
+            this.clearConversationDisplay();
+            
+            // 3. Reset all state variables
+            this.resetApplicationState();
+            
+            // 4. Clear agent routing context
+            this.clearAgentContext();
+            
+            // 5. Reset UI elements to initial state
+            this.resetUIToInitialState();
+            
+            // 6. Log the restart
+            if (window.systemLogger) {
+                window.systemLogger.logUserAction('Complete conversation restart', { 
+                    timestamp: new Date().toISOString(),
+                    previousState: this.currentState
+                });
+            }
+            
+            console.log('Complete conversation restart completed');
+            this.updateStatus('Experience restarted - Ready to begin fresh conversation');
+        }
+    }
+
+    stopAllActiveProcesses() {
+        // Stop any ongoing recording
+        if (this.isRecording && this.mediaRecorder) {
+            this.mediaRecorder.stop();
+            this.isRecording = false;
+        }
+        
+        // Stop any currently playing audio
+        if (this.currentAudio) {
+            this.currentAudio.pause();
+            this.currentAudio.src = '';
+            this.currentAudio = null;
+        }
+        
+        // Stop browser TTS if active
+        if ('speechSynthesis' in window) {
+            speechSynthesis.cancel();
+        }
+        
+        // Disconnect streaming if active
+        if (this.isConnected && this.streamingManager) {
+            this.streamingManager.disconnect();
+            this.isConnected = false;
+        }
+        
+        // Stop audio level monitoring
+        this.stopAudioLevelMonitoring();
+        
+        // Clear any active timers
+        if (this.silenceTimer) {
+            clearTimeout(this.silenceTimer);
+            this.silenceTimer = null;
+        }
+    }
+
+    clearConversationDisplay() {
+        // Use agent icon manager if available
+        if (window.agentIconManager) {
+            window.agentIconManager.clearConversation();
+        } else {
+            // Fallback to old method
+            const conversation = document.getElementById('conversation');
+            if (conversation) {
+                conversation.innerHTML = `
+                    <div class="bot-message" data-agent="DefaultAgent">
+                        <div class="message-avatar agent-avatar-defaultagent">
+                            <i class="fas fa-robot" style="color: #ffffff"></i>
                         </div>
-                    `;
-                }
-                // Reset agent indicator to default
-                this.updateAgentIndicator('Default Agent');
+                        <div class="message-content">
+                            <div class="agent-label">Assistant</div>
+                            <div class="message-text">Hello! I'm your AI voice assistant. How can I help you today?</div>
+                        </div>
+                    </div>
+                `;
             }
-            
-            console.log('Conversation cleared');
-            this.updateStatus('Conversation cleared - Ready to listen');
-            
-            // Clear streaming conversation state if in streaming mode
-            if (this.streamingManager && this.isStreamingMode) {
-                this.streamingManager.clearConversationState();
+        }
+    }
+
+    resetApplicationState() {
+        // Reset core state variables
+        this.currentState = 'ready';
+        this.isRecording = false;
+        this.isConnected = false;
+        this.isSpeaking = false;
+        this.isMuted = false;
+        
+        // Clear conversation history and agent tracking
+        this.conversationHistory = [];
+        this.lastAgentUsed = null;
+        
+        // Clear audio chunks and media recorder
+        this.audioChunks = [];
+        this.mediaRecorder = null;
+        
+        // Reset current audio reference
+        this.currentAudio = null;
+        
+        // Clear streaming conversation state
+        if (this.streamingManager && this.isStreamingMode) {
+            this.streamingManager.clearConversationState();
+        }
+    }
+
+    clearAgentContext() {
+        // Clear agent router context if available
+        if (this.agentRouter && this.agentRouter.contextManager) {
+            this.agentRouter.clearConversationContext();
+        }
+        
+        // Reset agent indicator to default
+        this.updateAgentIndicator('Default Agent');
+        
+        // Clear any cached agent routing decisions
+        if (window.agentTelemetry) {
+            window.agentTelemetry.clearSession();
+        }
+    }
+
+    resetUIToInitialState() {
+        // Reset button states
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const muteBtn = document.getElementById('muteBtn');
+        const batchMuteBtn = document.getElementById('batchMuteBtn');
+        
+        if (startBtn) startBtn.disabled = false;
+        if (stopBtn) stopBtn.disabled = true;
+        if (connectBtn) connectBtn.disabled = false;
+        if (disconnectBtn) disconnectBtn.disabled = true;
+        if (muteBtn) muteBtn.disabled = true;
+        if (batchMuteBtn) batchMuteBtn.disabled = true;
+        
+        // Reset status indicators
+        this.updateConnectionStatus('disconnected');
+        this.updateRecordingStatus('🔴 Not Recording');
+        this.updateRecordingQuality('not-recording');
+        
+        // Reset audio level display
+        this.updateAudioLevel(0);
+        
+        // Reset persona selector to first option (if desired)
+        const personaSelect = document.getElementById('personaSelect');
+        if (personaSelect && personaSelect.options.length > 0) {
+            personaSelect.selectedIndex = 0;
+            // Trigger persona change if needed
+            if (this.personaManager) {
+                this.personaManager.setCurrentPersona(personaSelect.value);
             }
-            
-            // Stop any currently playing audio
-            if (this.currentAudio) {
-                this.currentAudio.pause();
-                this.currentAudio.src = '';
-                this.currentAudio = null;
-            }
-            
-            // Stop browser TTS if active
-            if ('speechSynthesis' in window) {
-                speechSynthesis.cancel();
-            }
-            
-            // Reset current state to ready
-            this.currentState = 'ready';
+        }
+        
+        // Close any open panels
+        if (window.mainInterface) {
+            window.mainInterface.closeAllPanels();
         }
     }
 

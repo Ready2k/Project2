@@ -200,6 +200,104 @@ body {
     border-bottom-right-radius: 6px;
 }
 
+/* Agent-specific message styles */
+.agent-label {
+    font-size: 10px;
+    font-weight: bold;
+    color: #666;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.message-text {
+    line-height: 1.4;
+}
+
+/* Agent-specific avatar styles */
+.agent-avatar-bankinginfoagent {
+    background: linear-gradient(135deg, #2c5aa0, #4a90e2);
+}
+
+.agent-avatar-fraudagent {
+    background: linear-gradient(135deg, #dc3545, #e74c3c);
+}
+
+.agent-avatar-idvagent {
+    background: linear-gradient(135deg, #28a745, #2ecc71);
+}
+
+.agent-avatar-paymentsagent {
+    background: linear-gradient(135deg, #17a2b8, #3498db);
+}
+
+.agent-avatar-defaultagent {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+/* Handle sanitized agent names with hyphens */
+.agent-avatar-banking-info-agent {
+    background: linear-gradient(135deg, #2c5aa0, #4a90e2);
+}
+
+.agent-avatar-fraud-agent {
+    background: linear-gradient(135deg, #dc3545, #e74c3c);
+}
+
+.agent-avatar-idv-agent {
+    background: linear-gradient(135deg, #28a745, #2ecc71);
+}
+
+.agent-avatar-payments-agent {
+    background: linear-gradient(135deg, #17a2b8, #3498db);
+}
+
+.agent-avatar-default-agent {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+/* Agent indicator in status bar */
+.agent-name.agent-bankinginfoagent {
+    color: #2c5aa0;
+}
+
+.agent-name.agent-fraudagent {
+    color: #dc3545;
+}
+
+.agent-name.agent-idvagent {
+    color: #28a745;
+}
+
+.agent-name.agent-paymentsagent {
+    color: #17a2b8;
+}
+
+.agent-name.agent-defaultagent {
+    color: #667eea;
+}
+
+/* Handle sanitized agent names with hyphens */
+.agent-name.agent-banking-info-agent {
+    color: #2c5aa0;
+}
+
+.agent-name.agent-fraud-agent {
+    color: #dc3545;
+}
+
+.agent-name.agent-idv-agent {
+    color: #28a745;
+}
+
+.agent-name.agent-payments-agent {
+    color: #17a2b8;
+}
+
+.agent-name.agent-default-agent {
+    color: #667eea;
+}
+
 /* Voice Controls */
 .voice-controls {
     background: #f8f9fa;
@@ -415,7 +513,7 @@ button:disabled {
 
 .agent-label {
     font-size: 12px;
-    color: #6c757d;
+    color: #000000 !important;  /* Force black color with !important */
     font-weight: 500;
 }
 
@@ -425,7 +523,7 @@ button:disabled {
     border-radius: 12px;
     font-size: 12px;
     font-weight: 500;
-    color: #495057;
+    color: #000000 !important;  /* Force black color with !important */
 }
 
 .level-label {
@@ -1447,6 +1545,106 @@ button:disabled {
     background: #5a6268;
 }
 
+.log-btn.toggle-btn {
+    background: #dc3545;
+    transition: all 0.3s ease;
+}
+
+.log-btn.toggle-btn:hover {
+    background: #c82333;
+}
+
+.log-btn.toggle-btn.active {
+    background: #28a745;
+}
+
+.log-btn.toggle-btn.active:hover {
+    background: #218838;
+}
+
+/* System Log Styles */
+.debug-output {
+    max-height: 300px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.log-entry {
+    padding: 4px 8px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+.log-time {
+    color: #666;
+    font-weight: bold;
+    min-width: 70px;
+    flex-shrink: 0;
+}
+
+.log-module {
+    color: #007bff;
+    font-weight: bold;
+    min-width: 80px;
+    flex-shrink: 0;
+}
+
+.log-message {
+    color: #333;
+    flex: 1;
+    word-break: break-word;
+}
+
+/* Log level specific styles */
+.log-entry.log-info {
+    background: #f8f9fa;
+}
+
+.log-entry.log-warn {
+    background: #fff3cd;
+    border-left: 3px solid #ffc107;
+}
+
+.log-entry.log-warn .log-module {
+    color: #856404;
+}
+
+.log-entry.log-error {
+    background: #f8d7da;
+    border-left: 3px solid #dc3545;
+}
+
+.log-entry.log-error .log-module {
+    color: #721c24;
+}
+
+.log-entry.log-debug {
+    background: #e2e3e5;
+    border-left: 3px solid #6c757d;
+}
+
+.log-entry.log-debug .log-module {
+    color: #495057;
+}
+
+.log-entry.system-info {
+    background: #d1ecf1;
+    border-left: 3px solid #17a2b8;
+    font-style: italic;
+}
+
+.log-entry.system-info .log-module {
+    color: #0c5460;
+}
+
 /* Help Panel Styles */
 .help-section h3 {
     color: #2c3e50;
@@ -1491,6 +1689,94 @@ button:disabled {
 
 .help-card li:last-child {
     border-bottom: none;
+}
+
+/* Version Information Styles */
+.version-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    margin-bottom: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.version-info:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.version-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+}
+
+.version-header h4 {
+    color: white;
+    margin: 0;
+    font-size: 1.1em;
+}
+
+.version-toggle {
+    font-size: 0.9em;
+    transition: transform 0.3s ease;
+    opacity: 0.8;
+}
+
+.version-toggle.expanded {
+    transform: rotate(180deg);
+}
+
+.version-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    animation: slideDown 0.3s ease;
+}
+
+.version-details.hidden {
+    display: none;
+}
+
+.version-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.version-item:last-child {
+    border-bottom: none;
+}
+
+.version-label {
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+.version-value {
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 200px;
+    }
 }
 
 /* Range Input Styling */

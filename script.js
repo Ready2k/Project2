@@ -2014,6 +2014,13 @@ this.apiClient = {
     }
     // UI Helper methods
     addMessage(content, type, agentName = null) {
+        // Use agent icon manager if available
+        if (window.agentIconManager) {
+            window.agentIconManager.addMessage(content, type, agentName);
+            return;
+        }
+        
+        // Fallback to old method
         const conversation = document.getElementById('conversation');
         if (!conversation) return;
 
@@ -2079,24 +2086,28 @@ this.apiClient = {
     }
 
     clearConversation() {
-        const conversation = document.getElementById('conversation');
-        if (!conversation) return;
-
         // Show confirmation dialog
         const confirmed = confirm('Are you sure you want to clear the conversation? This action cannot be undone.');
         
         if (confirmed) {
-            // Clear all messages except keep the initial bot greeting
-            conversation.innerHTML = `
-                <div class="bot-message">
-                    <div class="message-content">
-                        Hello! I'm your AI voice assistant. How can I help you today?
-                    </div>
-                </div>
-            `;
-            
-            // Reset agent indicator to default
-            this.updateAgentIndicator('Default Agent');
+            // Use agent icon manager if available
+            if (window.agentIconManager) {
+                window.agentIconManager.clearConversation();
+            } else {
+                // Fallback to old method
+                const conversation = document.getElementById('conversation');
+                if (conversation) {
+                    conversation.innerHTML = `
+                        <div class="bot-message">
+                            <div class="message-content">
+                                Hello! I'm your AI voice assistant. How can I help you today?
+                            </div>
+                        </div>
+                    `;
+                }
+                // Reset agent indicator to default
+                this.updateAgentIndicator('Default Agent');
+            }
             
             console.log('Conversation cleared');
             this.updateStatus('Conversation cleared - Ready to listen');

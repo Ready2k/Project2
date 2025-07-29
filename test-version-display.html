@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Version Display Test</title>
+    <link rel="stylesheet" href="main-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: #f5f7fa;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-title {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 class="test-title">Version Display Test</h1>
+        
+        <!-- Version Information Card -->
+        <div class="help-card version-info">
+            <div class="version-header" onclick="toggleVersionDetails()">
+                <h4><i class="fas fa-code-branch"></i> Version <span id="appVersion">Loading...</span></h4>
+                <i class="fas fa-chevron-down version-toggle" id="versionToggle"></i>
+            </div>
+            <div class="version-details" id="versionDetails" style="display: none;">
+                <div class="version-item">
+                    <span class="version-label">Build Date:</span>
+                    <span class="version-value" id="buildDate">Loading...</span>
+                </div>
+                <div class="version-item">
+                    <span class="version-label">Last Updated:</span>
+                    <span class="version-value" id="lastUpdated">Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="help-card">
+            <h4>Version Configuration</h4>
+            <p>The version information is automatically loaded from <code>version-config.js</code>.</p>
+            <p><strong>Click on the version number above to expand/collapse details!</strong></p>
+            <p>To update the version:</p>
+            <ol>
+                <li>Edit the <code>version-config.js</code> file</li>
+                <li>Update the version number, build date, and release notes</li>
+                <li>The changes will be reflected in the Help panel automatically</li>
+            </ol>
+        </div>
+
+        <div class="help-card">
+            <h4>Test Results</h4>
+            <div id="testResults">
+                <p>Testing version display functionality...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="version-config.js"></script>
+    <script>
+        // Test the version display functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const testResults = document.getElementById('testResults');
+            
+            setTimeout(() => {
+                const version = document.getElementById('appVersion').textContent;
+                const buildDate = document.getElementById('buildDate').textContent;
+                const lastUpdated = document.getElementById('lastUpdated').textContent;
+                
+                let results = '<ul>';
+                results += `<li>Version loaded: <strong>${version}</strong> ${version !== 'Loading...' ? '✅' : '❌'}</li>`;
+                results += `<li>Build date loaded: <strong>${buildDate}</strong> ${buildDate !== 'Loading...' ? '✅' : '❌'}</li>`;
+                results += `<li>Last updated loaded: <strong>${lastUpdated}</strong> ${lastUpdated !== 'Loading...' ? '✅' : '❌'}</li>`;
+                results += '</ul>';
+                
+                if (version !== 'Loading...' && buildDate !== 'Loading...' && lastUpdated !== 'Loading...') {
+                    results += '<p style="color: green; font-weight: bold;">✅ All version information loaded successfully!</p>';
+                } else {
+                    results += '<p style="color: red; font-weight: bold;">❌ Some version information failed to load.</p>';
+                }
+                
+                testResults.innerHTML = results;
+            }, 100);
+        });
+    </script>
+</body>
+</html>

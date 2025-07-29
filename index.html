@@ -50,12 +50,13 @@
                 <!-- Conversation Display -->
                 <div class="conversation-container">
                     <div id="conversation" class="conversation">
-                        <div class="bot-message">
-                            <div class="message-avatar">
-                                <i class="fas fa-robot"></i>
+                        <div class="bot-message" data-agent="DefaultAgent">
+                            <div class="message-avatar agent-avatar-defaultagent">
+                                <i class="fas fa-robot" style="color: #ffffff"></i>
                             </div>
                             <div class="message-content">
-                                Hello! I'm your AI voice assistant. How can I help you today?
+                                <div class="agent-label">Assistant</div>
+                                <div class="message-text">Hello! I'm your AI voice assistant. How can I help you today?</div>
                             </div>
                         </div>
                     </div>
@@ -584,6 +585,10 @@
                         <div class="debug-card">
                             <h4>System Logs</h4>
                             <div class="log-controls">
+                                <button class="log-btn toggle-btn" id="debugToggleBtn" onclick="toggleDebugConsole()">
+                                    <i class="fas fa-eye-slash"></i>
+                                    <span id="debugToggleText">Enable Debug</span>
+                                </button>
                                 <button class="log-btn" onclick="clearDebugLogs()">
                                     <i class="fas fa-trash"></i>
                                     Clear Logs
@@ -610,6 +615,24 @@
             </div>
             <div class="panel-content">
                 <div class="help-section">
+                    <!-- Version Information -->
+                    <div class="help-card version-info">
+                        <div class="version-header" onclick="toggleVersionDetails()">
+                            <h4><i class="fas fa-code-branch"></i> Version <span id="appVersion">v2.1.0</span></h4>
+                            <i class="fas fa-chevron-down version-toggle" id="versionToggle"></i>
+                        </div>
+                        <div class="version-details" id="versionDetails" style="display: none;">
+                            <div class="version-item">
+                                <span class="version-label">Build Date:</span>
+                                <span class="version-value" id="buildDate">2025-01-29</span>
+                            </div>
+                            <div class="version-item">
+                                <span class="version-label">Last Updated:</span>
+                                <span class="version-value" id="lastUpdated">Security & Performance Enhancements</span>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <h3>Getting Started</h3>
                     <div class="help-card">
                         <h4>Basic Usage</h4>
@@ -649,7 +672,10 @@
     </div>
 
     <!-- Scripts -->
+    <script src="version-config.js"></script>
     <script src="debug-manager.js"></script>
+    <script src="system-logger.js"></script>
+    <script src="agent-icon-manager.js"></script>
     <script src="persona-manager.js"></script>
     <script src="system-prompts-manager.js"></script>
     <script src="token-tracker.js"></script>

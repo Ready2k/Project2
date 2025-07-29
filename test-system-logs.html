@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Logs Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .test-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s ease;
+        }
+        .test-btn.primary {
+            background: #007bff;
+            color: white;
+        }
+        .test-btn.primary:hover {
+            background: #0056b3;
+        }
+        .test-btn.secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .test-btn.secondary:hover {
+            background: #5a6268;
+        }
+        .test-btn.danger {
+            background: #dc3545;
+            color: white;
+        }
+        .test-btn.danger:hover {
+            background: #c82333;
+        }
+        .test-btn.warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        .test-btn.warning:hover {
+            background: #e0a800;
+        }
+        .debug-output {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            max-height: 400px;
+            overflow-y: auto;
+            line-height: 1.4;
+        }
+        .log-entry {
+            padding: 4px 8px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        .log-time {
+            color: #666;
+            font-weight: bold;
+            min-width: 70px;
+            flex-shrink: 0;
+        }
+        .log-module {
+            color: #007bff;
+            font-weight: bold;
+            min-width: 80px;
+            flex-shrink: 0;
+        }
+        .log-message {
+            color: #333;
+            flex: 1;
+            word-break: break-word;
+        }
+        .log-entry.log-info {
+            background: #f8f9fa;
+        }
+        .log-entry.log-warn {
+            background: #fff3cd;
+            border-left: 3px solid #ffc107;
+        }
+        .log-entry.log-warn .log-module {
+            color: #856404;
+        }
+        .log-entry.log-error {
+            background: #f8d7da;
+            border-left: 3px solid #dc3545;
+        }
+        .log-entry.log-error .log-module {
+            color: #721c24;
+        }
+        .log-entry.log-debug {
+            background: #e2e3e5;
+            border-left: 3px solid #6c757d;
+        }
+        .log-entry.log-debug .log-module {
+            color: #495057;
+        }
+        .log-entry.system-info {
+            background: #d1ecf1;
+            border-left: 3px solid #17a2b8;
+            font-style: italic;
+        }
+        .log-entry.system-info .log-module {
+            color: #0c5460;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>📋 System Logs Test</h1>
+        <p>This page tests the system logging functionality that captures and displays system events.</p>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="totalLogs">0</div>
+                <div class="stat-label">Total Logs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="errorCount">0</div>
+                <div class="stat-label">Errors</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="warningCount">0</div>
+                <div class="stat-label">Warnings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="infoCount">0</div>
+                <div class="stat-label">Info</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="test-btn primary" onclick="testInfoLog()">
+                📝 Test Info Log
+            </button>
+            <button class="test-btn warning" onclick="testWarningLog()">
+                ⚠️ Test Warning Log
+            </button>
+            <button class="test-btn danger" onclick="testErrorLog()">
+                ❌ Test Error Log
+            </button>
+            <button class="test-btn secondary" onclick="testUserAction()">
+                👤 Test User Action
+            </button>
+            <button class="test-btn secondary" onclick="testSystemEvent()">
+                🔧 Test System Event
+            </button>
+            <button class="test-btn secondary" onclick="testAPICall()">
+                🌐 Test API Call
+            </button>
+            <button class="test-btn secondary" onclick="testPerformance()">
+                ⚡ Test Performance Log
+            </button>
+            <button class="test-btn secondary" onclick="testSecurity()">
+                🔒 Test Security Log
+            </button>
+            <button class="test-btn secondary" onclick="triggerJSError()">
+                💥 Trigger JS Error
+            </button>
+            <button class="test-btn secondary" onclick="triggerPromiseRejection()">
+                🚫 Trigger Promise Rejection
+            </button>
+            <button class="test-btn secondary" onclick="clearLogs()">
+                🗑️ Clear Logs
+            </button>
+            <button class="test-btn secondary" onclick="exportLogs()">
+                💾 Export Logs
+            </button>
+        </div>
+        
+        <h3>System Logs Output:</h3>
+        <div id="systemLogs" class="debug-output">
+            System logger initializing...
+        </div>
+    </div>
+
+    <!-- Load system logger -->
+    <script src="debug-manager.js"></script>
+    <script src="system-logger.js"></script>
+    
+    <script>
+        // Test functions
+        function testInfoLog() {
+            window.systemLogger.info('TEST', 'This is a test info message');
+            updateStats();
+        }
+        
+        function testWarningLog() {
+            window.systemLogger.warn('TEST', 'This is a test warning message');
+            updateStats();
+        }
+        
+        function testErrorLog() {
+            window.systemLogger.error('TEST', 'This is a test error message');
+            updateStats();
+        }
+        
+        function testUserAction() {
+            window.systemLogger.logUserAction('Button Click', { button: 'Test Button', timestamp: new Date() });
+            updateStats();
+        }
+        
+        function testSystemEvent() {
+            window.systemLogger.logSystemEvent('Component Initialized', { component: 'TestComponent', version: '1.0.0' });
+            updateStats();
+        }
+        
+        function testAPICall() {
+            // Simulate an API call
+            fetch('https://jsonplaceholder.typicode.com/posts/1')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('API call successful');
+                    updateStats();
+                })
+                .catch(error => {
+                    console.error('API call failed:', error);
+                    updateStats();
+                });
+        }
+        
+        function testPerformance() {
+            const startTime = performance.now();
+            // Simulate some work
+            setTimeout(() => {
+                const duration = performance.now() - startTime;
+                window.systemLogger.logPerformance('Test Operation', duration, { operation: 'setTimeout test' });
+                updateStats();
+            }, 100);
+        }
+        
+        function testSecurity() {
+            window.systemLogger.logSecurity('Suspicious Activity Detected', { 
+                ip: '192.168.1.100', 
+                action: 'Multiple failed login attempts',
+                severity: 'medium'
+            });
+            updateStats();
+        }
+        
+        function triggerJSError() {
+            // This will trigger the window error handler
+            setTimeout(() => {
+                throw new Error('This is a test JavaScript error');
+            }, 100);
+        }
+        
+        function triggerPromiseRejection() {
+            // This will trigger the unhandled promise rejection handler
+            Promise.reject('This is a test promise rejection');
+        }
+        
+        function clearLogs() {
+            window.systemLogger.clear();
+            updateStats();
+        }
+        
+        function exportLogs() {
+            window.systemLogger.export();
+        }
+        
+        function updateStats() {
+            if (!window.systemLogger) return;
+            
+            const logs = window.systemLogger.logs;
+            const errorCount = logs.filter(log => log.level === 'error').length;
+            const warningCount = logs.filter(log => log.level === 'warn').length;
+            const infoCount = logs.filter(log => log.level === 'info').length;
+            
+            document.getElementById('totalLogs').textContent = logs.length;
+            document.getElementById('errorCount').textContent = errorCount;
+            document.getElementById('warningCount').textContent = warningCount;
+            document.getElementById('infoCount').textContent = infoCount;
+        }
+        
+        // Update stats periodically
+        setInterval(updateStats, 1000);
+        
+        // Initialize stats when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(updateStats, 500);
+        });
+    </script>
+</body>
+</html>

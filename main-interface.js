@@ -36,6 +36,11 @@ class MainInterfaceController {
         document.getElementById('clearConversationBtn').addEventListener('click', () => {
             if (window.speechApp && typeof window.speechApp.clearConversation === 'function') {
                 window.speechApp.clearConversation();
+                
+                // Log user action
+                if (window.systemLogger) {
+                    window.systemLogger.logUserAction('Cleared conversation', { source: 'main interface' });
+                }
             }
         });
 
@@ -86,6 +91,11 @@ class MainInterfaceController {
             overlay.classList.add('active');
             this.currentPanel = panelId;
             document.body.style.overflow = 'hidden';
+            
+            // Log user action
+            if (window.systemLogger) {
+                window.systemLogger.logUserAction(`Opened ${panelId}`, { panel: panelId });
+            }
         }
     }
 
@@ -98,6 +108,11 @@ class MainInterfaceController {
             overlay.classList.remove('active');
             this.currentPanel = null;
             document.body.style.overflow = '';
+            
+            // Log user action
+            if (window.systemLogger) {
+                window.systemLogger.logUserAction(`Closed ${panelId}`, { panel: panelId });
+            }
         }
     }
 
@@ -154,6 +169,13 @@ class MainInterfaceController {
 
     // Utility methods for integration with existing functionality
     updateAgentIndicator(agentName) {
+        // Use the agent icon manager if available
+        if (window.agentIconManager) {
+            window.agentIconManager.updateAgentIndicator(agentName);
+            return;
+        }
+        
+        // Fallback to old method
         const indicator = document.getElementById('currentAgent');
         if (indicator) {
             indicator.textContent = agentName;
@@ -294,6 +316,9 @@ function suggestPhrase(phrase) {
         if (typeof window.speechApp.processTextInput === 'function') {
             window.speechApp.processTextInput(phrase);
         }
+    } else if (window.agentIconManager) {
+        // Use agent icon manager for consistent styling
+        window.agentIconManager.addMessage(phrase, 'user');
     } else {
         // Fallback: just add to conversation display
         const conversation = document.getElementById('conversation');
@@ -304,7 +329,9 @@ function suggestPhrase(phrase) {
                 <div class="message-avatar">
                     <i class="fas fa-user"></i>
                 </div>
-                <div class="message-content">${phrase}</div>
+                <div class="message-content">
+                    <div class="message-text">${phrase}</div>
+                </div>
             `;
             conversation.appendChild(userMessage);
             conversation.scrollTop = conversation.scrollHeight;
@@ -313,13 +340,67 @@ function suggestPhrase(phrase) {
 }
 
 // Debug utility functions
+function toggleDebugConsole() {
+    if (window.debugManager) {
+        const isEnabled = window.debugManager.toggle();
+        updateDebugToggleButton(isEnabled);
+        
+        // Log the state change
+        if (isEnabled) {
+            console.log('🐛 Debug console logging enabled');
+        } else {
+            console.log('🔇 Debug console logging disabled');
+        }
+        
+        // Log user action
+        if (window.systemLogger) {
+            window.systemLogger.logUserAction(`Debug console ${isEnabled ? 'enabled' : 'disabled'}`, { 
+                debugEnabled: isEnabled 
+            });
+        }
+    } else {
+        console.warn('Debug manager not available');
+    }
+}
+
+function updateDebugToggleButton(isEnabled) {
+    const toggleBtn = document.getElementById('debugToggleBtn');
+    const toggleText = document.getElementById('debugToggleText');
+    const toggleIcon = toggleBtn.querySelector('i');
+    
+    if (isEnabled) {
+        toggleBtn.classList.add('active');
+        toggleText.textContent = 'Disable Debug';
+        toggleIcon.className = 'fas fa-eye';
+    } else {
+        toggleBtn.classList.remove('active');
+        toggleText.textContent = 'Enable Debug';
+        toggleIcon.className = 'fas fa-eye-slash';
+    }
+}
+
 function clearDebugLogs() {
+    // Clear system logs specifically
+    if (window.systemLogger) {
+        window.systemLogger.clear();
+    }
+    
+    // Clear other debug outputs
     document.querySelectorAll('.debug-output').forEach(output => {
-        output.textContent = 'Logs cleared...';
+        if (output.id !== 'systemLogs') {
+            output.textContent = 'Logs cleared...';
+        }
     });
 }
 
 function exportDebugLogs() {
+    // Export system logs if available
+    if (window.systemLogger) {
+        window.systemLogger.export();
+        return;
+    }
+    
+    // Fallback to old method
     const logs = {};
     document.querySelectorAll('.debug-output').forEach(output => {
         const section = output.id;
@@ -373,8 +454,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (updateTokensBtn) {
         updateTokensBtn.addEventListener('click', () => {
             if (window.speechApp && window.speechApp.tokenTracker) {
-                const stats = window.speechApp.tokenTracker.getUsageStats();
+                const usage = window.speechApp.tokenTracker.getUsage();
+                // Convert usage data to the format expected by updateTokenStats
+                const stats = {
+                    whisper: usage.whisper.requests,
+                    gpt: usage.gpt.tokens,
+                    tts: usage.tts.characters,
+                    total: `$${usage.total.toFixed(4)}`,
+                    whisperCost: `$${usage.whisper.cost.toFixed(4)}`,
+                    gptCost: `$${usage.gpt.cost.toFixed(4)}`,
+                    ttsCost: `$${usage.tts.cost.toFixed(4)}`
+                };
                 window.mainInterface.updateTokenStats(stats);
+            } else {
+                console.warn('TokenTracker not available');
             }
         });
     }
@@ -382,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (resetTokensBtn) {
         resetTokensBtn.addEventListener('click', () => {
             if (window.speechApp && window.speechApp.tokenTracker) {
-                window.speechApp.tokenTracker.reset();
+                window.speechApp.tokenTracker.resetUsage();
                 window.mainInterface.updateTokenStats({
                     whisper: '0',
                     gpt: '0',
@@ -392,6 +485,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     gptCost: '$0.00',
                     ttsCost: '$0.00'
                 });
+            } else {
+                console.warn('TokenTracker not available');
             }
         });
     }
@@ -405,6 +500,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.speechApp.setApiKey(apiKey);
                 document.getElementById('apiStatus').innerHTML = 
                     '<span class="status-indicator" style="background: #d4edda; color: #155724;">API Key Saved</span>';
+            }
+        });
+    }
+    
+    // Initialize debug toggle button state
+    if (window.debugManager) {
+        updateDebugToggleButton(window.debugManager.isEnabled());
+    }
+    
+    // Log system initialization
+    if (window.systemLogger) {
+        window.systemLogger.logSystemEvent('Main interface controller initialized', {
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            viewport: {
+                width: window.innerWidth,
+                height: window.innerHeight
             }
         });
     }

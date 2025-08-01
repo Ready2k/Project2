@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integration Test - Main Page Error Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .test-card {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.pass { background: #d4edda; color: #155724; }
+        .status.fail { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .console-log {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Integration Test - Main Page Error Fix</h1>
+    
+    <div class="test-card">
+        <h2>Test Environment</h2>
+        <div id="environment-info">
+            <p><strong>User Agent:</strong> <span id="userAgent"></span></p>
+            <p><strong>Page URL:</strong> <span id="pageUrl"></span></p>
+            <p><strong>Test Time:</strong> <span id="testTime"></span></p>
+        </div>
+    </div>
+
+    <div class="test-card">
+        <h2>Function Availability Test</h2>
+        <div id="function-test-results"></div>
+        <button onclick="testFunctionAvailability()">Run Function Tests</button>
+    </div>
+
+    <div class="test-card">
+        <h2>DOM Element Check Test</h2>
+        <div id="dom-test-results"></div>
+        <button onclick="testDOMChecks()">Run DOM Tests</button>
+    </div>
+
+    <div class="test-card">
+        <h2>Error Handling Test</h2>
+        <div id="error-test-results"></div>
+        <button onclick="testErrorHandling()">Run Error Tests</button>
+    </div>
+
+    <div class="test-card">
+        <h2>Console Output Monitor</h2>
+        <div class="console-log" id="console-monitor"></div>
+        <button onclick="clearConsoleMonitor()">Clear Monitor</button>
+    </div>
+
+    <div class="test-card">
+        <h2>Overall Test Results</h2>
+        <div id="overall-results">
+            <div class="status info">Tests not yet run</div>
+        </div>
+        <button onclick="runAllTests()">🚀 Run All Tests</button>
+    </div>
+
+    <!-- Load the LLM Manager JavaScript -->
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+
+    <script>
+        let testResults = [];
+        let consoleMessages = [];
+
+        // Setup console monitoring
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn,
+            debug: console.debug
+        };
+
+        function setupConsoleMonitoring() {
+            const monitor = document.getElementById('console-monitor');
+            
+            ['log', 'error', 'warn', 'debug'].forEach(method => {
+                console[method] = function(...args) {
+                    const message = args.join(' ');
+                    const timestamp = new Date().toLocaleTimeString();
+                    const logEntry = `[${timestamp}] ${method.toUpperCase()}: ${message}`;
+                    
+                    consoleMessages.push({ method, message, timestamp });
+                    
+                    const div = document.createElement('div');
+                    div.style.color = getConsoleColor(method);
+                    div.textContent = logEntry;
+                    monitor.appendChild(div);
+                    monitor.scrollTop = monitor.scrollHeight;
+                    
+                    originalConsole[method].apply(console, args);
+                };
+            });
+        }
+
+        function getConsoleColor(method) {
+            const colors = {
+                log: '#e2e8f0',
+                error: '#fc8181',
+                warn: '#f6e05e',
+                debug: '#90cdf4'
+            };
+            return colors[method] || '#e2e8f0';
+        }
+
+        function addTestResult(testName, passed, message) {
+            testResults.push({ testName, passed, message, timestamp: new Date() });
+        }
+
+        function displayResult(containerId, testName, passed, message) {
+            const container = document.getElementById(containerId);
+            const status = document.createElement('div');
+            status.className = `status ${passed ? 'pass' : 'fail'}`;
+            status.innerHTML = `<strong>${testName}:</strong> ${message}`;
+            container.appendChild(status);
+        }
+
+        function testFunctionAvailability() {
+            const container = document.getElementById('function-test-results');
+            container.innerHTML = '';
+
+            // Test 1: Check if generateAgentPromptCards exists
+            const hasGenerateFunction = typeof generateAgentPromptCards === 'function';
+            displayResult('function-test-results', 'generateAgentPromptCards', hasGenerateFunction, 
+                hasGenerateFunction ? 'Function is available' : 'Function not found');
+            addTestResult('generateAgentPromptCards availability', hasGenerateFunction, 
+                hasGenerateFunction ? 'Available' : 'Not found');
+
+            // Test 2: Check if initializePromptsSection exists
+            const hasInitFunction = typeof initializePromptsSection === 'function';
+            displayResult('function-test-results', 'initializePromptsSection', hasInitFunction,
+                hasInitFunction ? 'Function is available' : 'Function not found');
+            addTestResult('initializePromptsSection availability', hasInitFunction,
+                hasInitFunction ? 'Available' : 'Not found');
+
+            // Test 3: Check if LLMManagerAdminUI class exists
+            const hasClass = typeof LLMManagerAdminUI === 'function';
+            displayResult('function-test-results', 'LLMManagerAdminUI class', hasClass,
+                hasClass ? 'Class is available' : 'Class not found');
+            addTestResult('LLMManagerAdminUI class availability', hasClass,
+                hasClass ? 'Available' : 'Not found');
+        }
+
+        function testDOMChecks() {
+            const container = document.getElementById('dom-test-results');
+            container.innerHTML = '';
+
+            // Test 1: Verify agents-prompts-grid doesn't exist (as expected)
+            const gridExists = document.getElementById('agents-prompts-grid') !== null;
+            displayResult('dom-test-results', 'agents-prompts-grid element', !gridExists,
+                gridExists ? 'Element unexpectedly found' : 'Element correctly not found (expected)');
+            addTestResult('DOM element check', !gridExists, 
+                gridExists ? 'Unexpected element found' : 'Element correctly absent');
+
+            // Test 2: Check if functions handle missing DOM gracefully
+            displayResult('dom-test-results', 'DOM handling', true,
+                'Functions should handle missing DOM elements gracefully');
+        }
+
+        async function testErrorHandling() {
+            const container = document.getElementById('error-test-results');
+            container.innerHTML = '';
+
+            let errorCount = 0;
+            const initialErrorCount = consoleMessages.filter(msg => msg.method === 'error').length;
+
+            try {
+                // Test 1: Call generateAgentPromptCards without required DOM
+                if (typeof generateAgentPromptCards === 'function') {
+                    await generateAgentPromptCards();
+                    displayResult('error-test-results', 'generateAgentPromptCards error handling', true,
+                        'Function executed without throwing errors');
+                    addTestResult('generateAgentPromptCards error handling', true, 'No errors thrown');
+                } else {
+                    displayResult('error-test-results', 'generateAgentPromptCards error handling', false,
+                        'Function not available for testing');
+                }
+
+                // Test 2: Call initializePromptsSection without required DOM
+                if (typeof initializePromptsSection === 'function') {
+                    await initializePromptsSection();
+                    displayResult('error-test-results', 'initializePromptsSection error handling', true,
+                        'Function executed without throwing errors');
+                    addTestResult('initializePromptsSection error handling', true, 'No errors thrown');
+                } else {
+                    displayResult('error-test-results', 'initializePromptsSection error handling', false,
+                        'Function not available for testing');
+                }
+
+                // Test 3: Check if any new console errors were generated
+                const finalErrorCount = consoleMessages.filter(msg => msg.method === 'error').length;
+                const newErrors = finalErrorCount - initialErrorCount;
+                const noNewErrors = newErrors === 0;
+                
+                displayResult('error-test-results', 'Console error check', noNewErrors,
+                    noNewErrors ? 'No new console errors generated' : `${newErrors} new console errors found`);
+                addTestResult('Console error check', noNewErrors, 
+                    noNewErrors ? 'Clean' : `${newErrors} new errors`);
+
+            } catch (error) {
+                displayResult('error-test-results', 'Exception handling', false,
+                    `Unexpected exception: ${error.message}`);
+                addTestResult('Exception handling', false, error.message);
+            }
+        }
+
+        async function runAllTests() {
+            const overallContainer = document.getElementById('overall-results');
+            overallContainer.innerHTML = '<div class="status info">Running all tests...</div>';
+
+            testResults = [];
+            
+            // Run all test suites
+            testFunctionAvailability();
+            testDOMChecks();
+            await testErrorHandling();
+
+            // Wait a moment for any async operations
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Calculate overall results
+            const totalTests = testResults.length;
+            const passedTests = testResults.filter(result => result.passed).length;
+            const failedTests = totalTests - passedTests;
+
+            // Check for critical errors
+            const criticalErrors = consoleMessages.filter(msg => 
+                msg.method === 'error' && msg.message.includes('Agents prompts grid not found')
+            );
+
+            const overallPassed = failedTests === 0 && criticalErrors.length === 0;
+
+            overallContainer.innerHTML = '';
+            const overallStatus = document.createElement('div');
+            overallStatus.className = `status ${overallPassed ? 'pass' : 'fail'}`;
+            overallStatus.innerHTML = `
+                <strong>Overall Result:</strong> ${overallPassed ? 'PASS' : 'FAIL'}<br>
+                <strong>Tests Passed:</strong> ${passedTests}/${totalTests}<br>
+                <strong>Critical Errors:</strong> ${criticalErrors.length}<br>
+                <strong>Status:</strong> ${overallPassed ? 'Main page error fix is working correctly!' : 'Issues detected - review test results'}
+            `;
+            overallContainer.appendChild(overallStatus);
+
+            // Add detailed breakdown
+            if (!overallPassed) {
+                const details = document.createElement('div');
+                details.className = 'status info';
+                details.innerHTML = '<strong>Failed Tests:</strong><br>' + 
+                    testResults.filter(r => !r.passed).map(r => `• ${r.testName}: ${r.message}`).join('<br>');
+                overallContainer.appendChild(details);
+            }
+        }
+
+        function clearConsoleMonitor() {
+            document.getElementById('console-monitor').innerHTML = '';
+            consoleMessages = [];
+        }
+
+        // Initialize page
+        window.addEventListener('load', () => {
+            // Set environment info
+            document.getElementById('userAgent').textContent = navigator.userAgent;
+            document.getElementById('pageUrl').textContent = window.location.href;
+            document.getElementById('testTime').textContent = new Date().toLocaleString();
+
+            // Setup console monitoring
+            setupConsoleMonitoring();
+
+            // Auto-run tests after a short delay
+            setTimeout(() => {
+                console.log('Integration test page loaded - running automatic tests...');
+                runAllTests();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test System Prompts Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>System Prompts Fix Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="test-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>System Prompts Manager Test</h2>
+        <button onclick="testSystemPromptsManager()">Test SystemPromptsManager</button>
+        <div id="system-prompts-test"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Admin UI Functions Test</h2>
+        <button onclick="testAdminUIFunctions()">Test Admin UI Functions</button>
+        <div id="admin-ui-test"></div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+    
+    <script>
+        function addTestResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.textContent = message;
+            container.appendChild(div);
+        }
+        
+        async function testSystemPromptsManager() {
+            const container = document.getElementById('system-prompts-test');
+            container.innerHTML = '';
+            
+            try {
+                // Test 1: Check if SystemPromptsManager is available
+                if (typeof SystemPromptsManager === 'undefined') {
+                    addTestResult('system-prompts-test', '❌ SystemPromptsManager not available', 'error');
+                    return;
+                }
+                addTestResult('system-prompts-test', '✅ SystemPromptsManager is available', 'success');
+                
+                // Test 2: Initialize SystemPromptsManager
+                const manager = new SystemPromptsManager();
+                await manager.init();
+                addTestResult('system-prompts-test', '✅ SystemPromptsManager initialized successfully', 'success');
+                
+                // Test 3: Get all prompts
+                const prompts = manager.getAllPrompts();
+                if (prompts && typeof prompts === 'object') {
+                    addTestResult('system-prompts-test', `✅ Retrieved prompts with ${Object.keys(prompts).length} properties`, 'success');
+                    
+                    // Test 4: Check required fields
+                    const requiredFields = ['basePersonality', 'financialContext', 'responseInstructions'];
+                    let allFieldsPresent = true;
+                    
+                    requiredFields.forEach(field => {
+                        if (prompts[field]) {
+                            addTestResult('system-prompts-test', `✅ ${field}: ${prompts[field].substring(0, 50)}...`, 'success');
+                        } else {
+                            addTestResult('system-prompts-test', `❌ Missing field: ${field}`, 'error');
+                            allFieldsPresent = false;
+                        }
+                    });
+                    
+                    if (allFieldsPresent) {
+                        addTestResult('system-prompts-test', '✅ All required fields are present', 'success');
+                    }
+                } else {
+                    addTestResult('system-prompts-test', '❌ Failed to retrieve prompts', 'error');
+                }
+                
+            } catch (error) {
+                addTestResult('system-prompts-test', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function testAdminUIFunctions() {
+            const container = document.getElementById('admin-ui-test');
+            container.innerHTML = '';
+            
+            try {
+                // Test 1: Check if admin UI functions are available
+                const functions = [
+                    'initializePromptsSection',
+                    'loadAgentPromptsGrid',
+                    'getAvailableAgents',
+                    'createAgentPromptCard',
+                    'saveAgentPrompts',
+                    'resetAgentPrompts'
+                ];
+                
+                functions.forEach(funcName => {
+                    if (typeof window[funcName] === 'function') {
+                        addTestResult('admin-ui-test', `✅ ${funcName} is available`, 'success');
+                    } else {
+                        addTestResult('admin-ui-test', `❌ ${funcName} is not available`, 'error');
+                    }
+                });
+                
+                // Test 2: Test getAvailableAgents
+                if (typeof getAvailableAgents === 'function') {
+                    const agents = getAvailableAgents();
+                    if (Array.isArray(agents) && agents.length > 0) {
+                        addTestResult('admin-ui-test', `✅ getAvailableAgents returned ${agents.length} agents`, 'success');
+                        agents.forEach(agent => {
+                            addTestResult('admin-ui-test', `  - ${agent.name}`, 'info');
+                        });
+                    } else {
+                        addTestResult('admin-ui-test', '❌ getAvailableAgents returned no agents', 'error');
+                    }
+                }
+                
+            } catch (error) {
+                addTestResult('admin-ui-test', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Run initial tests
+        document.addEventListener('DOMContentLoaded', () => {
+            addTestResult('test-results', 'Page loaded successfully', 'success');
+            addTestResult('test-results', 'Click the test buttons above to run specific tests', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSP Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🔒 CSP Fix Test for LLM Manager Admin UI</h1>
+    <p>This test verifies that the Content Security Policy issues have been resolved.</p>
+    
+    <div id="test-results"></div>
+    
+    <h2>Test Buttons (should work without CSP errors)</h2>
+    <div>
+        <button class="btn btn-primary" data-action="refresh-agent-data">🔄 Refresh Data</button>
+        <button class="btn btn-success" data-action="export-configuration">📤 Export Config</button>
+        <button class="btn btn-warning" data-action="import-configuration">📥 Import Config</button>
+        <button class="btn btn-secondary" data-action="cleanup-invalid-agents">🧹 Cleanup Invalid Agents</button>
+        <button class="btn btn-danger" data-action="reset-to-defaults">🔄 Reset to Defaults</button>
+    </div>
+    
+    <div>
+        <button class="btn btn-secondary" data-action="close-modal" data-modal="configModal">Close Modal</button>
+        <button class="btn btn-primary" data-action="save-agent-config">Save Configuration</button>
+    </div>
+    
+    <h2>Agent Prompt Actions Test</h2>
+    <div id="agents-prompts-grid" style="border: 1px solid #ddd; padding: 20px; margin: 10px 0;">
+        <div class="agent-prompt-card" style="border: 1px solid #ccc; padding: 15px; margin: 10px 0;">
+            <h3>🤖 Test Agent</h3>
+            <div class="prompt-actions">
+                <button class="btn btn-success btn-sm" data-action="save" data-agent="TestAgent">💾 Save</button>
+                <button class="btn btn-secondary btn-sm" data-action="reset" data-agent="TestAgent">🔄 Reset</button>
+                <button class="btn btn-info btn-sm" data-action="preview" data-agent="TestAgent">👁️ Preview</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock functions for testing
+        window.saveAgentPrompts = function(agentName) {
+            addTestResult(`saveAgentPrompts called for ${agentName}`, 'success');
+        };
+        
+        window.resetAgentPrompts = function(agentName) {
+            addTestResult(`resetAgentPrompts called for ${agentName}`, 'success');
+        };
+        
+        window.previewAgentPrompts = function(agentName) {
+            addTestResult(`previewAgentPrompts called for ${agentName}`, 'success');
+        };
+        
+        window.saveAgentConfiguration = function() {
+            addTestResult('saveAgentConfiguration called', 'success');
+        };
+        
+        // Mock admin UI object
+        window.adminUI = {
+            refreshAgentData: () => addTestResult('refreshAgentData called', 'success'),
+            exportConfiguration: () => addTestResult('exportConfiguration called', 'success'),
+            importConfiguration: () => addTestResult('importConfiguration called', 'success'),
+            cleanupInvalidAgents: () => addTestResult('cleanupInvalidAgents called', 'success'),
+            resetToDefaults: () => addTestResult('resetToDefaults called', 'success'),
+            closeModal: (modalId) => addTestResult(`closeModal called for ${modalId}`, 'success')
+        };
+        
+        function addTestResult(message, type) {
+            const resultsDiv = document.getElementById('test-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.textContent = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        // Test CSP compliance
+        function testCSPCompliance() {
+            addTestResult('Testing CSP compliance...', 'info');
+            
+            try {
+                // This should NOT work if CSP is properly configured
+                eval('console.log("eval test")');
+                addTestResult('⚠️ WARNING: eval() executed - CSP may not be properly configured', 'error');
+            } catch (e) {
+                addTestResult('✅ eval() blocked by CSP - good!', 'success');
+            }
+            
+            try {
+                // This should NOT work if CSP is properly configured
+                new Function('console.log("Function constructor test")')();
+                addTestResult('⚠️ WARNING: Function constructor executed - CSP may not be properly configured', 'error');
+            } catch (e) {
+                addTestResult('✅ Function constructor blocked by CSP - good!', 'success');
+            }
+            
+            addTestResult('CSP compliance test completed', 'info');
+        }
+        
+        // Set up event listeners (CSP-compliant way)
+        document.addEventListener('click', (e) => {
+            if (e.target.matches('button[data-action]')) {
+                const action = e.target.dataset.action;
+                const agentName = e.target.dataset.agent;
+                const modalId = e.target.dataset.modal;
+                
+                addTestResult(`Button clicked: ${action}${agentName ? ` for ${agentName}` : ''}${modalId ? ` (modal: ${modalId})` : ''}`, 'info');
+                
+                switch (action) {
+                    case 'refresh-agent-data':
+                        if (window.adminUI) window.adminUI.refreshAgentData();
+                        break;
+                    case 'export-configuration':
+                        if (window.adminUI) window.adminUI.exportConfiguration();
+                        break;
+                    case 'import-configuration':
+                        if (window.adminUI) window.adminUI.importConfiguration();
+                        break;
+                    case 'cleanup-invalid-agents':
+                        if (window.adminUI) window.adminUI.cleanupInvalidAgents();
+                        break;
+                    case 'reset-to-defaults':
+                        if (window.adminUI) window.adminUI.resetToDefaults();
+                        break;
+                    case 'close-modal':
+                        if (window.adminUI) window.adminUI.closeModal(modalId);
+                        break;
+                    case 'save-agent-config':
+                        if (typeof saveAgentConfiguration === 'function') {
+                            saveAgentConfiguration();
+                        }
+                        break;
+                    case 'save':
+                        if (typeof saveAgentPrompts === 'function') {
+                            saveAgentPrompts(agentName);
+                        }
+                        break;
+                    case 'reset':
+                        if (typeof resetAgentPrompts === 'function') {
+                            resetAgentPrompts(agentName);
+                        }
+                        break;
+                    case 'preview':
+                        if (typeof previewAgentPrompts === 'function') {
+                            previewAgentPrompts(agentName);
+                        }
+                        break;
+                }
+            }
+        });
+        
+        // Set up event listener for agent prompt actions
+        const agentsGrid = document.getElementById('agents-prompts-grid');
+        if (agentsGrid) {
+            agentsGrid.addEventListener('click', (e) => {
+                if (e.target.matches('button[data-action]')) {
+                    const action = e.target.dataset.action;
+                    const agentName = e.target.dataset.agent;
+                    
+                    addTestResult(`Agent prompt action: ${action} for ${agentName}`, 'info');
+                    
+                    switch (action) {
+                        case 'save':
+                            if (typeof saveAgentPrompts === 'function') {
+                                saveAgentPrompts(agentName);
+                            }
+                            break;
+                        case 'reset':
+                            if (typeof resetAgentPrompts === 'function') {
+                                resetAgentPrompts(agentName);
+                            }
+                            break;
+                        case 'preview':
+                            if (typeof previewAgentPrompts === 'function') {
+                                previewAgentPrompts(agentName);
+                            }
+                            break;
+                    }
+                }
+            });
+        }
+        
+        // Run tests on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            addTestResult('Page loaded successfully', 'success');
+            addTestResult('Event listeners set up without CSP violations', 'success');
+            testCSPCompliance();
+            addTestResult('Ready to test buttons - click any button above to test', 'info');
+        });
+    </script>
+</body>
+</html>

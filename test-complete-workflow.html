@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Workflow Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-step {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .test-step.success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        .test-step.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .test-step.warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+        .test-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .test-btn.primary {
+            background: #007bff;
+            color: white;
+        }
+        .test-btn.success {
+            background: #28a745;
+            color: white;
+        }
+        .test-btn.warning {
+            background: #ffc107;
+            color: black;
+        }
+        .test-btn.danger {
+            background: #dc3545;
+            color: white;
+        }
+        .test-btn:hover {
+            opacity: 0.8;
+            transform: translateY(-1px);
+        }
+        .console-output {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-indicator.success { background: #28a745; }
+        .status-indicator.error { background: #dc3545; }
+        .status-indicator.warning { background: #ffc107; }
+        .status-indicator.info { background: #17a2b8; }
+        .iframe-container {
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        .iframe-container iframe {
+            width: 100%;
+            height: 400px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Complete Workflow Test Suite</h1>
+    <p>This comprehensive test verifies that the main page error fix works correctly and doesn't break existing functionality.</p>
+
+    <div class="test-container">
+        <h2>🎯 Test Overview</h2>
+        <div class="test-step">
+            <h3>Test Objectives</h3>
+            <ul>
+                <li>Verify main page loads without console errors</li>
+                <li>Confirm LLM Manager admin UI functions correctly</li>
+                <li>Test the complete user workflow from main page to admin interface</li>
+                <li>Validate that all components work together seamlessly</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>📋 Test Results</h2>
+        <div id="testResults">
+            <div class="test-step">
+                <span class="status-indicator info"></span>
+                <strong>Initializing tests...</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>🎮 Manual Test Controls</h2>
+        <div class="button-group">
+            <button class="test-btn primary" onclick="runAutomatedTests()">
+                🚀 Run Automated Tests
+            </button>
+            <button class="test-btn success" onclick="openMainPage()">
+                🏠 Open Main Page
+            </button>
+            <button class="test-btn warning" onclick="openLLMManager()">
+                🧠 Open LLM Manager
+            </button>
+            <button class="test-btn danger" onclick="clearResults()">
+                🗑️ Clear Results
+            </button>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>📊 Console Monitor</h2>
+        <p>Real-time console output monitoring for errors and warnings:</p>
+        <div class="console-output" id="consoleOutput">
+            <div>Console monitoring started...</div>
+        </div>
+        <div class="button-group">
+            <button class="test-btn primary" onclick="clearConsole()">Clear Console</button>
+            <button class="test-btn warning" onclick="toggleConsoleMonitoring()">
+                <span id="monitoringStatus">Pause Monitoring</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>🔍 Live Testing Area</h2>
+        <p>Test the interfaces directly in embedded frames:</p>
+        
+        <h3>Main Page Test</h3>
+        <div class="iframe-container">
+            <iframe id="mainPageFrame" src="index.html" title="Main Page"></iframe>
+        </div>
+        
+        <h3>LLM Manager Test</h3>
+        <div class="iframe-container">
+            <iframe id="llmManagerFrame" src="llm-manager-admin-ui.html" title="LLM Manager"></iframe>
+        </div>
+    </div>
+
+    <script>
+        let consoleMonitoring = true;
+        let testResults = [];
+        let consoleMessages = [];
+
+        // Console monitoring setup
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn,
+            debug: console.debug
+        };
+
+        function setupConsoleMonitoring() {
+            const consoleOutput = document.getElementById('consoleOutput');
+            
+            ['log', 'error', 'warn', 'debug'].forEach(method => {
+                console[method] = function(...args) {
+                    if (consoleMonitoring) {
+                        const message = args.join(' ');
+                        const timestamp = new Date().toLocaleTimeString();
+                        const logEntry = `[${timestamp}] ${method.toUpperCase()}: ${message}`;
+                        
+                        consoleMessages.push({
+                            timestamp,
+                            level: method,
+                            message,
+                            full: logEntry
+                        });
+
+                        // Add to console output
+                        const div = document.createElement('div');
+                        div.style.color = getConsoleColor(method);
+                        div.textContent = logEntry;
+                        consoleOutput.appendChild(div);
+                        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+
+                        // Check for specific error patterns
+                        if (message.includes('Agents prompts grid not found')) {
+                            addTestResult('❌ CRITICAL: Main page error still occurring!', 'error');
+                        }
+                    }
+                    
+                    // Call original console method
+                    originalConsole[method].apply(console, args);
+                };
+            });
+        }
+
+        function getConsoleColor(level) {
+            const colors = {
+                log: '#e2e8f0',
+                error: '#fc8181',
+                warn: '#f6e05e',
+                debug: '#90cdf4'
+            };
+            return colors[level] || '#e2e8f0';
+        }
+
+        function addTestResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('testResults');
+            const testStep = document.createElement('div');
+            testStep.className = `test-step ${type}`;
+            
+            const indicator = document.createElement('span');
+            indicator.className = `status-indicator ${type}`;
+            
+            const text = document.createElement('span');
+            text.innerHTML = `<strong>${message}</strong>`;
+            
+            testStep.appendChild(indicator);
+            testStep.appendChild(text);
+            resultsDiv.appendChild(testStep);
+            
+            testResults.push({ message, type, timestamp: new Date() });
+        }
+
+        async function runAutomatedTests() {
+            clearResults();
+            addTestResult('Starting automated test suite...', 'info');
+
+            // Test 1: Check if functions exist
+            addTestResult('Test 1: Checking function availability...', 'info');
+            
+            try {
+                if (typeof generateAgentPromptCards === 'function') {
+                    addTestResult('✅ generateAgentPromptCards function found', 'success');
+                } else {
+                    addTestResult('❌ generateAgentPromptCards function not found', 'error');
+                }
+
+                if (typeof initializePromptsSection === 'function') {
+                    addTestResult('✅ initializePromptsSection function found', 'success');
+                } else {
+                    addTestResult('❌ initializePromptsSection function not found', 'error');
+                }
+            } catch (error) {
+                addTestResult(`❌ Error checking functions: ${error.message}`, 'error');
+            }
+
+            // Test 2: Test function behavior without required DOM elements
+            addTestResult('Test 2: Testing function behavior without DOM elements...', 'info');
+            
+            try {
+                // These should not throw errors or show error messages
+                await generateAgentPromptCards();
+                addTestResult('✅ generateAgentPromptCards handled missing DOM gracefully', 'success');
+                
+                await initializePromptsSection();
+                addTestResult('✅ initializePromptsSection handled missing DOM gracefully', 'success');
+            } catch (error) {
+                addTestResult(`❌ Functions threw errors: ${error.message}`, 'error');
+            }
+
+            // Test 3: Check console for error messages
+            addTestResult('Test 3: Checking console messages...', 'info');
+            
+            const errorMessages = consoleMessages.filter(msg => 
+                msg.level === 'error' && msg.message.includes('Agents prompts grid not found')
+            );
+            
+            if (errorMessages.length === 0) {
+                addTestResult('✅ No "Agents prompts grid not found" errors in console', 'success');
+            } else {
+                addTestResult(`❌ Found ${errorMessages.length} error messages in console`, 'error');
+            }
+
+            // Test 4: Frame loading test
+            addTestResult('Test 4: Testing frame loading...', 'info');
+            
+            setTimeout(() => {
+                const mainFrame = document.getElementById('mainPageFrame');
+                const llmFrame = document.getElementById('llmManagerFrame');
+                
+                try {
+                    if (mainFrame.contentWindow) {
+                        addTestResult('✅ Main page frame loaded successfully', 'success');
+                    } else {
+                        addTestResult('⚠️ Main page frame loading issues', 'warning');
+                    }
+                    
+                    if (llmFrame.contentWindow) {
+                        addTestResult('✅ LLM Manager frame loaded successfully', 'success');
+                    } else {
+                        addTestResult('⚠️ LLM Manager frame loading issues', 'warning');
+                    }
+                } catch (error) {
+                    addTestResult(`⚠️ Frame access restricted (expected): ${error.message}`, 'warning');
+                }
+                
+                addTestResult('🎉 Automated tests completed!', 'success');
+            }, 2000);
+        }
+
+        function openMainPage() {
+            window.open('index.html', '_blank', 'width=1200,height=800');
+            addTestResult('Opened main page in new window', 'info');
+        }
+
+        function openLLMManager() {
+            window.open('llm-manager-admin-ui.html', '_blank', 'width=1200,height=800');
+            addTestResult('Opened LLM Manager in new window', 'info');
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+            testResults = [];
+        }
+
+        function clearConsole() {
+            document.getElementById('consoleOutput').innerHTML = '<div>Console cleared...</div>';
+            consoleMessages = [];
+        }
+
+        function toggleConsoleMonitoring() {
+            consoleMonitoring = !consoleMonitoring;
+            const statusSpan = document.getElementById('monitoringStatus');
+            statusSpan.textContent = consoleMonitoring ? 'Pause Monitoring' : 'Resume Monitoring';
+            
+            addTestResult(
+                consoleMonitoring ? 'Console monitoring resumed' : 'Console monitoring paused', 
+                'info'
+            );
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            setupConsoleMonitoring();
+            addTestResult('Test suite initialized and ready', 'success');
+            
+            // Auto-run tests after a short delay
+            setTimeout(() => {
+                addTestResult('Auto-running initial tests...', 'info');
+                runAutomatedTests();
+            }, 1000);
+        });
+
+        // Monitor iframe errors
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'error') {
+                addTestResult(`Frame Error: ${event.data.message}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

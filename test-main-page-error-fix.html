@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Main Page Error Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Main Page Error Fix Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Description</h2>
+        <p>This test verifies that the "Agents prompts grid not found" error no longer occurs when the LLM Manager admin UI JavaScript is loaded on the main page.</p>
+        <p><strong>Expected Result:</strong> No console errors related to agents-prompts-grid</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="testResults">Running tests...</div>
+        <div class="log" id="consoleLog"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Manual Verification</h2>
+        <p>1. Open browser developer tools (F12)</p>
+        <p>2. Check the Console tab for any errors</p>
+        <p>3. Look for the absence of "Agents prompts grid not found" error</p>
+        <button onclick="testLLMManagerFunctions()">Test LLM Manager Functions</button>
+    </div>
+
+    <!-- Load the same scripts as the main page -->
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+
+    <script>
+        // Capture console messages
+        const originalConsoleError = console.error;
+        const originalConsoleDebug = console.debug;
+        const logDiv = document.getElementById('consoleLog');
+        const resultsDiv = document.getElementById('testResults');
+        
+        let hasErrors = false;
+        let testMessages = [];
+
+        console.error = function(...args) {
+            const message = args.join(' ');
+            testMessages.push(`ERROR: ${message}`);
+            logDiv.innerHTML += `<div style="color: red;">ERROR: ${message}</div>`;
+            if (message.includes('Agents prompts grid not found')) {
+                hasErrors = true;
+            }
+            originalConsoleError.apply(console, args);
+        };
+
+        console.debug = function(...args) {
+            const message = args.join(' ');
+            testMessages.push(`DEBUG: ${message}`);
+            logDiv.innerHTML += `<div style="color: blue;">DEBUG: ${message}</div>`;
+            originalConsoleDebug.apply(console, args);
+        };
+
+        // Test function
+        async function testLLMManagerFunctions() {
+            testMessages = [];
+            hasErrors = false;
+            logDiv.innerHTML = '';
+            resultsDiv.innerHTML = 'Testing...';
+
+            try {
+                // Test the functions that were causing errors
+                if (typeof initializePromptsSection === 'function') {
+                    console.debug('Testing initializePromptsSection...');
+                    await initializePromptsSection();
+                }
+
+                if (typeof generateAgentPromptCards === 'function') {
+                    console.debug('Testing generateAgentPromptCards...');
+                    await generateAgentPromptCards();
+                }
+
+                // Wait a moment for any async operations
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Check results
+                if (hasErrors) {
+                    resultsDiv.innerHTML = '<div class="error">❌ Test FAILED: Errors still occur</div>';
+                } else {
+                    resultsDiv.innerHTML = '<div class="success">✅ Test PASSED: No errors detected</div>';
+                }
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Test FAILED: Exception thrown: ${error.message}</div>`;
+                console.error('Test exception:', error);
+            }
+        }
+
+        // Run test automatically when page loads
+        window.addEventListener('load', () => {
+            setTimeout(testLLMManagerFunctions, 500);
+        });
+    </script>
+</body>
+</html>

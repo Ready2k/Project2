@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Prompts Final Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .warning { background: #fff3cd; color: #856404; }
+        button { margin: 5px; padding: 8px 16px; }
+        #test-grid { border: 1px solid #ccc; min-height: 200px; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>System Prompts Final Test</h1>
+    
+    <div class="test-section">
+        <h2>Function Availability Test</h2>
+        <button onclick="testFunctionAvailability()">Test Functions</button>
+        <div id="function-test-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>System Prompts Grid Test</h2>
+        <button onclick="testSystemPromptsGrid()">Test Grid Population</button>
+        <div id="test-grid" class="agents-grid">
+            <!-- Test grid will be populated here -->
+        </div>
+        <div id="grid-test-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Manual Initialization</h2>
+        <button onclick="manualInit()">Manual Initialize</button>
+        <div id="manual-init-results"></div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+    
+    <script>
+        function addResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.innerHTML = message;
+            container.appendChild(div);
+        }
+        
+        function testFunctionAvailability() {
+            const container = document.getElementById('function-test-results');
+            container.innerHTML = '';
+            
+            const functions = [
+                'initializePromptsSection',
+                'loadAgentPromptsGrid', 
+                'getAvailableAgents',
+                'createAgentPromptCard',
+                'saveAgentPrompts',
+                'resetAgentPrompts',
+                'updatePromptPreview'
+            ];
+            
+            functions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    addResult('function-test-results', `✅ ${funcName} is available`, 'success');
+                } else {
+                    addResult('function-test-results', `❌ ${funcName} is missing`, 'error');
+                }
+            });
+            
+            // Test admin UI
+            if (window.adminUI) {
+                addResult('function-test-results', '✅ Admin UI is available', 'success');
+                if (window.adminUI.llmManager) {
+                    addResult('function-test-results', '✅ LLM Manager is available', 'success');
+                } else {
+                    addResult('function-test-results', '⚠️ LLM Manager not available', 'warning');
+                }
+            } else {
+                addResult('function-test-results', '⚠️ Admin UI not available', 'warning');
+            }
+        }
+        
+        function testSystemPromptsGrid() {
+            const container = document.getElementById('grid-test-results');
+            container.innerHTML = '';
+            
+            try {
+                // Create a mock grid element
+                const testGrid = document.getElementById('test-grid');
+                
+                // Temporarily set the ID to what the function expects
+                testGrid.id = 'agents-prompts-grid';
+                
+                // Test getting agents
+                const agents = getAvailableAgents();
+                addResult('grid-test-results', `Got ${agents.length} agents`, agents.length > 0 ? 'success' : 'error');
+                
+                // Test creating cards
+                agents.forEach(agent => {
+                    try {
+                        const card = createAgentPromptCard(agent);
+                        testGrid.appendChild(card);
+                        addResult('grid-test-results', `✅ Created card for ${agent.name}`, 'success');
+                    } catch (error) {
+                        addResult('grid-test-results', `❌ Error creating card for ${agent.name}: ${error.message}`, 'error');
+                    }
+                });
+                
+                // Restore original ID
+                testGrid.id = 'test-grid';
+                
+            } catch (error) {
+                addResult('grid-test-results', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function manualInit() {
+            const container = document.getElementById('manual-init-results');
+            container.innerHTML = '';
+            
+            try {
+                // Create the required elements
+                let promptsSection = document.getElementById('prompts-section');
+                if (!promptsSection) {
+                    promptsSection = document.createElement('div');
+                    promptsSection.id = 'prompts-section';
+                    document.body.appendChild(promptsSection);
+                    addResult('manual-init-results', 'Created prompts-section element', 'info');
+                }
+                
+                let agentsGrid = document.getElementById('agents-prompts-grid');
+                if (!agentsGrid) {
+                    agentsGrid = document.createElement('div');
+                    agentsGrid.id = 'agents-prompts-grid';
+                    agentsGrid.className = 'agents-grid';
+                    agentsGrid.style.border = '1px solid #ccc';
+                    agentsGrid.style.padding = '10px';
+                    agentsGrid.style.minHeight = '200px';
+                    container.appendChild(agentsGrid);
+                    addResult('manual-init-results', 'Created agents-prompts-grid element', 'info');
+                }
+                
+                // Now try to initialize
+                if (typeof initializePromptsSection === 'function') {
+                    initializePromptsSection();
+                    addResult('manual-init-results', '✅ initializePromptsSection called successfully', 'success');
+                } else {
+                    addResult('manual-init-results', '❌ initializePromptsSection not available', 'error');
+                }
+                
+            } catch (error) {
+                addResult('manual-init-results', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testFunctionAvailability();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

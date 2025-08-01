@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test System Prompts Fix V2</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .warning { background: #fff3cd; color: #856404; }
+        button { margin: 5px; padding: 8px 16px; }
+    </style>
+</head>
+<body>
+    <h1>System Prompts Fix Test V2</h1>
+    
+    <div class="test-section">
+        <h2>Quick Test</h2>
+        <button onclick="runQuickTest()">Run Quick Test</button>
+        <div id="quick-test-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Manual Test</h2>
+        <button onclick="testGetAvailableAgents()">Test getAvailableAgents()</button>
+        <button onclick="testInitializePromptsSection()">Test initializePromptsSection()</button>
+        <button onclick="testLoadAgentPromptsGrid()">Test loadAgentPromptsGrid()</button>
+        <div id="manual-test-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Debug Info</h2>
+        <button onclick="showDebugInfo()">Show Debug Info</button>
+        <div id="debug-info"></div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+    
+    <script>
+        function addResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-section ${type}`;
+            div.innerHTML = message;
+            container.appendChild(div);
+        }
+        
+        function runQuickTest() {
+            const container = document.getElementById('quick-test-results');
+            container.innerHTML = '';
+            
+            addResult('quick-test-results', 'Starting quick test...', 'info');
+            
+            // Test 1: Check if functions are available
+            const functions = ['getAvailableAgents', 'initializePromptsSection', 'loadAgentPromptsGrid'];
+            functions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    addResult('quick-test-results', `✅ ${funcName} is available`, 'success');
+                } else {
+                    addResult('quick-test-results', `❌ ${funcName} is not available`, 'error');
+                }
+            });
+            
+            // Test 2: Check if admin UI is available
+            if (window.adminUI) {
+                addResult('quick-test-results', '✅ Admin UI is available', 'success');
+                if (window.adminUI.llmManager) {
+                    addResult('quick-test-results', '✅ LLM Manager is available', 'success');
+                } else {
+                    addResult('quick-test-results', '⚠️ LLM Manager is not available', 'warning');
+                }
+            } else {
+                addResult('quick-test-results', '⚠️ Admin UI is not available', 'warning');
+            }
+            
+            // Test 3: Try to get agents
+            try {
+                const agents = getAvailableAgents();
+                if (agents && agents.length > 0) {
+                    addResult('quick-test-results', `✅ Got ${agents.length} agents: ${agents.map(a => a.name).join(', ')}`, 'success');
+                } else {
+                    addResult('quick-test-results', '❌ No agents returned', 'error');
+                }
+            } catch (error) {
+                addResult('quick-test-results', `❌ Error getting agents: ${error.message}`, 'error');
+            }
+        }
+        
+        function testGetAvailableAgents() {
+            const container = document.getElementById('manual-test-results');
+            container.innerHTML = '';
+            
+            try {
+                console.log('Testing getAvailableAgents...');
+                const agents = getAvailableAgents();
+                addResult('manual-test-results', `getAvailableAgents returned ${agents.length} agents`, 'success');
+                agents.forEach(agent => {
+                    addResult('manual-test-results', `- ${agent.name}: ${agent.config.description}`, 'info');
+                });
+            } catch (error) {
+                addResult('manual-test-results', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function testInitializePromptsSection() {
+            const container = document.getElementById('manual-test-results');
+            
+            // Create a mock agents-prompts-grid element
+            let grid = document.getElementById('agents-prompts-grid');
+            if (!grid) {
+                grid = document.createElement('div');
+                grid.id = 'agents-prompts-grid';
+                grid.style.border = '1px solid #ccc';
+                grid.style.padding = '10px';
+                grid.style.margin = '10px 0';
+                container.appendChild(grid);
+                addResult('manual-test-results', 'Created mock agents-prompts-grid element', 'info');
+            }
+            
+            try {
+                initializePromptsSection();
+                addResult('manual-test-results', 'initializePromptsSection completed successfully', 'success');
+            } catch (error) {
+                addResult('manual-test-results', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function testLoadAgentPromptsGrid() {
+            const container = document.getElementById('manual-test-results');
+            
+            // Create a mock agents-prompts-grid element
+            let grid = document.getElementById('agents-prompts-grid');
+            if (!grid) {
+                grid = document.createElement('div');
+                grid.id = 'agents-prompts-grid';
+                grid.style.border = '1px solid #ccc';
+                grid.style.padding = '10px';
+                grid.style.margin = '10px 0';
+                container.appendChild(grid);
+                addResult('manual-test-results', 'Created mock agents-prompts-grid element', 'info');
+            }
+            
+            try {
+                loadAgentPromptsGrid();
+                addResult('manual-test-results', 'loadAgentPromptsGrid completed successfully', 'success');
+                addResult('manual-test-results', `Grid now contains ${grid.children.length} child elements`, 'info');
+            } catch (error) {
+                addResult('manual-test-results', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function showDebugInfo() {
+            const container = document.getElementById('debug-info');
+            container.innerHTML = '';
+            
+            const info = {
+                'window.adminUI': !!window.adminUI,
+                'window.adminUI.llmManager': !!(window.adminUI && window.adminUI.llmManager),
+                'LLMManager class': typeof LLMManager,
+                'GuardrailsManager class': typeof GuardrailsManager,
+                'VoiceConfigManager class': typeof VoiceConfigManager,
+                'getAvailableAgents function': typeof getAvailableAgents,
+                'initializePromptsSection function': typeof initializePromptsSection,
+                'loadAgentPromptsGrid function': typeof loadAgentPromptsGrid
+            };
+            
+            Object.entries(info).forEach(([key, value]) => {
+                addResult('debug-info', `${key}: ${value}`, 'info');
+            });
+            
+            if (window.adminUI && window.adminUI.llmManager) {
+                try {
+                    const configs = window.adminUI.llmManager.getAgentConfigurations();
+                    addResult('debug-info', `LLM Manager configurations: ${JSON.stringify(Object.keys(configs))}`, 'info');
+                } catch (error) {
+                    addResult('debug-info', `Error getting LLM Manager configs: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        // Auto-run quick test when page loads
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                runQuickTest();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

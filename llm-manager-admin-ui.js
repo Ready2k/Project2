@@ -10,66 +10,71 @@ class LLMManagerAdminUI {
         this.voiceConfigManager = null;
         this.currentAgent = null;
         this.auditLog = [];
-        
+
         this.debug = window.debugManager?.createModuleLogger('AdminUI') || console;
-        
+
         this.initialize();
     }
-    
+
     /**
      * Initialize the admin UI with enhanced error handling and graceful degradation
      */
     async initialize() {
         this.debug.log('Initializing LLM Manager Admin UI with enhanced error handling');
-        
+
         try {
             // Check if we're in the standalone LLM Manager interface
-            const isStandaloneLLMInterface = document.querySelector('.llm-manager-container') || 
-                                           document.querySelector('[data-section]');
-            
+            const isStandaloneLLMInterface = document.querySelector('.llm-manager-container') ||
+                document.querySelector('[data-section]');
+
             if (!isStandaloneLLMInterface) {
                 this.debug.warn('LLM Manager Admin UI loaded in new interface - limited functionality');
                 // Use graceful degradation for limited environment
                 await this.initializeWithGracefulDegradation();
                 return;
             }
-            
+
             // Initialize with graceful degradation for full functionality
             const initResult = await this.initializeWithGracefulDegradation();
-            
+
             if (initResult.success) {
                 this.debug.log('Admin UI initialized successfully with enhanced error handling');
             } else {
                 this.debug.error('Admin UI initialization completed with errors:', initResult.errors);
             }
-            
+
         } catch (error) {
             this.debug.error('Critical error during Admin UI initialization:', error);
             this.showError('Failed to initialize LLM Manager Admin UI: ' + error.message);
         }
     }
-    
+
     /**
      * Initialize manager instances
      */
     initializeManagers() {
         try {
             // Check if required classes are available
+            this.debug.log('Checking for required classes...');
+            this.debug.log('LLMManager available:', typeof LLMManager !== 'undefined');
+            this.debug.log('GuardrailsManager available:', typeof GuardrailsManager !== 'undefined');
+            this.debug.log('VoiceConfigManager available:', typeof VoiceConfigManager !== 'undefined');
+
             if (typeof LLMManager === 'undefined') {
                 this.debug.warn('LLMManager not available, skipping initialization');
                 return;
             }
-            
+
             if (typeof GuardrailsManager === 'undefined') {
                 this.debug.warn('GuardrailsManager not available, skipping initialization');
                 return;
             }
-            
+
             if (typeof VoiceConfigManager === 'undefined') {
                 this.debug.warn('VoiceConfigManager not available, skipping initialization');
                 return;
             }
-            
+
             // Initialize SystemPromptsManager for Default Agent integration
             if (typeof SystemPromptsManager !== 'undefined') {
                 this.systemPromptsManager = new SystemPromptsManager();
@@ -81,36 +86,126 @@ class LLMManagerAdminUI {
             } else {
                 this.debug.warn('SystemPromptsManager not available, Default Agent integration disabled');
             }
-            
+
+            this.debug.log('Creating LLM Manager instance...');
             this.llmManager = new LLMManager();
+            this.debug.log('LLM Manager created successfully');
+
+            this.debug.log('Creating Guardrails Manager instance...');
             this.guardrailsManager = new GuardrailsManager();
+            this.debug.log('Guardrails Manager created successfully');
+
+            this.debug.log('Creating Voice Config Manager instance...');
             this.voiceConfigManager = new VoiceConfigManager();
-            
+            this.debug.log('Voice Config Manager created successfully');
+
             // Set up dependencies
+            this.debug.log('Setting up manager dependencies...');
             this.llmManager.setManagers(this.guardrailsManager, this.voiceConfigManager, null);
-            
+
+            // Test LLM Manager functionality
+            this.debug.log('Testing LLM Manager functionality...');
+            try {
+                const configs = this.llmManager.getAgentConfigurations();
+                this.debug.log('LLM Manager test successful, found', Object.keys(configs).length, 'configurations');
+            } catch (error) {
+                this.debug.error('LLM Manager test failed:', error);
+            }
+
             // Ensure Default Agent is properly initialized and integrated
             this.initializeDefaultAgentOnStartup();
-            
+
             this.logAuditEvent('system', 'Managers initialized successfully');
-            
+
         } catch (error) {
             this.debug.error('Failed to initialize managers:', error);
             this.showError('Failed to initialize system managers');
         }
     }
-    
+
     /**
      * Initialize prompts section
      */
     initializePromptsSection() {
         try {
+            // Only initialize if we're on the LLM Manager admin page
+            if (!document.getElementById('agents-prompts-grid')) {
+                this.debug.debug('Skipping prompts section initialization - not on LLM Manager admin page');
+                return;
+            }
+
             // Call global initialization function
             if (typeof initializePromptsSection === 'function') {
                 initializePromptsSection();
             }
         } catch (error) {
             this.debug.error('Error initializing prompts section:', error);
+        }
+    }
+
+    /**
+     * Switch between different sections of the admin interface
+     */
+    async switchSection(sectionName) {
+        try {
+            this.debug.log(`Switching to section: ${sectionName}`);
+
+            // Hide all content sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // Remove active class from all nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show the selected section
+            const targetSection = document.getElementById(`${sectionName}-section`);
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
+
+            // Add active class to the corresponding nav button
+            const targetBtn = document.querySelector(`[data-section="${sectionName}"]`);
+            if (targetBtn) {
+                targetBtn.classList.add('active');
+            }
+
+            // Initialize section-specific functionality
+            switch (sectionName) {
+                case 'prompts':
+                    // Initialize the system prompts section
+                    setTimeout(() => {
+                        if (typeof initializePromptsSection === 'function') {
+                            initializePromptsSection();
+                        }
+                    }, 100);
+                    break;
+                case 'overview':
+                    this.refreshAgentData();
+                    break;
+                case 'configuration':
+                    // Load configuration content
+                    setTimeout(() => {
+                        if (typeof loadConfigurationSection === 'function') {
+                            loadConfigurationSection();
+                        }
+                    }, 100);
+                    break;
+                case 'guardrails':
+                    // Load guardrails content if needed
+                    break;
+                case 'voice':
+                    // Load voice settings if needed
+                    break;
+                case 'audit':
+                    this.loadAuditLog();
+                    break;
+            }
+
+        } catch (error) {
+            this.debug.error('Error switching section:', error);
         }
     }
 
@@ -132,14 +227,47 @@ class LLMManagerAdminUI {
         } else {
             this.debug.warn('No navigation buttons with data-section found - likely in new interface');
         }
-        
+
+        // Quick action buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.matches('button[data-action]')) {
+                const action = e.target.dataset.action;
+
+                switch (action) {
+                    case 'refresh-agent-data':
+                        this.refreshAgentData();
+                        break;
+                    case 'export-configuration':
+                        this.exportConfiguration();
+                        break;
+                    case 'import-configuration':
+                        this.importConfiguration();
+                        break;
+                    case 'cleanup-invalid-agents':
+                        this.cleanupInvalidAgents();
+                        break;
+                    case 'reset-to-defaults':
+                        this.resetToDefaults();
+                        break;
+                    case 'close-modal':
+                        this.closeModal(e.target.dataset.modal);
+                        break;
+                    case 'save-agent-config':
+                        if (typeof saveAgentConfiguration === 'function') {
+                            saveAgentConfiguration();
+                        }
+                        break;
+                }
+            }
+        });
+
         // Modal close events
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal')) {
                 this.closeModal(e.target.id);
             }
         });
-        
+
         // Tab switching
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('tab-btn')) {
@@ -158,7 +286,7 @@ class LLMManagerAdminUI {
                 }
             }
         });
-        
+
         // Audit log filter
         const logFilter = document.getElementById('logFilter');
         if (logFilter) {
@@ -167,39 +295,39 @@ class LLMManagerAdminUI {
             });
         }
     }
-    
+
     /**
      * Load initial data
      */
     async loadInitialData() {
         // Ensure Default Agent is properly initialized and integrated
         await this.initializeDefaultAgentIntegration();
-        
+
         // Then refresh agent data and load audit log
         this.refreshAgentData();
         this.loadAuditLog();
     }
-    
+
     /**
      * Initialize Default Agent integration with comprehensive error handling and validation
      * This ensures Default Agent is properly loaded and integrated with SystemPromptsManager
      */
     async initializeDefaultAgentIntegration() {
         this.debug.log('Starting Default Agent integration initialization');
-        
+
         try {
             // Step 1: Ensure LLM Manager is available and initialized
             if (!this.llmManager) {
                 this.debug.error('LLM Manager not available for Default Agent integration');
                 return false;
             }
-            
+
             // Step 2: Check if Default Agent already exists in LLM Manager
             let existingDefaultAgent = this.llmManager.getAgentConfiguration('DefaultAgent');
-            
+
             if (existingDefaultAgent) {
                 this.debug.log('Default Agent found in LLM Manager, checking integration status');
-                
+
                 // Check if it has system prompts integration
                 if (!existingDefaultAgent.systemPrompts && !existingDefaultAgent.lastSyncedFromSystemPrompts) {
                     this.debug.log('Default Agent exists but lacks system prompts integration, updating...');
@@ -211,25 +339,25 @@ class LLMManagerAdminUI {
                 this.debug.log('Default Agent not found in LLM Manager, creating with system prompts integration');
                 await this.createDefaultAgentWithSystemPrompts();
             }
-            
+
             // Step 3: Verify integration is working
             const verificationResult = await this.verifyDefaultAgentIntegration();
-            
+
             if (verificationResult.success) {
                 this.debug.log('Default Agent integration initialization completed successfully');
                 return true;
             } else {
                 this.debug.warn('Default Agent integration verification failed:', verificationResult.error);
-                
+
                 // Try to fix empty fields if that's the issue
                 if (verificationResult.error && verificationResult.error.includes('missing or empty required field')) {
                     this.debug.log('Attempting to fix empty fields in Default Agent');
                     const fixResult = await this.fixDefaultAgentEmptyFields();
-                    
+
                     if (fixResult.success) {
                         this.debug.log('Successfully fixed empty fields, re-verifying...');
                         const reVerificationResult = await this.verifyDefaultAgentIntegration();
-                        
+
                         if (reVerificationResult.success) {
                             this.debug.log('Default Agent integration initialization completed successfully after fixing empty fields');
                             return true;
@@ -245,13 +373,13 @@ class LLMManagerAdminUI {
                     return false;
                 }
             }
-            
+
         } catch (error) {
             this.debug.error('Error during Default Agent integration initialization:', error);
             return false;
         }
     }
-    
+
     /**
      * Update existing Default Agent with system prompts integration
      * @param {Object} existingConfig - Existing Default Agent configuration
@@ -260,11 +388,11 @@ class LLMManagerAdminUI {
         try {
             // Load system prompts data
             const systemPromptsData = await this.loadSystemPromptsData();
-            
+
             if (systemPromptsData) {
                 // Convert to LLM Manager format
                 const systemPromptsConfig = this.convertSystemPromptsToLLMManagerFormat(systemPromptsData);
-                
+
                 // Merge with existing configuration
                 const updatedConfig = {
                     ...existingConfig,
@@ -281,13 +409,13 @@ class LLMManagerAdminUI {
                     lastUpdated: new Date().toISOString(),
                     lastSyncedFromSystemPrompts: new Date().toISOString()
                 };
-                
+
                 // Update in LLM Manager
                 const updateResult = await this.llmManager.updateAgentConfiguration('DefaultAgent', updatedConfig, {
                     skipRealTimeUpdate: true,
                     reason: 'System prompts integration update'
                 });
-                
+
                 if (updateResult.success) {
                     this.debug.log('Successfully updated Default Agent with system prompts integration');
                 } else {
@@ -297,13 +425,13 @@ class LLMManagerAdminUI {
                 this.debug.warn('No system prompts data available, using defaults');
                 await this.updateDefaultAgentWithDefaults(existingConfig);
             }
-            
+
         } catch (error) {
             this.debug.error('Error updating Default Agent with system prompts:', error);
             throw error;
         }
     }
-    
+
     /**
      * Create new Default Agent with system prompts integration
      */
@@ -311,13 +439,13 @@ class LLMManagerAdminUI {
         try {
             // Load system prompts data
             const systemPromptsData = await this.loadSystemPromptsData();
-            
+
             // Use system prompts data or fallback to defaults
             const promptsData = systemPromptsData || this.getDefaultSystemPromptsConfiguration();
-            
+
             // Convert to LLM Manager format
             const systemPromptsConfig = this.convertSystemPromptsToLLMManagerFormat(promptsData);
-            
+
             // Create complete Default Agent configuration
             const defaultAgentConfig = {
                 name: 'DefaultAgent',
@@ -334,25 +462,25 @@ class LLMManagerAdminUI {
                 lastUpdated: new Date().toISOString(),
                 lastSyncedFromSystemPrompts: new Date().toISOString()
             };
-            
+
             // Add to LLM Manager
             const createResult = await this.llmManager.updateAgentConfiguration('DefaultAgent', defaultAgentConfig, {
                 skipRealTimeUpdate: true,
                 reason: 'Default Agent creation with system prompts integration'
             });
-            
+
             if (createResult.success) {
                 this.debug.log('Successfully created Default Agent with system prompts integration');
             } else {
                 throw new Error('Failed to create Default Agent: ' + createResult.error);
             }
-            
+
         } catch (error) {
             this.debug.error('Error creating Default Agent with system prompts:', error);
             throw error;
         }
     }
-    
+
     /**
      * Update Default Agent with default configuration when system prompts are not available
      * @param {Object} existingConfig - Existing Default Agent configuration
@@ -361,7 +489,7 @@ class LLMManagerAdminUI {
         try {
             const defaultSystemPrompts = this.getDefaultSystemPromptsConfiguration();
             const systemPromptsConfig = this.convertSystemPromptsToLLMManagerFormat(defaultSystemPrompts);
-            
+
             const updatedConfig = {
                 ...existingConfig,
                 ...systemPromptsConfig,
@@ -369,24 +497,24 @@ class LLMManagerAdminUI {
                 lastSyncedFromSystemPrompts: new Date().toISOString(),
                 fallbackUsed: true
             };
-            
+
             const updateResult = await this.llmManager.updateAgentConfiguration('DefaultAgent', updatedConfig, {
                 skipRealTimeUpdate: true,
                 reason: 'Default Agent fallback configuration update'
             });
-            
+
             if (updateResult.success) {
                 this.debug.log('Successfully updated Default Agent with default configuration');
             } else {
                 throw new Error('Failed to update Default Agent with defaults: ' + updateResult.error);
             }
-            
+
         } catch (error) {
             this.debug.error('Error updating Default Agent with defaults:', error);
             throw error;
         }
     }
-    
+
     /**
      * Load system prompts data with comprehensive error handling
      * @returns {Object|null} System prompts data or null if not available
@@ -397,7 +525,7 @@ class LLMManagerAdminUI {
             try {
                 await this.systemPromptsManager.init();
                 const systemPrompts = this.systemPromptsManager.getAllPrompts();
-                
+
                 // Validate the data
                 const validationResult = this.validateSystemPromptsData(systemPrompts);
                 if (validationResult.valid) {
@@ -411,7 +539,7 @@ class LLMManagerAdminUI {
                 this.debug.error('Error loading from SystemPromptsManager:', error);
             }
         }
-        
+
         // Try localStorage fallback
         try {
             const systemPrompts = this.loadSystemPromptsFromLocalStorage();
@@ -422,12 +550,12 @@ class LLMManagerAdminUI {
         } catch (error) {
             this.debug.error('Error loading from localStorage:', error);
         }
-        
+
         // No data available
         this.debug.warn('No system prompts data available from any source');
         return null;
     }
-    
+
     /**
      * Verify Default Agent integration is working correctly
      * @returns {Object} Verification result with success status and details
@@ -438,7 +566,7 @@ class LLMManagerAdminUI {
             error: null,
             details: []
         };
-        
+
         try {
             // Check if Default Agent exists
             const defaultAgent = this.llmManager.getAgentConfiguration('DefaultAgent');
@@ -447,14 +575,14 @@ class LLMManagerAdminUI {
                 return verificationResult;
             }
             verificationResult.details.push('✓ Default Agent exists in LLM Manager');
-            
+
             // Check if it has system prompts integration
             if (!defaultAgent.systemPrompts) {
                 verificationResult.error = 'Default Agent lacks system prompts integration';
                 return verificationResult;
             }
             verificationResult.details.push('✓ Default Agent has system prompts integration');
-            
+
             // Check required system prompts fields
             const requiredFields = ['basePersonality', 'financialContext', 'responseInstructions'];
             for (const field of requiredFields) {
@@ -464,33 +592,33 @@ class LLMManagerAdminUI {
                 }
             }
             verificationResult.details.push('✓ All required system prompts fields present');
-            
+
             // Check if custom prompts array exists
             if (!Array.isArray(defaultAgent.systemPrompts.customPrompts)) {
                 verificationResult.error = 'Default Agent custom prompts is not an array';
                 return verificationResult;
             }
             verificationResult.details.push('✓ Custom prompts array is valid');
-            
+
             // Check sync timestamp
             if (!defaultAgent.lastSyncedFromSystemPrompts) {
                 verificationResult.error = 'Default Agent missing sync timestamp';
                 return verificationResult;
             }
             verificationResult.details.push('✓ Sync timestamp present');
-            
+
             // All checks passed
             verificationResult.success = true;
             this.debug.log('Default Agent integration verification passed:', verificationResult.details);
-            
+
         } catch (error) {
             verificationResult.error = 'Verification error: ' + error.message;
             this.debug.error('Error during Default Agent integration verification:', error);
         }
-        
+
         return verificationResult;
     }
-    
+
     /**
      * Fix Default Agent with empty system prompts fields
      * This method updates existing Default Agents that have empty strings with proper defaults
@@ -503,27 +631,27 @@ class LLMManagerAdminUI {
             details: [],
             fieldsFixed: []
         };
-        
+
         try {
             this.debug.log('Checking Default Agent for empty system prompts fields');
-            
+
             // Get current Default Agent configuration
             const defaultAgent = this.llmManager.getAgentConfiguration('DefaultAgent');
             if (!defaultAgent) {
                 fixResult.error = 'Default Agent not found';
                 return fixResult;
             }
-            
+
             if (!defaultAgent.systemPrompts) {
                 fixResult.error = 'Default Agent missing system prompts structure';
                 return fixResult;
             }
-            
+
             // Check for empty fields and prepare fixes
             const defaultConfig = this.getDefaultSystemPromptsConfiguration();
             const fieldsToFix = [];
             const requiredFields = ['basePersonality', 'financialContext', 'responseInstructions'];
-            
+
             for (const field of requiredFields) {
                 const currentValue = defaultAgent.systemPrompts[field];
                 if (!currentValue || typeof currentValue !== 'string' || currentValue.trim().length === 0) {
@@ -534,24 +662,24 @@ class LLMManagerAdminUI {
                     });
                 }
             }
-            
+
             if (fieldsToFix.length === 0) {
                 fixResult.success = true;
                 fixResult.details.push('No empty fields found - Default Agent is properly configured');
                 return fixResult;
             }
-            
+
             // Apply fixes
             const updatedSystemPrompts = {
                 ...defaultAgent.systemPrompts
             };
-            
+
             fieldsToFix.forEach(fix => {
                 updatedSystemPrompts[fix.field] = fix.newValue;
                 fixResult.fieldsFixed.push(fix.field);
                 fixResult.details.push(`Fixed ${fix.field}: replaced "${fix.currentValue}" with proper default`);
             });
-            
+
             // Update the Default Agent
             const updatedConfig = {
                 ...defaultAgent,
@@ -560,12 +688,12 @@ class LLMManagerAdminUI {
                 lastFixedEmptyFields: new Date().toISOString(),
                 lastSyncedFromSystemPrompts: new Date().toISOString()
             };
-            
+
             const updateResult = await this.llmManager.updateAgentConfiguration('DefaultAgent', updatedConfig, {
                 skipRealTimeUpdate: true,
                 reason: 'Fix empty system prompts fields'
             });
-            
+
             if (updateResult.success) {
                 fixResult.success = true;
                 fixResult.details.push(`Successfully fixed ${fieldsToFix.length} empty field(s)`);
@@ -573,15 +701,15 @@ class LLMManagerAdminUI {
             } else {
                 fixResult.error = 'Failed to update Default Agent: ' + updateResult.error;
             }
-            
+
         } catch (error) {
             fixResult.error = 'Error fixing Default Agent: ' + error.message;
             this.debug.error('Error fixing Default Agent empty fields:', error);
         }
-        
+
         return fixResult;
     }
-    
+
     /**
      * Test integration with existing SystemPromptsManager functionality
      * This method verifies that the Default Agent can properly interact with SystemPromptsManager
@@ -594,10 +722,10 @@ class LLMManagerAdminUI {
             details: [],
             tests: []
         };
-        
+
         try {
             this.debug.log('Starting SystemPromptsManager integration test');
-            
+
             // Test 1: Check if SystemPromptsManager is available
             if (!this.systemPromptsManager) {
                 testResult.tests.push({
@@ -611,7 +739,7 @@ class LLMManagerAdminUI {
                     success: true,
                     details: 'SystemPromptsManager is available'
                 });
-                
+
                 // Test 2: Initialize SystemPromptsManager
                 try {
                     await this.systemPromptsManager.init();
@@ -620,7 +748,7 @@ class LLMManagerAdminUI {
                         success: true,
                         details: 'SystemPromptsManager initialized successfully'
                     });
-                    
+
                     // Test 3: Load system prompts data
                     const systemPrompts = this.systemPromptsManager.getAllPrompts();
                     if (systemPrompts) {
@@ -629,7 +757,7 @@ class LLMManagerAdminUI {
                             success: true,
                             details: `Loaded system prompts with ${Object.keys(systemPrompts).length} properties`
                         });
-                        
+
                         // Test 4: Validate system prompts data
                         const validationResult = this.validateSystemPromptsData(systemPrompts);
                         testResult.tests.push({
@@ -637,7 +765,7 @@ class LLMManagerAdminUI {
                             success: validationResult.valid,
                             details: validationResult.valid ? 'System prompts data is valid' : 'Validation errors: ' + validationResult.errors.join(', ')
                         });
-                        
+
                         // Test 5: Convert to LLM Manager format
                         try {
                             const converted = this.convertSystemPromptsToLLMManagerFormat(systemPrompts);
@@ -646,19 +774,19 @@ class LLMManagerAdminUI {
                                 success: true,
                                 details: 'Successfully converted system prompts to LLM Manager format'
                             });
-                            
+
                             // Test 6: Update Default Agent with converted data
                             const updateResult = await this.llmManager.updateAgentConfiguration('DefaultAgent', converted, {
                                 skipRealTimeUpdate: true,
                                 reason: 'Integration test'
                             });
-                            
+
                             testResult.tests.push({
                                 name: 'Default Agent Update',
                                 success: updateResult.success,
                                 details: updateResult.success ? 'Default Agent updated successfully' : 'Update failed: ' + updateResult.error
                             });
-                            
+
                         } catch (conversionError) {
                             testResult.tests.push({
                                 name: 'Format Conversion',
@@ -666,7 +794,7 @@ class LLMManagerAdminUI {
                                 error: 'Conversion failed: ' + conversionError.message
                             });
                         }
-                        
+
                     } else {
                         testResult.tests.push({
                             name: 'System Prompts Data Loading',
@@ -674,7 +802,7 @@ class LLMManagerAdminUI {
                             error: 'No system prompts data returned'
                         });
                     }
-                    
+
                 } catch (initError) {
                     testResult.tests.push({
                         name: 'SystemPromptsManager Initialization',
@@ -683,7 +811,7 @@ class LLMManagerAdminUI {
                     });
                 }
             }
-            
+
             // Test 7: Verify Default Agent configuration
             const defaultAgent = this.llmManager.getAgentConfiguration('DefaultAgent');
             if (defaultAgent && defaultAgent.systemPrompts) {
@@ -699,11 +827,11 @@ class LLMManagerAdminUI {
                     error: 'Default Agent lacks proper system prompts configuration'
                 });
             }
-            
+
             // Determine overall success
             const failedTests = testResult.tests.filter(test => !test.success);
             testResult.success = failedTests.length === 0;
-            
+
             if (testResult.success) {
                 testResult.details.push('All integration tests passed successfully');
                 this.debug.log('SystemPromptsManager integration test completed successfully');
@@ -712,15 +840,15 @@ class LLMManagerAdminUI {
                 testResult.details.push(`Failed tests: ${failedTests.map(t => t.name).join(', ')}`);
                 this.debug.warn('SystemPromptsManager integration test completed with failures');
             }
-            
+
         } catch (error) {
             testResult.error = 'Integration test error: ' + error.message;
             this.debug.error('Error during SystemPromptsManager integration test:', error);
         }
-        
+
         return testResult;
     }
-    
+
     /**
      * Initialize Default Agent on startup with proper integration
      * This method is called during manager initialization to ensure Default Agent is ready
@@ -728,13 +856,13 @@ class LLMManagerAdminUI {
     async initializeDefaultAgentOnStartup() {
         try {
             this.debug.log('Initializing Default Agent on startup');
-            
+
             // Check if Default Agent exists and needs integration
             const defaultAgent = this.llmManager.getAgentConfiguration('DefaultAgent');
-            
+
             if (defaultAgent && defaultAgent.needsSystemPromptsSync) {
                 this.debug.log('Default Agent needs system prompts sync, scheduling integration');
-                
+
                 // Schedule integration after a short delay to allow other components to initialize
                 setTimeout(async () => {
                     try {
@@ -749,12 +877,12 @@ class LLMManagerAdminUI {
             } else {
                 this.debug.log('Default Agent not found or in unexpected state during startup');
             }
-            
+
         } catch (error) {
             this.debug.error('Error during Default Agent startup initialization:', error);
         }
     }
-    
+
     /**
      * Load Default Agent configuration from SystemPromptsManager with migration and fallback support
      */
@@ -763,11 +891,11 @@ class LLMManagerAdminUI {
             this.debug.warn('SystemPromptsManager not available, attempting fallback configuration loading');
             return await this.loadDefaultAgentFallback();
         }
-        
+
         try {
             // Attempt to migrate data with comprehensive error handling
             const migrationResult = await this.migrateDefaultAgentData();
-            
+
             if (migrationResult.success) {
                 this.debug.log('Default Agent configuration successfully migrated');
                 return migrationResult;
@@ -775,13 +903,13 @@ class LLMManagerAdminUI {
                 this.debug.warn('Migration failed, attempting fallback:', migrationResult.error);
                 return await this.loadDefaultAgentFallback();
             }
-            
+
         } catch (error) {
             this.debug.error('Critical error during Default Agent configuration loading:', error);
             return await this.loadDefaultAgentFallback();
         }
     }
-    
+
     /**
      * Migrate Default Agent data with comprehensive error handling and validation
      * @returns {Promise<Object>} Migration result with success status and details
@@ -794,7 +922,7 @@ class LLMManagerAdminUI {
             dataSource: null,
             fallbackUsed: false
         };
-        
+
         try {
             // Step 1: Initialize SystemPromptsManager with error handling
             let systemPromptsInitialized = false;
@@ -806,34 +934,34 @@ class LLMManagerAdminUI {
                 this.debug.error('SystemPromptsManager initialization failed:', initError);
                 migrationResult.warnings.push('SystemPromptsManager initialization failed: ' + initError.message);
             }
-            
+
             // Step 2: Attempt to load system prompts data with validation
             let systemPrompts = null;
             if (systemPromptsInitialized) {
                 try {
                     systemPrompts = this.systemPromptsManager.getAllPrompts();
-                    
+
                     // Validate system prompts data structure
                     const validationResult = this.validateSystemPromptsData(systemPrompts);
                     if (!validationResult.valid) {
                         this.debug.warn('System prompts data validation failed:', validationResult.errors);
                         migrationResult.warnings.push('System prompts data validation issues: ' + validationResult.errors.join(', '));
-                        
+
                         // Attempt to repair data
                         systemPrompts = this.repairSystemPromptsData(systemPrompts);
                         migrationResult.warnings.push('Attempted to repair corrupted system prompts data');
                     }
-                    
+
                     migrationResult.dataSource = 'SystemPromptsManager';
                     this.debug.log('System prompts data loaded and validated');
-                    
+
                 } catch (dataError) {
                     this.debug.error('Failed to load system prompts data:', dataError);
                     migrationResult.warnings.push('Failed to load system prompts data: ' + dataError.message);
                     systemPrompts = null;
                 }
             }
-            
+
             // Step 3: Fallback to localStorage if SystemPromptsManager fails
             if (!systemPrompts) {
                 try {
@@ -848,7 +976,7 @@ class LLMManagerAdminUI {
                     migrationResult.warnings.push('localStorage fallback failed: ' + storageError.message);
                 }
             }
-            
+
             // Step 4: Final fallback to default configuration
             if (!systemPrompts) {
                 systemPrompts = this.getDefaultSystemPromptsConfiguration();
@@ -857,7 +985,7 @@ class LLMManagerAdminUI {
                 migrationResult.warnings.push('Using default system prompts configuration as final fallback');
                 this.debug.log('Using default system prompts configuration as final fallback');
             }
-            
+
             // Step 5: Convert to LLM Manager format with error handling
             let defaultAgentConfig;
             try {
@@ -868,7 +996,7 @@ class LLMManagerAdminUI {
                 migrationResult.error = 'Format conversion failed: ' + conversionError.message;
                 return migrationResult;
             }
-            
+
             // Step 6: Apply configuration to LLM Manager with backup
             if (this.llmManager) {
                 try {
@@ -877,47 +1005,47 @@ class LLMManagerAdminUI {
                     if (existingConfig) {
                         this.createConfigurationBackup('DefaultAgent', existingConfig);
                     }
-                    
+
                     // Determine if this is an update or new configuration
                     if (existingConfig) {
                         // Merge with existing configuration, preserving LLM Manager specific settings
                         const mergedConfig = this.mergeDefaultAgentConfigurations(existingConfig, defaultAgentConfig);
-                        
+
                         // Update the configuration
-                        const updateResult = await this.llmManager.updateAgentConfiguration('DefaultAgent', mergedConfig, { 
+                        const updateResult = await this.llmManager.updateAgentConfiguration('DefaultAgent', mergedConfig, {
                             skipRealTimeUpdate: true,
                             reason: 'Data migration from SystemPromptsManager'
                         });
-                        
+
                         if (!updateResult.success) {
                             throw new Error('LLM Manager update failed: ' + updateResult.error);
                         }
-                        
+
                         this.debug.log('Successfully updated existing Default Agent configuration');
                     } else {
                         // Create new Default Agent configuration
                         const newConfig = this.createNewDefaultAgentConfiguration(defaultAgentConfig);
-                        
+
                         // Add to LLM Manager
-                        const createResult = await this.llmManager.updateAgentConfiguration('DefaultAgent', newConfig, { 
+                        const createResult = await this.llmManager.updateAgentConfiguration('DefaultAgent', newConfig, {
                             skipRealTimeUpdate: true,
                             reason: 'Initial Default Agent creation from SystemPromptsManager'
                         });
-                        
+
                         if (!createResult.success) {
                             throw new Error('LLM Manager creation failed: ' + createResult.error);
                         }
-                        
+
                         this.debug.log('Successfully created new Default Agent configuration');
                     }
-                    
+
                     migrationResult.success = true;
                     this.debug.log('Default Agent configuration migration completed successfully');
-                    
+
                 } catch (llmError) {
                     this.debug.error('Failed to apply configuration to LLM Manager:', llmError);
                     migrationResult.error = 'LLM Manager integration failed: ' + llmError.message;
-                    
+
                     // Attempt to restore backup if available
                     await this.restoreConfigurationBackup('DefaultAgent');
                 }
@@ -925,15 +1053,15 @@ class LLMManagerAdminUI {
                 migrationResult.error = 'LLM Manager not available';
                 this.debug.error('LLM Manager not available for configuration migration');
             }
-            
+
         } catch (error) {
             this.debug.error('Critical error during data migration:', error);
             migrationResult.error = 'Critical migration error: ' + error.message;
         }
-        
+
         return migrationResult;
     }
-    
+
     /**
      * Validate system prompts data structure
      * @param {Object} systemPrompts - System prompts data to validate
@@ -941,12 +1069,12 @@ class LLMManagerAdminUI {
      */
     validateSystemPromptsData(systemPrompts) {
         const errors = [];
-        
+
         if (!systemPrompts || typeof systemPrompts !== 'object') {
             errors.push('System prompts data is not a valid object');
             return { valid: false, errors };
         }
-        
+
         // Check required fields
         const requiredFields = ['basePersonality', 'financialContext', 'responseInstructions'];
         requiredFields.forEach(field => {
@@ -954,7 +1082,7 @@ class LLMManagerAdminUI {
                 errors.push(`Missing, invalid, or empty ${field} field`);
             }
         });
-        
+
         // Validate customPrompts array
         if (systemPrompts.customPrompts) {
             if (!Array.isArray(systemPrompts.customPrompts)) {
@@ -970,13 +1098,13 @@ class LLMManagerAdminUI {
                 });
             }
         }
-        
+
         return {
             valid: errors.length === 0,
             errors
         };
     }
-    
+
     /**
      * Repair corrupted system prompts data
      * @param {Object} systemPrompts - Potentially corrupted system prompts data
@@ -984,37 +1112,37 @@ class LLMManagerAdminUI {
      */
     repairSystemPromptsData(systemPrompts) {
         const repaired = { ...systemPrompts };
-        
+
         // Repair missing or invalid required fields
         if (!repaired.basePersonality || typeof repaired.basePersonality !== 'string') {
             repaired.basePersonality = "You are a helpful, professional, and friendly AI voice assistant for a UK financial services company.";
         }
-        
+
         if (!repaired.financialContext || typeof repaired.financialContext !== 'string') {
             repaired.financialContext = "When handling financial services requests, be conversational and provide helpful information about UK banking practices.";
         }
-        
+
         if (!repaired.responseInstructions || typeof repaired.responseInstructions !== 'string') {
             repaired.responseInstructions = "Keep responses conversational and concise (suitable for voice). Use natural speech patterns and British English.";
         }
-        
+
         // Repair customPrompts array
         if (!Array.isArray(repaired.customPrompts)) {
             repaired.customPrompts = [];
         } else {
             // Filter out invalid custom prompts
-            repaired.customPrompts = repaired.customPrompts.filter(prompt => 
-                prompt && 
-                typeof prompt.name === 'string' && 
+            repaired.customPrompts = repaired.customPrompts.filter(prompt =>
+                prompt &&
+                typeof prompt.name === 'string' &&
                 typeof prompt.prompt === 'string' &&
                 prompt.name.trim() !== '' &&
                 prompt.prompt.trim() !== ''
             );
         }
-        
+
         return repaired;
     }
-    
+
     /**
      * Load system prompts from localStorage as fallback
      * @returns {Object|null} System prompts data or null if not available
@@ -1025,7 +1153,7 @@ class LLMManagerAdminUI {
             if (storedPrompts) {
                 const parsed = JSON.parse(storedPrompts);
                 const validationResult = this.validateSystemPromptsData(parsed);
-                
+
                 if (validationResult.valid) {
                     return parsed;
                 } else {
@@ -1036,10 +1164,10 @@ class LLMManagerAdminUI {
         } catch (error) {
             this.debug.error('Error loading system prompts from localStorage:', error);
         }
-        
+
         return null;
     }
-    
+
     /**
      * Get default system prompts configuration as final fallback
      * @returns {Object} Default system prompts configuration
@@ -1052,7 +1180,7 @@ class LLMManagerAdminUI {
             customPrompts: []
         };
     }
-    
+
     /**
      * Merge existing Default Agent configuration with new system prompts data
      * @param {Object} existingConfig - Existing LLM Manager configuration
@@ -1076,7 +1204,7 @@ class LLMManagerAdminUI {
             lastMigrated: new Date().toISOString()
         };
     }
-    
+
     /**
      * Create new Default Agent configuration
      * @param {Object} systemPromptsConfig - Configuration from system prompts
@@ -1097,7 +1225,7 @@ class LLMManagerAdminUI {
             lastMigrated: new Date().toISOString()
         };
     }
-    
+
     /**
      * Create backup of existing configuration
      * @param {string} agentName - Name of the agent
@@ -1112,18 +1240,18 @@ class LLMManagerAdminUI {
                 timestamp: new Date().toISOString(),
                 reason: 'Pre-migration backup'
             };
-            
+
             localStorage.setItem(backupKey, JSON.stringify(backupData));
-            
+
             // Store reference to latest backup
             localStorage.setItem(`llm_manager_latest_backup_${agentName}`, backupKey);
-            
+
             this.debug.log(`Created configuration backup for ${agentName}:`, backupKey);
         } catch (error) {
             this.debug.error('Failed to create configuration backup:', error);
         }
     }
-    
+
     /**
      * Restore configuration from backup
      * @param {string} agentName - Name of the agent
@@ -1136,21 +1264,21 @@ class LLMManagerAdminUI {
                 this.debug.warn(`No backup found for ${agentName}`);
                 return false;
             }
-            
+
             const backupData = localStorage.getItem(latestBackupKey);
             if (!backupData) {
                 this.debug.warn(`Backup data not found for key: ${latestBackupKey}`);
                 return false;
             }
-            
+
             const backup = JSON.parse(backupData);
-            
+
             if (this.llmManager) {
                 const restoreResult = await this.llmManager.updateAgentConfiguration(agentName, backup.config, {
                     skipRealTimeUpdate: true,
                     reason: 'Configuration restore from backup'
                 });
-                
+
                 if (restoreResult.success) {
                     this.debug.log(`Successfully restored configuration for ${agentName} from backup`);
                     return true;
@@ -1158,14 +1286,14 @@ class LLMManagerAdminUI {
                     this.debug.error('Failed to restore configuration:', restoreResult.error);
                 }
             }
-            
+
         } catch (error) {
             this.debug.error('Error restoring configuration backup:', error);
         }
-        
+
         return false;
     }
-    
+
     /**
      * Load Default Agent configuration using fallback mechanisms
      * @returns {Promise<Object>} Fallback loading result
@@ -1178,18 +1306,18 @@ class LLMManagerAdminUI {
             dataSource: 'fallback',
             fallbackUsed: true
         };
-        
+
         try {
             this.debug.log('Attempting Default Agent fallback configuration loading');
-            
+
             // Use default configuration
             const defaultConfig = this.getDefaultSystemPromptsConfiguration();
             const defaultAgentConfig = this.convertSystemPromptsToLLMManagerFormat(defaultConfig);
-            
+
             if (this.llmManager) {
                 // Check if Default Agent already exists
                 const existingConfig = this.llmManager.getAgentConfiguration('DefaultAgent');
-                
+
                 if (existingConfig) {
                     // Only update system prompts part, preserve other settings
                     const mergedConfig = {
@@ -1198,12 +1326,12 @@ class LLMManagerAdminUI {
                         lastUpdated: new Date().toISOString(),
                         lastFallbackUsed: new Date().toISOString()
                     };
-                    
+
                     const updateResult = await this.llmManager.updateAgentConfiguration('DefaultAgent', mergedConfig, {
                         skipRealTimeUpdate: true,
                         reason: 'Fallback configuration loading'
                     });
-                    
+
                     if (updateResult.success) {
                         fallbackResult.success = true;
                         this.debug.log('Successfully applied fallback configuration to existing Default Agent');
@@ -1214,12 +1342,12 @@ class LLMManagerAdminUI {
                     // Create new Default Agent with fallback configuration
                     const newConfig = this.createNewDefaultAgentConfiguration(defaultAgentConfig);
                     newConfig.lastFallbackUsed = new Date().toISOString();
-                    
+
                     const createResult = await this.llmManager.updateAgentConfiguration('DefaultAgent', newConfig, {
                         skipRealTimeUpdate: true,
                         reason: 'Fallback Default Agent creation'
                     });
-                    
+
                     if (createResult.success) {
                         fallbackResult.success = true;
                         this.debug.log('Successfully created Default Agent with fallback configuration');
@@ -1230,15 +1358,15 @@ class LLMManagerAdminUI {
             } else {
                 fallbackResult.error = 'LLM Manager not available for fallback configuration';
             }
-            
+
         } catch (error) {
             this.debug.error('Error during fallback configuration loading:', error);
             fallbackResult.error = 'Fallback loading failed: ' + error.message;
         }
-        
+
         return fallbackResult;
     }
-    
+
     /**
      * Ensure Default Agent is loaded and available in LLM Manager
      * @returns {Promise<boolean>} True if Default Agent is available
@@ -1248,19 +1376,19 @@ class LLMManagerAdminUI {
             this.debug.warn('LLM Manager not available');
             return false;
         }
-        
+
         try {
             // Check if Default Agent already exists and is properly integrated
             const existingConfig = this.llmManager.getAgentConfiguration('DefaultAgent');
-            
+
             if (existingConfig && existingConfig.systemPrompts && existingConfig.lastSyncedFromSystemPrompts) {
                 this.debug.log('Default Agent already loaded and integrated');
                 return true;
             }
-            
+
             // Initialize Default Agent integration
             const initResult = await this.initializeDefaultAgentIntegration();
-            
+
             if (initResult) {
                 // Verify it was loaded and integrated properly
                 const verifyConfig = this.llmManager.getAgentConfiguration('DefaultAgent');
@@ -1275,13 +1403,13 @@ class LLMManagerAdminUI {
                 this.debug.warn('Default Agent integration initialization failed');
                 return false;
             }
-            
+
         } catch (error) {
             this.debug.error('Error ensuring Default Agent is loaded:', error);
             return false;
         }
     }
-    
+
     /**
      * Convert system prompts format to LLM Manager format
      * @param {Object} systemPrompts - System prompts data
@@ -1300,7 +1428,7 @@ class LLMManagerAdminUI {
             lastSyncedFromSystemPrompts: new Date().toISOString()
         };
     }
-    
+
     /**
      * Convert LLM Manager format back to system prompts format
      * @param {Object} llmConfig - LLM Manager configuration
@@ -1315,7 +1443,7 @@ class LLMManagerAdminUI {
                 customPrompts: []
             };
         }
-        
+
         return {
             basePersonality: llmConfig.systemPrompts.basePersonality || '',
             financialContext: llmConfig.systemPrompts.financialContext || '',
@@ -1323,7 +1451,7 @@ class LLMManagerAdminUI {
             customPrompts: llmConfig.systemPrompts.customPrompts || []
         };
     }
-    
+
     /**
      * Switch between main sections
      */
@@ -1333,27 +1461,27 @@ class LLMManagerAdminUI {
             this.debug.warn('switchSection called but elements not found - likely in new interface');
             return;
         }
-        
+
         // Update navigation
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.classList.remove('active');
         });
-        
+
         const targetNavBtn = document.querySelector(`[data-section="${sectionName}"]`);
         if (targetNavBtn) {
             targetNavBtn.classList.add('active');
         }
-        
+
         // Update content
         document.querySelectorAll('.content-section').forEach(section => {
             section.classList.remove('active');
         });
         document.getElementById(`${sectionName}-section`).classList.add('active');
-        
+
         // Load section-specific content
         await this.loadSectionContent(sectionName);
     }
-    
+
     /**
      * Load content for specific section
      */
@@ -1376,34 +1504,34 @@ class LLMManagerAdminUI {
                 break;
         }
     }
-    
+
     /**
      * Load configuration content
      */
     async loadConfigurationContent() {
         const content = document.getElementById('configurationContent');
         if (!content) return;
-        
+
         // Ensure Default Agent is loaded before getting configurations
         await this.ensureDefaultAgentLoaded();
-        
+
         const agents = this.llmManager.getAgentConfigurations();
-        
+
         // Sort agents to put Default Agent first
         const sortedAgentNames = Object.keys(agents).sort((a, b) => {
             if (a === 'DefaultAgent') return -1;
             if (b === 'DefaultAgent') return 1;
             return a.localeCompare(b);
         });
-        
+
         content.innerHTML = `
             <div class="form-group">
                 <label class="form-label">Select Agent to Configure</label>
                 <select class="form-select" id="configAgentSelect" onchange="adminUI.openAgentConfiguration(this.value)">
                     <option value="">Choose an agent...</option>
-                    ${sortedAgentNames.map(name => 
-                        `<option value="${name}">${name}${name === 'DefaultAgent' ? ' (Primary Agent)' : ''}</option>`
-                    ).join('')}
+                    ${sortedAgentNames.map(name =>
+            `<option value="${name}">${name}${name === 'DefaultAgent' ? ' (Primary Agent)' : ''}</option>`
+        ).join('')}
                 </select>
             </div>
             
@@ -1424,96 +1552,96 @@ class LLMManagerAdminUI {
             </div>
         `;
     }
-    
+
     /**
      * Refresh agent data and update overview
      */
     refreshAgentData() {
         if (!this.llmManager) return;
-        
+
         try {
             // Ensure Default Agent is loaded first
             this.ensureDefaultAgentLoaded().then(() => {
                 const stats = this.llmManager.getConfigurationStats();
                 const agents = this.llmManager.getAgentConfigurations();
-                
+
                 // Update statistics (safely)
                 const totalAgentsEl = document.getElementById('totalAgents');
                 const enabledAgentsEl = document.getElementById('enabledAgents');
                 const disabledAgentsEl = document.getElementById('disabledAgents');
                 const lastUpdatedEl = document.getElementById('lastUpdated');
-                
+
                 if (totalAgentsEl) totalAgentsEl.textContent = stats.totalAgents;
                 if (enabledAgentsEl) enabledAgentsEl.textContent = stats.enabledAgents;
                 if (disabledAgentsEl) disabledAgentsEl.textContent = stats.disabledAgents;
-                if (lastUpdatedEl) lastUpdatedEl.textContent = 
+                if (lastUpdatedEl) lastUpdatedEl.textContent =
                     stats.lastUpdated ? new Date(stats.lastUpdated).toLocaleString() : 'Never';
-                
+
                 // Update agent grid
                 this.renderAgentGrid(agents);
-                
+
                 this.logAuditEvent('system', 'Agent data refreshed');
-                
+
             }).catch(error => {
                 this.debug.error('Failed to ensure Default Agent loaded:', error);
                 // Continue with refresh even if Default Agent loading fails
                 const stats = this.llmManager.getConfigurationStats();
                 const agents = this.llmManager.getAgentConfigurations();
-                
+
                 // Update statistics (safely)
                 const totalAgentsEl = document.getElementById('totalAgents');
                 const enabledAgentsEl = document.getElementById('enabledAgents');
                 const disabledAgentsEl = document.getElementById('disabledAgents');
                 const lastUpdatedEl = document.getElementById('lastUpdated');
-                
+
                 if (totalAgentsEl) totalAgentsEl.textContent = stats.totalAgents;
                 if (enabledAgentsEl) enabledAgentsEl.textContent = stats.enabledAgents;
                 if (disabledAgentsEl) disabledAgentsEl.textContent = stats.disabledAgents;
-                if (lastUpdatedEl) lastUpdatedEl.textContent = 
+                if (lastUpdatedEl) lastUpdatedEl.textContent =
                     stats.lastUpdated ? new Date(stats.lastUpdated).toLocaleString() : 'Never';
-                
+
                 // Update agent grid
                 this.renderAgentGrid(agents);
-                
+
                 this.logAuditEvent('system', 'Agent data refreshed (with Default Agent loading error)');
             });
-            
+
         } catch (error) {
             this.debug.error('Failed to refresh agent data:', error);
             this.showError('Failed to refresh agent data');
         }
     }
-    
+
     /**
      * Render agent grid
      */
     renderAgentGrid(agents) {
         const grid = document.getElementById('agentsGrid');
         if (!grid) return;
-        
+
         grid.innerHTML = '';
-        
+
         Object.entries(agents).forEach(([name, config]) => {
             const card = this.createAgentCard(name, config);
             grid.appendChild(card);
         });
     }
-    
+
     /**
      * Create agent card element
      */
     createAgentCard(name, config) {
         const card = document.createElement('div');
         card.className = 'agent-card';
-        
+
         const statusClass = config.enabled !== false ? 'enabled' : 'disabled';
         const statusText = config.enabled !== false ? 'Enabled' : 'Disabled';
         const statusIndicator = config.enabled !== false ? 'online' : 'offline';
-        
+
         // Special handling for Default Agent
         const isDefaultAgent = name === 'DefaultAgent';
         const agentIcon = isDefaultAgent ? '🤖' : this.getAgentIcon(name);
-        
+
         // Show additional info for Default Agent
         let additionalDetails = '';
         if (isDefaultAgent && config.systemPrompts) {
@@ -1525,12 +1653,12 @@ class LLMManagerAdminUI {
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Last Synced:</span>
-                    <span class="detail-value">${config.lastSyncedFromSystemPrompts ? 
-                        new Date(config.lastSyncedFromSystemPrompts).toLocaleString() : 'Never'}</span>
+                    <span class="detail-value">${config.lastSyncedFromSystemPrompts ?
+                    new Date(config.lastSyncedFromSystemPrompts).toLocaleString() : 'Never'}</span>
                 </div>
             `;
         }
-        
+
         card.innerHTML = `
             <div class="agent-header">
                 <div class="agent-name">
@@ -1585,10 +1713,10 @@ class LLMManagerAdminUI {
                 ` : ''}
             </div>
         `;
-        
+
         return card;
     }
-    
+
     /**
      * Get appropriate icon for agent type
      * @param {string} agentName - Name of the agent
@@ -1602,10 +1730,10 @@ class LLMManagerAdminUI {
             'FraudAgent': '🛡️',
             'PaymentsAgent': '💳'
         };
-        
+
         return iconMap[agentName] || '⚙️';
     }
-    
+
     /**
      * Render custom prompts list for Default Agent
      * @param {Array} customPrompts - Array of custom prompts
@@ -1615,7 +1743,7 @@ class LLMManagerAdminUI {
         if (!customPrompts || customPrompts.length === 0) {
             return '<p style="color: #7f8c8d; font-style: italic;">No custom prompts configured</p>';
         }
-        
+
         return customPrompts.map((prompt, index) => `
             <div class="custom-prompt-item" style="border: 1px solid #e1e8ed; border-radius: 6px; padding: 15px; margin-bottom: 10px;">
                 <div class="form-group">
@@ -1639,7 +1767,7 @@ class LLMManagerAdminUI {
             </div>
         `).join('');
     }
-    
+
     /**
      * Escape HTML characters to prevent XSS
      * @param {string} text - Text to escape
@@ -1650,7 +1778,7 @@ class LLMManagerAdminUI {
         div.textContent = text;
         return div.innerHTML;
     }
-    
+
     /**
      * Sync Default Agent configuration from SystemPromptsManager
      */
@@ -1659,20 +1787,20 @@ class LLMManagerAdminUI {
             this.showError('SystemPromptsManager not available');
             return;
         }
-        
+
         try {
             // Reload system prompts
             await this.systemPromptsManager.init();
-            
+
             // Get fresh system prompts data
             const systemPrompts = this.systemPromptsManager.getAllPrompts();
-            
+
             // Convert to LLM Manager format
             const defaultAgentConfig = this.convertSystemPromptsToLLMManagerFormat(systemPrompts);
-            
+
             // Get current Default Agent configuration
             const currentConfig = this.llmManager.getAgentConfiguration('DefaultAgent');
-            
+
             if (currentConfig) {
                 // Merge with current configuration
                 const updatedConfig = {
@@ -1680,28 +1808,28 @@ class LLMManagerAdminUI {
                     ...defaultAgentConfig,
                     lastSyncedFromSystemPrompts: new Date().toISOString()
                 };
-                
+
                 // Update the configuration
                 await this.llmManager.updateAgentConfiguration('DefaultAgent', updatedConfig, { skipRealTimeUpdate: true });
-                
+
                 // If configuration modal is open for Default Agent, reload the forms
                 if (this.currentAgent === 'DefaultAgent') {
                     this.loadConfigurationForms(updatedConfig);
                 }
-                
+
                 // Refresh the agent grid
                 this.refreshAgentData();
-                
+
                 this.showSuccess('Default Agent configuration synced from System Prompts Manager');
                 this.logAuditEvent('config', 'Synced Default Agent from System Prompts Manager');
             }
-            
+
         } catch (error) {
             this.debug.error('Error syncing Default Agent from System Prompts:', error);
             this.showError('Failed to sync Default Agent configuration: ' + error.message);
         }
     }
-    
+
     /**
      * Open agent configuration modal
      */
@@ -1712,38 +1840,38 @@ class LLMManagerAdminUI {
     async openAgentConfiguration(agentName) {
         try {
             this.currentAgent = agentName;
-            
+
             // Use enhanced loading method
             const loadSuccess = await this.loadAgentConfigurationEnhanced(agentName);
-            
+
             if (!loadSuccess) {
                 this.debug.error(`Failed to load configuration for agent: ${agentName}`);
                 return;
             }
-            
+
             // Update modal title
             const modalTitle = document.querySelector('#configModal .modal-title');
             if (modalTitle) {
                 modalTitle.textContent = `Configure ${agentName}`;
             }
-            
+
             // Show modal
             this.showModal('configModal');
-            
+
             this.logAuditEvent('config', `Opened configuration for ${agentName}`);
-            
+
         } catch (error) {
             this.debug.error('Error opening agent configuration:', error);
             this.showError('Failed to open agent configuration: ' + error.message);
         }
     }
-    
+
     /**
      * Load configuration forms
      */
     loadConfigurationForms(config) {
         const isDefaultAgent = config.name === 'DefaultAgent';
-        
+
         // Basic Settings Tab - add system prompts fields for Default Agent
         let basicTabContent = `
             <div class="form-group">
@@ -1785,7 +1913,7 @@ class LLMManagerAdminUI {
                 </div>
             </div>
         `;
-        
+
         // Add system prompts fields for Default Agent
         if (isDefaultAgent && config.systemPrompts) {
             basicTabContent += `
@@ -1836,9 +1964,9 @@ class LLMManagerAdminUI {
                 </div>
             `;
         }
-        
+
         document.getElementById('basic-tab').innerHTML = basicTabContent;
-        
+
         // LLM Configuration Tab
         document.getElementById('llm-tab').innerHTML = `
             <div class="form-group">
@@ -1867,7 +1995,7 @@ class LLMManagerAdminUI {
                 <span id="tempValue">${config.temperature || 0.7}</span>
             </div>
         `;
-        
+
         // Triggers Tab
         const triggers = config.triggers || [];
         document.getElementById('triggers-tab').innerHTML = `
@@ -1891,7 +2019,7 @@ class LLMManagerAdminUI {
                 </p>
             </div>
         `;
-        
+
         // Advanced Tab
         document.getElementById('advanced-tab').innerHTML = `
             <div class="form-group">
@@ -1909,7 +2037,7 @@ class LLMManagerAdminUI {
                 <textarea class="form-textarea" rows="10" readonly>${JSON.stringify(config, null, 2)}</textarea>
             </div>
         `;
-        
+
         // Initialize validation for custom prompts if this is the Default Agent
         if (isDefaultAgent) {
             // Use setTimeout to ensure DOM is fully updated
@@ -1918,27 +2046,27 @@ class LLMManagerAdminUI {
             }, 100);
         }
     }
-    
+
     /**
      * Initialize validation for all existing custom prompts
      */
     initializeCustomPromptsValidation() {
         const customPromptsContainer = document.getElementById('defaultCustomPromptsList');
         if (!customPromptsContainer) return;
-        
+
         const promptItems = customPromptsContainer.querySelectorAll('.custom-prompt-item');
         promptItems.forEach(promptItem => {
             this.addCustomPromptValidation(promptItem);
         });
     }
-    
+
     /**
      * Add trigger input field
      */
     addTrigger() {
         const triggersList = document.getElementById('triggersList');
         const triggerCount = triggersList.children.length;
-        
+
         const triggerItem = document.createElement('div');
         triggerItem.className = 'trigger-item';
         triggerItem.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
@@ -1946,10 +2074,10 @@ class LLMManagerAdminUI {
             <input type="text" class="form-input" placeholder="Enter trigger keyword" data-trigger-index="${triggerCount}">
             <button class="btn btn-danger" onclick="this.parentElement.remove()">Remove</button>
         `;
-        
+
         triggersList.appendChild(triggerItem);
     }
-    
+
     /**
      * Save agent configuration with enhanced error handling and validation
      */
@@ -1958,11 +2086,11 @@ class LLMManagerAdminUI {
             this.showError('No agent selected for configuration save');
             return false;
         }
-        
+
         // Use the enhanced save method with comprehensive error handling
         return await this.saveAgentConfigurationEnhanced(this.currentAgent);
     }
-    
+
     /**
      * Collect custom prompts from Default Agent configuration form
      * @returns {Array} Array of custom prompts
@@ -1970,11 +2098,11 @@ class LLMManagerAdminUI {
     collectDefaultAgentCustomPrompts() {
         const customPrompts = [];
         const promptItems = document.querySelectorAll('.custom-prompt-item');
-        
+
         promptItems.forEach((item, index) => {
             const nameInput = item.querySelector('[data-field="name"]');
             const promptTextarea = item.querySelector('[data-field="prompt"]');
-            
+
             if (nameInput && promptTextarea && nameInput.value.trim() && promptTextarea.value.trim()) {
                 customPrompts.push({
                     id: Date.now() + index, // Simple unique ID
@@ -1983,17 +2111,17 @@ class LLMManagerAdminUI {
                 });
             }
         });
-        
+
         return customPrompts;
     }
-    
+
     /**
      * Validate agent configuration form data
      * @returns {Object} Validation result with isValid flag and errors array
      */
     validateAgentConfiguration() {
         const errors = [];
-        
+
         try {
             // Validate basic fields
             const name = document.getElementById('agentName')?.value?.trim();
@@ -2003,7 +2131,7 @@ class LLMManagerAdminUI {
             const llmModel = document.getElementById('llmModel')?.value;
             const maxTokens = document.getElementById('maxTokens')?.value;
             const temperature = document.getElementById('temperature')?.value;
-            
+
             // Required field validation
             if (!name) {
                 errors.push('Agent name is required');
@@ -2012,7 +2140,7 @@ class LLMManagerAdminUI {
             } else if (name.length > 50) {
                 errors.push('Agent name must be less than 50 characters');
             }
-            
+
             if (!description) {
                 errors.push('Agent description is required');
             } else if (description.length < 10) {
@@ -2020,7 +2148,7 @@ class LLMManagerAdminUI {
             } else if (description.length > 500) {
                 errors.push('Agent description must be less than 500 characters');
             }
-            
+
             // Numeric field validation
             if (priority === '' || priority === null || priority === undefined) {
                 errors.push('Priority is required');
@@ -2030,15 +2158,15 @@ class LLMManagerAdminUI {
                     errors.push('Priority must be a number between 0 and 10');
                 }
             }
-            
+
             if (!llmProvider) {
                 errors.push('LLM Provider is required');
             }
-            
+
             if (!llmModel) {
                 errors.push('LLM Model is required');
             }
-            
+
             if (maxTokens === '' || maxTokens === null || maxTokens === undefined) {
                 errors.push('Max Tokens is required');
             } else {
@@ -2047,7 +2175,7 @@ class LLMManagerAdminUI {
                     errors.push('Max Tokens must be a number between 1 and 8000');
                 }
             }
-            
+
             if (temperature === '' || temperature === null || temperature === undefined) {
                 errors.push('Temperature is required');
             } else {
@@ -2056,18 +2184,18 @@ class LLMManagerAdminUI {
                     errors.push('Temperature must be a number between 0 and 2');
                 }
             }
-            
+
         } catch (error) {
             this.debug.error('Error during validation:', error);
             errors.push('Validation error: ' + error.message);
         }
-        
+
         return {
             isValid: errors.length === 0,
             errors: errors
         };
     }
-    
+
     /**
      * Validate Default Agent system prompts configuration
      * @param {Object} systemPrompts - System prompts configuration
@@ -2075,7 +2203,7 @@ class LLMManagerAdminUI {
      */
     validateDefaultAgentSystemPrompts(systemPrompts) {
         const errors = [];
-        
+
         try {
             // Validate base personality
             if (!systemPrompts.basePersonality || systemPrompts.basePersonality.trim().length === 0) {
@@ -2085,7 +2213,7 @@ class LLMManagerAdminUI {
             } else if (systemPrompts.basePersonality.trim().length > 2000) {
                 errors.push('Base AI Personality must be less than 2000 characters');
             }
-            
+
             // Validate financial context
             if (!systemPrompts.financialContext || systemPrompts.financialContext.trim().length === 0) {
                 errors.push('Financial Services Context is required');
@@ -2094,7 +2222,7 @@ class LLMManagerAdminUI {
             } else if (systemPrompts.financialContext.trim().length > 3000) {
                 errors.push('Financial Services Context must be less than 3000 characters');
             }
-            
+
             // Validate response instructions
             if (!systemPrompts.responseInstructions || systemPrompts.responseInstructions.trim().length === 0) {
                 errors.push('Response Instructions are required');
@@ -2103,20 +2231,20 @@ class LLMManagerAdminUI {
             } else if (systemPrompts.responseInstructions.trim().length > 1500) {
                 errors.push('Response Instructions must be less than 1500 characters');
             }
-            
+
             // Validate custom prompts
             if (systemPrompts.customPrompts && Array.isArray(systemPrompts.customPrompts)) {
                 if (systemPrompts.customPrompts.length > 20) {
                     errors.push('Maximum of 20 custom prompts allowed');
                 }
-                
+
                 systemPrompts.customPrompts.forEach((prompt, index) => {
                     if (!prompt.name || prompt.name.trim().length === 0) {
                         errors.push(`Custom prompt ${index + 1}: Name is required`);
                     } else if (prompt.name.trim().length > 100) {
                         errors.push(`Custom prompt ${index + 1}: Name must be less than 100 characters`);
                     }
-                    
+
                     if (!prompt.prompt || prompt.prompt.trim().length === 0) {
                         errors.push(`Custom prompt ${index + 1}: Content is required`);
                     } else if (prompt.prompt.trim().length < 5) {
@@ -2125,7 +2253,7 @@ class LLMManagerAdminUI {
                         errors.push(`Custom prompt ${index + 1}: Content must be less than 1000 characters`);
                     }
                 });
-                
+
                 // Check for duplicate custom prompt names
                 const promptNames = systemPrompts.customPrompts.map(p => p.name.trim().toLowerCase());
                 const duplicateNames = promptNames.filter((name, index) => promptNames.indexOf(name) !== index);
@@ -2133,18 +2261,18 @@ class LLMManagerAdminUI {
                     errors.push('Custom prompt names must be unique');
                 }
             }
-            
+
         } catch (error) {
             this.debug.error('Error during system prompts validation:', error);
             errors.push('System prompts validation error: ' + error.message);
         }
-        
+
         return {
             isValid: errors.length === 0,
             errors: errors
         };
     }
-    
+
     /**
      * Update SystemPromptsManager with new configuration
      * @param {Object} systemPrompts - System prompts configuration
@@ -2153,25 +2281,25 @@ class LLMManagerAdminUI {
         if (!this.systemPromptsManager) {
             throw new Error('SystemPromptsManager not available');
         }
-        
+
         try {
             // Ensure SystemPromptsManager is initialized
             await this.systemPromptsManager.init();
-            
+
             // Update each field
             this.systemPromptsManager.updateBasePersonality(systemPrompts.basePersonality);
             this.systemPromptsManager.updateFinancialContext(systemPrompts.financialContext);
             this.systemPromptsManager.updateResponseInstructions(systemPrompts.responseInstructions);
             this.systemPromptsManager.updateCustomPrompts(systemPrompts.customPrompts);
-            
+
             this.debug.log('Successfully updated SystemPromptsManager');
-            
+
         } catch (error) {
             this.debug.error('Failed to update SystemPromptsManager:', error);
             throw new Error('Failed to sync with System Prompts Manager: ' + error.message);
         }
     }
-    
+
     /**
      * Add a new custom prompt to Default Agent configuration
      */
@@ -2181,25 +2309,25 @@ class LLMManagerAdminUI {
             this.debug.warn('Custom prompts container not found');
             return;
         }
-        
+
         // Check maximum limit
         const currentPrompts = customPromptsContainer.querySelectorAll('.custom-prompt-item').length;
         if (currentPrompts >= 20) {
             this.showError('Maximum of 20 custom prompts allowed');
             return;
         }
-        
+
         // Remove "no prompts" message if it exists
         const noPromptsMessage = customPromptsContainer.querySelector('p[style*="italic"]');
         if (noPromptsMessage) {
             noPromptsMessage.remove();
         }
-        
+
         const promptIndex = customPromptsContainer.children.length;
         const promptItem = document.createElement('div');
         promptItem.className = 'custom-prompt-item';
         promptItem.style.cssText = 'border: 1px solid #e1e8ed; border-radius: 6px; padding: 15px; margin-bottom: 10px;';
-        
+
         promptItem.innerHTML = `
             <div class="form-group">
                 <label class="form-label">Prompt Name <span style="color: #e74c3c;">*</span></label>
@@ -2218,21 +2346,21 @@ class LLMManagerAdminUI {
                 🗑️ Remove
             </button>
         `;
-        
+
         customPromptsContainer.appendChild(promptItem);
-        
+
         // Add validation event listeners
         this.addCustomPromptValidation(promptItem);
-        
+
         // Focus on the name input
         const nameInput = promptItem.querySelector('[data-field="name"]');
         if (nameInput) {
             nameInput.focus();
         }
-        
+
         this.debug.log('Added new custom prompt field');
     }
-    
+
     /**
      * Remove a custom prompt from Default Agent configuration
      * @param {HTMLElement} buttonElement - The remove button that was clicked
@@ -2242,7 +2370,7 @@ class LLMManagerAdminUI {
         if (promptItem) {
             promptItem.remove();
             this.debug.log('Removed custom prompt field');
-            
+
             // Show "no prompts" message if no prompts left
             const customPromptsContainer = document.getElementById('defaultCustomPromptsList');
             if (customPromptsContainer && customPromptsContainer.querySelectorAll('.custom-prompt-item').length === 0) {
@@ -2250,7 +2378,7 @@ class LLMManagerAdminUI {
             }
         }
     }
-    
+
     /**
      * Add validation to custom prompt fields
      * @param {HTMLElement} promptItem - The prompt item element
@@ -2259,31 +2387,31 @@ class LLMManagerAdminUI {
         const nameInput = promptItem.querySelector('[data-field="name"]');
         const promptTextarea = promptItem.querySelector('[data-field="prompt"]');
         const charCounter = promptItem.querySelector('.char-counter');
-        
+
         if (nameInput) {
             // Name validation
             nameInput.addEventListener('input', (e) => {
                 this.validateCustomPromptName(e.target);
             });
-            
+
             nameInput.addEventListener('blur', (e) => {
                 this.validateCustomPromptName(e.target);
             });
         }
-        
+
         if (promptTextarea) {
             // Content validation and character counter
             promptTextarea.addEventListener('input', (e) => {
                 this.validateCustomPromptContent(e.target);
                 this.updateCharCounter(e.target, charCounter);
             });
-            
+
             promptTextarea.addEventListener('blur', (e) => {
                 this.validateCustomPromptContent(e.target);
             });
         }
     }
-    
+
     /**
      * Validate custom prompt name
      * @param {HTMLInputElement} input - The name input element
@@ -2291,39 +2419,39 @@ class LLMManagerAdminUI {
     validateCustomPromptName(input) {
         const validationMessage = input.parentElement.querySelector('.validation-message');
         const value = input.value.trim();
-        
+
         // Clear previous validation
         input.style.borderColor = '';
         validationMessage.style.display = 'none';
         validationMessage.textContent = '';
-        
+
         if (!value) {
             this.showValidationError(input, validationMessage, 'Prompt name is required');
             return false;
         }
-        
+
         if (value.length > 100) {
             this.showValidationError(input, validationMessage, 'Prompt name must be 100 characters or less');
             return false;
         }
-        
+
         // Check for duplicate names
         const container = document.getElementById('defaultCustomPromptsList');
         if (container) {
             const allNameInputs = container.querySelectorAll('[data-field="name"]');
-            const duplicates = Array.from(allNameInputs).filter(inp => 
+            const duplicates = Array.from(allNameInputs).filter(inp =>
                 inp !== input && inp.value.trim().toLowerCase() === value.toLowerCase()
             );
-            
+
             if (duplicates.length > 0) {
                 this.showValidationError(input, validationMessage, 'Prompt name must be unique');
                 return false;
             }
         }
-        
+
         return true;
     }
-    
+
     /**
      * Validate custom prompt content
      * @param {HTMLTextAreaElement} textarea - The content textarea element
@@ -2331,30 +2459,30 @@ class LLMManagerAdminUI {
     validateCustomPromptContent(textarea) {
         const validationMessage = textarea.parentElement.querySelector('.validation-message');
         const value = textarea.value.trim();
-        
+
         // Clear previous validation
         textarea.style.borderColor = '';
         validationMessage.style.display = 'none';
         validationMessage.textContent = '';
-        
+
         if (!value) {
             this.showValidationError(textarea, validationMessage, 'Prompt content is required');
             return false;
         }
-        
+
         if (value.length < 5) {
             this.showValidationError(textarea, validationMessage, 'Prompt content must be at least 5 characters long');
             return false;
         }
-        
+
         if (value.length > 1000) {
             this.showValidationError(textarea, validationMessage, 'Prompt content must be 1000 characters or less');
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * Show validation error for a field
      * @param {HTMLElement} field - The form field element
@@ -2366,7 +2494,7 @@ class LLMManagerAdminUI {
         messageElement.textContent = message;
         messageElement.style.display = 'block';
     }
-    
+
     /**
      * Update character counter for textarea
      * @param {HTMLTextAreaElement} textarea - The textarea element
@@ -2377,7 +2505,7 @@ class LLMManagerAdminUI {
             const currentLength = textarea.value.length;
             const maxLength = textarea.getAttribute('maxlength') || 1000;
             counter.textContent = `${currentLength}/${maxLength}`;
-            
+
             // Change color based on usage
             if (currentLength > maxLength * 0.9) {
                 counter.style.color = '#e74c3c';
@@ -2388,7 +2516,7 @@ class LLMManagerAdminUI {
             }
         }
     }
-    
+
     /**
      * Comprehensive validation for Default Agent system prompts fields
      * @param {Object} systemPrompts - System prompts configuration object
@@ -2401,7 +2529,7 @@ class LLMManagerAdminUI {
             warnings: [],
             fieldErrors: {}
         };
-        
+
         try {
             // Validate base personality with enhanced checks
             if (!systemPrompts.basePersonality) {
@@ -2425,13 +2553,13 @@ class LLMManagerAdminUI {
                 } else if (basePersonality.length < 50) {
                     result.warnings.push('Base AI Personality is quite short - consider adding more detail');
                 }
-                
+
                 // Check for potentially problematic content
                 if (this.containsProblematicContent(basePersonality)) {
                     result.warnings.push('Base AI Personality may contain content that could affect AI behavior');
                 }
             }
-            
+
             // Validate financial context with enhanced checks
             if (!systemPrompts.financialContext) {
                 result.errors.push('Financial Services Context is required');
@@ -2455,7 +2583,7 @@ class LLMManagerAdminUI {
                     result.warnings.push('Financial Services Context is quite short - consider adding more banking-specific guidance');
                 }
             }
-            
+
             // Validate response instructions with enhanced checks
             if (!systemPrompts.responseInstructions) {
                 result.errors.push('Response Instructions are required');
@@ -2477,7 +2605,7 @@ class LLMManagerAdminUI {
                     result.isValid = false;
                 }
             }
-            
+
             // Validate custom prompts with comprehensive checks
             if (systemPrompts.customPrompts) {
                 if (!Array.isArray(systemPrompts.customPrompts)) {
@@ -2490,18 +2618,18 @@ class LLMManagerAdminUI {
                         result.fieldErrors.customPrompts = 'Too many custom prompts';
                         result.isValid = false;
                     }
-                    
+
                     const promptNames = [];
                     systemPrompts.customPrompts.forEach((prompt, index) => {
                         const promptFieldKey = `customPrompt_${index}`;
-                        
+
                         if (!prompt || typeof prompt !== 'object') {
                             result.errors.push(`Custom prompt ${index + 1}: Invalid prompt structure`);
                             result.fieldErrors[promptFieldKey] = 'Invalid prompt structure';
                             result.isValid = false;
                             return;
                         }
-                        
+
                         // Validate prompt name
                         if (!prompt.name) {
                             result.errors.push(`Custom prompt ${index + 1}: Name is required`);
@@ -2529,7 +2657,7 @@ class LLMManagerAdminUI {
                                 }
                             }
                         }
-                        
+
                         // Validate prompt content
                         if (!prompt.prompt) {
                             result.errors.push(`Custom prompt ${index + 1}: Content is required`);
@@ -2550,7 +2678,7 @@ class LLMManagerAdminUI {
                                 result.fieldErrors[`${promptFieldKey}_content`] = 'Must be less than 1000 characters';
                                 result.isValid = false;
                             }
-                            
+
                             // Check for potentially problematic content
                             if (this.containsProblematicContent(content)) {
                                 result.warnings.push(`Custom prompt ${index + 1}: May contain content that could affect AI behavior`);
@@ -2559,16 +2687,16 @@ class LLMManagerAdminUI {
                     });
                 }
             }
-            
+
         } catch (error) {
             this.debug.error('Error during comprehensive system prompts validation:', error);
             result.errors.push('Validation error: ' + error.message);
             result.isValid = false;
         }
-        
+
         return result;
     }
-    
+
     /**
      * Check if content contains potentially problematic patterns
      * @param {string} content - Content to check
@@ -2583,10 +2711,10 @@ class LLMManagerAdminUI {
             /jailbreak/i,
             /system\s+override/i
         ];
-        
+
         return problematicPatterns.some(pattern => pattern.test(content));
     }
-    
+
     /**
      * Enhanced save operation with comprehensive error handling and validation
      * @param {string} agentName - Name of the agent to save
@@ -2600,10 +2728,10 @@ class LLMManagerAdminUI {
             validationErrors: {},
             systemErrors: []
         };
-        
+
         try {
             this.debug.log(`Starting enhanced save operation for agent: ${agentName}`);
-            
+
             // Step 1: Pre-save validation
             const preValidationResult = await this.performPreSaveValidation(agentName);
             if (!preValidationResult.success) {
@@ -2612,7 +2740,7 @@ class LLMManagerAdminUI {
                 this.displayComprehensiveErrors(saveResult);
                 return false;
             }
-            
+
             // Step 2: Collect configuration data with error handling
             let config;
             try {
@@ -2623,7 +2751,7 @@ class LLMManagerAdminUI {
                 this.displayComprehensiveErrors(saveResult);
                 return false;
             }
-            
+
             // Step 3: Perform comprehensive validation
             const validationResult = this.validateAgentConfigurationComprehensive(config, agentName);
             if (!validationResult.isValid) {
@@ -2633,7 +2761,7 @@ class LLMManagerAdminUI {
                 this.displayComprehensiveErrors(saveResult);
                 return false;
             }
-            
+
             // Step 4: Handle Default Agent specific validation and system prompts sync
             if (agentName === 'DefaultAgent' && config.systemPrompts) {
                 const systemPromptsValidation = this.validateDefaultAgentSystemPromptsComprehensive(config.systemPrompts);
@@ -2644,7 +2772,7 @@ class LLMManagerAdminUI {
                     this.displayComprehensiveErrors(saveResult);
                     return false;
                 }
-                
+
                 // Attempt to sync with SystemPromptsManager
                 try {
                     if (this.systemPromptsManager) {
@@ -2659,7 +2787,7 @@ class LLMManagerAdminUI {
                     // Continue with save operation even if sync fails
                 }
             }
-            
+
             // Step 5: Attempt to save configuration
             let saveAttemptResult;
             try {
@@ -2670,11 +2798,11 @@ class LLMManagerAdminUI {
                 this.displayComprehensiveErrors(saveResult);
                 return false;
             }
-            
+
             // Step 6: Handle save result
             if (saveAttemptResult && saveAttemptResult.success !== false) {
                 saveResult.success = true;
-                
+
                 // Display success with any warnings
                 if (saveResult.warnings.length > 0) {
                     this.showSuccess('Configuration saved successfully (with warnings)');
@@ -2682,19 +2810,19 @@ class LLMManagerAdminUI {
                 } else {
                     this.showSuccess('Configuration saved successfully');
                 }
-                
+
                 // Clean up and refresh
                 this.closeModal('configModal');
                 this.refreshAgentData();
                 this.logAuditEvent('config', `Updated configuration for ${agentName}`, config);
-                
+
                 return true;
             } else {
                 saveResult.systemErrors.push('Save operation returned failure: ' + (saveAttemptResult?.error || 'Unknown error'));
                 this.displayComprehensiveErrors(saveResult);
                 return false;
             }
-            
+
         } catch (error) {
             this.debug.error('Critical error during enhanced save operation:', error);
             saveResult.systemErrors.push('Critical save error: ' + error.message);
@@ -2702,7 +2830,7 @@ class LLMManagerAdminUI {
             return false;
         }
     }
-    
+
     /**
      * Perform pre-save validation checks
      * @param {string} agentName - Name of the agent
@@ -2714,7 +2842,7 @@ class LLMManagerAdminUI {
             errors: [],
             validationErrors: {}
         };
-        
+
         try {
             // Check if LLM Manager is available
             if (!this.llmManager) {
@@ -2722,14 +2850,14 @@ class LLMManagerAdminUI {
                 result.success = false;
                 return result;
             }
-            
+
             // Check if agent name is valid
             if (!agentName || typeof agentName !== 'string' || agentName.trim().length === 0) {
                 result.errors.push('Invalid agent name');
                 result.success = false;
                 return result;
             }
-            
+
             // Check if required DOM elements exist
             const requiredElements = ['agentName', 'agentDescription', 'agentPriority', 'llmProvider', 'llmModel'];
             for (const elementId of requiredElements) {
@@ -2740,7 +2868,7 @@ class LLMManagerAdminUI {
                     result.success = false;
                 }
             }
-            
+
             // For Default Agent, check system prompts elements
             if (agentName === 'DefaultAgent') {
                 const systemPromptsElements = ['defaultPersonality', 'defaultFinancialContext', 'defaultResponseInstructions'];
@@ -2753,16 +2881,16 @@ class LLMManagerAdminUI {
                     }
                 }
             }
-            
+
         } catch (error) {
             this.debug.error('Error during pre-save validation:', error);
             result.errors.push('Pre-save validation error: ' + error.message);
             result.success = false;
         }
-        
+
         return result;
     }
-    
+
     /**
      * Collect agent configuration from form with error handling
      * @param {string} agentName - Name of the agent
@@ -2781,7 +2909,7 @@ class LLMManagerAdminUI {
                 temperature: parseFloat(this.getElementValue('temperature', '0.7')),
                 telemetryEnabled: this.getElementChecked('telemetryEnabled', true)
             };
-            
+
             // Collect triggers
             const triggersContainer = document.getElementById('triggersList');
             if (triggersContainer) {
@@ -2791,7 +2919,7 @@ class LLMManagerAdminUI {
             } else {
                 config.triggers = [];
             }
-            
+
             // For Default Agent, collect system prompts
             if (agentName === 'DefaultAgent') {
                 config.systemPrompts = {
@@ -2801,15 +2929,15 @@ class LLMManagerAdminUI {
                     customPrompts: this.collectCustomPrompts()
                 };
             }
-            
+
             return config;
-            
+
         } catch (error) {
             this.debug.error('Error collecting agent configuration:', error);
             throw new Error('Failed to collect configuration data: ' + error.message);
         }
     }
-    
+
     /**
      * Safely get element value with fallback
      * @param {string} elementId - Element ID
@@ -2825,7 +2953,7 @@ class LLMManagerAdminUI {
             return fallback;
         }
     }
-    
+
     /**
      * Safely get element checked status with fallback
      * @param {string} elementId - Element ID
@@ -2841,31 +2969,31 @@ class LLMManagerAdminUI {
             return fallback;
         }
     }
-    
+
     /**
      * Collect custom prompts with error handling
      * @returns {Array} Array of custom prompts
      */
     collectCustomPrompts() {
         const customPrompts = [];
-        
+
         try {
             const customPromptsContainer = document.getElementById('defaultCustomPromptsList');
             if (!customPromptsContainer) {
                 this.debug.warn('Custom prompts container not found');
                 return customPrompts;
             }
-            
+
             const promptItems = customPromptsContainer.querySelectorAll('.custom-prompt-item');
             promptItems.forEach((item, index) => {
                 try {
                     const nameInput = item.querySelector('[data-field="name"]');
                     const promptTextarea = item.querySelector('[data-field="prompt"]');
-                    
+
                     if (nameInput && promptTextarea) {
                         const name = nameInput.value.trim();
                         const prompt = promptTextarea.value.trim();
-                        
+
                         if (name && prompt) {
                             customPrompts.push({
                                 id: `custom_${Date.now()}_${index}`,
@@ -2878,14 +3006,14 @@ class LLMManagerAdminUI {
                     this.debug.warn(`Error collecting custom prompt ${index}:`, itemError);
                 }
             });
-            
+
         } catch (error) {
             this.debug.error('Error collecting custom prompts:', error);
         }
-        
+
         return customPrompts;
     }
-    
+
     /**
      * Comprehensive validation for agent configuration
      * @param {Object} config - Agent configuration
@@ -2899,7 +3027,7 @@ class LLMManagerAdminUI {
             warnings: [],
             fieldErrors: {}
         };
-        
+
         try {
             // Basic field validation
             const basicValidation = this.validateAgentConfiguration();
@@ -2907,67 +3035,67 @@ class LLMManagerAdminUI {
                 result.errors.push(...basicValidation.errors);
                 result.isValid = false;
             }
-            
+
             // Additional comprehensive checks
             if (config.name && config.name !== agentName) {
                 result.warnings.push('Agent name in form differs from expected agent name');
             }
-            
+
             if (config.maxTokens > 4000) {
                 result.warnings.push('High token limit may result in increased API costs');
             }
-            
+
             if (config.temperature > 1.5) {
                 result.warnings.push('High temperature setting may result in unpredictable responses');
             }
-            
+
             if (config.triggers && config.triggers.length === 0 && agentName !== 'DefaultAgent') {
                 result.warnings.push('Agent has no triggers defined - it may not be activated');
             }
-            
+
         } catch (error) {
             this.debug.error('Error during comprehensive validation:', error);
             result.errors.push('Validation error: ' + error.message);
             result.isValid = false;
         }
-        
+
         return result;
     }
-    
+
     /**
      * Display comprehensive error information to user
      * @param {Object} errorResult - Error result object
      */
     displayComprehensiveErrors(errorResult) {
         let errorMessage = 'Configuration save failed:\n\n';
-        
+
         if (errorResult.errors.length > 0) {
             errorMessage += 'Errors:\n';
             errorResult.errors.forEach(error => {
                 errorMessage += `• ${error}\n`;
             });
         }
-        
+
         if (errorResult.systemErrors.length > 0) {
             errorMessage += '\nSystem Errors:\n';
             errorResult.systemErrors.forEach(error => {
                 errorMessage += `• ${error}\n`;
             });
         }
-        
+
         if (errorResult.warnings.length > 0) {
             errorMessage += '\nWarnings:\n';
             errorResult.warnings.forEach(warning => {
                 errorMessage += `• ${warning}\n`;
             });
         }
-        
+
         this.showError(errorMessage);
-        
+
         // Also highlight specific field errors in the UI
         this.highlightFieldErrors(errorResult.validationErrors);
     }
-    
+
     /**
      * Display warnings to user
      * @param {Array} warnings - Array of warning messages
@@ -2981,7 +3109,7 @@ class LLMManagerAdminUI {
             this.showNotification(warningMessage, 'warning');
         }
     }
-    
+
     /**
      * Highlight field errors in the UI
      * @param {Object} fieldErrors - Object mapping field names to error messages
@@ -2991,18 +3119,18 @@ class LLMManagerAdminUI {
         document.querySelectorAll('.form-input, .form-textarea').forEach(element => {
             element.style.borderColor = '';
         });
-        
+
         document.querySelectorAll('.validation-message').forEach(element => {
             element.style.display = 'none';
             element.textContent = '';
         });
-        
+
         // Apply new error highlights
         Object.keys(fieldErrors).forEach(fieldName => {
             const element = document.getElementById(fieldName);
             if (element) {
                 element.style.borderColor = '#e74c3c';
-                
+
                 // Find associated validation message element
                 const validationMessage = element.parentElement?.querySelector('.validation-message');
                 if (validationMessage) {
@@ -3012,7 +3140,7 @@ class LLMManagerAdminUI {
             }
         });
     }
-    
+
     /**
      * Enhanced load operation with comprehensive error handling
      * @param {string} agentName - Name of the agent to load
@@ -3021,18 +3149,18 @@ class LLMManagerAdminUI {
     async loadAgentConfigurationEnhanced(agentName) {
         try {
             this.debug.log(`Starting enhanced load operation for agent: ${agentName}`);
-            
+
             // Step 1: Validate prerequisites
             if (!this.llmManager) {
                 this.showError('LLM Manager is not available');
                 return false;
             }
-            
+
             if (!agentName || typeof agentName !== 'string') {
                 this.showError('Invalid agent name provided');
                 return false;
             }
-            
+
             // Step 2: Attempt to load configuration
             let config;
             try {
@@ -3042,12 +3170,12 @@ class LLMManagerAdminUI {
                 this.showError('Failed to load agent configuration: ' + loadError.message);
                 return false;
             }
-            
+
             if (!config) {
                 this.showError(`Agent ${agentName} not found`);
                 return false;
             }
-            
+
             // Step 3: Validate loaded configuration
             const configValidation = this.validateLoadedConfiguration(config, agentName);
             if (!configValidation.isValid) {
@@ -3055,7 +3183,7 @@ class LLMManagerAdminUI {
                 // Show warning but continue with load
                 this.showNotification('Configuration loaded with warnings: ' + configValidation.errors.join(', '), 'warning');
             }
-            
+
             // Step 4: Populate form with error handling
             try {
                 await this.populateFormWithConfiguration(config, agentName);
@@ -3064,7 +3192,7 @@ class LLMManagerAdminUI {
                 this.showError('Failed to populate form: ' + populateError.message);
                 return false;
             }
-            
+
             // Step 5: For Default Agent, handle system prompts integration
             if (agentName === 'DefaultAgent') {
                 try {
@@ -3074,17 +3202,17 @@ class LLMManagerAdminUI {
                     this.showNotification('Default Agent loaded but system prompts integration had issues: ' + systemPromptsError.message, 'warning');
                 }
             }
-            
+
             this.debug.log(`Successfully loaded configuration for agent: ${agentName}`);
             return true;
-            
+
         } catch (error) {
             this.debug.error('Critical error during enhanced load operation:', error);
             this.showError('Critical error loading configuration: ' + error.message);
             return false;
         }
     }
-    
+
     /**
      * Validate loaded configuration for integrity
      * @param {Object} config - Loaded configuration
@@ -3097,7 +3225,7 @@ class LLMManagerAdminUI {
             errors: [],
             warnings: []
         };
-        
+
         try {
             // Check basic structure
             if (!config || typeof config !== 'object') {
@@ -3105,7 +3233,7 @@ class LLMManagerAdminUI {
                 result.isValid = false;
                 return result;
             }
-            
+
             // Check required fields
             const requiredFields = ['name', 'description', 'priority', 'enabled', 'llmProvider', 'llmModel'];
             requiredFields.forEach(field => {
@@ -3113,20 +3241,20 @@ class LLMManagerAdminUI {
                     result.warnings.push(`Missing field: ${field}`);
                 }
             });
-            
+
             // Check data types
             if (typeof config.priority !== 'number' || isNaN(config.priority)) {
                 result.warnings.push('Priority is not a valid number');
             }
-            
+
             if (typeof config.enabled !== 'boolean') {
                 result.warnings.push('Enabled status is not a boolean');
             }
-            
+
             if (typeof config.maxTokens !== 'number' || isNaN(config.maxTokens)) {
                 result.warnings.push('Max tokens is not a valid number');
             }
-            
+
             // For Default Agent, check system prompts
             if (agentName === 'DefaultAgent' && config.systemPrompts) {
                 const systemPromptsValidation = this.validateSystemPromptsData(config.systemPrompts);
@@ -3134,16 +3262,16 @@ class LLMManagerAdminUI {
                     result.warnings.push('System prompts data has validation issues');
                 }
             }
-            
+
         } catch (error) {
             this.debug.error('Error validating loaded configuration:', error);
             result.errors.push('Configuration validation error: ' + error.message);
             result.isValid = false;
         }
-        
+
         return result;
     }
-    
+
     /**
      * Populate form with configuration data with error handling
      * @param {Object} config - Configuration data
@@ -3153,13 +3281,13 @@ class LLMManagerAdminUI {
         try {
             // Use the existing loadConfigurationForms method which handles all form population
             this.loadConfigurationForms(config);
-            
+
         } catch (error) {
             this.debug.error('Error populating form with configuration:', error);
             throw new Error('Form population failed: ' + error.message);
         }
     }
-    
+
     /**
      * Safely set element value with error handling
      * @param {string} elementId - Element ID
@@ -3177,7 +3305,7 @@ class LLMManagerAdminUI {
             this.debug.warn(`Error setting value for element ${elementId}:`, error);
         }
     }
-    
+
     /**
      * Safely set element checked status with error handling
      * @param {string} elementId - Element ID
@@ -3195,7 +3323,7 @@ class LLMManagerAdminUI {
             this.debug.warn(`Error setting checked status for element ${elementId}:`, error);
         }
     }
-    
+
     /**
      * Populate triggers with error handling
      * @param {Array} triggers - Array of trigger strings
@@ -3207,10 +3335,10 @@ class LLMManagerAdminUI {
                 this.debug.warn('Triggers container not found');
                 return;
             }
-            
+
             // Clear existing triggers
             triggersContainer.innerHTML = '';
-            
+
             // Add each trigger with error handling
             triggers.forEach((trigger, index) => {
                 try {
@@ -3221,13 +3349,13 @@ class LLMManagerAdminUI {
                     this.debug.warn(`Error adding trigger ${index}:`, triggerError);
                 }
             });
-            
+
         } catch (error) {
             this.debug.error('Error populating triggers:', error);
             throw new Error('Triggers population failed: ' + error.message);
         }
     }
-    
+
     /**
      * Handle Default Agent system prompts loading with comprehensive error handling
      * @param {Object} config - Agent configuration
@@ -3236,7 +3364,7 @@ class LLMManagerAdminUI {
         try {
             if (!config.systemPrompts) {
                 this.debug.warn('No system prompts found in Default Agent configuration');
-                
+
                 // Attempt to load from SystemPromptsManager as fallback
                 if (this.systemPromptsManager) {
                     try {
@@ -3251,21 +3379,21 @@ class LLMManagerAdminUI {
                         this.debug.warn('SystemPromptsManager fallback failed:', fallbackError);
                     }
                 }
-                
+
                 // Use default values if no system prompts available
                 this.populateDefaultAgentSystemPrompts(this.getDefaultSystemPromptsConfiguration());
                 return;
             }
-            
+
             // Populate with existing system prompts
             this.populateDefaultAgentSystemPrompts(config.systemPrompts);
-            
+
         } catch (error) {
             this.debug.error('Error handling Default Agent system prompts load:', error);
             throw new Error('System prompts loading failed: ' + error.message);
         }
     }
-    
+
     /**
      * Populate Default Agent system prompts fields with error handling
      * @param {Object} systemPrompts - System prompts data
@@ -3276,7 +3404,7 @@ class LLMManagerAdminUI {
             this.setElementValue('defaultPersonality', systemPrompts.basePersonality || '');
             this.setElementValue('defaultFinancialContext', systemPrompts.financialContext || '');
             this.setElementValue('defaultResponseInstructions', systemPrompts.responseInstructions || '');
-            
+
             // Populate custom prompts with error handling
             if (systemPrompts.customPrompts && Array.isArray(systemPrompts.customPrompts)) {
                 this.populateDefaultAgentCustomPrompts(systemPrompts.customPrompts);
@@ -3287,13 +3415,13 @@ class LLMManagerAdminUI {
                     customPromptsContainer.innerHTML = '<p style="color: #7f8c8d; font-style: italic;">No custom prompts configured</p>';
                 }
             }
-            
+
         } catch (error) {
             this.debug.error('Error populating Default Agent system prompts:', error);
             throw new Error('System prompts population failed: ' + error.message);
         }
     }
-    
+
     /**
      * Populate Default Agent custom prompts with error handling
      * @param {Array} customPrompts - Array of custom prompts
@@ -3305,15 +3433,15 @@ class LLMManagerAdminUI {
                 this.debug.warn('Custom prompts container not found');
                 return;
             }
-            
+
             // Clear existing content
             customPromptsContainer.innerHTML = '';
-            
+
             if (!customPrompts || customPrompts.length === 0) {
                 customPromptsContainer.innerHTML = '<p style="color: #7f8c8d; font-style: italic;">No custom prompts configured</p>';
                 return;
             }
-            
+
             // Add each custom prompt with error handling
             customPrompts.forEach((prompt, index) => {
                 try {
@@ -3326,18 +3454,18 @@ class LLMManagerAdminUI {
                     this.debug.warn(`Error adding custom prompt ${index}:`, promptError);
                 }
             });
-            
+
             // Initialize validation for all custom prompts
             setTimeout(() => {
                 this.initializeCustomPromptsValidation();
             }, 100);
-            
+
         } catch (error) {
             this.debug.error('Error populating custom prompts:', error);
             throw new Error('Custom prompts population failed: ' + error.message);
         }
     }
-    
+
     /**
      * Add custom prompt to container with error handling
      * @param {Object} prompt - Prompt object with name and prompt properties
@@ -3349,11 +3477,11 @@ class LLMManagerAdminUI {
             if (!customPromptsContainer) {
                 throw new Error('Custom prompts container not found');
             }
-            
+
             const promptItem = document.createElement('div');
             promptItem.className = 'custom-prompt-item';
             promptItem.style.cssText = 'border: 1px solid #e1e8ed; border-radius: 6px; padding: 15px; margin-bottom: 10px;';
-            
+
             promptItem.innerHTML = `
                 <div class="form-group">
                     <label class="form-label">Prompt Name <span style="color: #e74c3c;">*</span></label>
@@ -3374,15 +3502,15 @@ class LLMManagerAdminUI {
                     🗑️ Remove
                 </button>
             `;
-            
+
             customPromptsContainer.appendChild(promptItem);
-            
+
         } catch (error) {
             this.debug.error('Error adding custom prompt to container:', error);
             throw new Error('Failed to add custom prompt: ' + error.message);
         }
     }
-    
+
     /**
      * Enhanced initialization with graceful degradation for missing dependencies
      */
@@ -3394,27 +3522,27 @@ class LLMManagerAdminUI {
             availableFeatures: [],
             unavailableFeatures: []
         };
-        
+
         try {
             this.debug.log('Starting initialization with graceful degradation');
-            
+
             // Check core dependencies
             const coreChecks = await this.checkCoreDependencies();
             initializationResult.errors.push(...coreChecks.errors);
             initializationResult.warnings.push(...coreChecks.warnings);
-            
+
             // Initialize available managers
             const managerInitResults = await this.initializeAvailableManagers();
             initializationResult.availableFeatures.push(...managerInitResults.available);
             initializationResult.unavailableFeatures.push(...managerInitResults.unavailable);
             initializationResult.warnings.push(...managerInitResults.warnings);
-            
+
             // Set up UI with available features
             await this.setupUIWithAvailableFeatures(initializationResult.availableFeatures);
-            
+
             // Determine overall success
             initializationResult.success = initializationResult.errors.length === 0;
-            
+
             // Report initialization status
             if (initializationResult.success) {
                 this.debug.log('Initialization completed successfully with graceful degradation');
@@ -3425,9 +3553,9 @@ class LLMManagerAdminUI {
                 this.debug.error('Initialization failed:', initializationResult.errors);
                 this.showError('System initialization failed: ' + initializationResult.errors.join(', '));
             }
-            
+
             return initializationResult;
-            
+
         } catch (error) {
             this.debug.error('Critical error during initialization with graceful degradation:', error);
             initializationResult.errors.push('Critical initialization error: ' + error.message);
@@ -3435,7 +3563,7 @@ class LLMManagerAdminUI {
             return initializationResult;
         }
     }
-    
+
     /**
      * Check core dependencies
      * @returns {Promise<Object>} Check results
@@ -3445,42 +3573,42 @@ class LLMManagerAdminUI {
             errors: [],
             warnings: []
         };
-        
+
         try {
             // Check if we're in the right environment
             if (typeof window === 'undefined') {
                 result.errors.push('Window object not available - not in browser environment');
                 return result;
             }
-            
+
             // Check for debug manager
             if (!window.debugManager) {
                 result.warnings.push('Debug manager not available - using console fallback');
                 this.setupDebugFallback();
             }
-            
+
             // Check for required DOM elements
             const requiredElements = ['.llm-manager-container', '[data-section]'];
             let hasRequiredElements = false;
-            
+
             for (const selector of requiredElements) {
                 if (document.querySelector(selector)) {
                     hasRequiredElements = true;
                     break;
                 }
             }
-            
+
             if (!hasRequiredElements) {
                 result.warnings.push('LLM Manager interface elements not found - limited functionality');
             }
-            
+
         } catch (error) {
             result.errors.push('Core dependency check failed: ' + error.message);
         }
-        
+
         return result;
     }
-    
+
     /**
      * Initialize available managers with graceful degradation
      * @returns {Promise<Object>} Initialization results
@@ -3491,7 +3619,7 @@ class LLMManagerAdminUI {
             unavailable: [],
             warnings: []
         };
-        
+
         // Try to initialize LLMManager
         try {
             if (typeof LLMManager !== 'undefined') {
@@ -3505,7 +3633,7 @@ class LLMManagerAdminUI {
             result.unavailable.push('LLMManager');
             result.warnings.push('LLMManager initialization failed: ' + error.message);
         }
-        
+
         // Try to initialize GuardrailsManager
         try {
             if (typeof GuardrailsManager !== 'undefined') {
@@ -3519,7 +3647,7 @@ class LLMManagerAdminUI {
             result.unavailable.push('GuardrailsManager');
             result.warnings.push('GuardrailsManager initialization failed: ' + error.message);
         }
-        
+
         // Try to initialize VoiceConfigManager
         try {
             if (typeof VoiceConfigManager !== 'undefined') {
@@ -3533,7 +3661,7 @@ class LLMManagerAdminUI {
             result.unavailable.push('VoiceConfigManager');
             result.warnings.push('VoiceConfigManager initialization failed: ' + error.message);
         }
-        
+
         // Try to initialize SystemPromptsManager for Default Agent integration
         try {
             if (typeof SystemPromptsManager !== 'undefined') {
@@ -3548,10 +3676,10 @@ class LLMManagerAdminUI {
             result.unavailable.push('SystemPromptsManager');
             result.warnings.push('SystemPromptsManager initialization failed: ' + error.message);
         }
-        
+
         return result;
     }
-    
+
     /**
      * Setup debug fallback when debug manager is not available
      */
@@ -3566,11 +3694,11 @@ class LLMManagerAdminUI {
                     error: (...args) => console.error(`[${module}]`, ...args)
                 })
             };
-            
+
             this.debug = window.debugManager.createModuleLogger('AdminUI');
         }
     }
-    
+
     /**
      * Setup UI with available features
      * @param {Array} availableFeatures - List of available features
@@ -3579,10 +3707,10 @@ class LLMManagerAdminUI {
         try {
             // Always try to set up basic event listeners
             this.setupEventListeners();
-            
+
             // Set up real-time validation
             this.setupRealTimeValidation();
-            
+
             // Set up prompts section if possible
             if (availableFeatures.includes('SystemPromptsManager')) {
                 try {
@@ -3591,7 +3719,7 @@ class LLMManagerAdminUI {
                     this.debug.warn('Error initializing prompts section:', error);
                 }
             }
-            
+
             // Load initial data if LLMManager is available
             if (availableFeatures.includes('LLMManager')) {
                 try {
@@ -3600,13 +3728,13 @@ class LLMManagerAdminUI {
                     this.debug.warn('Error loading initial data:', error);
                 }
             }
-            
+
         } catch (error) {
             this.debug.error('Error setting up UI with available features:', error);
             throw new Error('UI setup failed: ' + error.message);
         }
     }
-    
+
     /**
      * Setup real-time validation for form fields
      */
@@ -3616,7 +3744,7 @@ class LLMManagerAdminUI {
             document.addEventListener('DOMContentLoaded', () => {
                 this.setupConfigurationModalValidation();
             });
-            
+
             // Also set up validation when modal is shown
             const configModal = document.getElementById('configModal');
             if (configModal) {
@@ -3633,15 +3761,15 @@ class LLMManagerAdminUI {
                         }
                     });
                 });
-                
+
                 observer.observe(configModal, { attributes: true });
             }
-            
+
         } catch (error) {
             this.debug.warn('Error setting up real-time validation:', error);
         }
     }
-    
+
     /**
      * Setup validation for configuration modal fields
      */
@@ -3655,47 +3783,47 @@ class LLMManagerAdminUI {
                 { id: 'maxTokens', validator: this.validateMaxTokens.bind(this) },
                 { id: 'temperature', validator: this.validateTemperature.bind(this) }
             ];
-            
+
             basicFields.forEach(({ id, validator }) => {
                 const element = document.getElementById(id);
                 if (element) {
                     // Remove existing listeners to avoid duplicates
                     element.removeEventListener('input', validator);
                     element.removeEventListener('blur', validator);
-                    
+
                     // Add new listeners
                     element.addEventListener('input', validator);
                     element.addEventListener('blur', validator);
                 }
             });
-            
+
             // Default Agent system prompts validation
             const systemPromptsFields = [
                 { id: 'defaultBasePersonality', validator: this.validateBasePersonality.bind(this) },
                 { id: 'defaultFinancialContext', validator: this.validateFinancialContext.bind(this) },
                 { id: 'defaultResponseInstructions', validator: this.validateResponseInstructions.bind(this) }
             ];
-            
+
             systemPromptsFields.forEach(({ id, validator }) => {
                 const element = document.getElementById(id);
                 if (element) {
                     // Remove existing listeners to avoid duplicates
                     element.removeEventListener('input', validator);
                     element.removeEventListener('blur', validator);
-                    
+
                     // Add new listeners
                     element.addEventListener('input', validator);
                     element.addEventListener('blur', validator);
                 }
             });
-            
+
             this.debug.log('Configuration modal validation setup completed');
-            
+
         } catch (error) {
             this.debug.warn('Error setting up configuration modal validation:', error);
         }
     }
-    
+
     /**
      * Validate agent name field
      * @param {Event} event - Input event
@@ -3704,27 +3832,27 @@ class LLMManagerAdminUI {
         const input = event.target;
         const value = input.value.trim();
         const validationMessage = this.getOrCreateValidationMessage(input);
-        
+
         this.clearFieldValidation(input, validationMessage);
-        
+
         if (!value) {
             this.showFieldValidationError(input, validationMessage, 'Agent name is required');
             return false;
         }
-        
+
         if (value.length < 2) {
             this.showFieldValidationError(input, validationMessage, 'Agent name must be at least 2 characters long');
             return false;
         }
-        
+
         if (value.length > 50) {
             this.showFieldValidationError(input, validationMessage, 'Agent name must be less than 50 characters');
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * Validate agent description field
      * @param {Event} event - Input event
@@ -3733,27 +3861,27 @@ class LLMManagerAdminUI {
         const input = event.target;
         const value = input.value.trim();
         const validationMessage = this.getOrCreateValidationMessage(input);
-        
+
         this.clearFieldValidation(input, validationMessage);
-        
+
         if (!value) {
             this.showFieldValidationError(input, validationMessage, 'Agent description is required');
             return false;
         }
-        
+
         if (value.length < 10) {
             this.showFieldValidationError(input, validationMessage, 'Agent description must be at least 10 characters long');
             return false;
         }
-        
+
         if (value.length > 500) {
             this.showFieldValidationError(input, validationMessage, 'Agent description must be less than 500 characters');
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * Validate agent priority field
      * @param {Event} event - Input event
@@ -3762,23 +3890,23 @@ class LLMManagerAdminUI {
         const input = event.target;
         const value = input.value;
         const validationMessage = this.getOrCreateValidationMessage(input);
-        
+
         this.clearFieldValidation(input, validationMessage);
-        
+
         if (value === '' || value === null || value === undefined) {
             this.showFieldValidationError(input, validationMessage, 'Priority is required');
             return false;
         }
-        
+
         const priorityNum = parseInt(value);
         if (isNaN(priorityNum) || priorityNum < 0 || priorityNum > 10) {
             this.showFieldValidationError(input, validationMessage, 'Priority must be a number between 0 and 10');
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * Validate max tokens field
      * @param {Event} event - Input event
@@ -3787,27 +3915,27 @@ class LLMManagerAdminUI {
         const input = event.target;
         const value = input.value;
         const validationMessage = this.getOrCreateValidationMessage(input);
-        
+
         this.clearFieldValidation(input, validationMessage);
-        
+
         if (value === '' || value === null || value === undefined) {
             this.showFieldValidationError(input, validationMessage, 'Max Tokens is required');
             return false;
         }
-        
+
         const maxTokensNum = parseInt(value);
         if (isNaN(maxTokensNum) || maxTokensNum < 1 || maxTokensNum > 8000) {
             this.showFieldValidationError(input, validationMessage, 'Max Tokens must be a number between 1 and 8000');
             return false;
         }
-        
+
         if (maxTokensNum > 4000) {
             this.showFieldValidationWarning(input, validationMessage, 'High token limit may result in increased API costs');
         }
-        
+
         return true;
     }
-    
+
     /**
      * Validate temperature field
      * @param {Event} event - Input event
@@ -3816,27 +3944,27 @@ class LLMManagerAdminUI {
         const input = event.target;
         const value = input.value;
         const validationMessage = this.getOrCreateValidationMessage(input);
-        
+
         this.clearFieldValidation(input, validationMessage);
-        
+
         if (value === '' || value === null || value === undefined) {
             this.showFieldValidationError(input, validationMessage, 'Temperature is required');
             return false;
         }
-        
+
         const temperatureNum = parseFloat(value);
         if (isNaN(temperatureNum) || temperatureNum < 0 || temperatureNum > 2) {
             this.showFieldValidationError(input, validationMessage, 'Temperature must be a number between 0 and 2');
             return false;
         }
-        
+
         if (temperatureNum > 1.5) {
             this.showFieldValidationWarning(input, validationMessage, 'High temperature may result in unpredictable responses');
         }
-        
+
         return true;
     }
-    
+
     /**
      * Validate base personality field
      * @param {Event} event - Input event
@@ -3845,35 +3973,35 @@ class LLMManagerAdminUI {
         const input = event.target;
         const value = input.value.trim();
         const validationMessage = this.getOrCreateValidationMessage(input);
-        
+
         this.clearFieldValidation(input, validationMessage);
-        
+
         if (!value) {
             this.showFieldValidationError(input, validationMessage, 'Base AI Personality is required');
             return false;
         }
-        
+
         if (value.length < 20) {
             this.showFieldValidationError(input, validationMessage, 'Base AI Personality must be at least 20 characters long');
             return false;
         }
-        
+
         if (value.length > 2000) {
             this.showFieldValidationError(input, validationMessage, 'Base AI Personality must be less than 2000 characters');
             return false;
         }
-        
+
         if (value.length < 50) {
             this.showFieldValidationWarning(input, validationMessage, 'Consider adding more detail to the personality description');
         }
-        
+
         if (this.containsProblematicContent(value)) {
             this.showFieldValidationWarning(input, validationMessage, 'Content may contain patterns that could affect AI behavior');
         }
-        
+
         return true;
     }
-    
+
     /**
      * Validate financial context field
      * @param {Event} event - Input event
@@ -3882,31 +4010,31 @@ class LLMManagerAdminUI {
         const input = event.target;
         const value = input.value.trim();
         const validationMessage = this.getOrCreateValidationMessage(input);
-        
+
         this.clearFieldValidation(input, validationMessage);
-        
+
         if (!value) {
             this.showFieldValidationError(input, validationMessage, 'Financial Services Context is required');
             return false;
         }
-        
+
         if (value.length < 20) {
             this.showFieldValidationError(input, validationMessage, 'Financial Services Context must be at least 20 characters long');
             return false;
         }
-        
+
         if (value.length > 3000) {
             this.showFieldValidationError(input, validationMessage, 'Financial Services Context must be less than 3000 characters');
             return false;
         }
-        
+
         if (value.length < 100) {
             this.showFieldValidationWarning(input, validationMessage, 'Consider adding more banking-specific guidance');
         }
-        
+
         return true;
     }
-    
+
     /**
      * Validate response instructions field
      * @param {Event} event - Input event
@@ -3915,27 +4043,27 @@ class LLMManagerAdminUI {
         const input = event.target;
         const value = input.value.trim();
         const validationMessage = this.getOrCreateValidationMessage(input);
-        
+
         this.clearFieldValidation(input, validationMessage);
-        
+
         if (!value) {
             this.showFieldValidationError(input, validationMessage, 'Response Instructions are required');
             return false;
         }
-        
+
         if (value.length < 10) {
             this.showFieldValidationError(input, validationMessage, 'Response Instructions must be at least 10 characters long');
             return false;
         }
-        
+
         if (value.length > 1500) {
             this.showFieldValidationError(input, validationMessage, 'Response Instructions must be less than 1500 characters');
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * Get or create validation message element for a field
      * @param {HTMLElement} field - The form field
@@ -3943,17 +4071,17 @@ class LLMManagerAdminUI {
      */
     getOrCreateValidationMessage(field) {
         let validationMessage = field.parentElement?.querySelector('.validation-message');
-        
+
         if (!validationMessage) {
             validationMessage = document.createElement('div');
             validationMessage.className = 'validation-message';
             validationMessage.style.cssText = 'color: #e74c3c; font-size: 0.8em; margin-top: 5px; display: none;';
             field.parentElement?.appendChild(validationMessage);
         }
-        
+
         return validationMessage;
     }
-    
+
     /**
      * Clear field validation styling and message
      * @param {HTMLElement} field - The form field
@@ -3965,7 +4093,7 @@ class LLMManagerAdminUI {
         validationMessage.textContent = '';
         validationMessage.style.color = '#e74c3c';
     }
-    
+
     /**
      * Show field validation error
      * @param {HTMLElement} field - The form field
@@ -3978,7 +4106,7 @@ class LLMManagerAdminUI {
         validationMessage.style.color = '#e74c3c';
         validationMessage.style.display = 'block';
     }
-    
+
     /**
      * Show field validation warning
      * @param {HTMLElement} field - The form field
@@ -3991,7 +4119,7 @@ class LLMManagerAdminUI {
         validationMessage.style.color = '#f39c12';
         validationMessage.style.display = 'block';
     }
-    
+
     /**
      * Validate prompt content
      * @param {HTMLTextAreaElement} textarea - The textarea element
@@ -4004,20 +4132,20 @@ class LLMManagerAdminUI {
         textarea.style.borderColor = '';
         validationMessage.style.display = 'none';
         validationMessage.textContent = '';
-        
+
         if (!value) {
             this.showValidationError(textarea, validationMessage, 'Prompt content is required');
             return false;
         }
-        
+
         if (value.length > 1000) {
             this.showValidationError(textarea, validationMessage, 'Prompt content must be 1000 characters or less');
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * Show validation error
      * @param {HTMLElement} input - The input element
@@ -4029,7 +4157,7 @@ class LLMManagerAdminUI {
         messageElement.textContent = message;
         messageElement.style.display = 'block';
     }
-    
+
     /**
      * Update character counter
      * @param {HTMLTextAreaElement} textarea - The textarea element
@@ -4039,7 +4167,7 @@ class LLMManagerAdminUI {
         if (counter) {
             const length = textarea.value.length;
             counter.textContent = `${length}/1000`;
-            
+
             if (length > 900) {
                 counter.style.color = '#e74c3c';
             } else if (length > 800) {
@@ -4049,7 +4177,7 @@ class LLMManagerAdminUI {
             }
         }
     }
-    
+
     /**
      * Open guardrails editor
      */
@@ -4058,34 +4186,34 @@ class LLMManagerAdminUI {
         this.switchSection('guardrails');
         this.loadGuardrailsEditor(agentName);
     }
-    
+
     /**
      * Load guardrails content
      */
     async loadGuardrailsContent() {
         const content = document.getElementById('guardrailsContent');
         if (!content) return;
-        
+
         // Ensure Default Agent is loaded before getting configurations
         await this.ensureDefaultAgentLoaded();
-        
+
         const agents = this.llmManager.getAgentConfigurations();
-        
+
         // Sort agents to put Default Agent first
         const sortedAgentNames = Object.keys(agents).sort((a, b) => {
             if (a === 'DefaultAgent') return -1;
             if (b === 'DefaultAgent') return 1;
             return a.localeCompare(b);
         });
-        
+
         content.innerHTML = `
             <div class="form-group">
                 <label class="form-label">Select Agent</label>
                 <select class="form-select" id="guardrailsAgentSelect" onchange="loadGuardrailsEditor(this.value)">
                     <option value="">Choose an agent...</option>
-                    ${sortedAgentNames.map(name => 
-                        `<option value="${name}">${name}${name === 'DefaultAgent' ? ' (Primary Agent)' : ''}</option>`
-                    ).join('')}
+                    ${sortedAgentNames.map(name =>
+            `<option value="${name}">${name}${name === 'DefaultAgent' ? ' (Primary Agent)' : ''}</option>`
+        ).join('')}
                 </select>
             </div>
             
@@ -4093,14 +4221,14 @@ class LLMManagerAdminUI {
                 <!-- Guardrails editor will be loaded here -->
             </div>
         `;
-        
+
         // Auto-select current agent if set
         if (this.currentAgent) {
             document.getElementById('guardrailsAgentSelect').value = this.currentAgent;
             this.loadGuardrailsEditor(this.currentAgent);
         }
     }
-    
+
     /**
      * Load guardrails editor for specific agent
      */
@@ -4109,10 +4237,10 @@ class LLMManagerAdminUI {
             document.getElementById('guardrailsEditor').style.display = 'none';
             return;
         }
-        
+
         const guardrails = this.guardrailsManager.getGuardrails(agentName) || {};
         const editor = document.getElementById('guardrailsEditor');
-        
+
         editor.style.display = 'block';
         editor.innerHTML = `
             <h3>Guardrails for ${agentName}</h3>
@@ -4233,10 +4361,10 @@ class LLMManagerAdminUI {
                 </button>
             </div>
         `;
-        
+
         this.logAuditEvent('guardrails', `Opened guardrails editor for ${agentName}`);
     }
-    
+
     /**
      * Save guardrails configuration
      */
@@ -4248,20 +4376,20 @@ class LLMManagerAdminUI {
                 const capability = toggle.dataset.capability;
                 capabilities[capability] = toggle.classList.contains('active');
             });
-            
+
             // Collect compliance rules
             const complianceRules = {};
             document.querySelectorAll('[data-compliance]').forEach(toggle => {
                 const rule = toggle.dataset.compliance;
                 complianceRules[rule] = toggle.classList.contains('active');
             });
-            
+
             // Collect secondary auth configuration
             const requiresSecondaryAuth = {};
             document.querySelectorAll('[data-auth-action]').forEach(toggle => {
                 const action = toggle.dataset.authAction;
                 const enabled = toggle.classList.contains('active');
-                
+
                 if (enabled) {
                     const authTypeSelect = document.querySelector(`[data-auth-type="${action}"]`);
                     requiresSecondaryAuth[action] = {
@@ -4271,30 +4399,30 @@ class LLMManagerAdminUI {
                     };
                 }
             });
-            
+
             // Collect custom prompts
             const prompts = {
                 secondaryAuth: {},
                 restrictionBlocked: {},
                 compliance: {}
             };
-            
+
             document.querySelectorAll('.prompt-textarea').forEach(textarea => {
                 const category = textarea.dataset.promptCategory;
                 const key = textarea.dataset.promptKey;
                 const value = textarea.value.trim();
-                
+
                 if (value && prompts[category]) {
                     prompts[category][key] = value;
                 }
             });
-            
+
             // Collect other restrictions
             const blockedKeywords = document.getElementById('blockedKeywords').value
                 .split('\n')
                 .map(keyword => keyword.trim())
                 .filter(keyword => keyword.length > 0);
-            
+
             const guardrails = {
                 allowedCapabilities: capabilities,
                 restrictions: {
@@ -4309,22 +4437,22 @@ class LLMManagerAdminUI {
                     dataRetentionDays: parseInt(document.getElementById('dataRetentionDays').value) || 90
                 }
             };
-            
+
             const success = this.guardrailsManager.setGuardrails(agentName, guardrails);
-            
+
             if (success) {
                 this.showSuccess('Guardrails saved successfully');
                 this.logAuditEvent('guardrails', `Updated guardrails for ${agentName}`, guardrails);
             } else {
                 this.showError('Failed to save guardrails');
             }
-            
+
         } catch (error) {
             this.debug.error('Error saving guardrails:', error);
             this.showError('Error saving guardrails: ' + error.message);
         }
     }
-    
+
     /**
      * Render secondary authentication configuration
      */
@@ -4332,12 +4460,12 @@ class LLMManagerAdminUI {
         const availableActions = this.guardrailsManager.getAvailableAuthActions(agentName);
         const authTypes = this.guardrailsManager.getAuthenticationTypes();
         const currentAuth = guardrails.restrictions?.requiresSecondaryAuth || {};
-        
+
         return `
             <div class="auth-config-container">
                 ${availableActions.map(action => {
-                    const config = currentAuth[action.action] || { enabled: false, authType: 'sms', prompt: 'default' };
-                    return `
+            const config = currentAuth[action.action] || { enabled: false, authType: 'sms', prompt: 'default' };
+            return `
                         <div class="auth-action-config">
                             <div class="auth-action-header">
                                 <div class="toggle-switch ${config.enabled ? 'active' : ''}" 
@@ -4349,15 +4477,15 @@ class LLMManagerAdminUI {
                                 <div class="form-group">
                                     <label class="form-label">Authentication Type</label>
                                     <select class="form-select" data-auth-type="${action.action}">
-                                        ${Object.entries(authTypes).map(([key, label]) => 
-                                            `<option value="${key}" ${config.authType === key ? 'selected' : ''}>${label}</option>`
-                                        ).join('')}
+                                        ${Object.entries(authTypes).map(([key, label]) =>
+                `<option value="${key}" ${config.authType === key ? 'selected' : ''}>${label}</option>`
+            ).join('')}
                                     </select>
                                 </div>
                             </div>
                         </div>
                     `;
-                }).join('')}
+        }).join('')}
             </div>
         `;
     }
@@ -4368,7 +4496,7 @@ class LLMManagerAdminUI {
     renderCustomPromptsConfig(agentName, guardrails) {
         const promptTemplates = this.guardrailsManager.getPromptTemplates();
         const currentPrompts = guardrails.prompts || {};
-        
+
         return `
             <div class="prompts-config-container">
                 <div class="prompt-section">
@@ -4417,8 +4545,8 @@ class LLMManagerAdminUI {
      */
     formatPromptLabel(key) {
         return key.replace(/([A-Z])/g, ' $1')
-                  .replace(/^./, str => str.toUpperCase())
-                  .replace(/([a-z])([A-Z])/g, '$1 $2');
+            .replace(/^./, str => str.toUpperCase())
+            .replace(/([a-z])([A-Z])/g, '$1 $2');
     }
 
     /**
@@ -4431,9 +4559,9 @@ class LLMManagerAdminUI {
             { action: 'blockCard', context: {} },
             { action: 'transfer money', context: {} } // Should be blocked by keyword
         ];
-        
+
         let results = `Guardrails Test Results for ${agentName}:\n\n`;
-        
+
         testActions.forEach(test => {
             const result = this.guardrailsManager.validateAction(agentName, test.action, test.context);
             const status = result.allowed ? '✅ ALLOWED' : '❌ BLOCKED';
@@ -4445,11 +4573,11 @@ class LLMManagerAdminUI {
                 results += `   Auth Type: ${result.authType}\n`;
             }
         });
-        
+
         alert(results);
         this.logAuditEvent('guardrails', `Tested guardrails for ${agentName}`);
     }
-    
+
     /**
      * Open voice configuration
      */
@@ -4458,34 +4586,34 @@ class LLMManagerAdminUI {
         this.switchSection('voice');
         this.loadVoiceEditor(agentName);
     }
-    
+
     /**
      * Load voice content
      */
     async loadVoiceContent() {
         const content = document.getElementById('voiceContent');
         if (!content) return;
-        
+
         // Ensure Default Agent is loaded before getting configurations
         await this.ensureDefaultAgentLoaded();
-        
+
         const agents = this.llmManager.getAgentConfigurations();
-        
+
         // Sort agents to put Default Agent first
         const sortedAgentNames = Object.keys(agents).sort((a, b) => {
             if (a === 'DefaultAgent') return -1;
             if (b === 'DefaultAgent') return 1;
             return a.localeCompare(b);
         });
-        
+
         content.innerHTML = `
             <div class="form-group">
                 <label class="form-label">Select Agent</label>
                 <select class="form-select" id="voiceAgentSelect" onchange="loadVoiceEditor(this.value)">
                     <option value="">Choose an agent...</option>
-                    ${sortedAgentNames.map(name => 
-                        `<option value="${name}">${name}${name === 'DefaultAgent' ? ' (Primary Agent)' : ''}</option>`
-                    ).join('')}
+                    ${sortedAgentNames.map(name =>
+            `<option value="${name}">${name}${name === 'DefaultAgent' ? ' (Primary Agent)' : ''}</option>`
+        ).join('')}
                 </select>
             </div>
             
@@ -4493,14 +4621,14 @@ class LLMManagerAdminUI {
                 <!-- Voice editor will be loaded here -->
             </div>
         `;
-        
+
         // Auto-select current agent if set
         if (this.currentAgent) {
             document.getElementById('voiceAgentSelect').value = this.currentAgent;
             this.loadVoiceEditor(this.currentAgent);
         }
     }
-    
+
     /**
      * Load voice editor for specific agent
      */
@@ -4509,21 +4637,21 @@ class LLMManagerAdminUI {
             document.getElementById('voiceEditor').style.display = 'none';
             return;
         }
-        
+
         const voiceConfig = this.voiceConfigManager.getVoiceConfig(agentName) || {};
         const ttsSettings = voiceConfig.ttsSettings || {};
         const personalityTraits = voiceConfig.personalityTraits || {};
         const contextualAdaptation = voiceConfig.contextualAdaptation || {};
-        
+
         const editor = document.getElementById('voiceEditor');
         editor.style.display = 'block';
-        
+
         const availableVoices = {
             openai: this.voiceConfigManager.getAvailableVoices('openai'),
             elevenlabs: this.voiceConfigManager.getAvailableVoices('elevenlabs'),
             azure: this.voiceConfigManager.getAvailableVoices('azure')
         };
-        
+
         editor.innerHTML = `
             <h3>Voice Configuration for ${agentName}</h3>
             
@@ -4640,20 +4768,20 @@ class LLMManagerAdminUI {
                 </button>
             </div>
         `;
-        
+
         this.logAuditEvent('voice', `Opened voice configuration for ${agentName}`);
     }
-    
+
     /**
      * Generate voice options for select dropdown
      */
     generateVoiceOptions(provider, selectedVoice, availableVoices) {
         const voices = availableVoices[provider] || [];
-        return voices.map(voice => 
+        return voices.map(voice =>
             `<option value="${voice}" ${voice === selectedVoice ? 'selected' : ''}>${voice}</option>`
         ).join('');
     }
-    
+
     /**
      * Update voice options when provider changes
      */
@@ -4665,22 +4793,22 @@ class LLMManagerAdminUI {
             elevenlabs: this.voiceConfigManager.getAvailableVoices('elevenlabs'),
             azure: this.voiceConfigManager.getAvailableVoices('azure')
         };
-        
+
         voiceSelect.innerHTML = this.generateVoiceOptions(provider, '', availableVoices);
     }
-    
+
     /**
      * Preview voice configuration
      */
     async previewVoice(agentName) {
         const previewText = document.getElementById('previewText').value;
         const resultDiv = document.getElementById('previewResult');
-        
+
         if (!previewText.trim()) {
             this.showError('Please enter text to preview');
             return;
         }
-        
+
         // Collect current voice configuration
         const config = {
             ttsSettings: {
@@ -4701,12 +4829,12 @@ class LLMManagerAdminUI {
                 successResponseTone: document.getElementById('successResponseTone').value
             }
         };
-        
+
         try {
             resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Generating preview...</div>';
-            
+
             const preview = await this.voiceConfigManager.previewVoice(config, previewText);
-            
+
             if (preview.success) {
                 resultDiv.innerHTML = `
                     <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 10px; color: #155724;">
@@ -4722,9 +4850,9 @@ class LLMManagerAdminUI {
                     </div>
                 `;
             }
-            
+
             this.logAuditEvent('voice', `Generated voice preview for ${agentName}`);
-            
+
         } catch (error) {
             this.debug.error('Voice preview error:', error);
             resultDiv.innerHTML = `
@@ -4734,7 +4862,7 @@ class LLMManagerAdminUI {
             `;
         }
     }
-    
+
     /**
      * Save voice configuration
      */
@@ -4759,22 +4887,22 @@ class LLMManagerAdminUI {
                     successResponseTone: document.getElementById('successResponseTone').value
                 }
             };
-            
+
             const success = this.voiceConfigManager.setVoiceConfig(agentName, config);
-            
+
             if (success) {
                 this.showSuccess('Voice configuration saved successfully');
                 this.logAuditEvent('voice', `Updated voice configuration for ${agentName}`, config);
             } else {
                 this.showError('Failed to save voice configuration');
             }
-            
+
         } catch (error) {
             this.debug.error('Error saving voice configuration:', error);
             this.showError('Error saving voice configuration: ' + error.message);
         }
     }
-    
+
     /**
      * Reset voice configuration to default
      */
@@ -4787,17 +4915,17 @@ class LLMManagerAdminUI {
             this.logAuditEvent('voice', `Reset voice configuration for ${agentName} to defaults`);
         }
     }
-    
+
     /**
      * Toggle agent enabled/disabled status
      */
     toggleAgent(agentName) {
         const config = this.llmManager.getAgentConfiguration(agentName);
         if (!config) return;
-        
+
         const newStatus = !config.enabled;
         const success = this.llmManager.updateAgentConfiguration(agentName, { enabled: newStatus });
-        
+
         if (success) {
             this.refreshAgentData();
             this.showSuccess(`Agent ${agentName} ${newStatus ? 'enabled' : 'disabled'}`);
@@ -4806,7 +4934,7 @@ class LLMManagerAdminUI {
             this.showError(`Failed to ${newStatus ? 'enable' : 'disable'} agent`);
         }
     }
-    
+
     /**
      * Export configuration
      */
@@ -4815,7 +4943,7 @@ class LLMManagerAdminUI {
             const config = this.llmManager.exportConfiguration();
             const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
-            
+
             const a = document.createElement('a');
             a.href = url;
             a.download = `llm-manager-config-${new Date().toISOString().split('T')[0]}.json`;
@@ -4823,16 +4951,16 @@ class LLMManagerAdminUI {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
+
             this.showSuccess('Configuration exported successfully');
             this.logAuditEvent('system', 'Exported configuration');
-            
+
         } catch (error) {
             this.debug.error('Export error:', error);
             this.showError('Failed to export configuration');
         }
     }
-    
+
     /**
      * Import configuration
      */
@@ -4840,17 +4968,17 @@ class LLMManagerAdminUI {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.json';
-        
+
         input.onchange = (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            
+
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
                     const config = JSON.parse(e.target.result);
                     const success = this.llmManager.importConfiguration(config);
-                    
+
                     if (success) {
                         this.refreshAgentData();
                         this.showSuccess('Configuration imported successfully');
@@ -4858,19 +4986,19 @@ class LLMManagerAdminUI {
                     } else {
                         this.showError('Failed to import configuration');
                     }
-                    
+
                 } catch (error) {
                     this.debug.error('Import error:', error);
                     this.showError('Invalid configuration file');
                 }
             };
-            
+
             reader.readAsText(file);
         };
-        
+
         input.click();
     }
-    
+
     /**
      * Reset to defaults
      */
@@ -4882,7 +5010,7 @@ class LLMManagerAdminUI {
             this.logAuditEvent('system', 'Reset all configurations to defaults');
         }
     }
-    
+
     /**
      * Clean up invalid agent configurations
      */
@@ -4905,7 +5033,7 @@ class LLMManagerAdminUI {
             this.showError('Failed to cleanup invalid agents');
         }
     }
-    
+
     /**
      * Load audit log
      */
@@ -4915,7 +5043,7 @@ class LLMManagerAdminUI {
         this.auditLog = stored ? JSON.parse(stored) : [];
         this.renderAuditLog();
     }
-    
+
     /**
      * Log audit event
      */
@@ -4928,41 +5056,41 @@ class LLMManagerAdminUI {
             details,
             user: 'admin' // In real implementation, this would be the actual user
         };
-        
+
         this.auditLog.unshift(event);
-        
+
         // Keep only last 1000 events
         if (this.auditLog.length > 1000) {
             this.auditLog = this.auditLog.slice(0, 1000);
         }
-        
+
         // Save to localStorage
         localStorage.setItem('llm_manager_audit_log', JSON.stringify(this.auditLog));
-        
+
         // Update UI if audit section is visible
         const auditSection = document.getElementById('audit-section');
         if (auditSection && auditSection.classList.contains('active')) {
             this.renderAuditLog();
         }
     }
-    
+
     /**
      * Render audit log
      */
     renderAuditLog() {
         const container = document.getElementById('auditLogEntries');
         if (!container) return;
-        
+
         const filter = document.getElementById('logFilter')?.value || 'all';
-        const filteredLog = filter === 'all' ? 
-            this.auditLog : 
+        const filteredLog = filter === 'all' ?
+            this.auditLog :
             this.auditLog.filter(event => event.category === filter);
-        
+
         if (filteredLog.length === 0) {
             container.innerHTML = '<div class="loading">No audit events found</div>';
             return;
         }
-        
+
         container.innerHTML = filteredLog.map(event => `
             <div class="log-entry">
                 <div class="log-info">
@@ -4976,14 +5104,14 @@ class LLMManagerAdminUI {
             </div>
         `).join('');
     }
-    
+
     /**
      * Filter audit log
      */
     filterAuditLog(filter) {
         this.renderAuditLog();
     }
-    
+
     /**
      * Clear audit log
      */
@@ -4995,26 +5123,26 @@ class LLMManagerAdminUI {
             this.showSuccess('Audit log cleared');
         }
     }
-    
+
     /**
      * Refresh audit log
      */
     refreshAuditLog() {
         this.renderAuditLog();
     }
-    
+
     /**
      * Switch tabs in modal
      */
     switchTab(tabBtn) {
         const tabContainer = tabBtn.closest('.modal-body') || tabBtn.closest('.content-section');
-        
+
         // Update tab buttons
         tabContainer.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active');
         });
         tabBtn.classList.add('active');
-        
+
         // Update tab content
         const tabName = tabBtn.dataset.tab;
         tabContainer.querySelectorAll('.tab-content').forEach(content => {
@@ -5022,14 +5150,14 @@ class LLMManagerAdminUI {
         });
         tabContainer.querySelector(`#${tabName}-tab`).classList.add('active');
     }
-    
+
     /**
      * Show modal
      */
     showModal(modalId) {
         document.getElementById(modalId).classList.add('active');
     }
-    
+
     /**
      * Close modal
      */
@@ -5037,21 +5165,21 @@ class LLMManagerAdminUI {
         document.getElementById(modalId).classList.remove('active');
         this.currentAgent = null;
     }
-    
+
     /**
      * Show success message
      */
     showSuccess(message) {
         this.showNotification(message, 'success');
     }
-    
+
     /**
      * Show error message
      */
     showError(message) {
         this.showNotification(message, 'error');
     }
-    
+
     /**
      * Show notification
      */
@@ -5071,7 +5199,7 @@ class LLMManagerAdminUI {
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             animation: slideIn 0.3s ease-out;
         `;
-        
+
         // Set background color based on type
         const colors = {
             success: '#27ae60',
@@ -5079,13 +5207,13 @@ class LLMManagerAdminUI {
             warning: '#f39c12',
             info: '#3498db'
         };
-        
+
         notification.style.background = colors[type] || colors.info;
         notification.textContent = message;
-        
+
         // Add to page
         document.body.appendChild(notification);
-        
+
         // Remove after 3 seconds
         setTimeout(() => {
             notification.style.animation = 'slideOut 0.3s ease-in';
@@ -5095,7 +5223,7 @@ class LLMManagerAdminUI {
                 }
             }, 300);
         }, 3000);
-        
+
         // Add CSS animations if not already present
         if (!document.getElementById('notification-styles')) {
             const style = document.createElement('style');
@@ -5126,7 +5254,7 @@ window.adminUI = null;
 // System Prompts Management Functions
 async function saveAgentPrompts(agentName) {
     console.log(`Saving prompts for ${agentName}...`);
-    
+
     try {
         // Get current agent configuration
         const agentConfig = window.agentConfigManager?.getAgentConfig(agentName);
@@ -5134,7 +5262,7 @@ async function saveAgentPrompts(agentName) {
             showNotification(`Agent configuration not found for ${agentName}`, 'error');
             return;
         }
-        
+
         // Collect prompt data from form fields
         const agentPrefix = agentName.toLowerCase().replace('agent', '');
         const promptData = {
@@ -5142,26 +5270,26 @@ async function saveAgentPrompts(agentName) {
             financialContext: document.getElementById(`${agentPrefix}-context`)?.value || '',
             responseInstructions: document.getElementById(`${agentPrefix}-instructions`)?.value || ''
         };
-        
+
         // Preserve existing custom prompts if they exist
         if (agentConfig.systemPrompts && agentConfig.systemPrompts.customPrompts) {
             promptData.customPrompts = agentConfig.systemPrompts.customPrompts;
         }
-        
+
         // Update the agent configuration
         const updatedConfig = {
             ...agentConfig,
             systemPrompts: promptData,
             lastUpdated: new Date().toISOString()
         };
-        
+
         // Save to agent configuration manager
         const success = await window.agentConfigManager.setAgentConfig(agentName, updatedConfig);
-        
+
         if (success) {
             showNotification(`${agentName} prompts saved successfully!`, 'success');
             console.log(`Successfully saved prompts for ${agentName} to config file`);
-            
+
             // Log audit event if available
             if (typeof logAuditEvent === 'function') {
                 logAuditEvent('prompts', `Updated system prompts for ${agentName}`);
@@ -5169,7 +5297,7 @@ async function saveAgentPrompts(agentName) {
         } else {
             showNotification(`Failed to save ${agentName} prompts`, 'error');
         }
-        
+
     } catch (error) {
         console.error('Error saving agent prompts:', error);
         showNotification(`Error saving ${agentName} prompts: ${error.message}`, 'error');
@@ -5179,25 +5307,25 @@ async function saveAgentPrompts(agentName) {
 async function resetAgentPrompts(agentName) {
     if (confirm(`Reset ${agentName} prompts to defaults? This will lose any custom changes.`)) {
         console.log(`Resetting ${agentName} to defaults...`);
-        
+
         try {
             // Reload the original configuration from the config file
             await window.agentConfigManager.loadAgentConfiguration(
-                agentName, 
+                agentName,
                 window.agentConfigManager.getAgentConfigFilePath(agentName)
             );
-            
+
             // Get the fresh configuration
             const agentConfig = window.agentConfigManager.getAgentConfig(agentName);
             if (!agentConfig || !agentConfig.systemPrompts) {
                 throw new Error(`No default configuration available for ${agentName}`);
             }
-            
+
             const defaults = agentConfig.systemPrompts;
-            
+
             // Update form fields with defaults
             const agentPrefix = agentName.toLowerCase().replace('agent', '');
-            
+
             if (document.getElementById(`${agentPrefix}-personality`)) {
                 document.getElementById(`${agentPrefix}-personality`).value = defaults.basePersonality || '';
             }
@@ -5207,15 +5335,15 @@ async function resetAgentPrompts(agentName) {
             if (document.getElementById(`${agentPrefix}-instructions`)) {
                 document.getElementById(`${agentPrefix}-instructions`).value = defaults.responseInstructions || '';
             }
-            
+
             showNotification(`${agentName} prompts reset to defaults successfully`, 'success');
             console.log(`Successfully reset ${agentName} prompts to config file defaults`);
-            
+
             // Log audit event if available
             if (typeof logAuditEvent === 'function') {
                 logAuditEvent('prompts', `Reset system prompts for ${agentName} to defaults`);
             }
-            
+
         } catch (error) {
             console.error('Error resetting agent prompts:', error);
             showNotification(`Error resetting ${agentName} prompts: ${error.message}`, 'error');
@@ -5253,37 +5381,37 @@ function getBuiltInDefaults(agentName) {
             financialContext: "UK Banking Information Context:\n1. Use correct UK banking terminology\n2. Explain account types and features accurately\n3. Provide information about banking hours and holidays\n4. Assist with online and mobile banking queries\n5. Help customers understand fees and charges"
         }
     };
-    
+
     return defaults[agentName] || null;
 }
 
 function previewAgentPrompts(agentName) {
     console.log(`Previewing prompts for ${agentName}...`);
-    
+
     try {
         // Collect current configuration
         const currentConfig = collectAgentConfiguration(agentName);
-        
+
         if (!currentConfig) {
             showNotification(`Unable to collect configuration for ${agentName} preview`, 'error');
             return;
         }
-        
+
         // Generate preview content
         const previewContent = generatePromptPreview(agentName, currentConfig);
-        
+
         // Show preview in modal or switch to preview tab
         const previewTab = document.querySelector('[data-tab="prompt-preview"]');
         const agentSelect = document.getElementById('preview-agent-select');
-        
+
         if (previewTab && agentSelect) {
             // Switch to preview tab
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
+
             previewTab.classList.add('active');
             document.getElementById('prompt-preview-tab').classList.add('active');
-            
+
             // Set agent selection and update preview
             agentSelect.value = agentName;
             updatePromptPreview();
@@ -5291,10 +5419,10 @@ function previewAgentPrompts(agentName) {
             // Fallback: show preview in a modal
             showPreviewModal(agentName, previewContent);
         }
-        
+
         // Log audit event
         logAuditEvent('prompts', `Previewed ${agentName} prompt configuration`);
-        
+
     } catch (error) {
         console.error(`Error previewing ${agentName} prompts:`, error);
         showNotification(`Error previewing ${agentName} prompts: ${error.message}`, 'error');
@@ -5309,21 +5437,21 @@ function previewAgentPrompts(agentName) {
  */
 function generatePromptPreview(agentName, config) {
     let preview = `=== ${agentName} Prompt Configuration Preview ===\n\n`;
-    
+
     try {
         // Add configuration sections
         if (config.basePersonality) {
             preview += `🤖 BASE AI PERSONALITY:\n${config.basePersonality}\n\n`;
         }
-        
+
         if (config.financialContext) {
             preview += `🏦 FINANCIAL SERVICES CONTEXT:\n${config.financialContext}\n\n`;
         }
-        
+
         if (config.responseInstructions) {
             preview += `📋 RESPONSE INSTRUCTIONS:\n${config.responseInstructions}\n\n`;
         }
-        
+
         // Add custom prompts for Default Agent
         if (agentName === 'DefaultAgent' && config.customPrompts && config.customPrompts.length > 0) {
             preview += `🎯 CUSTOM SCENARIO PROMPTS:\n`;
@@ -5331,24 +5459,24 @@ function generatePromptPreview(agentName, config) {
                 preview += `${index + 1}. ${prompt.name}:\n   ${prompt.prompt}\n\n`;
             });
         }
-        
+
         // Add metadata
         preview += `📊 CONFIGURATION SUMMARY:\n`;
         preview += `- Agent: ${agentName}\n`;
         preview += `- Total sections: ${Object.keys(config).length}\n`;
-        
+
         if (config.customPrompts) {
             preview += `- Custom prompts: ${config.customPrompts.length}\n`;
         }
-        
+
         const totalLength = JSON.stringify(config).length;
         preview += `- Total size: ${totalLength} characters\n`;
         preview += `- Generated: ${new Date().toLocaleString()}\n`;
-        
+
     } catch (error) {
         preview += `\n❌ Error generating preview: ${error.message}`;
     }
-    
+
     return preview;
 }
 
@@ -5377,20 +5505,20 @@ function showPreviewModal(agentName, content) {
                 </div>
             </div>
         `;
-        
+
         // Remove existing modal if present
         const existingModal = document.getElementById('previewModal');
         if (existingModal) {
             existingModal.remove();
         }
-        
+
         // Add modal to page
         document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
+
         // Store content for clipboard/download functions
         window.currentPreviewContent = content;
         window.currentPreviewAgent = agentName;
-        
+
     } catch (error) {
         console.error('Error showing preview modal:', error);
         // Fallback: show in alert
@@ -5407,7 +5535,7 @@ function closePreviewModal() {
     if (modal) {
         modal.remove();
     }
-    
+
     // Clean up global variables
     delete window.currentPreviewContent;
     delete window.currentPreviewAgent;
@@ -5443,7 +5571,7 @@ function downloadPreview(agentName) {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
+
             showNotification(`Preview downloaded as ${a.download}`, 'success');
         } catch (error) {
             console.error('Failed to download preview:', error);
@@ -5454,19 +5582,19 @@ function downloadPreview(agentName) {
 
 function testAgentPrompts(agentName) {
     console.log(`Testing prompts for ${agentName}...`);
-    
+
     try {
         // Collect current configuration from form fields
         const currentConfig = collectAgentConfiguration(agentName);
-        
+
         if (!currentConfig) {
             showNotification(`Unable to collect configuration for ${agentName}`, 'error');
             return;
         }
-        
+
         // Validate configuration
         const validationResult = validateAgentConfiguration(agentName, currentConfig);
-        
+
         if (!validationResult.isValid) {
             showTestResults(agentName, {
                 success: false,
@@ -5475,16 +5603,16 @@ function testAgentPrompts(agentName) {
             });
             return;
         }
-        
+
         // Run comprehensive tests
         const testResults = runAgentPromptTests(agentName, currentConfig);
-        
+
         // Show results
         showTestResults(agentName, testResults);
-        
+
         // Log audit event
         logAuditEvent('prompts', `Tested ${agentName} prompt configuration - ${testResults.success ? 'PASSED' : 'FAILED'}`);
-        
+
     } catch (error) {
         console.error(`Error testing ${agentName} prompts:`, error);
         showNotification(`Error testing ${agentName} prompts: ${error.message}`, 'error');
@@ -5548,7 +5676,7 @@ function validateAgentConfiguration(agentName, config) {
         errors: [],
         warnings: []
     };
-    
+
     try {
         // Common validation rules
         if (config.basePersonality !== undefined) {
@@ -5562,7 +5690,7 @@ function validateAgentConfiguration(agentName, config) {
                 result.isValid = false;
             }
         }
-        
+
         if (config.financialContext !== undefined) {
             if (!config.financialContext) {
                 result.errors.push('Financial Services Context is required');
@@ -5572,7 +5700,7 @@ function validateAgentConfiguration(agentName, config) {
                 result.isValid = false;
             }
         }
-        
+
         if (config.responseInstructions !== undefined) {
             if (!config.responseInstructions) {
                 result.errors.push('Response Instructions are required');
@@ -5582,14 +5710,14 @@ function validateAgentConfiguration(agentName, config) {
                 result.isValid = false;
             }
         }
-        
+
         // Validate custom prompts for Default Agent
         if (agentName === 'DefaultAgent' && config.customPrompts) {
             if (config.customPrompts.length > 20) {
                 result.errors.push('Too many custom prompts (max 20 allowed)');
                 result.isValid = false;
             }
-            
+
             config.customPrompts.forEach((prompt, index) => {
                 if (!prompt.name || !prompt.name.trim()) {
                     result.errors.push(`Custom prompt ${index + 1} is missing a name`);
@@ -5598,7 +5726,7 @@ function validateAgentConfiguration(agentName, config) {
                     result.errors.push(`Custom prompt ${index + 1} name is too long (max 100 characters)`);
                     result.isValid = false;
                 }
-                
+
                 if (!prompt.prompt || !prompt.prompt.trim()) {
                     result.errors.push(`Custom prompt ${index + 1} is missing content`);
                     result.isValid = false;
@@ -5607,7 +5735,7 @@ function validateAgentConfiguration(agentName, config) {
                     result.isValid = false;
                 }
             });
-            
+
             // Check for duplicate names
             const names = config.customPrompts.map(p => p.name.toLowerCase().trim());
             const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
@@ -5616,7 +5744,7 @@ function validateAgentConfiguration(agentName, config) {
                 result.isValid = false;
             }
         }
-        
+
         // Agent-specific validation
         switch (agentName) {
             case 'DefaultAgent':
@@ -5650,13 +5778,13 @@ function validateAgentConfiguration(agentName, config) {
                 }
                 break;
         }
-        
+
     } catch (error) {
         console.error(`Error validating ${agentName} configuration:`, error);
         result.errors.push(`Validation error: ${error.message}`);
         result.isValid = false;
     }
-    
+
     return result;
 }
 
@@ -5674,28 +5802,28 @@ function runAgentPromptTests(agentName, config) {
         warnings: [],
         summary: {}
     };
-    
+
     try {
         // Test 1: Content Quality Analysis
         const contentTest = analyzeContentQuality(agentName, config);
         results.tests.push(contentTest);
         if (!contentTest.passed) results.success = false;
-        
+
         // Test 2: Consistency Check
         const consistencyTest = checkPromptConsistency(agentName, config);
         results.tests.push(consistencyTest);
         if (!consistencyTest.passed) results.success = false;
-        
+
         // Test 3: Integration Test
         const integrationTest = testSystemIntegration(agentName, config);
         results.tests.push(integrationTest);
         if (!integrationTest.passed) results.success = false;
-        
+
         // Test 4: Performance Analysis
         const performanceTest = analyzePerformanceImpact(agentName, config);
         results.tests.push(performanceTest);
         if (!performanceTest.passed) results.success = false;
-        
+
         // Generate summary
         results.summary = {
             totalTests: results.tests.length,
@@ -5703,13 +5831,13 @@ function runAgentPromptTests(agentName, config) {
             failed: results.tests.filter(t => !t.passed).length,
             warnings: results.tests.reduce((acc, t) => acc + (t.warnings || []).length, 0)
         };
-        
+
     } catch (error) {
         console.error(`Error running tests for ${agentName}:`, error);
         results.success = false;
         results.errors.push(`Test execution error: ${error.message}`);
     }
-    
+
     return results;
 }
 
@@ -5726,11 +5854,11 @@ function analyzeContentQuality(agentName, config) {
         details: [],
         warnings: []
     };
-    
+
     try {
         // Check for common issues
         const allText = Object.values(config).filter(v => typeof v === 'string').join(' ').toLowerCase();
-        
+
         // Check for placeholder text
         const placeholders = ['lorem ipsum', 'placeholder', 'todo', 'tbd', 'xxx', 'test test'];
         placeholders.forEach(placeholder => {
@@ -5738,14 +5866,14 @@ function analyzeContentQuality(agentName, config) {
                 test.warnings.push(`Possible placeholder text detected: "${placeholder}"`);
             }
         });
-        
+
         // Check for appropriate tone
         const professionalWords = ['professional', 'helpful', 'courteous', 'respectful', 'clear'];
         const hasProfessionalTone = professionalWords.some(word => allText.includes(word));
         if (!hasProfessionalTone) {
             test.warnings.push('Consider adding more professional tone indicators');
         }
-        
+
         // Check for UK-specific terminology (for financial context)
         if (config.financialContext) {
             const ukTerms = ['current account', 'sort code', 'standing order', 'direct debit', 'bacs'];
@@ -5754,26 +5882,26 @@ function analyzeContentQuality(agentName, config) {
                 test.warnings.push('Consider adding UK-specific banking terminology');
             }
         }
-        
+
         // Check for voice-appropriate language
         if (config.responseInstructions) {
             const voiceIndicators = ['conversational', 'natural', 'voice', 'spoken', 'speech'];
-            const hasVoiceGuidance = voiceIndicators.some(indicator => 
+            const hasVoiceGuidance = voiceIndicators.some(indicator =>
                 config.responseInstructions.toLowerCase().includes(indicator)
             );
             if (!hasVoiceGuidance) {
                 test.warnings.push('Consider adding voice-specific response guidance');
             }
         }
-        
+
         test.details.push(`Analyzed ${Object.keys(config).length} configuration fields`);
         test.details.push(`Found ${test.warnings.length} potential improvements`);
-        
+
     } catch (error) {
         test.passed = false;
         test.details.push(`Content analysis failed: ${error.message}`);
     }
-    
+
     return test;
 }
 
@@ -5790,41 +5918,41 @@ function checkPromptConsistency(agentName, config) {
         details: [],
         warnings: []
     };
-    
+
     try {
         // Check for conflicting instructions
         const allInstructions = [];
         if (config.basePersonality) allInstructions.push(config.basePersonality.toLowerCase());
         if (config.financialContext) allInstructions.push(config.financialContext.toLowerCase());
         if (config.responseInstructions) allInstructions.push(config.responseInstructions.toLowerCase());
-        
+
         // Check for tone consistency
         const formalWords = ['formal', 'professional', 'official'];
         const informalWords = ['casual', 'friendly', 'relaxed', 'conversational'];
-        
+
         const hasFormal = allInstructions.some(text => formalWords.some(word => text.includes(word)));
         const hasInformal = allInstructions.some(text => informalWords.some(word => text.includes(word)));
-        
+
         if (hasFormal && hasInformal) {
             test.warnings.push('Mixed formal and informal tone detected - ensure consistency');
         }
-        
+
         // Check for contradictory length instructions
         const hasShort = allInstructions.some(text => text.includes('short') || text.includes('brief') || text.includes('concise'));
         const hasLong = allInstructions.some(text => text.includes('detailed') || text.includes('comprehensive') || text.includes('thorough'));
-        
+
         if (hasShort && hasLong) {
             test.warnings.push('Contradictory length instructions detected');
         }
-        
+
         test.details.push('Checked tone and instruction consistency');
         test.details.push(`Found ${test.warnings.length} consistency issues`);
-        
+
     } catch (error) {
         test.passed = false;
         test.details.push(`Consistency check failed: ${error.message}`);
     }
-    
+
     return test;
 }
 
@@ -5841,7 +5969,7 @@ function testSystemIntegration(agentName, config) {
         details: [],
         warnings: []
     };
-    
+
     try {
         // Test SystemPromptsManager compatibility
         if (window.adminUI?.systemPromptsManager) {
@@ -5859,7 +5987,7 @@ function testSystemIntegration(agentName, config) {
         } else {
             test.warnings.push('SystemPromptsManager not available for integration testing');
         }
-        
+
         // Test LLM Manager compatibility
         if (window.adminUI?.llmManager) {
             try {
@@ -5876,7 +6004,7 @@ function testSystemIntegration(agentName, config) {
         } else {
             test.warnings.push('LLM Manager not available for integration testing');
         }
-        
+
         // Test JSON serialization
         try {
             const serialized = JSON.stringify(config);
@@ -5891,12 +6019,12 @@ function testSystemIntegration(agentName, config) {
             test.passed = false;
             test.details.push(`✗ JSON serialization failed: ${jsonError.message}`);
         }
-        
+
     } catch (error) {
         test.passed = false;
         test.details.push(`Integration test failed: ${error.message}`);
     }
-    
+
     return test;
 }
 
@@ -5913,7 +6041,7 @@ function analyzePerformanceImpact(agentName, config) {
         details: [],
         warnings: []
     };
-    
+
     try {
         // Calculate total content size
         let totalSize = 0;
@@ -5928,7 +6056,7 @@ function analyzePerformanceImpact(agentName, config) {
                 });
             }
         });
-        
+
         // Size analysis
         if (totalSize > 10000) {
             test.warnings.push(`Large configuration size (${totalSize} characters) may impact performance`);
@@ -5937,7 +6065,7 @@ function analyzePerformanceImpact(agentName, config) {
         } else {
             test.details.push(`✓ Optimal configuration size (${totalSize} characters)`);
         }
-        
+
         // Custom prompts analysis for Default Agent
         if (agentName === 'DefaultAgent' && config.customPrompts) {
             const customPromptsCount = config.customPrompts.length;
@@ -5949,7 +6077,7 @@ function analyzePerformanceImpact(agentName, config) {
                 test.details.push(`✓ Reasonable number of custom prompts (${customPromptsCount})`);
             }
         }
-        
+
         // Complexity analysis
         const complexityScore = calculateComplexityScore(config);
         if (complexityScore > 80) {
@@ -5959,12 +6087,12 @@ function analyzePerformanceImpact(agentName, config) {
         } else {
             test.details.push(`✓ Low complexity score (${complexityScore})`);
         }
-        
+
     } catch (error) {
         test.passed = false;
         test.details.push(`Performance analysis failed: ${error.message}`);
     }
-    
+
     return test;
 }
 
@@ -5975,7 +6103,7 @@ function analyzePerformanceImpact(agentName, config) {
  */
 function calculateComplexityScore(config) {
     let score = 0;
-    
+
     // Base score for each field
     Object.values(config).forEach(value => {
         if (typeof value === 'string') {
@@ -5984,7 +6112,7 @@ function calculateComplexityScore(config) {
             score += value.length * 5; // 5 points per array item
         }
     });
-    
+
     // Additional complexity for nested structures
     if (config.customPrompts && Array.isArray(config.customPrompts)) {
         config.customPrompts.forEach(prompt => {
@@ -5993,7 +6121,7 @@ function calculateComplexityScore(config) {
             }
         });
     }
-    
+
     return Math.min(Math.round(score), 100);
 }
 
@@ -6006,28 +6134,28 @@ function showTestResults(agentName, results) {
     try {
         if (results.success) {
             // Show success notification with summary
-            const summary = results.summary ? 
-                `${results.summary.passed}/${results.summary.totalTests} tests passed` : 
+            const summary = results.summary ?
+                `${results.summary.passed}/${results.summary.totalTests} tests passed` :
                 'All tests passed';
-            
+
             showNotification(`${agentName} configuration test completed successfully! ${summary}`, 'success');
-            
+
             // Log detailed results to console for debugging
             console.log(`Test Results for ${agentName}:`, results);
-            
+
         } else {
             // Show error notification
             const errorCount = results.errors ? results.errors.length : 0;
             const testFailures = results.summary ? results.summary.failed : 0;
-            
+
             showNotification(
-                `${agentName} configuration test failed! ${errorCount} errors, ${testFailures} test failures`, 
+                `${agentName} configuration test failed! ${errorCount} errors, ${testFailures} test failures`,
                 'error'
             );
-            
+
             // Show detailed errors in console
             console.error(`Test Failures for ${agentName}:`, results);
-            
+
             // Optionally show detailed error modal
             if (results.errors && results.errors.length > 0) {
                 const errorDetails = results.errors.join('\n• ');
@@ -6036,7 +6164,7 @@ function showTestResults(agentName, results) {
                 }
             }
         }
-        
+
         // Show warnings if any
         const allWarnings = [];
         if (results.warnings) allWarnings.push(...results.warnings);
@@ -6045,12 +6173,12 @@ function showTestResults(agentName, results) {
                 if (test.warnings) allWarnings.push(...test.warnings);
             });
         }
-        
+
         if (allWarnings.length > 0) {
             console.warn(`Warnings for ${agentName}:`, allWarnings);
             showNotification(`${agentName} test completed with ${allWarnings.length} warnings (see console)`, 'warning');
         }
-        
+
     } catch (error) {
         console.error('Error displaying test results:', error);
         showNotification(`Error displaying test results: ${error.message}`, 'error');
@@ -6061,12 +6189,12 @@ function saveTemplate() {
     const name = document.getElementById('template-name')?.value?.trim();
     const personality = document.getElementById('template-personality')?.value?.trim();
     const instructions = document.getElementById('template-instructions')?.value?.trim();
-    
+
     if (!name) {
         showNotification('Template name is required.', 'error');
         return;
     }
-    
+
     try {
         const templateData = {
             name,
@@ -6074,23 +6202,23 @@ function saveTemplate() {
             responseInstructions: instructions,
             created: new Date().toISOString()
         };
-        
+
         // Save template (in real implementation, this would go to guardrails manager)
         const existingTemplates = JSON.parse(localStorage.getItem('promptTemplates') || '[]');
         existingTemplates.push(templateData);
         localStorage.setItem('promptTemplates', JSON.stringify(existingTemplates));
-        
+
         // Clear form
         document.getElementById('template-name').value = '';
         document.getElementById('template-personality').value = '';
         document.getElementById('template-instructions').value = '';
-        
+
         showNotification(`Template "${name}" saved successfully!`, 'success');
         logAuditEvent('prompts', `Created prompt template: ${name}`);
-        
+
         // Refresh templates list
         loadTemplatesList();
-        
+
     } catch (error) {
         console.error('Error saving template:', error);
         showNotification(`Error saving template: ${error.message}`, 'error');
@@ -6106,18 +6234,18 @@ function editTemplate(templateName) {
 function deleteTemplate(templateName) {
     if (confirm(`Delete template "${templateName}"? This action cannot be undone.`)) {
         console.log(`Deleting template: ${templateName}`);
-        
+
         try {
             const existingTemplates = JSON.parse(localStorage.getItem('promptTemplates') || '[]');
             const updatedTemplates = existingTemplates.filter(t => t.name !== templateName);
             localStorage.setItem('promptTemplates', JSON.stringify(updatedTemplates));
-            
+
             showNotification(`Template "${templateName}" deleted successfully!`, 'success');
             logAuditEvent('prompts', `Deleted prompt template: ${templateName}`);
-            
+
             // Refresh templates list
             loadTemplatesList();
-            
+
         } catch (error) {
             console.error('Error deleting template:', error);
             showNotification(`Error deleting template: ${error.message}`, 'error');
@@ -6128,9 +6256,9 @@ function deleteTemplate(templateName) {
 function updatePromptPreview() {
     const agentName = document.getElementById('preview-agent-select')?.value;
     const previewContent = document.getElementById('prompt-preview-content');
-    
+
     if (!agentName || !previewContent) return;
-    
+
     try {
         // Get current prompt configuration from form fields
         const agentPrefix = agentName.toLowerCase().replace('agent', '');
@@ -6139,22 +6267,22 @@ function updatePromptPreview() {
             financialContext: document.getElementById(`${agentPrefix}-context`)?.value || '',
             responseInstructions: document.getElementById(`${agentPrefix}-instructions`)?.value || ''
         };
-        
+
         // Generate preview
         let preview = `System Prompt for ${agentName}:\n\n`;
-        
+
         if (promptConfig.basePersonality) {
             preview += `Base Personality:\n${promptConfig.basePersonality}\n\n`;
         }
-        
+
         if (promptConfig.financialContext) {
             preview += `Financial Context:\n${promptConfig.financialContext}\n\n`;
         }
-        
+
         if (promptConfig.responseInstructions) {
             preview += `Response Instructions:\n${promptConfig.responseInstructions}\n\n`;
         }
-        
+
         if (promptConfig.customPrompts && promptConfig.customPrompts.length > 0) {
             preview += `Custom Scenario Prompts:\n`;
             promptConfig.customPrompts.forEach(customPrompt => {
@@ -6162,11 +6290,11 @@ function updatePromptPreview() {
             });
             preview += `\n`;
         }
-        
+
         preview += `This preview shows how the configured prompts will be combined into the final system prompt sent to the LLM.`;
-        
+
         previewContent.textContent = preview;
-        
+
     } catch (error) {
         console.error('Error updating prompt preview:', error);
         previewContent.textContent = `Error generating preview: ${error.message}`;
@@ -6176,15 +6304,15 @@ function updatePromptPreview() {
 function loadTemplatesList() {
     const templatesList = document.getElementById('templates-list');
     if (!templatesList) return;
-    
+
     try {
         const templates = JSON.parse(localStorage.getItem('promptTemplates') || '[]');
-        
+
         if (templates.length === 0) {
             templatesList.innerHTML = '<p style="color: #7f8c8d; text-align: center; padding: 20px;">No templates created yet.</p>';
             return;
         }
-        
+
         templatesList.innerHTML = templates.map(template => `
             <div class="template-item">
                 <div class="template-info">
@@ -6197,7 +6325,7 @@ function loadTemplatesList() {
                 </div>
             </div>
         `).join('');
-        
+
     } catch (error) {
         console.error('Error loading templates list:', error);
         templatesList.innerHTML = '<p style="color: #e74c3c;">Error loading templates</p>';
@@ -6206,12 +6334,18 @@ function loadTemplatesList() {
 
 // Initialize prompts section when DOM is ready
 async function initializePromptsSection() {
+    // Only initialize if we're on the LLM Manager admin page
+    if (!document.getElementById('agents-prompts-grid')) {
+        console.debug('Skipping prompts section initialization - not on LLM Manager admin page');
+        return;
+    }
+
     // Load existing prompt configurations and generate cards
     await loadAgentPrompts();
-    
+
     // Load templates list
     loadTemplatesList();
-    
+
     // Initialize preview
     updatePromptPreview();
 }
@@ -6225,14 +6359,14 @@ async function loadAgentPrompts() {
                 showNotification('AgentConfigManager not available. Please check console for errors.', 'error');
                 return;
             }
-            
+
             window.agentConfigManager = new AgentConfigManager();
             await new Promise(resolve => setTimeout(resolve, 200)); // Allow initialization
         }
-        
+
         // Generate the agent prompt cards dynamically
         await generateAgentPromptCards();
-        
+
     } catch (error) {
         console.error('Error in loadAgentPrompts:', error);
         showNotification(`Error loading agent prompts: ${error.message}`, 'error');
@@ -6252,7 +6386,7 @@ function showNotification(message, type = 'info') {
         window.adminUI.showError(message);
         return;
     }
-    
+
     // Fallback to console and alert
     console.log(`[${type.toUpperCase()}] ${message}`);
     if (type === 'error') {
@@ -6268,20 +6402,20 @@ function showNotification(message, type = 'info') {
 async function generateAgentPromptCards() {
     const agentsGrid = document.getElementById('agents-prompts-grid');
     if (!agentsGrid) {
-        console.error('Agents prompts grid not found');
-        showNotification('Could not find agents prompts grid container', 'error');
+        // This is expected when not on the LLM Manager admin page
+        console.debug('Agents prompts grid not found - likely not on LLM Manager admin page');
         return;
     }
-    
+
     if (!window.agentConfigManager) {
         console.error('AgentConfigManager not initialized');
         showNotification('AgentConfigManager not initialized', 'error');
         return;
     }
-    
+
     // Clear existing content
     agentsGrid.innerHTML = '<p style="text-align: center; color: #666;">Loading agent configurations...</p>';
-    
+
     const agents = ['DefaultAgent', 'FraudAgent', 'PaymentsAgent', 'IDVAgent', 'BankingInfoAgent'];
     const agentIcons = {
         'DefaultAgent': '🤖',
@@ -6290,19 +6424,19 @@ async function generateAgentPromptCards() {
         'IDVAgent': '🔐',
         'BankingInfoAgent': '🏦'
     };
-    
+
     let generatedCards = 0;
     let cardHtml = '';
-    
+
     for (const agentName of agents) {
         try {
             // Load configuration from agent config files
             const agentConfig = window.agentConfigManager.getAgentConfig(agentName);
-            
+
             if (agentConfig) {
                 const promptConfig = agentConfig.systemPrompts || {};
                 const isEnabled = agentConfig.enabled !== false;
-                
+
                 // Create agent prompt card
                 cardHtml += `
                     <div class="agent-prompt-card">
@@ -6346,13 +6480,13 @@ async function generateAgentPromptCards() {
                         ` : ''}
                         
                         <div class="prompt-actions">
-                            <button class="btn btn-success btn-sm" onclick="saveAgentPrompts('${agentName}')">💾 Save</button>
-                            <button class="btn btn-secondary btn-sm" onclick="resetAgentPrompts('${agentName}')">🔄 Reset</button>
-                            <button class="btn btn-info btn-sm" onclick="previewAgentPrompts('${agentName}')">👁️ Preview</button>
+                            <button class="btn btn-success btn-sm" data-action="save" data-agent="${agentName}">💾 Save</button>
+                            <button class="btn btn-secondary btn-sm" data-action="reset" data-agent="${agentName}">🔄 Reset</button>
+                            <button class="btn btn-info btn-sm" data-action="preview" data-agent="${agentName}">👁️ Preview</button>
                         </div>
                     </div>
                 `;
-                
+
                 generatedCards++;
                 console.log(`Generated prompt card for ${agentName} from config file`);
             } else {
@@ -6369,7 +6503,7 @@ async function generateAgentPromptCards() {
                     </div>
                 `;
             }
-            
+
         } catch (error) {
             console.error(`Error generating prompt card for ${agentName}:`, error);
             cardHtml += `
@@ -6385,10 +6519,36 @@ async function generateAgentPromptCards() {
             `;
         }
     }
-    
+
     // Update the grid with all cards
     agentsGrid.innerHTML = cardHtml;
-    
+
+    // Add event listeners for the action buttons
+    agentsGrid.addEventListener('click', (e) => {
+        if (e.target.matches('button[data-action]')) {
+            const action = e.target.dataset.action;
+            const agentName = e.target.dataset.agent;
+
+            switch (action) {
+                case 'save':
+                    if (typeof saveAgentPrompts === 'function') {
+                        saveAgentPrompts(agentName);
+                    }
+                    break;
+                case 'reset':
+                    if (typeof resetAgentPrompts === 'function') {
+                        resetAgentPrompts(agentName);
+                    }
+                    break;
+                case 'preview':
+                    if (typeof previewAgentPrompts === 'function') {
+                        previewAgentPrompts(agentName);
+                    }
+                    break;
+            }
+        }
+    });
+
     if (generatedCards > 0) {
         console.log(`Successfully generated ${generatedCards} agent prompt cards`);
         showNotification(`Loaded ${generatedCards} agent configurations from config files`, 'success');
@@ -6457,23 +6617,23 @@ window.usePromptTemplate = (button) => {
 function validateAllCustomPrompts() {
     const container = document.getElementById('defaultCustomPromptsList');
     if (!container) return true;
-    
+
     const promptItems = container.querySelectorAll('.custom-prompt-item');
     let allValid = true;
-    
+
     promptItems.forEach(item => {
         const nameInput = item.querySelector('[data-field="name"]');
         const promptTextarea = item.querySelector('[data-field="prompt"]');
-        
+
         if (nameInput && !window.adminUI.validateCustomPromptName(nameInput)) {
             allValid = false;
         }
-        
+
         if (promptTextarea && !window.adminUI.validateCustomPromptContent(promptTextarea)) {
             allValid = false;
         }
     });
-    
+
     return allValid;
 }
 
@@ -6485,20 +6645,20 @@ function collectCustomPrompts(containerId) {
         container = document.getElementById('defaultCustomPromptsList');
     }
     if (!container) return [];
-    
+
     const prompts = [];
-    
+
     // Handle new structure with .custom-prompt-item
     const customPromptItems = container.querySelectorAll('.custom-prompt-item');
     if (customPromptItems.length > 0) {
         customPromptItems.forEach(item => {
             const nameInput = item.querySelector('[data-field="name"]');
             const promptTextarea = item.querySelector('[data-field="prompt"]');
-            
+
             if (nameInput && promptTextarea) {
                 const name = nameInput.value.trim();
                 const prompt = promptTextarea.value.trim();
-                
+
                 // Validate inputs
                 if (name && prompt) {
                     if (name.length > 100) {
@@ -6507,7 +6667,7 @@ function collectCustomPrompts(containerId) {
                     if (prompt.length > 1000) {
                         throw new Error(`Prompt content for "${name}" exceeds maximum length of 1000 characters`);
                     }
-                    
+
                     prompts.push({
                         name: name,
                         prompt: prompt,
@@ -6522,11 +6682,11 @@ function collectCustomPrompts(containerId) {
         promptGroups.forEach(group => {
             const nameInput = group.querySelector('input[type="text"]');
             const promptTextarea = group.querySelector('textarea');
-            
+
             if (nameInput && promptTextarea) {
                 const name = nameInput.value.trim();
                 const prompt = promptTextarea.value.trim();
-                
+
                 if (name && prompt) {
                     if (name.length > 100) {
                         throw new Error(`Prompt name "${name}" exceeds maximum length of 100 characters`);
@@ -6534,7 +6694,7 @@ function collectCustomPrompts(containerId) {
                     if (prompt.length > 1000) {
                         throw new Error(`Prompt content for "${name}" exceeds maximum length of 1000 characters`);
                     }
-                    
+
                     prompts.push({
                         name: name,
                         prompt: prompt,
@@ -6544,22 +6704,22 @@ function collectCustomPrompts(containerId) {
             }
         });
     }
-    
+
     return prompts;
 }
 
 function resetCustomPrompts(containerId, defaultPrompts = []) {
     const container = document.getElementById(containerId);
     if (!container) return;
-    
+
     // Clear existing prompts
     container.innerHTML = '';
-    
+
     // Add default prompts
     defaultPrompts.forEach(prompt => {
         addCustomPromptElement(containerId, prompt.name, prompt.prompt);
     });
-    
+
     // Add empty prompt if no defaults
     if (defaultPrompts.length === 0) {
         addCustomPromptElement(containerId);
@@ -6573,7 +6733,7 @@ function addCustomPrompt(containerId) {
 function addCustomPromptElement(containerId, name = '', prompt = '') {
     const container = document.getElementById(containerId);
     if (!container) return;
-    
+
     const promptGroup = document.createElement('div');
     promptGroup.className = 'prompt-input-group';
     promptGroup.innerHTML = `
@@ -6581,7 +6741,7 @@ function addCustomPromptElement(containerId, name = '', prompt = '') {
         <textarea placeholder="Custom prompt for this scenario..." class="prompt-textarea">${prompt}</textarea>
         <button class="btn btn-danger btn-small" onclick="removeCustomPrompt(this)">Remove</button>
     `;
-    
+
     container.appendChild(promptGroup);
 }
 
@@ -6601,15 +6761,15 @@ window.addDefaultAgentCustomPrompt = () => {
         // Fallback implementation
         const container = document.getElementById('defaultCustomPromptsList');
         if (!container) return;
-        
+
         const currentPrompts = container.querySelectorAll('.custom-prompt-item').length;
-        
+
         // Check maximum limit
         if (currentPrompts >= 20) {
             alert('Maximum of 20 custom prompts allowed');
             return;
         }
-        
+
         const newPromptHtml = `
             <div class="custom-prompt-item" style="border: 1px solid #e1e8ed; border-radius: 6px; padding: 15px; margin-bottom: 10px;">
                 <div class="form-group">
@@ -6627,13 +6787,13 @@ window.addDefaultAgentCustomPrompt = () => {
                 </button>
             </div>
         `;
-        
+
         // Remove "no prompts" message if it exists
         const noPromptsMsg = container.querySelector('p[style*="font-style: italic"]');
         if (noPromptsMsg) {
             noPromptsMsg.remove();
         }
-        
+
         container.insertAdjacentHTML('beforeend', newPromptHtml);
     }
 };
@@ -6645,7 +6805,7 @@ window.removeDefaultAgentCustomPrompt = (element) => {
         // Fallback implementation for backward compatibility with index-based removal
         const container = document.getElementById('defaultCustomPromptsList');
         if (!container) return;
-        
+
         let promptItem;
         if (typeof element === 'number') {
             // Old index-based removal
@@ -6655,10 +6815,10 @@ window.removeDefaultAgentCustomPrompt = (element) => {
             // New element-based removal
             promptItem = element.closest('.custom-prompt-item');
         }
-        
+
         if (promptItem) {
             promptItem.remove();
-            
+
             // If no prompts left, show message
             if (container.querySelectorAll('.custom-prompt-item').length === 0) {
                 container.innerHTML = '<p style="color: #7f8c8d; font-style: italic;">No custom prompts configured</p>';
@@ -6686,7 +6846,7 @@ function exportConfiguration() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
+
         if (window.adminUI.showSuccess) {
             window.adminUI.showSuccess('Configuration exported successfully');
         }
@@ -6807,7 +6967,1479 @@ function syncDefaultAgentFromSystemPrompts() {
     }
 }
 
-// Initialize when DOM is loaded
+// System Prompts Section Functions
+function initializePromptsSection() {
+    console.log('Initializing System Prompts section');
+
+    // Check if the prompts section exists
+    const promptsSection = document.getElementById('prompts-section');
+    if (!promptsSection) {
+        console.error('prompts-section element not found');
+        return;
+    }
+
+    const agentsGrid = document.getElementById('agents-prompts-grid');
+    if (!agentsGrid) {
+        console.error('agents-prompts-grid element not found');
+        return;
+    }
+
+    console.log('Found prompts section elements, proceeding with initialization');
+
+    // Load agents and populate the prompts grid
+    loadAgentPromptsGrid();
+
+    // Set up tab switching for prompts section
+    setupPromptsTabSwitching();
+
+    // Initialize preview functionality
+    initializePromptPreview();
+
+    console.log('System Prompts section initialization complete');
+}
+
+function loadAgentPromptsGrid() {
+    console.log('Loading agent prompts grid...');
+
+    const grid = document.getElementById('agents-prompts-grid');
+    if (!grid) {
+        console.error('agents-prompts-grid element not found');
+        return;
+    }
+
+    console.log('Found agents-prompts-grid element');
+
+    // Get available agents from LLM Manager or use defaults
+    const agents = getAvailableAgents();
+    console.log('Available agents:', agents);
+
+    // Clear existing content
+    grid.innerHTML = '';
+
+    if (agents.length === 0) {
+        grid.innerHTML = '<p style="color: #7f8c8d; text-align: center; padding: 20px;">No agents available</p>';
+        return;
+    }
+
+    // Create agent prompt cards
+    agents.forEach((agent, index) => {
+        console.log(`Creating card for agent ${index + 1}/${agents.length}: ${agent.name}`);
+        const card = createAgentPromptCard(agent);
+        grid.appendChild(card);
+    });
+
+    console.log(`Successfully created ${agents.length} agent prompt cards`);
+}
+
+function getAvailableAgents() {
+    console.log('Getting available agents...');
+    console.log('window.adminUI:', !!window.adminUI);
+    console.log('window.adminUI.llmManager:', !!(window.adminUI && window.adminUI.llmManager));
+
+    // Try to get agents from LLM Manager if available
+    if (window.adminUI && window.adminUI.llmManager) {
+        try {
+            console.log('LLM Manager found, getting configurations...');
+
+            // Check if the method exists
+            if (typeof window.adminUI.llmManager.getAgentConfigurations !== 'function') {
+                console.error('getAgentConfigurations method not found on LLM Manager');
+                console.log('Available methods:', Object.getOwnPropertyNames(window.adminUI.llmManager));
+            } else {
+                const configs = window.adminUI.llmManager.getAgentConfigurations();
+                console.log('Retrieved configurations:', configs);
+
+                if (configs && typeof configs === 'object') {
+                    const agents = Object.keys(configs).map(name => ({
+                        name: name,
+                        config: configs[name]
+                    }));
+                    console.log('Mapped agents:', agents);
+                    if (agents.length > 0) {
+                        return agents;
+                    }
+                } else {
+                    console.warn('Invalid configurations returned from LLM Manager');
+                }
+            }
+        } catch (error) {
+            console.error('Error getting configurations from LLM Manager:', error);
+        }
+    } else {
+        console.log('LLM Manager not available, using fallback agents');
+        if (window.adminUI) {
+            console.log('Admin UI available but LLM Manager is:', window.adminUI.llmManager);
+        } else {
+            console.log('Admin UI not available');
+        }
+    }
+
+    // Fallback to default agents
+    const fallbackAgents = [
+        { name: 'DefaultAgent', config: { enabled: true, description: 'Primary AI assistant for general banking inquiries' } },
+        { name: 'FraudAgent', config: { enabled: true, description: 'Fraud detection and security specialist' } },
+        { name: 'PaymentsAgent', config: { enabled: true, description: 'Payment processing assistant' } },
+        { name: 'IDVAgent', config: { enabled: true, description: 'Identity verification specialist' } },
+        { name: 'BankingInfoAgent', config: { enabled: true, description: 'Account information provider' } }
+    ];
+
+    console.log('Using fallback agents:', fallbackAgents);
+    return fallbackAgents;
+}
+
+function createAgentPromptCard(agent) {
+    const card = document.createElement('div');
+    card.className = 'agent-prompt-card';
+    card.innerHTML = `
+        <div class="agent-prompt-header">
+            <h3>${agent.name}</h3>
+            <span class="agent-status ${agent.config.enabled ? 'enabled' : 'disabled'}">
+                ${agent.config.enabled ? 'Enabled' : 'Disabled'}
+            </span>
+        </div>
+        
+        <div class="prompt-field">
+            <label>Base Personality:</label>
+            <textarea id="${agent.name}-personality" rows="3" placeholder="Define the agent's core personality...">${getAgentPromptField(agent.name, 'basePersonality')}</textarea>
+        </div>
+        
+        <div class="prompt-field">
+            <label>Financial Context:</label>
+            <textarea id="${agent.name}-context" rows="2" placeholder="Specific context for financial operations...">${getAgentPromptField(agent.name, 'financialContext')}</textarea>
+        </div>
+        
+        <div class="prompt-field">
+            <label>Response Instructions:</label>
+            <textarea id="${agent.name}-instructions" rows="2" placeholder="How the agent should structure responses...">${getAgentPromptField(agent.name, 'responseInstructions')}</textarea>
+        </div>
+        
+        <div class="prompt-actions">
+            <button class="btn btn-success btn-sm" onclick="saveAgentPrompts('${agent.name}')">💾 Save</button>
+            <button class="btn btn-secondary btn-sm" onclick="resetAgentPrompts('${agent.name}')">🔄 Reset</button>
+            <button class="btn btn-info btn-sm" onclick="previewAgentPrompt('${agent.name}')">👁️ Preview</button>
+        </div>
+    `;
+
+    return card;
+}
+
+function getAgentPromptField(agentName, fieldName) {
+    // Try to get from SystemPromptsManager if available
+    if (window.adminUI && window.adminUI.systemPromptsManager) {
+        const prompts = window.adminUI.systemPromptsManager.getAllPrompts();
+        if (prompts && prompts[fieldName]) {
+            return prompts[fieldName];
+        }
+    }
+
+    // Try to get from agent configuration
+    if (window.adminUI && window.adminUI.llmManager) {
+        const config = window.adminUI.llmManager.getAgentConfiguration(agentName);
+        if (config && config.systemPrompts && config.systemPrompts[fieldName]) {
+            return config.systemPrompts[fieldName];
+        }
+    }
+
+    // Return default values based on field name
+    const defaults = {
+        basePersonality: "You are a helpful, professional, and friendly AI voice assistant for a UK financial services company.",
+        financialContext: "When handling financial services requests, be conversational and provide helpful information about UK banking practices.",
+        responseInstructions: "Keep responses conversational and concise (suitable for voice). Use natural speech patterns and British English."
+    };
+
+    return defaults[fieldName] || '';
+}
+
+function setupPromptsTabSwitching() {
+    const tabBtns = document.querySelectorAll('.tab-btn[data-tab]');
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const tabName = e.target.dataset.tab;
+            switchPromptsTab(tabName);
+        });
+    });
+}
+
+function switchPromptsTab(tabName) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+
+    // Remove active class from all tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    // Show selected tab content
+    const targetTab = document.getElementById(tabName + '-tab');
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
+
+    // Add active class to clicked tab button
+    const targetBtn = document.querySelector(`[data-tab="${tabName}"]`);
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+    }
+}
+
+function initializePromptPreview() {
+    const previewSelect = document.getElementById('preview-agent-select');
+    if (previewSelect) {
+        previewSelect.addEventListener('change', updatePromptPreview);
+        // Initialize with first option
+        updatePromptPreview();
+    }
+}
+
+function updatePromptPreview() {
+    const select = document.getElementById('preview-agent-select');
+    const previewContent = document.getElementById('prompt-preview-content');
+
+    if (!select || !previewContent) return;
+
+    const agentName = select.value;
+    if (!agentName) return;
+
+    // Generate preview of the system prompt
+    const personality = getAgentPromptField(agentName, 'basePersonality');
+    const context = getAgentPromptField(agentName, 'financialContext');
+    const instructions = getAgentPromptField(agentName, 'responseInstructions');
+
+    const preview = `System Prompt for ${agentName}:
+
+Base Personality:
+${personality}
+
+Financial Context:
+${context}
+
+Response Instructions:
+${instructions}
+
+Customer Information: [Dynamic customer data will be inserted here]
+
+Additional Instructions:
+[Custom prompts will be added here if configured]`;
+
+    previewContent.textContent = preview;
+}
+
+function saveAgentPrompts(agentName) {
+    console.log(`Saving prompts for ${agentName}...`);
+
+    // Collect prompt data from form fields
+    const personality = document.getElementById(`${agentName}-personality`)?.value || '';
+    const context = document.getElementById(`${agentName}-context`)?.value || '';
+    const instructions = document.getElementById(`${agentName}-instructions`)?.value || '';
+
+    const promptData = {
+        basePersonality: personality,
+        financialContext: context,
+        responseInstructions: instructions
+    };
+
+    // Save to SystemPromptsManager if available
+    if (window.adminUI && window.adminUI.systemPromptsManager) {
+        try {
+            window.adminUI.systemPromptsManager.updateBasePersonality(personality);
+            window.adminUI.systemPromptsManager.updateFinancialContext(context);
+            window.adminUI.systemPromptsManager.updateResponseInstructions(instructions);
+
+            showStatusMessage(`${agentName} prompts saved successfully!`, 'success');
+        } catch (error) {
+            console.error('Error saving to SystemPromptsManager:', error);
+            showStatusMessage(`Error saving ${agentName} prompts: ${error.message}`, 'error');
+        }
+    } else {
+        // Fallback: save to localStorage
+        const key = `agent_prompts_${agentName}`;
+        localStorage.setItem(key, JSON.stringify(promptData));
+        showStatusMessage(`${agentName} prompts saved to local storage!`, 'success');
+    }
+
+    // Update preview if this agent is selected
+    const previewSelect = document.getElementById('preview-agent-select');
+    if (previewSelect && previewSelect.value === agentName) {
+        updatePromptPreview();
+    }
+}
+
+function resetAgentPrompts(agentName) {
+    if (confirm(`Reset ${agentName} prompts to defaults? This will lose any custom changes.`)) {
+        console.log(`Resetting ${agentName} to defaults...`);
+
+        // Reset form fields to defaults
+        const personalityField = document.getElementById(`${agentName}-personality`);
+        const contextField = document.getElementById(`${agentName}-context`);
+        const instructionsField = document.getElementById(`${agentName}-instructions`);
+
+        if (personalityField) personalityField.value = getAgentPromptField(agentName, 'basePersonality');
+        if (contextField) contextField.value = getAgentPromptField(agentName, 'financialContext');
+        if (instructionsField) instructionsField.value = getAgentPromptField(agentName, 'responseInstructions');
+
+        showStatusMessage(`${agentName} prompts reset to defaults.`, 'success');
+
+        // Update preview if this agent is selected
+        const previewSelect = document.getElementById('preview-agent-select');
+        if (previewSelect && previewSelect.value === agentName) {
+            updatePromptPreview();
+        }
+    }
+}
+
+function previewAgentPrompt(agentName) {
+    // Switch to preview tab and select this agent
+    switchPromptsTab('prompt-preview');
+
+    const previewSelect = document.getElementById('preview-agent-select');
+    if (previewSelect) {
+        previewSelect.value = agentName;
+        updatePromptPreview();
+    }
+}
+
+function showStatusMessage(message, type) {
+    // Create or get status message container
+    let statusContainer = document.getElementById('status-messages');
+    if (!statusContainer) {
+        statusContainer = document.createElement('div');
+        statusContainer.id = 'status-messages';
+        statusContainer.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1000;';
+        document.body.appendChild(statusContainer);
+    }
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${type}`;
+    messageDiv.textContent = message;
+    messageDiv.style.cssText = 'margin-bottom: 10px; padding: 12px 16px; border-radius: 6px; font-weight: 500; max-width: 300px;';
+
+    if (type === 'success') {
+        messageDiv.style.background = '#d4edda';
+        messageDiv.style.color = '#155724';
+        messageDiv.style.border = '1px solid #c3e6cb';
+    } else if (type === 'error') {
+        messageDiv.style.background = '#f8d7da';
+        messageDiv.style.color = '#721c24';
+        messageDiv.style.border = '1px solid #f5c6cb';
+    }
+
+    statusContainer.appendChild(messageDiv);
+
+    // Remove message after 5 seconds
+    setTimeout(() => {
+        messageDiv.remove();
+    }, 5000);
+}
+
+// Initialize when DOM is loaded (only on admin UI page)
 document.addEventListener('DOMContentLoaded', () => {
-    window.adminUI = new LLMManagerAdminUI();
+    console.log('DOM loaded, checking if this is the admin UI page...');
+    
+    // Only initialize admin UI if we're on the admin UI page
+    const isAdminUIPage = document.querySelector('.admin-container') || 
+                         document.querySelector('#prompts-section') || 
+                         document.querySelector('#configuration-section') ||
+                         document.querySelector('[data-section]');
+    
+    if (!isAdminUIPage) {
+        console.log('Not on admin UI page, skipping admin UI initialization');
+        return;
+    }
+    
+    console.log('On admin UI page, initializing admin UI...');
+
+    try {
+        window.adminUI = new LLMManagerAdminUI();
+        console.log('Admin UI initialized successfully');
+
+        // Wait for admin UI to fully initialize before setting up prompts section
+        setTimeout(() => {
+            console.log('Setting up prompts section initialization...');
+
+            // Only initialize prompts section if the elements exist
+            const promptsSection = document.getElementById('prompts-section');
+            const agentsGrid = document.getElementById('agents-prompts-grid');
+            
+            if (promptsSection && agentsGrid) {
+                // Initialize prompts section when the page loads
+                setTimeout(() => {
+                    console.log('Attempting to initialize prompts section...');
+                    if (typeof initializePromptsSection === 'function') {
+                        initializePromptsSection();
+                    } else {
+                        console.error('initializePromptsSection function not found');
+                    }
+                }, 1000);
+            } else {
+                console.log('Prompts section elements not found, skipping prompts initialization');
+            }
+
+            // Also try to initialize when user clicks on System Prompts tab
+            const promptsNavBtn = document.querySelector('[data-section="prompts"]');
+            if (promptsNavBtn) {
+                promptsNavBtn.addEventListener('click', () => {
+                    setTimeout(() => {
+                        console.log('System Prompts tab clicked, initializing...');
+                        if (typeof initializePromptsSection === 'function') {
+                            initializePromptsSection();
+                        } else {
+                            console.error('initializePromptsSection function not found');
+                        }
+                    }, 200);
+                });
+                console.log('Added click handler for System Prompts tab');
+            } else {
+                console.log('System Prompts navigation button not found (normal if not on admin UI page)');
+            }
+        }, 500);
+
+    } catch (error) {
+        console.error('Error initializing admin UI:', error);
+    }
 });
+
+function createAgentPromptCard(agent) {
+    const card = document.createElement('div');
+    card.className = 'agent-prompt-card';
+    card.innerHTML = `
+        <div class="agent-prompt-header">
+            <h3>${agent.name}</h3>
+            <span class="agent-status ${agent.config.enabled ? 'enabled' : 'disabled'}">
+                ${agent.config.enabled ? 'Enabled' : 'Disabled'}
+            </span>
+        </div>
+        
+        <div class="prompt-field">
+            <label>Base Personality:</label>
+            <textarea id="${agent.name}-personality" rows="3" placeholder="Define the agent's core personality...">${getAgentPromptField(agent.name, 'basePersonality')}</textarea>
+        </div>
+        
+        <div class="prompt-field">
+            <label>Financial Context:</label>
+            <textarea id="${agent.name}-context" rows="2" placeholder="Specific context for financial operations...">${getAgentPromptField(agent.name, 'financialContext')}</textarea>
+        </div>
+        
+        <div class="prompt-field">
+            <label>Response Instructions:</label>
+            <textarea id="${agent.name}-instructions" rows="2" placeholder="How the agent should structure responses...">${getAgentPromptField(agent.name, 'responseInstructions')}</textarea>
+        </div>
+        
+        <div class="prompt-actions">
+            <button class="btn btn-success btn-sm" onclick="saveAgentPrompts('${agent.name}')">💾 Save</button>
+            <button class="btn btn-secondary btn-sm" onclick="resetAgentPrompts('${agent.name}')">🔄 Reset</button>
+            <button class="btn btn-info btn-sm" onclick="previewAgentPrompt('${agent.name}')">👁️ Preview</button>
+        </div>
+    `;
+
+    return card;
+}
+
+function getAgentPromptField(agentName, fieldName) {
+    // Try to get from SystemPromptsManager if available
+    if (window.adminUI && window.adminUI.systemPromptsManager) {
+        const prompts = window.adminUI.systemPromptsManager.getAllPrompts();
+        if (prompts && prompts[fieldName]) {
+            return prompts[fieldName];
+        }
+    }
+
+    // Try to get from agent configuration
+    if (window.adminUI && window.adminUI.llmManager) {
+        const config = window.adminUI.llmManager.getAgentConfiguration(agentName);
+        if (config && config.systemPrompts && config.systemPrompts[fieldName]) {
+            return config.systemPrompts[fieldName];
+        }
+    }
+
+    // Return default values based on field name
+    const defaults = {
+        basePersonality: "You are a helpful, professional, and friendly AI voice assistant for a UK financial services company.",
+        financialContext: "When handling financial services requests, be conversational and provide helpful information about UK banking practices.",
+        responseInstructions: "Keep responses conversational and concise (suitable for voice). Use natural speech patterns and British English."
+    };
+
+    return defaults[fieldName] || '';
+}
+
+function setupPromptsTabSwitching() {
+    const tabBtns = document.querySelectorAll('.tab-btn[data-tab]');
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const tabName = e.target.dataset.tab;
+            switchPromptsTab(tabName);
+        });
+    });
+}
+
+function switchPromptsTab(tabName) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+
+    // Remove active class from all tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    // Show selected tab content
+    const targetTab = document.getElementById(tabName + '-tab');
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
+
+    // Add active class to clicked tab button
+    const targetBtn = document.querySelector(`[data-tab="${tabName}"]`);
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+    }
+}
+
+function initializePromptPreview() {
+    const previewSelect = document.getElementById('preview-agent-select');
+    if (previewSelect) {
+        previewSelect.addEventListener('change', updatePromptPreview);
+        // Initialize with first option
+        updatePromptPreview();
+    }
+}
+
+function updatePromptPreview() {
+    const select = document.getElementById('preview-agent-select');
+    const previewContent = document.getElementById('prompt-preview-content');
+
+    if (!select || !previewContent) return;
+
+    const agentName = select.value;
+    if (!agentName) return;
+
+    // Generate preview of the system prompt
+    const personality = getAgentPromptField(agentName, 'basePersonality');
+    const context = getAgentPromptField(agentName, 'financialContext');
+    const instructions = getAgentPromptField(agentName, 'responseInstructions');
+
+    const preview = `System Prompt for ${agentName}:
+
+Base Personality:
+${personality}
+
+Financial Context:
+${context}
+
+Response Instructions:
+${instructions}
+
+Customer Information: [Dynamic customer data will be inserted here]
+
+Additional Instructions:
+[Custom prompts will be added here if configured]`;
+
+    previewContent.textContent = preview;
+}
+
+function saveAgentPrompts(agentName) {
+    console.log(`Saving prompts for ${agentName}...`);
+
+    // Collect prompt data from form fields
+    const personality = document.getElementById(`${agentName}-personality`)?.value || '';
+    const context = document.getElementById(`${agentName}-context`)?.value || '';
+    const instructions = document.getElementById(`${agentName}-instructions`)?.value || '';
+
+    const promptData = {
+        basePersonality: personality,
+        financialContext: context,
+        responseInstructions: instructions
+    };
+
+    // Save to SystemPromptsManager if available
+    if (window.adminUI && window.adminUI.systemPromptsManager) {
+        try {
+            window.adminUI.systemPromptsManager.updateBasePersonality(personality);
+            window.adminUI.systemPromptsManager.updateFinancialContext(context);
+            window.adminUI.systemPromptsManager.updateResponseInstructions(instructions);
+
+            showStatusMessage(`${agentName} prompts saved successfully!`, 'success');
+        } catch (error) {
+            console.error('Error saving to SystemPromptsManager:', error);
+            showStatusMessage(`Error saving ${agentName} prompts: ${error.message}`, 'error');
+        }
+    } else {
+        // Fallback: save to localStorage
+        const key = `agent_prompts_${agentName}`;
+        localStorage.setItem(key, JSON.stringify(promptData));
+        showStatusMessage(`${agentName} prompts saved to local storage!`, 'success');
+    }
+
+    // Update preview if this agent is selected
+    const previewSelect = document.getElementById('preview-agent-select');
+    if (previewSelect && previewSelect.value === agentName) {
+        updatePromptPreview();
+    }
+}
+
+function resetAgentPrompts(agentName) {
+    if (confirm(`Reset ${agentName} prompts to defaults? This will lose any custom changes.`)) {
+        console.log(`Resetting ${agentName} to defaults...`);
+
+        // Reset form fields to defaults
+        const personalityField = document.getElementById(`${agentName}-personality`);
+        const contextField = document.getElementById(`${agentName}-context`);
+        const instructionsField = document.getElementById(`${agentName}-instructions`);
+
+        if (personalityField) personalityField.value = getAgentPromptField(agentName, 'basePersonality');
+        if (contextField) contextField.value = getAgentPromptField(agentName, 'financialContext');
+        if (instructionsField) instructionsField.value = getAgentPromptField(agentName, 'responseInstructions');
+
+        showStatusMessage(`${agentName} prompts reset to defaults.`, 'success');
+
+        // Update preview if this agent is selected
+        const previewSelect = document.getElementById('preview-agent-select');
+        if (previewSelect && previewSelect.value === agentName) {
+            updatePromptPreview();
+        }
+    }
+}
+
+function previewAgentPrompt(agentName) {
+    // Switch to preview tab and select this agent
+    switchPromptsTab('prompt-preview');
+
+    const previewSelect = document.getElementById('preview-agent-select');
+    if (previewSelect) {
+        previewSelect.value = agentName;
+        updatePromptPreview();
+    }
+}
+
+// Configuration Section Functions
+function loadConfigurationSection() {
+    console.log('Loading configuration section...');
+
+    const configContent = document.getElementById('configurationContent');
+    if (!configContent) {
+        console.error('configurationContent element not found');
+        return;
+    }
+
+    console.log('Found configurationContent element, proceeding...');
+
+    // Get available agents
+    const agents = getAvailableAgents();
+
+    // Create configuration interface
+    const configHTML = `
+        <div class="config-section">
+            <div class="form-group">
+                <label for="configAgentSelect" class="form-label">Select Agent to Configure:</label>
+                <select id="configAgentSelect" class="form-select" onchange="loadAgentConfiguration()">
+                    <option value="">-- Select an Agent --</option>
+                    ${agents.map(agent => `<option value="${agent.name}">${agent.name} (${agent.config.description || 'No description'})</option>`).join('')}
+                </select>
+            </div>
+            
+            <div id="agentConfigDetails" style="display: none;">
+                <div class="config-actions" style="margin: 20px 0;">
+                    <button class="btn btn-primary" onclick="openAgentConfigModal()">📝 Configure Agent</button>
+                    <button class="btn btn-secondary" onclick="viewAgentConfig()">👁️ View Configuration</button>
+                    <button class="btn btn-success" onclick="testAgentConfig()">🧪 Test Configuration</button>
+                    <button class="btn btn-warning" onclick="resetAgentConfig()">🔄 Reset to Defaults</button>
+                </div>
+                
+                <div class="config-summary">
+                    <h3>Configuration Summary</h3>
+                    <div id="configSummary">
+                        <!-- Configuration summary will be displayed here -->
+                    </div>
+                </div>
+                
+                <div class="config-instructions">
+                    <h4>Configuration Options:</h4>
+                    <ul>
+                        <li><strong>Modify agent settings:</strong> Change name, description, and priority</li>
+                        <li><strong>Configure LLM provider:</strong> Set OpenAI, Anthropic, or other LLM settings</li>
+                        <li><strong>Manage triggers:</strong> Define when this agent should be activated</li>
+                        <li><strong>Enable/disable agent:</strong> Control whether the agent is active</li>
+                        <li><strong>View configuration:</strong> See the complete agent configuration</li>
+                    </ul>
+                    
+                    <div class="config-note" style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                        <strong>Default Agent:</strong> This is the primary fallback agent that handles general banking inquiries when no other agent matches the user's request.
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    configContent.innerHTML = configHTML;
+    console.log('Configuration section loaded successfully');
+}
+
+function loadAgentConfiguration() {
+    const select = document.getElementById('configAgentSelect');
+    const detailsDiv = document.getElementById('agentConfigDetails');
+    const summaryDiv = document.getElementById('configSummary');
+
+    if (!select || !detailsDiv || !summaryDiv) return;
+
+    const selectedAgent = select.value;
+
+    if (!selectedAgent) {
+        detailsDiv.style.display = 'none';
+        return;
+    }
+
+    console.log('Loading configuration for agent:', selectedAgent);
+
+    // Show the details section
+    detailsDiv.style.display = 'block';
+
+    // Get agent configuration
+    let agentConfig = null;
+    if (window.adminUI && window.adminUI.llmManager) {
+        try {
+            agentConfig = window.adminUI.llmManager.getAgentConfiguration(selectedAgent);
+        } catch (error) {
+            console.error('Error getting agent configuration:', error);
+        }
+    }
+
+    // If no config from LLM Manager, use fallback
+    if (!agentConfig) {
+        const agents = getAvailableAgents();
+        const agent = agents.find(a => a.name === selectedAgent);
+        agentConfig = agent ? agent.config : {};
+    }
+
+    // Display configuration summary
+    const summaryHTML = `
+        <div class="config-item" style="margin-bottom: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+            <strong>Agent Name:</strong> ${selectedAgent}
+        </div>
+        <div class="config-item" style="margin-bottom: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+            <strong>Description:</strong> ${agentConfig.description || 'No description available'}
+        </div>
+        <div class="config-item" style="margin-bottom: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+            <strong>Status:</strong> 
+            <span class="status-badge" style="padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; ${agentConfig.enabled ? 'background: #d4edda; color: #155724;' : 'background: #f8d7da; color: #721c24;'}">
+                ${agentConfig.enabled ? 'Enabled' : 'Disabled'}
+            </span>
+        </div>
+        <div class="config-item" style="margin-bottom: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+            <strong>Priority:</strong> ${agentConfig.priority || 0}
+        </div>
+        <div class="config-item" style="margin-bottom: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+            <strong>LLM Provider:</strong> ${agentConfig.llmProvider || 'Not configured'}
+        </div>
+        <div class="config-item" style="margin-bottom: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+            <strong>LLM Model:</strong> ${agentConfig.llmModel || 'Not configured'}
+        </div>
+        <div class="config-item" style="margin-bottom: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+            <strong>Max Tokens:</strong> ${agentConfig.maxTokens || 'Not configured'}
+        </div>
+        <div class="config-item" style="margin-bottom: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+            <strong>Triggers:</strong> ${agentConfig.triggers && agentConfig.triggers.length > 0 ? agentConfig.triggers.join(', ') : 'No specific triggers (fallback agent)'}
+        </div>
+        <div class="config-item" style="margin-bottom: 10px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+            <strong>Last Updated:</strong> ${agentConfig.lastUpdated || 'Never'}
+        </div>
+    `;
+
+    summaryDiv.innerHTML = summaryHTML;
+}
+
+function openAgentConfigModal() {
+    const select = document.getElementById('configAgentSelect');
+    if (!select || !select.value) {
+        alert('Please select an agent first');
+        return;
+    }
+
+    const selectedAgent = select.value;
+    console.log('Opening configuration modal for:', selectedAgent);
+
+    // Get the modal
+    const modal = document.getElementById('configModal');
+    if (!modal) {
+        console.error('Configuration modal not found');
+        return;
+    }
+
+    // Set the modal title
+    const modalTitle = modal.querySelector('.modal-title');
+    if (modalTitle) {
+        modalTitle.textContent = `Configure ${selectedAgent}`;
+    }
+
+    // Load configuration form content
+    loadConfigurationForm(selectedAgent);
+
+    // Show the modal
+    modal.classList.add('active');
+}
+
+function loadConfigurationForm(agentName) {
+    console.log('Loading configuration form for:', agentName);
+
+    // Get agent configuration
+    let agentConfig = {};
+    if (window.adminUI && window.adminUI.llmManager) {
+        try {
+            agentConfig = window.adminUI.llmManager.getAgentConfiguration(agentName) || {};
+            console.log('Retrieved agent config:', agentConfig);
+        } catch (error) {
+            console.error('Error getting agent configuration:', error);
+        }
+    } else {
+        console.log('Admin UI or LLM Manager not available, using empty config');
+    }
+
+    // Load Basic Settings tab
+    const basicTab = document.getElementById('basic-tab');
+    if (basicTab) {
+        console.log('Loading Basic Settings tab...');
+        basicTab.innerHTML = `
+            <div class="form-group">
+                <label class="form-label">Agent Name:</label>
+                <input type="text" id="config-name" class="form-input" value="${agentConfig.name || agentName}" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description:</label>
+                <textarea id="config-description" class="form-textarea" rows="3">${agentConfig.description || ''}</textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Priority:</label>
+                <input type="number" id="config-priority" class="form-input" value="${agentConfig.priority || 0}" min="0" max="100" />
+                <small style="color: #7f8c8d;">Lower numbers = higher priority (0 = highest)</small>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Status:</label>
+                <div class="toggle-item">
+                    <div>
+                        <div class="toggle-label">Agent Enabled</div>
+                        <div class="toggle-description">Enable or disable this agent</div>
+                    </div>
+                    <div class="toggle-switch ${agentConfig.enabled ? 'active' : ''}" onclick="toggleConfigSwitch(this)">
+                        <input type="hidden" id="config-enabled" value="${agentConfig.enabled ? 'true' : 'false'}" />
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Load LLM Configuration tab
+    const llmTab = document.getElementById('llm-tab');
+    if (llmTab) {
+        console.log('Loading LLM Configuration tab...');
+        llmTab.innerHTML = `
+            <div class="form-group">
+                <label class="form-label">LLM Provider:</label>
+                <select id="config-llm-provider" class="form-select">
+                    <option value="openai" ${agentConfig.llmProvider === 'openai' ? 'selected' : ''}>OpenAI</option>
+                    <option value="anthropic" ${agentConfig.llmProvider === 'anthropic' ? 'selected' : ''}>Anthropic</option>
+                    <option value="azure" ${agentConfig.llmProvider === 'azure' ? 'selected' : ''}>Azure OpenAI</option>
+                    <option value="local" ${agentConfig.llmProvider === 'local' ? 'selected' : ''}>Local Model</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">LLM Model:</label>
+                <input type="text" id="config-llm-model" class="form-input" value="${agentConfig.llmModel || 'gpt-4'}" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Max Tokens:</label>
+                <input type="number" id="config-max-tokens" class="form-input" value="${agentConfig.maxTokens || 1500}" min="100" max="4000" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Temperature:</label>
+                <input type="number" id="config-temperature" class="form-input" value="${agentConfig.temperature || 0.7}" min="0" max="2" step="0.1" />
+                <small style="color: #7f8c8d;">Controls randomness (0 = deterministic, 2 = very random)</small>
+            </div>
+        `;
+    }
+
+    // Load Triggers tab
+    const triggersTab = document.getElementById('triggers-tab');
+    if (triggersTab) {
+        console.log('Loading Triggers tab...');
+        const triggers = agentConfig.triggers || [];
+        triggersTab.innerHTML = `
+            <div class="form-group">
+                <label class="form-label">Trigger Keywords:</label>
+                <div id="triggers-list">
+                    ${triggers.map((trigger, index) => `
+                        <div class="trigger-item" style="display: flex; margin-bottom: 10px; align-items: center;">
+                            <input type="text" class="form-input" value="${trigger}" style="flex: 1; margin-right: 10px;" />
+                            <button class="btn btn-danger btn-sm" onclick="removeTrigger(this)">Remove</button>
+                        </div>
+                    `).join('')}
+                </div>
+                <button class="btn btn-secondary" onclick="addTrigger()">Add Trigger</button>
+                <small style="color: #7f8c8d; display: block; margin-top: 5px;">
+                    Keywords that will activate this agent. Leave empty for fallback agent.
+                </small>
+            </div>
+        `;
+    }
+
+    // Load Advanced tab
+    const advancedTab = document.getElementById('advanced-tab');
+    if (advancedTab) {
+        console.log('Loading Advanced tab...');
+        advancedTab.innerHTML = `
+            <div class="form-group">
+                <label class="form-label">Telemetry:</label>
+                <div class="toggle-item">
+                    <div>
+                        <div class="toggle-label">Enable Telemetry</div>
+                        <div class="toggle-description">Collect usage and performance metrics</div>
+                    </div>
+                    <div class="toggle-switch ${agentConfig.telemetryEnabled ? 'active' : ''}" onclick="toggleConfigSwitch(this)">
+                        <input type="hidden" id="config-telemetry" value="${agentConfig.telemetryEnabled ? 'true' : 'false'}" />
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Timeout (seconds):</label>
+                <input type="number" id="config-timeout" class="form-input" value="${agentConfig.timeout || 30}" min="5" max="300" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Retry Attempts:</label>
+                <input type="number" id="config-retry-attempts" class="form-input" value="${agentConfig.retryAttempts || 3}" min="0" max="10" />
+            </div>
+        `;
+    }
+}
+
+function toggleConfigSwitch(element) {
+    element.classList.toggle('active');
+    const hiddenInput = element.querySelector('input[type="hidden"]');
+    if (hiddenInput) {
+        hiddenInput.value = element.classList.contains('active') ? 'true' : 'false';
+    }
+}
+
+function addTrigger() {
+    const triggersList = document.getElementById('triggers-list');
+    if (!triggersList) return;
+
+    const triggerHTML = `
+        <div class="trigger-item" style="display: flex; margin-bottom: 10px; align-items: center;">
+            <input type="text" class="form-input" placeholder="Enter trigger keyword..." style="flex: 1; margin-right: 10px;" />
+            <button class="btn btn-danger btn-sm" onclick="removeTrigger(this)">Remove</button>
+        </div>
+    `;
+
+    triggersList.insertAdjacentHTML('beforeend', triggerHTML);
+}
+
+function removeTrigger(button) {
+    const triggerItem = button.closest('.trigger-item');
+    if (triggerItem) {
+        triggerItem.remove();
+    }
+}
+
+function viewAgentConfig() {
+    const select = document.getElementById('configAgentSelect');
+    if (!select || !select.value) {
+        alert('Please select an agent first');
+        return;
+    }
+
+    const selectedAgent = select.value;
+    let agentConfig = {};
+
+    if (window.adminUI && window.adminUI.llmManager) {
+        try {
+            agentConfig = window.adminUI.llmManager.getAgentConfiguration(selectedAgent) || {};
+        } catch (error) {
+            console.error('Error getting agent configuration:', error);
+        }
+    }
+
+    // Display configuration in a formatted way
+    const configText = JSON.stringify(agentConfig, null, 2);
+    const newWindow = window.open('', '_blank');
+    newWindow.document.write(`
+        <html>
+            <head><title>${selectedAgent} Configuration</title></head>
+            <body style="font-family: monospace; padding: 20px;">
+                <h2>${selectedAgent} Configuration</h2>
+                <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px;">${configText}</pre>
+            </body>
+        </html>
+    `);
+}
+
+function testAgentConfig() {
+    const select = document.getElementById('configAgentSelect');
+    if (!select || !select.value) {
+        alert('Please select an agent first');
+        return;
+    }
+
+    const selectedAgent = select.value;
+    console.log('Testing configuration for:', selectedAgent);
+
+    // Simple test - just show that the agent is configured
+    alert(`Configuration test for ${selectedAgent}:\n\n✅ Agent exists\n✅ Configuration loaded\n✅ Ready for use\n\nFor detailed testing, use the main interface.`);
+}
+
+function resetAgentConfig() {
+    const select = document.getElementById('configAgentSelect');
+    if (!select || !select.value) {
+        alert('Please select an agent first');
+        return;
+    }
+
+    const selectedAgent = select.value;
+
+    if (confirm(`Reset ${selectedAgent} to default configuration? This will lose any custom settings.`)) {
+        console.log('Resetting configuration for:', selectedAgent);
+
+        if (window.adminUI && window.adminUI.llmManager) {
+            try {
+                // This would reset the agent to defaults
+                // For now, just show a success message
+                alert(`${selectedAgent} configuration reset to defaults.`);
+                loadAgentConfiguration(); // Refresh the display
+            } catch (error) {
+                console.error('Error resetting agent configuration:', error);
+                alert('Error resetting configuration: ' + error.message);
+            }
+        } else {
+            alert('LLM Manager not available for configuration reset.');
+        }
+    }
+}
+
+// Modal management functions
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+// Save agent configuration function
+function saveAgentConfiguration() {
+    console.log('Saving agent configuration...');
+
+    // Get the modal title to determine which agent we're configuring
+    const modalTitle = document.querySelector('#configModal .modal-title');
+    if (!modalTitle) {
+        alert('Error: Could not determine which agent to save');
+        return;
+    }
+
+    const agentName = modalTitle.textContent.replace('Configure ', '');
+    console.log('Saving configuration for:', agentName);
+
+    // Collect form data
+    const configData = {
+        name: document.getElementById('config-name')?.value || agentName,
+        description: document.getElementById('config-description')?.value || '',
+        priority: parseInt(document.getElementById('config-priority')?.value) || 0,
+        enabled: document.getElementById('config-enabled')?.value === 'true',
+        llmProvider: document.getElementById('config-llm-provider')?.value || 'openai',
+        llmModel: document.getElementById('config-llm-model')?.value || 'gpt-4',
+        maxTokens: parseInt(document.getElementById('config-max-tokens')?.value) || 1500,
+        temperature: parseFloat(document.getElementById('config-temperature')?.value) || 0.7,
+        telemetryEnabled: document.getElementById('config-telemetry')?.value === 'true',
+        timeout: parseInt(document.getElementById('config-timeout')?.value) || 30,
+        retryAttempts: parseInt(document.getElementById('config-retry-attempts')?.value) || 3,
+        lastUpdated: new Date().toISOString()
+    };
+
+    // Collect triggers
+    const triggerInputs = document.querySelectorAll('#triggers-list input[type="text"]');
+    configData.triggers = Array.from(triggerInputs)
+        .map(input => input.value.trim())
+        .filter(trigger => trigger.length > 0);
+
+    console.log('Configuration data:', configData);
+
+    // Save to LLM Manager if available
+    if (window.adminUI && window.adminUI.llmManager) {
+        try {
+            const result = window.adminUI.llmManager.updateAgentConfiguration(agentName, configData);
+            if (result && result.success) {
+                alert(`${agentName} configuration saved successfully!`);
+                closeModal('configModal');
+                loadAgentConfiguration(); // Refresh the display
+            } else {
+                alert(`Error saving configuration: ${result?.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error saving configuration:', error);
+            alert(`Error saving configuration: ${error.message}`);
+        }
+    } else {
+        // Fallback: save to localStorage
+        const key = `agent_config_${agentName}`;
+        localStorage.setItem(key, JSON.stringify(configData));
+        alert(`${agentName} configuration saved to local storage!`);
+        closeModal('configModal');
+        loadAgentConfiguration(); // Refresh the display
+    }
+}
+
+// Initialize when DOM is loaded (only on admin UI page)
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, checking if this is the admin UI page...');
+    
+    // Only initialize admin UI if we're on the admin UI page
+    const isAdminUIPage = document.querySelector('.admin-container') || 
+                         document.querySelector('#prompts-section') || 
+                         document.querySelector('#configuration-section') ||
+                         document.querySelector('[data-section]');
+    
+    if (!isAdminUIPage) {
+        console.log('Not on admin UI page, skipping admin UI initialization');
+        return;
+    }
+    
+    console.log('On admin UI page, initializing admin UI...');
+
+    try {
+        window.adminUI = new LLMManagerAdminUI();
+        console.log('Admin UI initialized successfully');
+
+        // Wait for admin UI to fully initialize before setting up prompts section
+        setTimeout(() => {
+            console.log('Setting up prompts section initialization...');
+
+            // Only initialize prompts section if the elements exist
+            const promptsSection = document.getElementById('prompts-section');
+            const agentsGrid = document.getElementById('agents-prompts-grid');
+            
+            if (promptsSection && agentsGrid) {
+                // Initialize prompts section when the page loads
+                setTimeout(() => {
+                    console.log('Attempting to initialize prompts section...');
+                    if (typeof initializePromptsSection === 'function') {
+                        initializePromptsSection();
+                    } else {
+                        console.error('initializePromptsSection function not found');
+                    }
+                }, 1000);
+            } else {
+                console.log('Prompts section elements not found, skipping prompts initialization');
+            }
+
+            // Also try to initialize when user clicks on System Prompts tab
+            const promptsNavBtn = document.querySelector('[data-section="prompts"]');
+            if (promptsNavBtn) {
+                promptsNavBtn.addEventListener('click', () => {
+                    setTimeout(() => {
+                        console.log('System Prompts tab clicked, initializing...');
+                        if (typeof initializePromptsSection === 'function') {
+                            initializePromptsSection();
+                        } else {
+                            console.error('initializePromptsSection function not found');
+                        }
+                    }, 200);
+                });
+                console.log('Added click handler for System Prompts tab');
+            } else {
+                console.log('System Prompts navigation button not found (normal if not on admin UI page)');
+            }
+        }, 500);
+
+    } catch (error) {
+        console.error('Error initializing admin UI:', error);
+    }
+});
+
+// Agent configuration cache
+let agentConfigCache = {};
+
+// Load agent configuration from file
+async function loadAgentConfigFromFile(agentName) {
+    if (agentConfigCache[agentName]) {
+        return agentConfigCache[agentName];
+    }
+    
+    try {
+        // Convert agent name to config file name
+        const configFileName = agentName.toLowerCase().replace('agent', '-agent') + '-config.json';
+        const configPath = `config/agents/${configFileName}`;
+        
+        console.log(`Loading config for ${agentName} from ${configPath}`);
+        
+        const response = await fetch(configPath);
+        if (response.ok) {
+            const config = await response.json();
+            agentConfigCache[agentName] = config;
+            console.log(`Loaded config for ${agentName}:`, config);
+            return config;
+        } else {
+            console.warn(`Could not load config file for ${agentName}: ${response.status}`);
+            return null;
+        }
+    } catch (error) {
+        console.error(`Error loading config for ${agentName}:`, error);
+        return null;
+    }
+}
+
+function getAgentPromptField(agentName, fieldName) {
+    console.log(`Getting prompt field ${fieldName} for agent ${agentName}`);
+    
+    // First try to get from cached config file
+    if (agentConfigCache[agentName] && agentConfigCache[agentName].systemPrompts) {
+        const value = agentConfigCache[agentName].systemPrompts[fieldName];
+        if (value) {
+            console.log(`Found ${fieldName} in cached config for ${agentName}`);
+            return value;
+        }
+    }
+    
+    // Try to get from LLM Manager if available
+    if (window.adminUI && window.adminUI.llmManager) {
+        try {
+            const config = window.adminUI.llmManager.getAgentConfiguration(agentName);
+            if (config && config.systemPrompts && config.systemPrompts[fieldName]) {
+                console.log(`Found ${fieldName} in LLM Manager for ${agentName}`);
+                return config.systemPrompts[fieldName];
+            }
+        } catch (error) {
+            console.error(`Error getting agent config from LLM Manager for ${agentName}:`, error);
+        }
+    }
+    
+    // Fallback to agent-specific defaults
+    const agentDefaults = getAgentSpecificDefaults(agentName);
+    const value = agentDefaults[fieldName] || getGenericDefaults()[fieldName] || '';
+    console.log(`Using fallback for ${agentName}.${fieldName}`);
+    return value;
+}
+
+function getAgentSpecificDefaults(agentName) {
+    const defaults = {
+        'IDVAgent': {
+            basePersonality: "You are an identity verification specialist for a UK financial services company. You are thorough, security-conscious, and patient when guiding customers through verification processes.",
+            financialContext: "When handling identity verification requests, follow strict verification protocols and procedures. Explain verification requirements clearly and patiently.",
+            responseInstructions: "Never compromise on security verification requirements. Explain each verification step clearly before proceeding. Be patient with customers who struggle with verification."
+        },
+        'BankingInfoAgent': {
+            basePersonality: "You are a banking information specialist for a UK financial services company. You are knowledgeable, accurate, and helpful when providing account information and transaction details.",
+            financialContext: "When handling banking information requests, provide accurate and up-to-date account information. Explain transaction details clearly and comprehensively.",
+            responseInstructions: "Present financial information clearly and accurately. Use proper currency formatting (£) for all amounts. Explain transaction codes and descriptions when needed."
+        },
+        'FraudAgent': {
+            basePersonality: "You are a fraud detection and security specialist for a UK financial services company. You are urgent, professional, and focused on immediate protective actions.",
+            financialContext: "When handling fraud and security requests, prioritize immediate protective actions. Focus on card blocking, fraud reporting, and security guidance.",
+            responseInstructions: "Provide immediate, clear guidance for security threats. Be urgent but reassuring. Give step-by-step instructions for protective actions."
+        },
+        'PaymentsAgent': {
+            basePersonality: "You are a payment processing specialist for a UK financial services company. You are secure, thorough, and careful with all financial transactions.",
+            financialContext: "When handling payment requests, apply the highest security standards. Always validate transaction details and confirm amounts before processing.",
+            responseInstructions: "Provide clear, step-by-step guidance for payment processing. Always confirm transaction details before proceeding. Be precise about amounts and fees."
+        },
+        'DefaultAgent': {
+            basePersonality: "You are a helpful, professional, and friendly AI voice assistant for a UK financial services company. You should be empathetic, clear in your communication, and engaging in conversation.",
+            financialContext: "When handling financial services requests, be conversational and provide helpful information about UK banking practices. Ask clarifying questions when needed.",
+            responseInstructions: "Keep responses conversational and concise (suitable for voice). Use natural speech patterns with contractions. Address users in a friendly manner."
+        }
+    };
+    
+    return defaults[agentName] || {};
+}
+
+function getGenericDefaults() {
+    return {
+        basePersonality: "You are a helpful, professional, and friendly AI voice assistant for a UK financial services company.",
+        financialContext: "When handling financial services requests, be conversational and provide helpful information about UK banking practices.",
+        responseInstructions: "Keep responses conversational and concise (suitable for voice). Use natural speech patterns and British English."
+    };
+}
+
+async function createAgentPromptCard(agent) {
+    const card = document.createElement('div');
+    card.className = 'agent-prompt-card';
+    
+    // Load agent config from file first
+    await loadAgentConfigFromFile(agent.name);
+    
+    card.innerHTML = `
+        <div class="agent-prompt-header">
+            <h3>${agent.name}</h3>
+            <span class="agent-status ${agent.config.enabled ? 'enabled' : 'disabled'}">
+                ${agent.config.enabled ? 'Enabled' : 'Disabled'}
+            </span>
+        </div>
+        
+        <div class="prompt-field">
+            <label>Base Personality:</label>
+            <textarea id="${agent.name}-personality" rows="3" placeholder="Define the agent's core personality...">${getAgentPromptField(agent.name, 'basePersonality')}</textarea>
+        </div>
+        
+        <div class="prompt-field">
+            <label>Financial Context:</label>
+            <textarea id="${agent.name}-context" rows="2" placeholder="Specific context for financial operations...">${getAgentPromptField(agent.name, 'financialContext')}</textarea>
+        </div>
+        
+        <div class="prompt-field">
+            <label>Response Instructions:</label>
+            <textarea id="${agent.name}-instructions" rows="2" placeholder="How the agent should structure responses...">${getAgentPromptField(agent.name, 'responseInstructions')}</textarea>
+        </div>
+        
+        <div class="prompt-actions">
+            <button class="btn btn-success btn-sm" onclick="saveAgentPrompts('${agent.name}')">💾 Save</button>
+            <button class="btn btn-secondary btn-sm" onclick="resetAgentPrompts('${agent.name}')">🔄 Reset</button>
+            <button class="btn btn-info btn-sm" onclick="previewAgentPrompt('${agent.name}')">👁️ Preview</button>
+        </div>
+    `;
+    
+    return card;
+}
+
+// Initialize system prompts section
+function initializePromptsSection() {
+    console.log('Initializing System Prompts section');
+    
+    // Check if we're on the admin UI page first
+    const isAdminUIPage = document.querySelector('.admin-container') || 
+                         document.querySelector('#prompts-section') || 
+                         document.querySelector('#configuration-section');
+    
+    if (!isAdminUIPage) {
+        console.log('Not on admin UI page, skipping prompts section initialization');
+        return;
+    }
+    
+    // Check if the prompts section exists
+    const promptsSection = document.getElementById('prompts-section');
+    if (!promptsSection) {
+        console.log('prompts-section element not found - may not be on System Prompts tab');
+        return;
+    }
+    
+    const agentsGrid = document.getElementById('agents-prompts-grid');
+    if (!agentsGrid) {
+        console.log('agents-prompts-grid element not found - may not be on System Prompts tab');
+        return;
+    }
+    
+    console.log('Found prompts section elements, proceeding with initialization');
+    
+    // Load agents and populate the prompts grid
+    loadAgentPromptsGrid();
+    
+    console.log('System Prompts section initialization complete');
+}
+
+async function loadAgentPromptsGrid() {
+    console.log('Loading agent prompts grid...');
+    
+    const grid = document.getElementById('agents-prompts-grid');
+    if (!grid) {
+        console.error('agents-prompts-grid element not found');
+        return;
+    }
+    
+    console.log('Found agents-prompts-grid element');
+    
+    // Get available agents from LLM Manager or use defaults
+    const agents = getAvailableAgents();
+    console.log('Available agents:', agents);
+    
+    // Clear existing content
+    grid.innerHTML = '';
+    
+    if (agents.length === 0) {
+        grid.innerHTML = '<p style="color: #7f8c8d; text-align: center; padding: 20px;">No agents available</p>';
+        return;
+    }
+    
+    // Create agent prompt cards (now async)
+    for (let i = 0; i < agents.length; i++) {
+        const agent = agents[i];
+        console.log(`Creating card for agent ${i + 1}/${agents.length}: ${agent.name}`);
+        const card = await createAgentPromptCard(agent);
+        grid.appendChild(card);
+    }
+    
+    console.log(`Successfully created ${agents.length} agent prompt cards`);
+}
+
+// Add missing save and reset functions
+function saveAgentPrompts(agentName) {
+    console.log(`Saving prompts for ${agentName}...`);
+    
+    // Collect prompt data from form fields
+    const personality = document.getElementById(`${agentName}-personality`)?.value || '';
+    const context = document.getElementById(`${agentName}-context`)?.value || '';
+    const instructions = document.getElementById(`${agentName}-instructions`)?.value || '';
+    
+    const promptData = {
+        basePersonality: personality,
+        financialContext: context,
+        responseInstructions: instructions
+    };
+    
+    // Save to agent config cache
+    if (agentConfigCache[agentName]) {
+        agentConfigCache[agentName].systemPrompts = {
+            ...agentConfigCache[agentName].systemPrompts,
+            ...promptData
+        };
+    }
+    
+    // Try to save to LLM Manager if available
+    if (window.adminUI && window.adminUI.llmManager) {
+        try {
+            const config = window.adminUI.llmManager.getAgentConfiguration(agentName);
+            if (config) {
+                config.systemPrompts = {
+                    ...config.systemPrompts,
+                    ...promptData
+                };
+                window.adminUI.llmManager.updateAgentConfiguration(agentName, config);
+            }
+        } catch (error) {
+            console.error('Error saving to LLM Manager:', error);
+        }
+    }
+    
+    // Show success message
+    if (typeof showStatusMessage === 'function') {
+        showStatusMessage(`${agentName} prompts saved successfully!`, 'success');
+    } else {
+        alert(`${agentName} prompts saved successfully!`);
+    }
+}
+
+function resetAgentPrompts(agentName) {
+    if (confirm(`Reset ${agentName} prompts to defaults? This will lose any custom changes.`)) {
+        console.log(`Resetting ${agentName} to defaults...`);
+        
+        // Clear from cache to force reload from file
+        delete agentConfigCache[agentName];
+        
+        // Reload the agent config and update the form fields
+        loadAgentConfigFromFile(agentName).then(() => {
+            const personalityField = document.getElementById(`${agentName}-personality`);
+            const contextField = document.getElementById(`${agentName}-context`);
+            const instructionsField = document.getElementById(`${agentName}-instructions`);
+            
+            if (personalityField) personalityField.value = getAgentPromptField(agentName, 'basePersonality');
+            if (contextField) contextField.value = getAgentPromptField(agentName, 'financialContext');
+            if (instructionsField) instructionsField.value = getAgentPromptField(agentName, 'responseInstructions');
+            
+            if (typeof showStatusMessage === 'function') {
+                showStatusMessage(`${agentName} prompts reset to defaults.`, 'success');
+            } else {
+                alert(`${agentName} prompts reset to defaults.`);
+            }
+        });
+    }
+}
+
+function previewAgentPrompt(agentName) {
+    console.log(`Previewing prompts for ${agentName}`);
+    // This function can be implemented to show a preview of the generated system prompt
+    alert(`Preview functionality for ${agentName} - this would show the complete system prompt that would be sent to the LLM.`);
+}

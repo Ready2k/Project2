@@ -4,17 +4,28 @@
  */
 
 const VERSION_CONFIG = {
-    version: "v2.3.0",
+    version: "v2.4.0",
     buildDate: "2025-01-08",
-    lastUpdated: "Agent Configuration System & LLM Admin UI Enhancements",
+    lastUpdated: "System Prompts & Configuration Management Fixes",
     releaseNotes: [
-        "Complete agent configuration files migration to config/agents/",
-        "Enhanced LLM Manager Admin UI with improved functionality",
-        "Agent telemetry system for performance monitoring",
-        "Comprehensive guardrails integration testing",
-        "Improved agent configuration loading and management"
+        "Fixed System Prompts Management to load agent-specific data from config files",
+        "Enhanced Agent Configuration Management with full CRUD operations",
+        "Improved page detection to prevent unnecessary initialization",
+        "Added proper agent config file loading from config/agents/ directory",
+        "Fixed console errors and warnings for better user experience"
     ],
     changelog: {
+        "v2.4.0": {
+            date: "2025-01-08",
+            changes: [
+                "Fixed System Prompts Management to load agent-specific data from config files",
+                "Enhanced Agent Configuration Management with full CRUD operations",
+                "Improved page detection to prevent unnecessary initialization",
+                "Added proper agent config file loading from config/agents/ directory",
+                "Fixed console errors and warnings for better user experience",
+                "Added async config loading with caching for better performance"
+            ]
+        },
         "v2.3.0": {
             date: "2025-01-08",
             changes: [

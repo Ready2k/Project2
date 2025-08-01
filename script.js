@@ -264,7 +264,7 @@ this.apiClient = {
         this.initializeBrowserTts();
         this.initializeSpeechSettings();
         this.initializeStreamingSettings();
-        this.initializeSystemPrompts();
+
         this.initializeDebugSettings();
         
         // Ensure token tracker is properly linked to API client
@@ -393,20 +393,9 @@ this.apiClient = {
         if (muteBtn) muteBtn.addEventListener('click', () => this.toggleMute());
         if (batchMuteBtn) batchMuteBtn.addEventListener('click', () => this.toggleMute());
 
-        // System prompts management
-        document.querySelectorAll('.prompt-tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.switchPromptTab(e.target.dataset.prompt));
-        });
 
-        const savePrompts = document.getElementById('savePrompts');
-        const resetPrompts = document.getElementById('resetPrompts');
-        const testPrompts = document.getElementById('testPrompts');
-        const addCustomPrompt = document.getElementById('addCustomPrompt');
 
-        if (savePrompts) savePrompts.addEventListener('click', () => this.saveSystemPrompts());
-        if (resetPrompts) resetPrompts.addEventListener('click', () => this.resetSystemPrompts());
-        if (testPrompts) testPrompts.addEventListener('click', () => this.testSystemPrompts());
-        if (addCustomPrompt) addCustomPrompt.addEventListener('click', () => this.addCustomPrompt());
+
 
         // Debug toggle
         const debugToggle = document.getElementById('debugToggle');
@@ -1901,191 +1890,26 @@ this.apiClient = {
         }
     }
 
-    // System Prompts Management
-    initializeSystemPrompts() {
-        console.log('Initializing system prompts...');
-        const basePersonality = document.getElementById('basePersonality');
-        const financialContext = document.getElementById('financialContext');
-        const responseInstructions = document.getElementById('responseInstructions');
 
-        if (basePersonality) basePersonality.value = this.systemPromptsManager.getBasePersonality();
-        if (financialContext) financialContext.value = this.systemPromptsManager.getFinancialContext();
-        if (responseInstructions) responseInstructions.value = this.systemPromptsManager.getResponseInstructions();
 
-        // Load custom prompts
-        this.loadCustomPrompts();
-    }
 
-    switchPromptTab(tabName) {
-        console.log('Switching to prompt tab:', tabName);
 
-        // Update tab buttons
-        document.querySelectorAll('.prompt-tab-btn').forEach(btn => btn.classList.remove('active'));
-        const activeTab = document.querySelector(`[data-prompt="${tabName}"]`);
-        if (activeTab) activeTab.classList.add('active');
 
-        // Update tab content
-        document.querySelectorAll('.prompt-section').forEach(section => section.classList.remove('active'));
-        const activeContent = document.getElementById(`${tabName}-prompt`);
-        if (activeContent) activeContent.classList.add('active');
-    }
 
-    saveSystemPrompts() {
-        try {
-            console.log('Saving system prompts...');
 
-            const basePersonality = document.getElementById('basePersonality');
-            const financialContext = document.getElementById('financialContext');
-            const responseInstructions = document.getElementById('responseInstructions');
-
-            if (basePersonality) this.systemPromptsManager.updateBasePersonality(basePersonality.value);
-            if (financialContext) this.systemPromptsManager.updateFinancialContext(financialContext.value);
-            if (responseInstructions) this.systemPromptsManager.updateResponseInstructions(responseInstructions.value);
-
-            // Save custom prompts
-            this.saveCustomPrompts();
-
-            // Show success message
-            this.showPromptMessage('System prompts saved successfully!', 'success');
-
-        } catch (error) {
-            console.error('Error saving prompts:', error);
-            this.showPromptMessage('Error saving prompts. Please try again.', 'error');
-        }
-    }
-
-    async resetSystemPrompts() {
-        if (confirm('Are you sure you want to reset all system prompts to defaults? This cannot be undone.')) {
-            try {
-                await this.systemPromptsManager.resetToDefaults();
-
-                // Update UI
-                this.initializeSystemPrompts();
-
-                this.showPromptMessage('System prompts reset to defaults.', 'info');
-            } catch (error) {
-                console.error('Error resetting prompts:', error);
-                this.showPromptMessage('Error resetting prompts. Please try again.', 'error');
-            }
-        }
-    }
-
-    testSystemPrompts() {
-        const currentPersona = this.personaManager.getCurrentPersona() || 'john_doe';
-        const generatedPrompt = this.generateSystemPrompt(currentPersona, 'test message');
-        const promptPreview = document.getElementById('promptPreview');
-        if (promptPreview) {
-            promptPreview.textContent = generatedPrompt;
-        }
-        this.showPromptMessage('System prompt preview updated below.', 'info');
-    }
 
     generateSystemPrompt(personaId, userMessage) {
         const persona = this.personaManager.getPersona(personaId);
         return this.systemPromptsManager.generateSystemPrompt(persona, userMessage);
     }
 
-    addCustomPrompt() {
-        const customPromptsList = document.getElementById('customPromptsList');
-        if (!customPromptsList) return;
 
-        const newPromptItem = document.createElement('div');
-        newPromptItem.className = 'custom-prompt-item';
-        newPromptItem.innerHTML = `
-            <input type="text" placeholder="Scenario name (e.g., 'Loan Inquiries')" class="scenario-name">
-            <textarea placeholder="Custom prompt for this scenario..." class="custom-prompt-text" rows="4"></textarea>
-            <button class="remove-custom-prompt" onclick="this.parentElement.remove()">Remove</button>
-        `;
-        customPromptsList.appendChild(newPromptItem);
-    }
 
-    saveCustomPrompts() {
-        const customPrompts = [];
-        const customPromptItems = document.querySelectorAll('.custom-prompt-item');
 
-        customPromptItems.forEach(item => {
-            const nameInput = item.querySelector('.scenario-name');
-            const promptTextarea = item.querySelector('.custom-prompt-text');
 
-            if (nameInput && promptTextarea) {
-                const name = nameInput.value.trim();
-                const prompt = promptTextarea.value.trim();
 
-                if (name && prompt) {
-                    customPrompts.push({ name, prompt });
-                }
-            }
-        });
 
-        this.systemPromptsManager.updateCustomPrompts(customPrompts);
-    }
 
-    loadCustomPrompts() {
-        const customPromptsList = document.getElementById('customPromptsList');
-        if (!customPromptsList) return;
-
-        customPromptsList.innerHTML = '';
-
-        this.systemPromptsManager.getCustomPrompts().forEach(customPrompt => {
-            const promptItem = document.createElement('div');
-            promptItem.className = 'custom-prompt-item';
-            promptItem.innerHTML = `
-                <input type="text" placeholder="Scenario name" class="scenario-name" value="${customPrompt.name}">
-                <textarea placeholder="Custom prompt for this scenario..." class="custom-prompt-text" rows="4">${customPrompt.prompt}</textarea>
-                <button class="remove-custom-prompt" onclick="this.parentElement.remove()">Remove</button>
-            `;
-            customPromptsList.appendChild(promptItem);
-        });
-
-        // Add one empty prompt item if none exist
-        if (this.systemPromptsManager.getCustomPrompts().length === 0) {
-            this.addCustomPrompt();
-        }
-    }
-
-    showPromptMessage(message, type) {
-        // Create or update message element
-        let messageEl = document.getElementById('prompt-message');
-        if (!messageEl) {
-            messageEl = document.createElement('div');
-            messageEl.id = 'prompt-message';
-            messageEl.style.cssText = 'padding: 10px; margin: 10px 0; border-radius: 4px; font-weight: bold;';
-
-            const promptActions = document.querySelector('.prompt-actions');
-            if (promptActions) {
-                promptActions.parentNode.insertBefore(messageEl, promptActions);
-            }
-        }
-
-        // Set message and styling based on type
-        messageEl.textContent = message;
-        messageEl.className = `prompt-message ${type}`;
-
-        switch (type) {
-            case 'success':
-                messageEl.style.backgroundColor = '#d4edda';
-                messageEl.style.color = '#155724';
-                messageEl.style.border = '1px solid #c3e6cb';
-                break;
-            case 'error':
-                messageEl.style.backgroundColor = '#f8d7da';
-                messageEl.style.color = '#721c24';
-                messageEl.style.border = '1px solid #f5c6cb';
-                break;
-            case 'info':
-                messageEl.style.backgroundColor = '#d1ecf1';
-                messageEl.style.color = '#0c5460';
-                messageEl.style.border = '1px solid #bee5eb';
-                break;
-        }
-
-        // Auto-hide after 3 seconds
-        setTimeout(() => {
-            if (messageEl.parentNode) {
-                messageEl.remove();
-            }
-        }, 3000);
-    }
     // UI Helper methods
     addMessage(content, type, agentName = null) {
         // Use agent icon manager if available
@@ -2708,9 +2532,30 @@ this.apiClient = {
         this.addMessage(message, 'user');
     }
 
-    processTextInput(text) {
-        // Process text input as if it came from speech
-        this.processAudioResult(text);
+    async processTextInput(text) {
+        try {
+            if (text && text.trim()) {
+                this.addMessage(text, 'user');
+                this.updateStatus('Generating response...');
+
+                // Route through agents or use fallback
+                const routingResult = await this.routeRequestThroughAgentsWithMetadata(text);
+                this.addMessage(routingResult.response, 'bot', routingResult.agentName || 'Default Agent');
+
+                // Convert response to speech using selected TTS mode with agent-specific voice
+                this.currentState = 'speaking';
+                await this.textToSpeech(routingResult.response, routingResult.agentName);
+
+                this.currentState = 'ready';
+                this.updateStatus('Ready to listen');
+            } else {
+                this.updateStatus('No text provided. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error processing text input:', error);
+            this.currentState = 'ready';
+            this.updateStatus('Error processing text. Please try again.');
+        }
     }
 
     clearConversation() {
@@ -3419,6 +3264,10 @@ this.apiClient = {
                 this.debug.warn('LLM Manager not available');
                 return;
             }
+            
+            // Force reinitialization to pick up any changes
+            this.debug.log('Reinitializing LLM Manager to ensure latest data...');
+            this.llmManager = new LLMManager();
             
             const stats = this.llmManager.getConfigurationStats();
             const agents = this.llmManager.getAgentConfigurations();

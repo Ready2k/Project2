@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Quick Actions Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .action-btn { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .action-btn:hover { background: #0056b3; }
+        #conversation { border: 1px solid #ddd; padding: 10px; min-height: 200px; margin: 10px 0; }
+        .user-message { background: #e3f2fd; padding: 10px; margin: 5px 0; border-radius: 5px; }
+        .bot-message { background: #f5f5f5; padding: 10px; margin: 5px 0; border-radius: 5px; }
+        .debug { background: #fff3cd; padding: 10px; margin: 5px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Simple Quick Actions Test</h1>
+    
+    <div>
+        <h2>Test Buttons</h2>
+        <button class="action-btn" onclick="testSuggestPhrase('Hello, how are you today?')">
+            Test Greeting
+        </button>
+        <button class="action-btn" onclick="testSuggestPhrase('What\'s my account balance?')">
+            Test Balance
+        </button>
+    </div>
+
+    <div>
+        <h2>Conversation</h2>
+        <div id="conversation"></div>
+    </div>
+
+    <div>
+        <h2>Debug Log</h2>
+        <div id="debugLog"></div>
+    </div>
+
+    <script>
+        function addDebugMessage(message) {
+            const debugLog = document.getElementById('debugLog');
+            const debugDiv = document.createElement('div');
+            debugDiv.className = 'debug';
+            debugDiv.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            debugLog.appendChild(debugDiv);
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+
+        function addUserMessage(phrase) {
+            const conversation = document.getElementById('conversation');
+            const userMessage = document.createElement('div');
+            userMessage.className = 'user-message';
+            userMessage.innerHTML = `
+                <div class="message-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">${phrase}</div>
+                </div>
+            `;
+            conversation.appendChild(userMessage);
+            conversation.scrollTop = conversation.scrollHeight;
+        }
+
+        function testSuggestPhrase(phrase) {
+            addDebugMessage('testSuggestPhrase called with: ' + phrase);
+            
+            // Add message to conversation
+            addUserMessage(phrase);
+            
+            // Check if suggestPhrase function exists
+            if (typeof suggestPhrase === 'function') {
+                addDebugMessage('suggestPhrase function exists, calling it');
+                suggestPhrase(phrase);
+            } else {
+                addDebugMessage('suggestPhrase function not found');
+            }
+        }
+
+        // Simple fallback implementation
+        function suggestPhrase(phrase) {
+            addDebugMessage('Simple suggestPhrase called');
+            
+            // Just add to conversation for now
+            addUserMessage(phrase);
+            
+            // Simulate a response
+            setTimeout(() => {
+                const conversation = document.getElementById('conversation');
+                const botMessage = document.createElement('div');
+                botMessage.className = 'bot-message';
+                botMessage.innerHTML = `
+                    <div class="message-content">
+                        <div class="message-text">I received your message: "${phrase}"</div>
+                    </div>
+                `;
+                conversation.appendChild(botMessage);
+                conversation.scrollTop = conversation.scrollHeight;
+            }, 1000);
+        }
+
+        // Make it globally available
+        window.suggestPhrase = suggestPhrase;
+
+        addDebugMessage('Simple test page loaded');
+    </script>
+</body>
+</html>

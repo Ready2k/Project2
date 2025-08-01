@@ -4,17 +4,27 @@
  */
 
 const VERSION_CONFIG = {
-    version: "v2.2.0",
-    buildDate: "2025-01-29",
-    lastUpdated: "Complete Experience Restart Feature",
+    version: "v2.3.0",
+    buildDate: "2025-01-08",
+    lastUpdated: "Agent Configuration System & LLM Admin UI Enhancements",
     releaseNotes: [
-        "Enhanced clear chat functionality for complete experience restart",
-        "Comprehensive state reset including all active processes",
-        "Improved UI state management and button controls",
-        "Complete agent context and conversation history clearing",
-        "Enhanced user experience with fresh start capability"
+        "Complete agent configuration files migration to config/agents/",
+        "Enhanced LLM Manager Admin UI with improved functionality",
+        "Agent telemetry system for performance monitoring",
+        "Comprehensive guardrails integration testing",
+        "Improved agent configuration loading and management"
     ],
     changelog: {
+        "v2.3.0": {
+            date: "2025-01-08",
+            changes: [
+                "Agent configuration files migration to config/agents/",
+                "Enhanced LLM Manager Admin UI functionality",
+                "Agent telemetry system implementation",
+                "Comprehensive guardrails integration",
+                "Improved configuration management system"
+            ]
+        },
         "v2.2.0": {
             date: "2025-01-29",
             changes: [

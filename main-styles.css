@@ -1357,17 +1357,22 @@ button:disabled {
 .llm-overview {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 20px;
+    flex-wrap: wrap;
 }
 
 .llm-stats {
     display: flex;
     gap: 20px;
+    flex-wrap: wrap;
+    min-width: 0;
+    flex: 1;
 }
 
 .llm-stat {
     text-align: center;
+    min-width: 80px;
 }
 
 .llm-stat .stat-value {
@@ -1383,11 +1388,14 @@ button:disabled {
     color: #6c757d;
     text-transform: uppercase;
     font-weight: 500;
+    line-height: 1.2;
 }
 
 .llm-actions {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
 }
 
 .llm-btn {
@@ -1398,6 +1406,8 @@ button:disabled {
     border: none;
     border-radius: 6px;
     font-size: 14px;
+    white-space: nowrap;
+    min-width: fit-content;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -1837,10 +1847,49 @@ input[type="checkbox"] {
     .llm-overview {
         flex-direction: column;
         align-items: stretch;
+        gap: 15px;
     }
     
     .llm-stats {
         justify-content: space-around;
+        margin-bottom: 15px;
+    }
+    
+    .llm-actions {
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .llm-btn {
+        flex: 1;
+        min-width: 120px;
+        max-width: 200px;
+        justify-content: center;
+    }
+    
+    /* Additional responsive adjustments for very small screens */
+    @media (max-width: 480px) {
+        .llm-actions {
+            flex-direction: column;
+            width: 100%;
+        }
+        
+        .llm-btn {
+            width: 100%;
+            max-width: none;
+        }
+        
+        .llm-stats {
+            gap: 15px;
+        }
+        
+        .llm-stat .stat-value {
+            font-size: 18px;
+        }
+        
+        .llm-stat .stat-label {
+            font-size: 11px;
+        }
     }
     
     .test-buttons {

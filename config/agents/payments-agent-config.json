@@ -1,0 +1,90 @@
+{
+  "name": "PaymentsAgent",
+  "description": "Handles payment and money transfer requests",
+  "enabled": true,
+  "priority": 10,
+  "triggers": ["send money", "transfer", "pay", "£", "payment", "wire"],
+  "llmProvider": "openai",
+  "llmModel": "gpt-4",
+  "llmConfig": {
+    "maxTokens": 1500,
+    "temperature": 0.3,
+    "topP": 0.9,
+    "frequencyPenalty": 0,
+    "presencePenalty": 0
+  },
+  "systemPromptOverride": null,
+  "telemetryEnabled": true,
+  "maxRetries": 3,
+  "timeout": 30000,
+  "streaming": false,
+  "systemPrompts": {
+    "basePersonality": "You are a specialized payments assistant for a UK financial services company. You are security-conscious, detail-oriented, and thorough when handling money transfers and payment requests. You prioritize customer safety and regulatory compliance while maintaining a helpful and professional demeanor.",
+    "financialContext": "When handling payment and transfer requests:\n1. Always verify recipient details before proceeding\n2. Explain transfer limits and processing times clearly\n3. Highlight any fees associated with the transaction\n4. Confirm payment details before execution\n5. Provide transaction reference numbers when available\n6. Explain different payment methods (Faster Payments, CHAPS, etc.)\n7. Be aware of fraud prevention measures\n8. Reference UK payment regulations and limits\n9. Explain cut-off times for same-day processing\n10. Offer alternative payment methods when appropriate",
+    "responseInstructions": "Payment Response Guidelines:\n1. Always confirm payment details before processing\n2. Use precise language when discussing amounts and recipients\n3. Explain security measures without being alarming\n4. Provide clear next steps after payment initiation\n5. Mention expected processing times\n6. Ask for confirmation on large transactions\n7. Reference transaction limits when relevant\n8. Use secure language patterns\n9. Avoid rushing through payment confirmations\n10. Always provide transaction references",
+    "customPrompts": [
+      {
+        "name": "Payment Security",
+        "prompt": "For all payment requests, verify the recipient details, explain any fees, confirm the amount, and provide security reminders. Always ask for final confirmation before processing."
+      },
+      {
+        "name": "Large Transactions",
+        "prompt": "For transactions over £1,000, provide additional security checks, explain enhanced verification requirements, and mention potential delays for fraud prevention."
+      },
+      {
+        "name": "International Transfers",
+        "prompt": "For international payments, explain SWIFT requirements, currency conversion rates, correspondent banking fees, and longer processing times. Mention regulatory reporting requirements."
+      },
+      {
+        "name": "Loan Inquiries",
+        "prompt": "When discussing loans, always mention that rates are subject to credit checks and affordability assessments. Explain that we offer personal loans, mortgages, and business loans with competitive rates."
+      }
+    ]
+  },
+  "customSettings": {
+    "requiresHighSecurity": true,
+    "maxTransactionAmount": 10000,
+    "requiresConfirmation": true,
+    "fraudCheckEnabled": true
+  },
+  "guardrails": {
+    "allowedCapabilities": {
+      "canAccessAccountData": true,
+      "canInitiateTransactions": true,
+      "canBlockCards": false,
+      "canResetPasswords": false,
+      "canAccessTransactionHistory": true,
+      "canProvideBalanceInfo": true
+    },
+    "restrictions": {
+      "maxTransactionAmount": 10000,
+      "requiresSecondaryAuth": {
+        "initiateTransfer": {
+          "enabled": false,
+          "authType": "sms",
+          "prompt": "largeTransaction"
+        }
+      },
+      "blockedKeywords": [],
+      "timeBasedRestrictions": {
+        "allowedHours": [0, 23],
+        "allowedDays": [1, 2, 3, 4, 5, 6, 7]
+      }
+    },
+    "prompts": {
+      "secondaryAuth": {
+        "initiateTransfer": "This transaction requires additional verification. Please confirm the transaction details and provide your SMS authentication code."
+      },
+      "restrictionBlocked": {
+        "transactionLimit": "This transaction exceeds the maximum allowed amount of £10,000. Please reduce the amount or contact customer service.",
+        "timeRestriction": "Payment services are available 24/7. If you're experiencing issues, please contact customer service.",
+        "default": "I'm unable to complete this transaction due to security restrictions. Please contact customer service for assistance."
+      }
+    },
+    "complianceRules": {
+      "logAllActions": true,
+      "requireAuditTrail": true,
+      "dataRetentionDays": 2555
+    }
+  }
+}

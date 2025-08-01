@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Complete Restart v2.2.0</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-header {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .test-button.success {
+            background: #28a745;
+        }
+        .test-button.danger {
+            background: #dc3545;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .test-results {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .feature-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .feature-list li:before {
+            content: "✓ ";
+            color: #28a745;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🔄 Complete Experience Restart Test - v2.2.0</h1>
+            <p>Testing the enhanced clear chat functionality that provides complete experience restart</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 New Features in v2.2.0</h3>
+            <ul class="feature-list">
+                <li>Complete state reset including all active processes</li>
+                <li>Comprehensive UI element reset to initial state</li>
+                <li>Agent context and conversation history clearing</li>
+                <li>Audio process termination (recording, playback, TTS)</li>
+                <li>Streaming connection cleanup</li>
+                <li>Button state management and indicator resets</li>
+                <li>Enhanced user experience with fresh start capability</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test Clear Chat Functionality</h3>
+            <p>Click the button below to test the enhanced clear chat functionality:</p>
+            
+            <button class="test-button" onclick="testClearChat()">
+                🗑️ Test Clear Chat (Complete Restart)
+            </button>
+            
+            <button class="test-button" onclick="simulateActiveState()">
+                🎤 Simulate Active State
+            </button>
+            
+            <button class="test-button" onclick="checkStateReset()">
+                ✅ Check State Reset
+            </button>
+            
+            <div id="testStatus" class="status info">
+                Ready to test complete restart functionality
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 State Monitoring</h3>
+            <div id="stateMonitor">
+                <p><strong>Current State:</strong> <span id="currentState">ready</span></p>
+                <p><strong>Recording:</strong> <span id="recordingState">false</span></p>
+                <p><strong>Connected:</strong> <span id="connectionState">false</span></p>
+                <p><strong>Conversation History:</strong> <span id="historyLength">0</span> items</p>
+                <p><strong>Last Agent:</strong> <span id="lastAgent">None</span></p>
+            </div>
+        </div>
+
+        <div class="test-results">
+            <h3>📋 Test Results</h3>
+            <div id="testResults">
+                <p>No tests run yet. Click the test buttons above to begin.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = [];
+        
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('testStatus');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+        
+        function updateStateMonitor() {
+            // Check if speechApp is available
+            if (window.speechApp) {
+                document.getElementById('currentState').textContent = window.speechApp.currentState || 'unknown';
+                document.getElementById('recordingState').textContent = window.speechApp.isRecording || false;
+                document.getElementById('connectionState').textContent = window.speechApp.isConnected || false;
+                document.getElementById('historyLength').textContent = window.speechApp.conversationHistory ? window.speechApp.conversationHistory.length : 0;
+                document.getElementById('lastAgent').textContent = window.speechApp.lastAgentUsed || 'None';
+            } else {
+                document.getElementById('currentState').textContent = 'speechApp not available';
+            }
+        }
+        
+        function simulateActiveState() {
+            updateStatus('Simulating active state...', 'info');
+            
+            // Simulate some active state
+            if (window.speechApp) {
+                // Add some fake conversation history
+                window.speechApp.conversationHistory = [
+                    { role: 'user', content: 'Hello' },
+                    { role: 'assistant', content: 'Hi there!' }
+                ];
+                window.speechApp.lastAgentUsed = 'TestAgent';
+                window.speechApp.currentState = 'processing';
+                
+                updateStateMonitor();
+                updateStatus('Active state simulated successfully', 'success');
+                testResults.push('✅ Active state simulation: PASSED');
+            } else {
+                updateStatus('speechApp not available for simulation', 'error');
+                testResults.push('❌ Active state simulation: FAILED - speechApp not available');
+            }
+            
+            updateTestResults();
+        }
+        
+        function testClearChat() {
+            updateStatus('Testing clear chat functionality...', 'info');
+            
+            try {
+                if (window.speechApp && typeof window.speechApp.clearConversation === 'function') {
+                    // Call the enhanced clear conversation method
+                    window.speechApp.clearConversation();
+                    
+                    // Give it a moment to complete
+                    setTimeout(() => {
+                        updateStateMonitor();
+                        updateStatus('Clear chat test completed', 'success');
+                        testResults.push('✅ Clear chat functionality: AVAILABLE');
+                        updateTestResults();
+                    }, 500);
+                } else {
+                    updateStatus('speechApp.clearConversation not available', 'error');
+                    testResults.push('❌ Clear chat functionality: NOT AVAILABLE');
+                    updateTestResults();
+                }
+            } catch (error) {
+                updateStatus(`Error testing clear chat: ${error.message}`, 'error');
+                testResults.push(`❌ Clear chat functionality: ERROR - ${error.message}`);
+                updateTestResults();
+            }
+        }
+        
+        function checkStateReset() {
+            updateStatus('Checking state reset...', 'info');
+            
+            let resetChecks = [];
+            
+            if (window.speechApp) {
+                // Check if state was properly reset
+                const currentState = window.speechApp.currentState;
+                const isRecording = window.speechApp.isRecording;
+                const isConnected = window.speechApp.isConnected;
+                const historyLength = window.speechApp.conversationHistory ? window.speechApp.conversationHistory.length : 0;
+                const lastAgent = window.speechApp.lastAgentUsed;
+                
+                resetChecks.push(`Current State: ${currentState === 'ready' ? '✅' : '❌'} ${currentState}`);
+                resetChecks.push(`Recording: ${!isRecording ? '✅' : '❌'} ${isRecording}`);
+                resetChecks.push(`Connected: ${!isConnected ? '✅' : '❌'} ${isConnected}`);
+                resetChecks.push(`History Cleared: ${historyLength === 0 ? '✅' : '❌'} ${historyLength} items`);
+                resetChecks.push(`Agent Reset: ${!lastAgent ? '✅' : '❌'} ${lastAgent || 'None'}`);
+                
+                const allPassed = currentState === 'ready' && !isRecording && !isConnected && historyLength === 0 && !lastAgent;
+                
+                if (allPassed) {
+                    updateStatus('All state reset checks passed!', 'success');
+                    testResults.push('✅ State reset verification: ALL CHECKS PASSED');
+                } else {
+                    updateStatus('Some state reset checks failed', 'error');
+                    testResults.push('⚠️ State reset verification: SOME CHECKS FAILED');
+                }
+                
+                testResults.push(...resetChecks.map(check => `  ${check}`));
+            } else {
+                updateStatus('speechApp not available for state checking', 'error');
+                testResults.push('❌ State reset verification: speechApp not available');
+            }
+            
+            updateStateMonitor();
+            updateTestResults();
+        }
+        
+        function updateTestResults() {
+            const resultsEl = document.getElementById('testResults');
+            if (testResults.length === 0) {
+                resultsEl.innerHTML = '<p>No tests run yet. Click the test buttons above to begin.</p>';
+            } else {
+                resultsEl.innerHTML = testResults.map(result => `<p>${result}</p>`).join('');
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateStateMonitor();
+            
+            // Check if we're in the main app context
+            if (window.speechApp) {
+                updateStatus('speechApp detected - ready for testing', 'success');
+            } else {
+                updateStatus('speechApp not detected - limited testing available', 'error');
+            }
+            
+            // Update state monitor every 2 seconds
+            setInterval(updateStateMonitor, 2000);
+        });
+    </script>
+</body>
+</html>

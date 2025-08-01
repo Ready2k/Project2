@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Config Files Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .config-display {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Agent Configuration Files Test</h1>
+        <p>Testing the new file-based agent configuration system</p>
+        
+        <div class="test-section">
+            <h3>1. Load Debug Manager</h3>
+            <button onclick="loadDebugManager()">Load Debug Manager</button>
+            <div id="debug-status"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>2. Load Agent Config Manager</h3>
+            <button onclick="loadAgentConfigManager()">Load Agent Config Manager</button>
+            <div id="config-manager-status"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>3. Test Configuration Loading</h3>
+            <button onclick="testConfigurationLoading()">Test Config Loading</button>
+            <div id="loading-status"></div>
+            <div id="loaded-configs" class="config-display"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>4. Test Individual Agent Configs</h3>
+            <button onclick="testIndividualConfigs()">Test Individual Configs</button>
+            <div id="individual-status"></div>
+            <div id="individual-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>5. Test Configuration Updates</h3>
+            <button onclick="testConfigurationUpdates()">Test Config Updates</button>
+            <div id="update-status"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>6. Test Export/Download Functionality</h3>
+            <button onclick="testExportFunctionality()">Test Export</button>
+            <div id="export-status"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>7. Test File Path Management</h3>
+            <button onclick="testFilePathManagement()">Test File Paths</button>
+            <div id="filepath-status"></div>
+        </div>
+    </div>
+
+    <script>
+        let debugManager = null;
+        let agentConfigManager = null;
+        
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+        
+        function appendStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML += `<div class="${type}">${message}</div>`;
+        }
+        
+        async function loadDebugManager() {
+            try {
+                showStatus('debug-status', 'Loading debug manager...', 'info');
+                
+                // Create a simple debug manager for testing
+                window.debugManager = {
+                    createModuleLogger: function(moduleName) {
+                        return {
+                            info: (msg, data) => console.log(`[${moduleName}] INFO:`, msg, data || ''),
+                            warn: (msg, data) => console.warn(`[${moduleName}] WARN:`, msg, data || ''),
+                            error: (msg, data) => console.error(`[${moduleName}] ERROR:`, msg, data || ''),
+                            debug: (msg, data) => console.debug(`[${moduleName}] DEBUG:`, msg, data || '')
+                        };
+                    }
+                };
+                
+                debugManager = window.debugManager;
+                showStatus('debug-status', 'Debug manager loaded successfully!', 'success');
+                
+            } catch (error) {
+                showStatus('debug-status', `Failed to load debug manager: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadAgentConfigManager() {
+            try {
+                showStatus('config-manager-status', 'Loading agent config manager...', 'info');
+                
+                if (!debugManager) {
+                    throw new Error('Debug manager must be loaded first');
+                }
+                
+                // Load the agent config manager script
+                const script = document.createElement('script');
+                script.src = 'agents/agent-config-manager.js';
+                script.onload = async () => {
+                    try {
+                        agentConfigManager = new AgentConfigManager();
+                        showStatus('config-manager-status', 'Agent config manager loaded successfully!', 'success');
+                    } catch (error) {
+                        showStatus('config-manager-status', `Failed to initialize agent config manager: ${error.message}`, 'error');
+                    }
+                };
+                script.onerror = () => {
+                    showStatus('config-manager-status', 'Failed to load agent config manager script', 'error');
+                };
+                document.head.appendChild(script);
+                
+            } catch (error) {
+                showStatus('config-manager-status', `Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testConfigurationLoading() {
+            try {
+                showStatus('loading-status', 'Testing configuration loading...', 'info');
+                
+                if (!agentConfigManager) {
+                    throw new Error('Agent config manager must be loaded first');
+                }
+                
+                // Wait a moment for async loading to complete
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                const allConfigs = agentConfigManager.getAllConfigs();
+                const configCount = Object.keys(allConfigs).length;
+                
+                showStatus('loading-status', `Successfully loaded ${configCount} agent configurations!`, 'success');
+                
+                // Display the loaded configurations
+                const configDisplay = document.getElementById('loaded-configs');
+                configDisplay.innerHTML = '<h4>Loaded Configurations:</h4><pre>' + 
+                    JSON.stringify(allConfigs, null, 2) + '</pre>';
+                
+            } catch (error) {
+                showStatus('loading-status', `Configuration loading failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testIndividualConfigs() {
+            try {
+                showStatus('individual-status', 'Testing individual agent configurations...', 'info');
+                
+                if (!agentConfigManager) {
+                    throw new Error('Agent config manager must be loaded first');
+                }
+                
+                const agentNames = ['DefaultAgent', 'PaymentsAgent', 'FraudAgent', 'IDVAgent', 'BankingInfoAgent'];
+                const results = document.getElementById('individual-results');
+                results.innerHTML = '<h4>Individual Agent Tests:</h4>';
+                
+                for (const agentName of agentNames) {
+                    const config = agentConfigManager.getAgentConfig(agentName);
+                    const isEnabled = agentConfigManager.isAgentEnabled(agentName);
+                    const filePath = agentConfigManager.getAgentConfigFilePath(agentName);
+                    
+                    if (config) {
+                        results.innerHTML += `
+                            <div class="success">
+                                <strong>${agentName}:</strong> ✓ Loaded<br>
+                                <small>Enabled: ${isEnabled}, Priority: ${config.priority}, File: ${filePath}</small>
+                            </div>
+                        `;
+                    } else {
+                        results.innerHTML += `
+                            <div class="error">
+                                <strong>${agentName}:</strong> ✗ Failed to load
+                            </div>
+                        `;
+                    }
+                }
+                
+                showStatus('individual-status', 'Individual configuration tests completed!', 'success');
+                
+            } catch (error) {
+                showStatus('individual-status', `Individual config test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testConfigurationUpdates() {
+            try {
+                showStatus('update-status', 'Testing configuration updates...', 'info');
+                
+                if (!agentConfigManager) {
+                    throw new Error('Agent config manager must be loaded first');
+                }
+                
+                // Test enabling/disabling an agent
+                const testAgent = 'PaymentsAgent';
+                const originalConfig = agentConfigManager.getAgentConfig(testAgent);
+                const originalEnabled = originalConfig.enabled;
+                
+                appendStatus('update-status', `Original ${testAgent} enabled: ${originalEnabled}`, 'info');
+                
+                // Toggle the enabled state
+                if (originalEnabled) {
+                    await agentConfigManager.disableAgent(testAgent);
+                    appendStatus('update-status', `${testAgent} disabled successfully`, 'success');
+                } else {
+                    await agentConfigManager.enableAgent(testAgent);
+                    appendStatus('update-status', `${testAgent} enabled successfully`, 'success');
+                }
+                
+                // Check the change
+                const newEnabled = agentConfigManager.isAgentEnabled(testAgent);
+                appendStatus('update-status', `New ${testAgent} enabled: ${newEnabled}`, 'info');
+                
+                // Test priority update
+                const originalPriority = originalConfig.priority;
+                const newPriority = originalPriority + 10;
+                
+                await agentConfigManager.setAgentPriority(testAgent, newPriority);
+                const updatedConfig = agentConfigManager.getAgentConfig(testAgent);
+                
+                appendStatus('update-status', `Priority updated from ${originalPriority} to ${updatedConfig.priority}`, 'success');
+                
+                // Restore original state
+                await agentConfigManager.updateAgentConfig(testAgent, {
+                    enabled: originalEnabled,
+                    priority: originalPriority
+                });
+                
+                appendStatus('update-status', 'Configuration restored to original state', 'success');
+                
+            } catch (error) {
+                showStatus('update-status', `Configuration update test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testExportFunctionality() {
+            try {
+                showStatus('export-status', 'Testing export functionality...', 'info');
+                
+                if (!agentConfigManager) {
+                    throw new Error('Agent config manager must be loaded first');
+                }
+                
+                // Test exporting all configurations
+                const allConfigsJson = agentConfigManager.exportConfigurations();
+                appendStatus('export-status', `All configs exported (${allConfigsJson.length} characters)`, 'success');
+                
+                // Test exporting individual agent
+                const testAgent = 'PaymentsAgent';
+                const agentConfigJson = agentConfigManager.exportAgentConfiguration(testAgent);
+                
+                if (agentConfigJson) {
+                    appendStatus('export-status', `${testAgent} config exported successfully`, 'success');
+                    
+                    // Test creating download link
+                    const downloadLink = agentConfigManager.createConfigDownloadLink(testAgent);
+                    if (downloadLink) {
+                        appendStatus('export-status', 
+                            `<a href="${downloadLink}" download="${testAgent.toLowerCase()}-config.json">Download ${testAgent} Config</a>`, 
+                            'success');
+                    }
+                } else {
+                    appendStatus('export-status', `Failed to export ${testAgent} config`, 'error');
+                }
+                
+            } catch (error) {
+                showStatus('export-status', `Export test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testFilePathManagement() {
+            try {
+                showStatus('filepath-status', 'Testing file path management...', 'info');
+                
+                if (!agentConfigManager) {
+                    throw new Error('Agent config manager must be loaded first');
+                }
+                
+                // List all configured files
+                const configFiles = agentConfigManager.listAgentConfigFiles();
+                appendStatus('filepath-status', `Found ${Object.keys(configFiles).length} configured files`, 'success');
+                
+                // Display file paths
+                for (const [agentName, filePath] of Object.entries(configFiles)) {
+                    appendStatus('filepath-status', `${agentName}: ${filePath}`, 'info');
+                }
+                
+                // Test getting individual file path
+                const testAgent = 'PaymentsAgent';
+                const filePath = agentConfigManager.getAgentConfigFilePath(testAgent);
+                
+                if (filePath) {
+                    appendStatus('filepath-status', `${testAgent} file path: ${filePath}`, 'success');
+                } else {
+                    appendStatus('filepath-status', `No file path found for ${testAgent}`, 'error');
+                }
+                
+            } catch (error) {
+                showStatus('filepath-status', `File path test failed: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

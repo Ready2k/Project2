@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Agent Creation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .test-result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .agent-list {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Agent Creation Test</h1>
+        <p>Testing if all 5 agents are properly created by the LLM Manager.</p>
+        
+        <button class="btn" onclick="testAgentCreation()">🚀 Test Agent Creation</button>
+        <button class="btn" onclick="clearAndRetest()">🔄 Clear & Retest</button>
+        
+        <div id="testResults"></div>
+    </div>
+    
+    <!-- Load Dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    
+    <script>
+        function testAgentCreation() {
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '<div class="info">Testing agent creation...</div>';
+            
+            try {
+                // Create new LLM Manager instance
+                const llmManager = new LLMManager();
+                
+                // Get stats and configurations
+                const stats = llmManager.getConfigurationStats();
+                const agents = llmManager.getAgentConfigurations();
+                const expectedAgents = ['DefaultAgent', 'IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+                
+                let resultHTML = '';
+                
+                // Check total count
+                if (stats.totalAgents === 5) {
+                    resultHTML += '<div class="success">✅ SUCCESS: Found 5 agents (expected 5)</div>';
+                } else {
+                    resultHTML += `<div class="error">❌ FAILURE: Found ${stats.totalAgents} agents (expected 5)</div>`;
+                }
+                
+                // Check each expected agent
+                let foundAgents = [];
+                let missingAgents = [];
+                
+                expectedAgents.forEach(agentName => {
+                    if (agents[agentName]) {
+                        foundAgents.push(agentName);
+                    } else {
+                        missingAgents.push(agentName);
+                    }
+                });
+                
+                if (foundAgents.length === 5) {
+                    resultHTML += '<div class="success">✅ All expected agents found</div>';
+                } else {
+                    resultHTML += `<div class="error">❌ Missing agents: ${missingAgents.join(', ')}</div>`;
+                }
+                
+                // Show agent details
+                resultHTML += '<div class="info"><strong>Agent Details:</strong></div>';
+                resultHTML += '<div class="agent-list">';
+                
+                expectedAgents.forEach(agentName => {
+                    const agent = agents[agentName];
+                    if (agent) {
+                        resultHTML += `✅ ${agentName}: ${agent.description} (Priority: ${agent.priority}, Enabled: ${agent.enabled})\n`;
+                    } else {
+                        resultHTML += `❌ ${agentName}: MISSING\n`;
+                    }
+                });
+                
+                resultHTML += '</div>';
+                
+                // Show configuration map details
+                resultHTML += '<div class="info"><strong>Configuration Map Details:</strong></div>';
+                resultHTML += '<div class="agent-list">';
+                resultHTML += `Map Size: ${llmManager.configurations.size}\n`;
+                resultHTML += `Map Keys: ${Array.from(llmManager.configurations.keys()).join(', ')}\n`;
+                resultHTML += '</div>';
+                
+                resultsDiv.innerHTML = resultHTML;
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Test Error: ${error.message}</div>`;
+                console.error('Test error:', error);
+            }
+        }
+        
+        function clearAndRetest() {
+            // Clear localStorage
+            localStorage.removeItem('llm-manager-configurations');
+            
+            // Show clearing message
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '<div class="info">Cleared localStorage, retesting...</div>';
+            
+            // Retest after a short delay
+            setTimeout(testAgentCreation, 500);
+        }
+        
+        // Auto-run test on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(testAgentCreation, 1000);
+        });
+    </script>
+</body>
+</html>

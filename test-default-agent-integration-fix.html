@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Default Agent Integration Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .details {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-left: 3px solid #007bff;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Default Agent Integration Fix Test</h1>
+        <p>This test verifies that the Default Agent integration fix resolves the basePersonality field error.</p>
+        
+        <button onclick="runIntegrationTest()" id="testBtn">Run Integration Test</button>
+        <button onclick="testEmptyFieldsFix()" id="fixTestBtn">Test Empty Fields Fix</button>
+        <button onclick="clearResults()" id="clearBtn">Clear Results</button>
+        
+        <div id="testResults"></div>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+
+    <script>
+        let testResults = [];
+
+        function addResult(type, title, message, details = null) {
+            const result = {
+                type,
+                title,
+                message,
+                details,
+                timestamp: new Date().toISOString()
+            };
+            testResults.push(result);
+            displayResults();
+        }
+
+        function displayResults() {
+            const container = document.getElementById('testResults');
+            container.innerHTML = '';
+            
+            testResults.forEach(result => {
+                const div = document.createElement('div');
+                div.className = `test-result ${result.type}`;
+                
+                let html = `<strong>${result.title}</strong><br>${result.message}`;
+                if (result.details) {
+                    html += `<div class="details">${result.details}</div>`;
+                }
+                
+                div.innerHTML = html;
+                container.appendChild(div);
+            });
+        }
+
+        function clearResults() {
+            testResults = [];
+            displayResults();
+        }
+
+        async function runIntegrationTest() {
+            const testBtn = document.getElementById('testBtn');
+            testBtn.disabled = true;
+            testBtn.textContent = 'Running Test...';
+            
+            clearResults();
+            
+            try {
+                addResult('info', 'Test Started', 'Beginning Default Agent integration test...');
+                
+                // Initialize debug manager
+                if (typeof DebugManager !== 'undefined') {
+                    window.debugManager = new DebugManager();
+                    addResult('success', 'Debug Manager', 'Debug manager initialized successfully');
+                } else {
+                    addResult('warning', 'Debug Manager', 'Debug manager not available, using console fallback');
+                }
+                
+                // Initialize LLM Manager
+                let llmManager;
+                try {
+                    llmManager = new LLMManager();
+                    addResult('success', 'LLM Manager', 'LLM Manager initialized successfully');
+                } catch (error) {
+                    addResult('error', 'LLM Manager', 'Failed to initialize LLM Manager: ' + error.message);
+                    return;
+                }
+                
+                // Check Default Agent configuration
+                const defaultAgent = llmManager.getAgentConfiguration('DefaultAgent');
+                if (defaultAgent) {
+                    addResult('success', 'Default Agent', 'Default Agent found in LLM Manager');
+                    
+                    // Check system prompts structure
+                    if (defaultAgent.systemPrompts) {
+                        addResult('success', 'System Prompts', 'Default Agent has system prompts structure');
+                        
+                        const promptsDetails = JSON.stringify(defaultAgent.systemPrompts, null, 2);
+                        addResult('info', 'System Prompts Details', 'Current system prompts configuration:', promptsDetails);
+                        
+                        // Check specific fields
+                        const requiredFields = ['basePersonality', 'financialContext', 'responseInstructions'];
+                        let allFieldsPresent = true;
+                        
+                        for (const field of requiredFields) {
+                            if (defaultAgent.systemPrompts[field] === undefined || defaultAgent.systemPrompts[field] === null) {
+                                addResult('error', 'Field Check', `Missing required field: ${field}`);
+                                allFieldsPresent = false;
+                            } else {
+                                const value = defaultAgent.systemPrompts[field];
+                                const valueType = typeof value;
+                                const isEmpty = value === '';
+                                addResult('success', 'Field Check', `Field '${field}' present (${valueType}, ${isEmpty ? 'empty' : 'has content'})`);
+                            }
+                        }
+                        
+                        if (allFieldsPresent) {
+                            addResult('success', 'Field Validation', 'All required fields are present (empty strings are allowed as placeholders)');
+                        }
+                        
+                    } else {
+                        addResult('error', 'System Prompts', 'Default Agent missing system prompts structure');
+                    }
+                } else {
+                    addResult('error', 'Default Agent', 'Default Agent not found in LLM Manager');
+                }
+                
+                // Initialize Admin UI and test verification
+                try {
+                    const adminUI = new LLMManagerAdminUI();
+                    
+                    // Wait a moment for initialization
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    addResult('success', 'Admin UI', 'Admin UI initialized successfully');
+                    
+                    // Test the verification method
+                    const verificationResult = await adminUI.verifyDefaultAgentIntegration();
+                    
+                    if (verificationResult.success) {
+                        addResult('success', 'Integration Verification', 'Default Agent integration verification passed!');
+                        
+                        if (verificationResult.details && verificationResult.details.length > 0) {
+                            const detailsText = verificationResult.details.join('\n');
+                            addResult('info', 'Verification Details', 'Verification steps completed:', detailsText);
+                        }
+                    } else {
+                        addResult('error', 'Integration Verification', 'Verification failed: ' + verificationResult.error);
+                    }
+                    
+                } catch (adminError) {
+                    addResult('error', 'Admin UI', 'Failed to initialize Admin UI: ' + adminError.message);
+                }
+                
+                addResult('info', 'Test Complete', 'Default Agent integration test completed');
+                
+            } catch (error) {
+                addResult('error', 'Test Error', 'Unexpected error during test: ' + error.message);
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = 'Run Integration Test';
+            }
+        }
+
+        async function testEmptyFieldsFix() {
+            const fixTestBtn = document.getElementById('fixTestBtn');
+            fixTestBtn.disabled = true;
+            fixTestBtn.textContent = 'Testing Fix...';
+            
+            try {
+                addResult('info', 'Empty Fields Fix Test', 'Testing the fix for empty system prompts fields...');
+                
+                // Initialize managers if not already done
+                if (!window.llmManager) {
+                    window.llmManager = new LLMManager();
+                }
+                
+                if (!window.adminUI) {
+                    window.adminUI = new LLMManagerAdminUI();
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+                // First, create a Default Agent with empty fields to test the fix
+                const emptyConfig = {
+                    name: 'DefaultAgent',
+                    description: 'Test agent with empty fields',
+                    priority: 0,
+                    enabled: true,
+                    triggers: [],
+                    llmProvider: 'openai',
+                    llmModel: 'gpt-4',
+                    maxTokens: 1500,
+                    telemetryEnabled: true,
+                    systemPrompts: {
+                        basePersonality: '',
+                        financialContext: '',
+                        responseInstructions: '',
+                        customPrompts: []
+                    },
+                    createdAt: new Date().toISOString(),
+                    lastUpdated: new Date().toISOString()
+                };
+                
+                // Force the empty configuration
+                await window.llmManager.updateAgentConfiguration('DefaultAgent', emptyConfig, {
+                    skipRealTimeUpdate: true,
+                    reason: 'Test empty fields setup'
+                });
+                
+                addResult('info', 'Setup', 'Created Default Agent with empty system prompts fields');
+                
+                // Verify it fails verification
+                const preFixVerification = await window.adminUI.verifyDefaultAgentIntegration();
+                if (!preFixVerification.success) {
+                    addResult('success', 'Pre-Fix Verification', 'Correctly detected empty fields: ' + preFixVerification.error);
+                } else {
+                    addResult('warning', 'Pre-Fix Verification', 'Expected verification to fail but it passed');
+                }
+                
+                // Test the fix
+                const fixResult = await window.adminUI.fixDefaultAgentEmptyFields();
+                
+                if (fixResult.success) {
+                    addResult('success', 'Fix Applied', `Successfully fixed ${fixResult.fieldsFixed.length} field(s)`);
+                    
+                    if (fixResult.details && fixResult.details.length > 0) {
+                        const detailsText = fixResult.details.join('\n');
+                        addResult('info', 'Fix Details', 'Fix operation details:', detailsText);
+                    }
+                    
+                    // Verify it now passes verification
+                    const postFixVerification = await window.adminUI.verifyDefaultAgentIntegration();
+                    if (postFixVerification.success) {
+                        addResult('success', 'Post-Fix Verification', 'Default Agent now passes verification after fix');
+                    } else {
+                        addResult('error', 'Post-Fix Verification', 'Verification still fails after fix: ' + postFixVerification.error);
+                    }
+                    
+                } else {
+                    addResult('error', 'Fix Failed', 'Failed to fix empty fields: ' + fixResult.error);
+                }
+                
+                addResult('info', 'Test Complete', 'Empty fields fix test completed');
+                
+            } catch (error) {
+                addResult('error', 'Test Error', 'Unexpected error during fix test: ' + error.message);
+            } finally {
+                fixTestBtn.disabled = false;
+                fixTestBtn.textContent = 'Test Empty Fields Fix';
+            }
+        }
+
+        // Auto-run test on page load
+        window.addEventListener('load', () => {
+            setTimeout(runIntegrationTest, 500);
+        });
+    </script>
+</body>
+</html>

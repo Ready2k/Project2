@@ -1084,102 +1084,9 @@
 
                     <!-- Agent Prompts Tab -->
                     <div id="agent-prompts-tab" class="tab-content active">
-                        <div class="agents-grid">
-                            <!-- FraudAgent Prompts -->
-                            <div class="agent-prompt-card">
-                                <div class="agent-prompt-header">
-                                    <h3>🚨 FraudAgent</h3>
-                                    <span class="agent-status">Active</span>
-                                </div>
-                                
-                                <div class="prompt-field">
-                                    <label>Base Personality:</label>
-                                    <textarea id="fraud-personality" rows="3" placeholder="Define the agent's core personality...">You are an urgent, professional fraud detection and security specialist. You prioritize immediate protective actions and clear guidance. You are reassuring but maintain appropriate urgency for security threats.</textarea>
-                                </div>
-                                
-                                <div class="prompt-field">
-                                    <label>Response Instructions:</label>
-                                    <textarea id="fraud-instructions" rows="2" placeholder="How should responses be structured...">Provide immediate, clear guidance for security threats. Be urgent but reassuring. Give step-by-step instructions for protective actions.</textarea>
-                                </div>
-                                
-                                <div class="prompt-actions">
-                                    <button class="btn btn-success btn-sm" onclick="saveAgentPrompts('FraudAgent')">💾 Save</button>
-                                    <button class="btn btn-secondary btn-sm" onclick="resetAgentPrompts('FraudAgent')">🔄 Reset</button>
-                                    <button class="btn btn-info btn-sm" onclick="previewAgentPrompts('FraudAgent')">👁️ Preview</button>
-                                </div>
-                            </div>
-
-                            <!-- PaymentsAgent Prompts -->
-                            <div class="agent-prompt-card">
-                                <div class="agent-prompt-header">
-                                    <h3>💳 PaymentsAgent</h3>
-                                    <span class="agent-status">Active</span>
-                                </div>
-                                
-                                <div class="prompt-field">
-                                    <label>Base Personality:</label>
-                                    <textarea id="payments-personality" rows="3" placeholder="Define the agent's core personality...">You are a highly secure, professional payment processing assistant. You prioritize security, accuracy, and clear communication in all financial transactions.</textarea>
-                                </div>
-                                
-                                <div class="prompt-field">
-                                    <label>Response Instructions:</label>
-                                    <textarea id="payments-instructions" rows="2" placeholder="How should responses be structured...">Provide clear, step-by-step guidance for payment processing. Always confirm transaction details before proceeding.</textarea>
-                                </div>
-                                
-                                <div class="prompt-actions">
-                                    <button class="btn btn-success btn-sm" onclick="saveAgentPrompts('PaymentsAgent')">💾 Save</button>
-                                    <button class="btn btn-secondary btn-sm" onclick="resetAgentPrompts('PaymentsAgent')">🔄 Reset</button>
-                                    <button class="btn btn-info btn-sm" onclick="previewAgentPrompts('PaymentsAgent')">👁️ Preview</button>
-                                </div>
-                            </div>
-
-                            <!-- IDVAgent Prompts -->
-                            <div class="agent-prompt-card">
-                                <div class="agent-prompt-header">
-                                    <h3>🔐 IDVAgent</h3>
-                                    <span class="agent-status">Active</span>
-                                </div>
-                                
-                                <div class="prompt-field">
-                                    <label>Response Instructions:</label>
-                                    <textarea id="idv-instructions" rows="2" placeholder="How should responses be structured...">Keep responses security-focused and provide clear, step-by-step guidance. Never request sensitive information in conversation.</textarea>
-                                </div>
-                                
-                                <div class="prompt-field">
-                                    <label>Financial Context:</label>
-                                    <textarea id="idv-context" rows="2" placeholder="Context for financial operations...">When handling identity verification requests, prioritize security and privacy above all else.</textarea>
-                                </div>
-                                
-                                <div class="prompt-actions">
-                                    <button class="btn btn-success btn-sm" onclick="saveAgentPrompts('IDVAgent')">💾 Save</button>
-                                    <button class="btn btn-secondary btn-sm" onclick="resetAgentPrompts('IDVAgent')">🔄 Reset</button>
-                                    <button class="btn btn-info btn-sm" onclick="previewAgentPrompts('IDVAgent')">👁️ Preview</button>
-                                </div>
-                            </div>
-
-                            <!-- BankingInfoAgent Prompts -->
-                            <div class="agent-prompt-card">
-                                <div class="agent-prompt-header">
-                                    <h3>🏦 BankingInfoAgent</h3>
-                                    <span class="agent-status">Active</span>
-                                </div>
-                                
-                                <div class="prompt-field">
-                                    <label>Response Instructions:</label>
-                                    <textarea id="banking-instructions" rows="2" placeholder="How should responses be structured...">Present financial information clearly and accurately. Format currency amounts properly.</textarea>
-                                </div>
-                                
-                                <div class="prompt-field">
-                                    <label>Financial Context:</label>
-                                    <textarea id="banking-context" rows="2" placeholder="Context for financial operations...">When providing banking information, be accurate, helpful, and informative. Focus on read-only account data.</textarea>
-                                </div>
-                                
-                                <div class="prompt-actions">
-                                    <button class="btn btn-success btn-sm" onclick="saveAgentPrompts('BankingInfoAgent')">💾 Save</button>
-                                    <button class="btn btn-secondary btn-sm" onclick="resetAgentPrompts('BankingInfoAgent')">🔄 Reset</button>
-                                    <button class="btn btn-info btn-sm" onclick="previewAgentPrompts('BankingInfoAgent')">👁️ Preview</button>
-                                </div>
-                            </div>
+                        <div id="agents-prompts-grid" class="agents-grid">
+                            <!-- Agent prompt cards will be dynamically generated here -->
+                            <!-- Agent prompt cards will be dynamically generated by JavaScript -->
                         </div>
                     </div>
 
@@ -1226,6 +1133,7 @@
                         <div class="preview-controls">
                             <label for="preview-agent-select">Select Agent:</label>
                             <select id="preview-agent-select" onchange="updatePromptPreview()">
+                                <option value="DefaultAgent">Default Agent</option>
                                 <option value="FraudAgent">FraudAgent</option>
                                 <option value="PaymentsAgent">PaymentsAgent</option>
                                 <option value="IDVAgent">IDVAgent</option>
@@ -1320,6 +1228,7 @@
     <script src="agents/llm-manager.js"></script>
     <script src="agents/guardrails-manager.js"></script>
     <script src="agents/voice-config-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
     <script src="llm-manager-admin-ui.js"></script>
 </body>
 </html>

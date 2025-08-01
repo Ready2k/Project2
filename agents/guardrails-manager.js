@@ -97,7 +97,27 @@ class GuardrailsManager {
      * @returns {Object|null} Guardrail configuration or null if not found
      */
     getGuardrails(agentName) {
-        return this.guardrails.get(agentName) || null;
+        // First check if we have guardrails in our local storage
+        let guardrails = this.guardrails.get(agentName);
+        
+        // If not found, try to get from agent configuration files
+        if (!guardrails && window.agentConfigManager) {
+            const agentConfig = window.agentConfigManager.getAgentConfig(agentName);
+            if (agentConfig && agentConfig.guardrails) {
+                // Use guardrails from agent config file
+                guardrails = {
+                    agentName,
+                    ...agentConfig.guardrails,
+                    lastUpdated: new Date().toISOString()
+                };
+                
+                // Cache it for future use
+                this.guardrails.set(agentName, guardrails);
+                this.debug.log(`Loaded guardrails for ${agentName} from agent config file`);
+            }
+        }
+        
+        return guardrails || null;
     }
     
     /**

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task 7 Implementation Test - Admin Panel Navigation Updates</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-header {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .summary {
+            margin-top: 30px;
+            padding: 20px;
+            background: #e9ecef;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 class="test-header">Task 7 Implementation Test: Admin Panel Navigation Updates</h1>
+        
+        <div class="info">
+            <strong>Test Objective:</strong> Verify that the admin panel navigation has been updated according to task 7 requirements:
+            <ul>
+                <li>LLM Console section description updated to indicate it handles all agent configuration</li>
+                <li>Informational message directing users to LLM Manager for agent configuration</li>
+                <li>System Prompts related event handlers and functions removed from main interface</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 1: LLM Section Description Update</h3>
+            <p>Checking that the LLM section has comprehensive informational message...</p>
+            <button onclick="testLLMSectionDescription()">Run Test</button>
+            <div id="llmSectionResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 2: Informational Message Content</h3>
+            <p>Checking that the informational message properly directs users to LLM Manager...</p>
+            <button onclick="testInformationalMessage()">Run Test</button>
+            <div id="informationalMessageResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 3: System Prompts Functions Removal</h3>
+            <p>Checking that System Prompts related functions have been removed from main interface...</p>
+            <button onclick="testSystemPromptsFunctionsRemoval()">Run Test</button>
+            <div id="systemPromptsFunctionsResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 4: Admin Navigation Functionality</h3>
+            <p>Testing that admin navigation still works correctly after updates...</p>
+            <button onclick="testAdminNavigation()">Run Test</button>
+            <div id="adminNavigationResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 5: LLM Manager Integration</h3>
+            <p>Testing that LLM Manager integration functions are available...</p>
+            <button onclick="testLLMManagerIntegration()">Run Test</button>
+            <div id="llmManagerIntegrationResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Run All Tests</h3>
+            <button onclick="runAllTests()">Run All Tests</button>
+            <div id="allTestsResult"></div>
+        </div>
+
+        <div class="summary" id="testSummary" style="display: none;">
+            <h3>Test Summary</h3>
+            <div id="summaryContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = [];
+
+        function testLLMSectionDescription() {
+            const result = document.getElementById('llmSectionResult');
+            
+            // Check for LLM section and its content
+            const llmSection = document.getElementById('llm-section');
+            const infoMessage = llmSection ? llmSection.querySelector('.info-message') : null;
+            
+            if (!llmSection) {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: LLM section not found</div>
+                    <div class="code-block">Could not find element with id="llm-section"</div>
+                `;
+                testResults.push({test: 'LLM Section Description', status: 'FAIL'});
+                return;
+            }
+
+            if (!infoMessage) {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: Informational message not found in LLM section</div>
+                    <div class="code-block">Could not find .info-message element in LLM section</div>
+                `;
+                testResults.push({test: 'LLM Section Description', status: 'FAIL'});
+                return;
+            }
+
+            // Check if the message contains comprehensive information
+            const messageText = infoMessage.textContent || infoMessage.innerText;
+            const hasDefaultAgent = messageText.includes('Default Agent');
+            const hasSpecializedAgents = messageText.includes('Specialized Agents') || messageText.includes('Banking Info') || messageText.includes('Payments');
+            const hasLLMManager = messageText.includes('LLM Manager');
+            const hasConfiguration = messageText.includes('configuration');
+
+            if (hasDefaultAgent && hasSpecializedAgents && hasLLMManager && hasConfiguration) {
+                result.innerHTML = `
+                    <div class="test-result pass">✓ PASS: LLM section has comprehensive informational message</div>
+                    <div class="code-block">Message includes: Default Agent, Specialized Agents, LLM Manager reference, and configuration details</div>
+                `;
+                testResults.push({test: 'LLM Section Description', status: 'PASS'});
+            } else {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: Informational message is incomplete</div>
+                    <div class="code-block">Missing elements: ${[
+                        !hasDefaultAgent && 'Default Agent reference',
+                        !hasSpecializedAgents && 'Specialized Agents reference',
+                        !hasLLMManager && 'LLM Manager reference',
+                        !hasConfiguration && 'Configuration details'
+                    ].filter(Boolean).join(', ')}</div>
+                `;
+                testResults.push({test: 'LLM Section Description', status: 'FAIL'});
+            }
+        }
+
+        function testInformationalMessage() {
+            const result = document.getElementById('informationalMessageResult');
+            
+            const llmSection = document.getElementById('llm-section');
+            const infoMessage = llmSection ? llmSection.querySelector('.info-message') : null;
+            
+            if (!infoMessage) {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: Informational message not found</div>
+                `;
+                testResults.push({test: 'Informational Message', status: 'FAIL'});
+                return;
+            }
+
+            const messageHTML = infoMessage.innerHTML;
+            const messageText = infoMessage.textContent || infoMessage.innerText;
+            
+            // Check for specific content requirements
+            const hasOpenFullManager = messageText.includes('Open Full Manager');
+            const hasListStructure = messageHTML.includes('<ul>') && messageHTML.includes('<li>');
+            const hasDefaultAgentDetails = messageText.includes('Base AI Personality') && messageText.includes('Financial Services Context');
+            const hasIcon = messageHTML.includes('fas fa-info-circle');
+
+            if (hasOpenFullManager && hasListStructure && hasDefaultAgentDetails && hasIcon) {
+                result.innerHTML = `
+                    <div class="test-result pass">✓ PASS: Informational message has all required content</div>
+                    <div class="code-block">Includes: Open Full Manager reference, structured list, Default Agent details, and info icon</div>
+                `;
+                testResults.push({test: 'Informational Message', status: 'PASS'});
+            } else {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: Informational message is missing required content</div>
+                    <div class="code-block">Missing: ${[
+                        !hasOpenFullManager && 'Open Full Manager reference',
+                        !hasListStructure && 'Structured list format',
+                        !hasDefaultAgentDetails && 'Default Agent configuration details',
+                        !hasIcon && 'Info icon'
+                    ].filter(Boolean).join(', ')}</div>
+                `;
+                testResults.push({test: 'Informational Message', status: 'FAIL'});
+            }
+        }
+
+        function testSystemPromptsFunctionsRemoval() {
+            const result = document.getElementById('systemPromptsFunctionsResult');
+            
+            // Check if System Prompts related functions exist
+            const functionsToCheck = [
+                'initializeSystemPrompts',
+                'switchPromptTab',
+                'saveSystemPrompts',
+                'loadSystemPrompts'
+            ];
+            
+            let foundFunctions = [];
+            
+            functionsToCheck.forEach(funcName => {
+                if (window[funcName] || (window.speechApp && window.speechApp[funcName])) {
+                    foundFunctions.push(funcName);
+                }
+            });
+
+            if (foundFunctions.length === 0) {
+                result.innerHTML = `
+                    <div class="test-result pass">✓ PASS: System Prompts functions have been removed</div>
+                    <div class="code-block">Checked functions: ${functionsToCheck.join(', ')}</div>
+                `;
+                testResults.push({test: 'System Prompts Functions Removal', status: 'PASS'});
+            } else {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: Some System Prompts functions still exist</div>
+                    <div class="code-block">Found functions: ${foundFunctions.join(', ')}</div>
+                `;
+                testResults.push({test: 'System Prompts Functions Removal', status: 'FAIL'});
+            }
+        }
+
+        function testAdminNavigation() {
+            const result = document.getElementById('adminNavigationResult');
+            
+            // Test that admin navigation still works
+            const adminNavButtons = document.querySelectorAll('.admin-nav-btn');
+            const adminSections = document.querySelectorAll('.admin-section');
+            
+            if (adminNavButtons.length === 0) {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: No admin navigation buttons found</div>
+                `;
+                testResults.push({test: 'Admin Navigation', status: 'FAIL'});
+                return;
+            }
+
+            if (adminSections.length === 0) {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: No admin sections found</div>
+                `;
+                testResults.push({test: 'Admin Navigation', status: 'FAIL'});
+                return;
+            }
+
+            // Check that LLM section exists and is accessible
+            const llmNavButton = document.querySelector('[data-admin-section="llm"]');
+            const llmSection = document.getElementById('llm-section');
+
+            if (llmNavButton && llmSection) {
+                result.innerHTML = `
+                    <div class="test-result pass">✓ PASS: Admin navigation is functional</div>
+                    <div class="code-block">Found ${adminNavButtons.length} navigation buttons and ${adminSections.length} sections, including LLM section</div>
+                `;
+                testResults.push({test: 'Admin Navigation', status: 'PASS'});
+            } else {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: LLM navigation or section missing</div>
+                    <div class="code-block">LLM nav button: ${!!llmNavButton}, LLM section: ${!!llmSection}</div>
+                `;
+                testResults.push({test: 'Admin Navigation', status: 'FAIL'});
+            }
+        }
+
+        function testLLMManagerIntegration() {
+            const result = document.getElementById('llmManagerIntegrationResult');
+            
+            // Check if LLM Manager integration functions exist
+            const openFullLLMManager = typeof window.openFullLLMManager === 'function';
+            const refreshLLMData = typeof window.refreshLLMData === 'function';
+            
+            // Check if the buttons exist
+            const openManagerBtn = document.querySelector('button[onclick="openFullLLMManager()"]');
+            const refreshDataBtn = document.querySelector('button[onclick="refreshLLMData()"]');
+
+            if (openFullLLMManager && refreshLLMData && openManagerBtn && refreshDataBtn) {
+                result.innerHTML = `
+                    <div class="test-result pass">✓ PASS: LLM Manager integration is complete</div>
+                    <div class="code-block">Functions and buttons are available: openFullLLMManager, refreshLLMData</div>
+                `;
+                testResults.push({test: 'LLM Manager Integration', status: 'PASS'});
+            } else {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: LLM Manager integration is incomplete</div>
+                    <div class="code-block">Missing: ${[
+                        !openFullLLMManager && 'openFullLLMManager function',
+                        !refreshLLMData && 'refreshLLMData function',
+                        !openManagerBtn && 'Open Full Manager button',
+                        !refreshDataBtn && 'Refresh Data button'
+                    ].filter(Boolean).join(', ')}</div>
+                `;
+                testResults.push({test: 'LLM Manager Integration', status: 'FAIL'});
+            }
+        }
+
+        function runAllTests() {
+            testResults = [];
+            testLLMSectionDescription();
+            testInformationalMessage();
+            testSystemPromptsFunctionsRemoval();
+            testAdminNavigation();
+            testLLMManagerIntegration();
+            
+            setTimeout(() => {
+                showTestSummary();
+            }, 100);
+        }
+
+        function showTestSummary() {
+            const summary = document.getElementById('testSummary');
+            const summaryContent = document.getElementById('summaryContent');
+            
+            const totalTests = testResults.length;
+            const passedTests = testResults.filter(r => r.status === 'PASS').length;
+            const failedTests = totalTests - passedTests;
+            
+            let summaryHTML = `
+                <p><strong>Total Tests:</strong> ${totalTests}</p>
+                <p><strong>Passed:</strong> ${passedTests}</p>
+                <p><strong>Failed:</strong> ${failedTests}</p>
+                <h4>Test Results:</h4>
+                <ul>
+            `;
+            
+            testResults.forEach(result => {
+                const statusClass = result.status === 'PASS' ? 'pass' : 'fail';
+                const statusIcon = result.status === 'PASS' ? '✓' : '✗';
+                summaryHTML += `<li class="test-result ${statusClass}">${statusIcon} ${result.test}: ${result.status}</li>`;
+            });
+            
+            summaryHTML += '</ul>';
+            
+            if (passedTests === totalTests) {
+                summaryHTML += `
+                    <div class="test-result pass" style="margin-top: 15px; font-size: 16px;">
+                        🎉 All tests passed! Task 7 implementation is complete.
+                    </div>
+                `;
+            } else {
+                summaryHTML += `
+                    <div class="test-result fail" style="margin-top: 15px; font-size: 16px;">
+                        ❌ Some tests failed. Please review the implementation.
+                    </div>
+                `;
+            }
+            
+            summaryContent.innerHTML = summaryHTML;
+            summary.style.display = 'block';
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            console.log('Task 7 Implementation Test loaded');
+        });
+    </script>
+</body>
+</html>

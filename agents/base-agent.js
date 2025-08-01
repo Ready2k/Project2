@@ -755,7 +755,7 @@ class BaseAgent {
         }
         
         try {
-            const agentConfig = this.guardrailsManager.getAgentConfig(this.name);
+            const agentConfig = this.guardrailsManager.getGuardrails(this.name);
             if (!agentConfig || !agentConfig.restrictions) {
                 return false;
             }

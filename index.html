@@ -307,13 +307,10 @@
                         <i class="fas fa-robot"></i>
                         Agent Management
                     </button>
-                    <button class="admin-nav-btn" data-admin-section="prompts">
-                        <i class="fas fa-comment-dots"></i>
-                        System Prompts
-                    </button>
+
                     <button class="admin-nav-btn" data-admin-section="llm">
                         <i class="fas fa-brain"></i>
-                        LLM Console
+                        Agent Configuration
                     </button>
                 </div>
 
@@ -404,78 +401,28 @@
                         </div>
                     </div>
 
-                    <!-- System Prompts Section -->
-                    <div id="prompts-section" class="admin-section">
-                        <h3>System Prompts Configuration</h3>
-                        
-                        <div class="admin-card">
-                            <div class="prompt-tabs">
-                                <button class="prompt-tab active" data-prompt="base">Base Personality</button>
-                                <button class="prompt-tab" data-prompt="financial">Financial Context</button>
-                                <button class="prompt-tab" data-prompt="instructions">Instructions</button>
-                                <button class="prompt-tab" data-prompt="custom">Custom Prompts</button>
-                            </div>
-                            
-                            <div class="prompt-content">
-                                <div id="base-prompt" class="prompt-panel active">
-                                    <h4>Base AI Personality</h4>
-                                    <textarea id="basePersonality" rows="6" placeholder="Define the core personality...">You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction.</textarea>
-                                </div>
-                                
-                                <div id="financial-prompt" class="prompt-panel">
-                                    <h4>Financial Services Context</h4>
-                                    <textarea id="financialContext" rows="8" placeholder="Financial service instructions...">When handling financial requests:
-1. Always verify customer identity
-2. For lost cards, offer immediate blocking
-3. Provide balance and recent transactions
-4. Guide through dispute processes
-5. Prioritize security and fraud prevention</textarea>
-                                </div>
-                                
-                                <div id="instructions-prompt" class="prompt-panel">
-                                    <h4>Response Instructions</h4>
-                                    <textarea id="responseInstructions" rows="8" placeholder="Response guidelines...">Response Guidelines:
-1. Keep responses conversational and concise
-2. Use natural speech patterns
-3. Address customers by name
-4. Sound human and empathetic
-5. Maximum 2-3 sentences for voice clarity</textarea>
-                                </div>
-                                
-                                <div id="custom-prompt" class="prompt-panel">
-                                    <h4>Custom Scenario Prompts</h4>
-                                    <div id="customPromptsList" class="custom-prompts">
-                                        <!-- Custom prompts will be added here -->
-                                    </div>
-                                    <button id="addCustomPrompt" class="add-btn">
-                                        <i class="fas fa-plus"></i>
-                                        Add Custom Prompt
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div class="prompt-actions">
-                                <button id="savePrompts" class="save-btn">
-                                    <i class="fas fa-save"></i>
-                                    Save All Prompts
-                                </button>
-                                <button id="resetPrompts" class="reset-btn">
-                                    <i class="fas fa-undo"></i>
-                                    Reset to Defaults
-                                </button>
-                                <button id="testPrompts" class="test-btn">
-                                    <i class="fas fa-vial"></i>
-                                    Test Setup
-                                </button>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- LLM Console Section -->
+
+                    <!-- Agent Configuration Section -->
                     <div id="llm-section" class="admin-section">
-                        <h3>LLM Manager Console</h3>
+                        <h3>Agent Configuration Console</h3>
                         
                         <div class="admin-card">
+                            <div class="info-message" style="background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                                <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
+                                <strong>All agent configurations, including the Default Agent, are now managed through the LLM Manager.</strong>
+                                <br><br>
+                                The LLM Manager provides comprehensive configuration options for:
+                                <ul style="margin: 10px 0 0 20px; padding: 0;">
+                                    <li>Default Agent (Base AI Personality, Financial Services Context, Response Instructions, Custom Scenario Prompts)</li>
+                                    <li>Specialized Agents (Banking Info, Payments, Fraud Detection, Identity Verification)</li>
+                                    <li>Agent Performance Monitoring and Statistics</li>
+                                    <li>Advanced LLM Configuration Templates</li>
+                                </ul>
+                                <br>
+                                Use the "Open Full Manager" button below to access all agent configuration options.
+                            </div>
+                            
                             <div class="llm-overview">
                                 <div class="llm-stats">
                                     <div class="llm-stat">

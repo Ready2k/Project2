@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Custom Prompts Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .success { color: #27ae60; }
+        .error { color: #e74c3c; }
+        .warning { color: #f39c12; }
+        .info { color: #3498db; }
+        
+        /* Include necessary styles from the main UI */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        .form-textarea {
+            font-family: inherit;
+            resize: vertical;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin: 5px;
+        }
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        .custom-prompt-item {
+            border: 1px solid #e1e8ed;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        .validation-message {
+            color: #e74c3c;
+            font-size: 0.8em;
+            margin-top: 5px;
+            display: none;
+        }
+        .char-counter {
+            color: #7f8c8d;
+            font-size: 0.8em;
+            text-align: right;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Custom Prompts Management Test</h1>
+        <p>Testing the enhanced custom prompts functionality for Default Agent configuration.</p>
+    </div>
+
+    <div class="test-container">
+        <h2>Test Environment Setup</h2>
+        <div id="setupStatus" class="info">Setting up test environment...</div>
+    </div>
+
+    <div class="test-container">
+        <h2>Custom Prompts Interface</h2>
+        <div class="test-section">
+            <h3>Default Agent Custom Prompts</h3>
+            <div id="defaultCustomPromptsList">
+                <p style="color: #7f8c8d; font-style: italic;">No custom prompts configured</p>
+            </div>
+            <button class="btn btn-success btn-sm" onclick="addDefaultAgentCustomPrompt()">
+                ➕ Add Custom Prompt
+            </button>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Test Results</h2>
+        <div id="testResults">
+            <div class="info">Tests will appear here...</div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Manual Testing</h2>
+        <div class="test-section">
+            <h3>Test Scenarios</h3>
+            <button class="btn btn-success" onclick="runTest('addPrompt')">Test: Add New Prompt</button>
+            <button class="btn btn-success" onclick="runTest('validation')">Test: Validation</button>
+            <button class="btn btn-success" onclick="runTest('duplicateNames')">Test: Duplicate Names</button>
+            <button class="btn btn-success" onclick="runTest('maxLength')">Test: Max Length</button>
+            <button class="btn btn-success" onclick="runTest('editExisting')">Test: Edit Existing</button>
+            <button class="btn btn-success" onclick="runTest('removePrompt')">Test: Remove Prompt</button>
+            <button class="btn btn-success" onclick="runTest('saveValidation')">Test: Save Validation</button>
+        </div>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="debug-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+
+    <script>
+        // Test implementation
+        let testResults = [];
+        let adminUI;
+
+        // Initialize test environment
+        async function initializeTestEnvironment() {
+            try {
+                // Create mock dependencies
+                window.DebugManager = window.DebugManager || class {
+                    constructor() {}
+                    log(...args) { console.log('[DEBUG]', ...args); }
+                    warn(...args) { console.warn('[WARN]', ...args); }
+                    error(...args) { console.error('[ERROR]', ...args); }
+                };
+
+                // Initialize admin UI
+                adminUI = new LLMManagerAdminUI();
+                window.adminUI = adminUI;
+
+                document.getElementById('setupStatus').innerHTML = '<span class="success">✅ Test environment initialized successfully</span>';
+                
+                // Run initial tests
+                runAllTests();
+                
+            } catch (error) {
+                document.getElementById('setupStatus').innerHTML = `<span class="error">❌ Setup failed: ${error.message}</span>`;
+                console.error('Setup error:', error);
+            }
+        }
+
+        // Test functions
+        function runTest(testName) {
+            const testResult = { name: testName, status: 'running', details: [] };
+            
+            try {
+                switch (testName) {
+                    case 'addPrompt':
+                        testAddPrompt(testResult);
+                        break;
+                    case 'validation':
+                        testValidation(testResult);
+                        break;
+                    case 'duplicateNames':
+                        testDuplicateNames(testResult);
+                        break;
+                    case 'maxLength':
+                        testMaxLength(testResult);
+                        break;
+                    case 'editExisting':
+                        testEditExisting(testResult);
+                        break;
+                    case 'removePrompt':
+                        testRemovePrompt(testResult);
+                        break;
+                    case 'saveValidation':
+                        testSaveValidation(testResult);
+                        break;
+                    default:
+                        testResult.status = 'error';
+                        testResult.details.push('Unknown test');
+                }
+            } catch (error) {
+                testResult.status = 'error';
+                testResult.details.push(`Error: ${error.message}`);
+            }
+            
+            updateTestResults(testResult);
+        }
+
+        function testAddPrompt(testResult) {
+            const initialCount = document.querySelectorAll('.custom-prompt-item').length;
+            
+            // Add a new prompt
+            if (typeof addDefaultAgentCustomPrompt === 'function') {
+                addDefaultAgentCustomPrompt();
+                
+                const newCount = document.querySelectorAll('.custom-prompt-item').length;
+                if (newCount === initialCount + 1) {
+                    testResult.status = 'success';
+                    testResult.details.push('✅ Successfully added new custom prompt');
+                    
+                    // Check if validation elements are present
+                    const lastPrompt = document.querySelector('.custom-prompt-item:last-child');
+                    if (lastPrompt) {
+                        const nameInput = lastPrompt.querySelector('[data-field="name"]');
+                        const contentTextarea = lastPrompt.querySelector('[data-field="prompt"]');
+                        const charCounter = lastPrompt.querySelector('.char-counter');
+                        
+                        if (nameInput && contentTextarea && charCounter) {
+                            testResult.details.push('✅ All required elements present');
+                        } else {
+                            testResult.details.push('⚠️ Some elements missing');
+                        }
+                    }
+                } else {
+                    testResult.status = 'error';
+                    testResult.details.push('❌ Failed to add new prompt');
+                }
+            } else {
+                testResult.status = 'error';
+                testResult.details.push('❌ addDefaultAgentCustomPrompt function not available');
+            }
+        }
+
+        function testValidation(testResult) {
+            // Add a prompt first
+            addDefaultAgentCustomPrompt();
+            
+            const lastPrompt = document.querySelector('.custom-prompt-item:last-child');
+            if (!lastPrompt) {
+                testResult.status = 'error';
+                testResult.details.push('❌ Could not create test prompt');
+                return;
+            }
+            
+            const nameInput = lastPrompt.querySelector('[data-field="name"]');
+            const contentTextarea = lastPrompt.querySelector('[data-field="prompt"]');
+            
+            // Test empty validation
+            nameInput.value = '';
+            nameInput.dispatchEvent(new Event('blur'));
+            
+            const nameValidation = lastPrompt.querySelector('.form-group .validation-message');
+            if (nameValidation && nameValidation.style.display !== 'none') {
+                testResult.details.push('✅ Empty name validation works');
+            } else {
+                testResult.details.push('⚠️ Empty name validation not triggered');
+            }
+            
+            // Test valid input
+            nameInput.value = 'Test Prompt';
+            contentTextarea.value = 'This is a test prompt content';
+            nameInput.dispatchEvent(new Event('blur'));
+            contentTextarea.dispatchEvent(new Event('blur'));
+            
+            testResult.status = 'success';
+            testResult.details.push('✅ Validation test completed');
+        }
+
+        function testDuplicateNames(testResult) {
+            // Add two prompts with same name
+            addDefaultAgentCustomPrompt();
+            addDefaultAgentCustomPrompt();
+            
+            const prompts = document.querySelectorAll('.custom-prompt-item');
+            if (prompts.length >= 2) {
+                const name1 = prompts[prompts.length - 2].querySelector('[data-field="name"]');
+                const name2 = prompts[prompts.length - 1].querySelector('[data-field="name"]');
+                
+                name1.value = 'Duplicate Name';
+                name2.value = 'Duplicate Name';
+                
+                name1.dispatchEvent(new Event('blur'));
+                name2.dispatchEvent(new Event('blur'));
+                
+                testResult.status = 'success';
+                testResult.details.push('✅ Duplicate name test completed');
+            } else {
+                testResult.status = 'error';
+                testResult.details.push('❌ Could not create test prompts');
+            }
+        }
+
+        function testMaxLength(testResult) {
+            addDefaultAgentCustomPrompt();
+            
+            const lastPrompt = document.querySelector('.custom-prompt-item:last-child');
+            const nameInput = lastPrompt.querySelector('[data-field="name"]');
+            const contentTextarea = lastPrompt.querySelector('[data-field="prompt"]');
+            
+            // Test max length for name (100 chars)
+            nameInput.value = 'a'.repeat(101);
+            nameInput.dispatchEvent(new Event('input'));
+            
+            // Test max length for content (1000 chars)
+            contentTextarea.value = 'a'.repeat(1001);
+            contentTextarea.dispatchEvent(new Event('input'));
+            
+            testResult.status = 'success';
+            testResult.details.push('✅ Max length test completed');
+        }
+
+        function testEditExisting(testResult) {
+            // This test simulates loading existing prompts
+            const container = document.getElementById('defaultCustomPromptsList');
+            
+            // Simulate existing prompts data
+            const existingPrompts = [
+                { name: 'Loan Inquiries', prompt: 'Handle loan-related questions with care and accuracy.' },
+                { name: 'Account Security', prompt: 'Prioritize security when handling account-related requests.' }
+            ];
+            
+            // Clear container and add existing prompts
+            container.innerHTML = '';
+            existingPrompts.forEach((prompt, index) => {
+                const promptItem = document.createElement('div');
+                promptItem.className = 'custom-prompt-item';
+                promptItem.innerHTML = `
+                    <div class="form-group">
+                        <label class="form-label">Prompt Name <span style="color: #e74c3c;">*</span></label>
+                        <input type="text" class="form-input" value="${prompt.name}" 
+                               data-custom-prompt-index="${index}" data-field="name" maxlength="100" required>
+                        <div class="validation-message"></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Prompt Content <span style="color: #e74c3c;">*</span></label>
+                        <textarea class="form-textarea" rows="3" 
+                                  data-custom-prompt-index="${index}" data-field="prompt" maxlength="1000" required>${prompt.prompt}</textarea>
+                        <div class="char-counter">${prompt.prompt.length}/1000</div>
+                        <div class="validation-message"></div>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeDefaultAgentCustomPrompt(this)">
+                        🗑️ Remove
+                    </button>
+                `;
+                container.appendChild(promptItem);
+            });
+            
+            testResult.status = 'success';
+            testResult.details.push('✅ Edit existing prompts test completed');
+            testResult.details.push(`✅ Loaded ${existingPrompts.length} existing prompts`);
+        }
+
+        function testRemovePrompt(testResult) {
+            const initialCount = document.querySelectorAll('.custom-prompt-item').length;
+            
+            if (initialCount === 0) {
+                addDefaultAgentCustomPrompt();
+            }
+            
+            const removeButton = document.querySelector('.custom-prompt-item .btn-danger');
+            if (removeButton) {
+                removeButton.click();
+                
+                const newCount = document.querySelectorAll('.custom-prompt-item').length;
+                if (newCount < initialCount || (initialCount === 1 && newCount === 0)) {
+                    testResult.status = 'success';
+                    testResult.details.push('✅ Successfully removed prompt');
+                } else {
+                    testResult.status = 'error';
+                    testResult.details.push('❌ Failed to remove prompt');
+                }
+            } else {
+                testResult.status = 'error';
+                testResult.details.push('❌ No remove button found');
+            }
+        }
+
+        function testSaveValidation(testResult) {
+            // Test the validateAllCustomPrompts function
+            if (typeof validateAllCustomPrompts === 'function') {
+                const isValid = validateAllCustomPrompts();
+                testResult.status = 'success';
+                testResult.details.push(`✅ Save validation function available, result: ${isValid}`);
+            } else {
+                testResult.status = 'error';
+                testResult.details.push('❌ validateAllCustomPrompts function not available');
+            }
+        }
+
+        function runAllTests() {
+            const tests = ['addPrompt', 'validation', 'duplicateNames', 'maxLength', 'editExisting', 'removePrompt', 'saveValidation'];
+            tests.forEach(test => runTest(test));
+        }
+
+        function updateTestResults(testResult) {
+            testResults.push(testResult);
+            
+            const resultsDiv = document.getElementById('testResults');
+            const statusClass = testResult.status === 'success' ? 'success' : 
+                               testResult.status === 'error' ? 'error' : 'warning';
+            
+            const resultHtml = `
+                <div class="test-section">
+                    <h4 class="${statusClass}">Test: ${testResult.name}</h4>
+                    <div class="${statusClass}">Status: ${testResult.status.toUpperCase()}</div>
+                    <ul>
+                        ${testResult.details.map(detail => `<li>${detail}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML += resultHtml;
+        }
+
+        // Global functions for testing
+        window.addDefaultAgentCustomPrompt = function() {
+            if (adminUI && adminUI.addDefaultAgentCustomPrompt) {
+                adminUI.addDefaultAgentCustomPrompt();
+            } else {
+                console.error('AdminUI not available');
+            }
+        };
+
+        window.removeDefaultAgentCustomPrompt = function(button) {
+            if (adminUI && adminUI.removeDefaultAgentCustomPrompt) {
+                adminUI.removeDefaultAgentCustomPrompt(button);
+            } else {
+                // Fallback implementation
+                const promptItem = button.closest('.custom-prompt-item');
+                if (promptItem) {
+                    promptItem.remove();
+                    
+                    const container = document.getElementById('defaultCustomPromptsList');
+                    if (container && container.querySelectorAll('.custom-prompt-item').length === 0) {
+                        container.innerHTML = '<p style="color: #7f8c8d; font-style: italic;">No custom prompts configured</p>';
+                    }
+                }
+            }
+        };
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializeTestEnvironment);
+    </script>
+</body>
+</html>

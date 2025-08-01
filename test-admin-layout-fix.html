@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Layout Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+        }
+        
+        .test-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .test-pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .test-fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .test-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .llm-overview-demo {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            flex-wrap: wrap;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        
+        .llm-stats-demo {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            min-width: 0;
+            flex: 1;
+        }
+        
+        .llm-stat-demo {
+            text-align: center;
+            min-width: 80px;
+        }
+        
+        .llm-actions-demo {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        
+        .llm-btn-demo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            white-space: nowrap;
+            min-width: fit-content;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        
+        .llm-btn-demo.secondary {
+            background: #6c757d;
+        }
+        
+        @media (max-width: 768px) {
+            .llm-overview-demo {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+            }
+            
+            .llm-stats-demo {
+                justify-content: space-around;
+                margin-bottom: 15px;
+            }
+            
+            .llm-actions-demo {
+                justify-content: center;
+                width: 100%;
+            }
+            
+            .llm-btn-demo {
+                flex: 1;
+                min-width: 120px;
+                max-width: 200px;
+                justify-content: center;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .llm-actions-demo {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .llm-btn-demo {
+                width: 100%;
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 Admin Layout Fix Test</h1>
+        <p>Testing the layout improvements for the Administration screen LLM section.</p>
+        
+        <!-- Layout Demo Section -->
+        <div class="test-section">
+            <h3>📱 Responsive Layout Demo</h3>
+            <p>This demonstrates how the LLM overview section should behave at different screen sizes:</p>
+            
+            <div class="llm-overview-demo">
+                <div class="llm-stats-demo">
+                    <div class="llm-stat-demo">
+                        <div style="font-size: 20px; font-weight: 600; color: #495057;">5</div>
+                        <div style="font-size: 12px; color: #6c757d; text-transform: uppercase;">Total Agents</div>
+                    </div>
+                    <div class="llm-stat-demo">
+                        <div style="font-size: 20px; font-weight: 600; color: #495057;">5</div>
+                        <div style="font-size: 12px; color: #6c757d; text-transform: uppercase;">Enabled</div>
+                    </div>
+                    <div class="llm-stat-demo">
+                        <div style="font-size: 20px; font-weight: 600; color: #495057;">10:59:01</div>
+                        <div style="font-size: 12px; color: #6c757d; text-transform: uppercase;">Last Updated</div>
+                    </div>
+                </div>
+                <div class="llm-actions-demo">
+                    <button class="llm-btn-demo">
+                        <i class="fas fa-external-link-alt"></i>
+                        Open Full Manager
+                    </button>
+                    <button class="llm-btn-demo secondary">
+                        <i class="fas fa-sync"></i>
+                        Refresh Data
+                    </button>
+                </div>
+            </div>
+            
+            <div class="test-info">
+                <strong>Instructions:</strong> Resize your browser window to see how the layout adapts. 
+                The buttons should never be pushed off-screen and should remain accessible at all screen sizes.
+            </div>
+        </div>
+        
+        <!-- CSS Improvements Section -->
+        <div class="test-section">
+            <h3>🎨 CSS Improvements Applied</h3>
+            <div id="cssImprovements">
+                <div class="test-result test-info">
+                    <strong>Layout Improvements:</strong>
+                    <ul style="margin: 10px 0 0 20px;">
+                        <li>Added <code>flex-wrap: wrap</code> to prevent overflow</li>
+                        <li>Added <code>flex-shrink: 0</code> to action buttons</li>
+                        <li>Added <code>white-space: nowrap</code> to prevent button text wrapping</li>
+                        <li>Added <code>min-width: fit-content</code> for proper button sizing</li>
+                        <li>Improved responsive breakpoints for mobile devices</li>
+                        <li>Added specific styles for very small screens (480px and below)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Agent Count Test Section -->
+        <div class="test-section">
+            <h3>🤖 Agent Count Verification</h3>
+            <div id="agentCountTest">
+                <div class="test-info">
+                    <strong>Expected Agents:</strong>
+                    <ol style="margin: 10px 0 0 20px;">
+                        <li>DefaultAgent - Default fallback agent for general banking inquiries</li>
+                        <li>IDVAgent - Identity and Verification Agent</li>
+                        <li>BankingInfoAgent - Banking Information Agent</li>
+                        <li>FraudAgent - Fraud Detection and Security Agent</li>
+                        <li>PaymentsAgent - Payment Processing Agent</li>
+                    </ol>
+                </div>
+                <button onclick="testAgentCount()" style="margin-top: 15px; padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Test Agent Count
+                </button>
+                <div id="agentCountResult" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+        
+        <!-- Integration Test Section -->
+        <div class="test-section">
+            <h3>🔗 Integration Test</h3>
+            <div id="integrationTest">
+                <button onclick="testIntegration()" style="margin-bottom: 15px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Test LLM Manager Integration
+                </button>
+                <div id="integrationResult"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load Dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="script.js"></script>
+    
+    <script>
+        function testAgentCount() {
+            const resultDiv = document.getElementById('agentCountResult');
+            resultDiv.innerHTML = '<div style="color: #007bff;">Testing agent count...</div>';
+            
+            try {
+                // Try to access the LLM Manager
+                if (typeof LLMManager !== 'undefined') {
+                    const llmManager = new LLMManager();
+                    const stats = llmManager.getConfigurationStats();
+                    const agents = llmManager.getAgentConfigurations();
+                    
+                    const expectedAgents = ['DefaultAgent', 'IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+                    const actualAgents = Object.keys(agents);
+                    
+                    let resultHTML = '';
+                    
+                    if (stats.totalAgents === 5) {
+                        resultHTML += '<div class="test-pass">✓ Correct agent count: ' + stats.totalAgents + ' agents</div>';
+                    } else {
+                        resultHTML += '<div class="test-fail">✗ Incorrect agent count: ' + stats.totalAgents + ' (expected 5)</div>';
+                    }
+                    
+                    resultHTML += '<div class="test-info"><strong>Found agents:</strong><br>';
+                    actualAgents.forEach(agent => {
+                        const isExpected = expectedAgents.includes(agent);
+                        resultHTML += `<span style="color: ${isExpected ? '#28a745' : '#dc3545'}">${isExpected ? '✓' : '✗'} ${agent}</span><br>`;
+                    });
+                    resultHTML += '</div>';
+                    
+                    // Check for missing agents
+                    const missingAgents = expectedAgents.filter(agent => !actualAgents.includes(agent));
+                    if (missingAgents.length > 0) {
+                        resultHTML += '<div class="test-fail"><strong>Missing agents:</strong> ' + missingAgents.join(', ') + '</div>';
+                    }
+                    
+                    resultDiv.innerHTML = resultHTML;
+                } else {
+                    resultDiv.innerHTML = '<div class="test-fail">✗ LLM Manager not available</div>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="test-fail">✗ Error testing agent count: ' + error.message + '</div>';
+            }
+        }
+        
+        function testIntegration() {
+            const resultDiv = document.getElementById('integrationResult');
+            resultDiv.innerHTML = '<div style="color: #007bff;">Testing integration...</div>';
+            
+            try {
+                // Test if main app integration works
+                if (typeof refreshLLMData === 'function') {
+                    resultDiv.innerHTML = '<div class="test-pass">✓ refreshLLMData function available</div>';
+                    
+                    // Test if we can call it
+                    try {
+                        refreshLLMData();
+                        resultDiv.innerHTML += '<div class="test-pass">✓ refreshLLMData function executed successfully</div>';
+                    } catch (error) {
+                        resultDiv.innerHTML += '<div class="test-fail">✗ Error calling refreshLLMData: ' + error.message + '</div>';
+                    }
+                } else {
+                    resultDiv.innerHTML = '<div class="test-fail">✗ refreshLLMData function not available</div>';
+                }
+                
+                // Test if openFullLLMManager function exists
+                if (typeof openFullLLMManager === 'function') {
+                    resultDiv.innerHTML += '<div class="test-pass">✓ openFullLLMManager function available</div>';
+                } else {
+                    resultDiv.innerHTML += '<div class="test-fail">✗ openFullLLMManager function not available</div>';
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="test-fail">✗ Error testing integration: ' + error.message + '</div>';
+            }
+        }
+        
+        // Auto-run tests when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                testAgentCount();
+                testIntegration();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

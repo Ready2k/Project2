@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Default Agent Saving Functionality</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e1e8ed;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .test-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .test-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .test-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .btn {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .form-textarea {
+            resize: vertical;
+        }
+        .toggle-switch {
+            width: 50px;
+            height: 25px;
+            background: #ccc;
+            border-radius: 25px;
+            position: relative;
+            cursor: pointer;
+            display: inline-block;
+        }
+        .toggle-switch.active {
+            background: #27ae60;
+        }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 21px;
+            height: 21px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: 0.3s;
+        }
+        .toggle-switch.active::after {
+            left: 27px;
+        }
+        .custom-prompt-item {
+            border: 1px solid #e1e8ed;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Default Agent Saving Functionality Test</h1>
+        <p>This page tests the Default Agent data saving functionality with validation and SystemPromptsManager integration.</p>
+        
+        <div class="test-section">
+            <h3>📋 Test Results</h3>
+            <div id="testResults"></div>
+            <button class="btn btn-primary" onclick="runAllTests()">🚀 Run All Tests</button>
+            <button class="btn btn-success" onclick="testValidation()">✅ Test Validation</button>
+            <button class="btn btn-success" onclick="testSaving()">💾 Test Saving</button>
+            <button class="btn btn-success" onclick="testCustomPrompts()">📝 Test Custom Prompts</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>🤖 Mock Default Agent Configuration Form</h3>
+            <div class="form-group">
+                <label class="form-label">Agent Name</label>
+                <input type="text" class="form-input" id="agentName" value="DefaultAgent" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea class="form-textarea" id="agentDescription" rows="3">Primary AI assistant for general banking inquiries</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Priority</label>
+                <input type="number" class="form-input" id="agentPriority" value="0" min="0" max="10">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Status</label>
+                <div class="toggle-switch active" onclick="this.classList.toggle('active')" data-field="enabled"></div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Telemetry</label>
+                <div class="toggle-switch active" onclick="this.classList.toggle('active')" data-field="telemetryEnabled"></div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">LLM Provider</label>
+                <select class="form-input" id="llmProvider">
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">LLM Model</label>
+                <select class="form-input" id="llmModel">
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Max Tokens</label>
+                <input type="number" class="form-input" id="maxTokens" value="1500" min="1" max="8000">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Temperature</label>
+                <input type="number" class="form-input" id="temperature" value="0.7" min="0" max="2" step="0.1">
+            </div>
+            
+            <hr style="margin: 20px 0;">
+            <h4>🤖 System Prompts Configuration</h4>
+            
+            <div class="form-group">
+                <label class="form-label">Base AI Personality</label>
+                <textarea class="form-textarea" id="defaultBasePersonality" rows="4">You are a helpful, professional, and friendly AI voice assistant for a UK financial services company.</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Financial Services Context</label>
+                <textarea class="form-textarea" id="defaultFinancialContext" rows="6">When handling financial services requests, be conversational and provide helpful information about UK banking practices.</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Response Instructions</label>
+                <textarea class="form-textarea" id="defaultResponseInstructions" rows="4">Keep responses conversational and concise (suitable for voice). Use natural speech patterns and British English.</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Custom Scenario Prompts</label>
+                <div id="defaultCustomPromptsList">
+                    <p style="color: #7f8c8d; font-style: italic;">No custom prompts configured</p>
+                </div>
+                <button type="button" class="btn btn-success btn-sm" onclick="addDefaultAgentCustomPrompt()">
+                    ➕ Add Custom Prompt
+                </button>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="testSaveConfiguration()">💾 Test Save Configuration</button>
+                <button class="btn btn-danger" onclick="testValidationErrors()">❌ Test Validation Errors</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+
+    <script>
+        // Test framework
+        let testResults = [];
+        let adminUI;
+
+        // Initialize test environment
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Initialize debug manager
+                if (!window.debugManager) {
+                    window.debugManager = {
+                        createModuleLogger: (module) => ({
+                            log: (...args) => console.log(`[${module}]`, ...args),
+                            debug: (...args) => console.debug(`[${module}]`, ...args),
+                            info: (...args) => console.info(`[${module}]`, ...args),
+                            warn: (...args) => console.warn(`[${module}]`, ...args),
+                            error: (...args) => console.error(`[${module}]`, ...args)
+                        })
+                    };
+                }
+
+                // Initialize admin UI
+                adminUI = new LLMManagerAdminUI();
+                adminUI.currentAgent = 'DefaultAgent';
+                
+                addTestResult('✅ Test environment initialized successfully', 'success');
+            } catch (error) {
+                addTestResult('❌ Failed to initialize test environment: ' + error.message, 'error');
+            }
+        });
+
+        function addTestResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result test-${type}`;
+            resultDiv.textContent = message;
+            resultsDiv.appendChild(resultDiv);
+            console.log(`[TEST] ${message}`);
+        }
+
+        function clearTestResults() {
+            document.getElementById('testResults').innerHTML = '';
+        }
+
+        async function runAllTests() {
+            clearTestResults();
+            addTestResult('🚀 Starting comprehensive test suite...', 'info');
+            
+            await testValidation();
+            await testSaving();
+            await testCustomPrompts();
+            
+            addTestResult('✅ All tests completed!', 'success');
+        }
+
+        async function testValidation() {
+            addTestResult('🔍 Testing validation functionality...', 'info');
+            
+            if (!adminUI) {
+                addTestResult('❌ AdminUI not initialized', 'error');
+                return;
+            }
+
+            try {
+                // Test valid configuration
+                const validResult = adminUI.validateAgentConfiguration();
+                if (validResult.isValid) {
+                    addTestResult('✅ Valid configuration passes validation', 'success');
+                } else {
+                    addTestResult('❌ Valid configuration failed validation: ' + validResult.errors.join(', '), 'error');
+                }
+
+                // Test system prompts validation
+                const systemPrompts = {
+                    basePersonality: document.getElementById('defaultBasePersonality').value,
+                    financialContext: document.getElementById('defaultFinancialContext').value,
+                    responseInstructions: document.getElementById('defaultResponseInstructions').value,
+                    customPrompts: []
+                };
+
+                const systemPromptsResult = adminUI.validateDefaultAgentSystemPrompts(systemPrompts);
+                if (systemPromptsResult.isValid) {
+                    addTestResult('✅ System prompts validation passes', 'success');
+                } else {
+                    addTestResult('❌ System prompts validation failed: ' + systemPromptsResult.errors.join(', '), 'error');
+                }
+
+            } catch (error) {
+                addTestResult('❌ Validation test error: ' + error.message, 'error');
+            }
+        }
+
+        async function testSaving() {
+            addTestResult('💾 Testing save functionality...', 'info');
+            
+            if (!adminUI) {
+                addTestResult('❌ AdminUI not initialized', 'error');
+                return;
+            }
+
+            try {
+                // Mock the LLM Manager
+                adminUI.llmManager = {
+                    updateAgentConfiguration: async (agentName, config) => {
+                        addTestResult(`📝 Mock save called for ${agentName}`, 'info');
+                        return { success: true };
+                    }
+                };
+
+                // Mock SystemPromptsManager
+                adminUI.systemPromptsManager = {
+                    init: async () => {},
+                    updateBasePersonality: (value) => addTestResult(`📝 Updated base personality: ${value.substring(0, 50)}...`, 'info'),
+                    updateFinancialContext: (value) => addTestResult(`📝 Updated financial context: ${value.substring(0, 50)}...`, 'info'),
+                    updateResponseInstructions: (value) => addTestResult(`📝 Updated response instructions: ${value.substring(0, 50)}...`, 'info'),
+                    updateCustomPrompts: (prompts) => addTestResult(`📝 Updated ${prompts.length} custom prompts`, 'info')
+                };
+
+                // Mock UI methods
+                adminUI.showSuccess = (msg) => addTestResult('✅ ' + msg, 'success');
+                adminUI.showError = (msg) => addTestResult('❌ ' + msg, 'error');
+                adminUI.closeModal = () => addTestResult('🔒 Modal closed', 'info');
+                adminUI.refreshAgentData = () => addTestResult('🔄 Agent data refreshed', 'info');
+                adminUI.logAuditEvent = () => addTestResult('📋 Audit event logged', 'info');
+
+                // Test save configuration
+                await adminUI.saveAgentConfiguration();
+                addTestResult('✅ Save functionality test completed', 'success');
+
+            } catch (error) {
+                addTestResult('❌ Save test error: ' + error.message, 'error');
+            }
+        }
+
+        async function testCustomPrompts() {
+            addTestResult('📝 Testing custom prompts functionality...', 'info');
+            
+            try {
+                // Test adding custom prompt
+                addDefaultAgentCustomPrompt();
+                const promptItems = document.querySelectorAll('.custom-prompt-item');
+                if (promptItems.length > 0) {
+                    addTestResult('✅ Custom prompt added successfully', 'success');
+                    
+                    // Fill in test data
+                    const nameInput = promptItems[0].querySelector('[data-field="name"]');
+                    const promptTextarea = promptItems[0].querySelector('[data-field="prompt"]');
+                    
+                    if (nameInput && promptTextarea) {
+                        nameInput.value = 'Test Prompt';
+                        promptTextarea.value = 'This is a test prompt for validation.';
+                        addTestResult('✅ Custom prompt data filled', 'success');
+                    }
+                    
+                    // Test collection
+                    if (adminUI) {
+                        const collectedPrompts = adminUI.collectDefaultAgentCustomPrompts();
+                        if (collectedPrompts.length > 0) {
+                            addTestResult(`✅ Collected ${collectedPrompts.length} custom prompts`, 'success');
+                        } else {
+                            addTestResult('❌ Failed to collect custom prompts', 'error');
+                        }
+                    }
+                } else {
+                    addTestResult('❌ Failed to add custom prompt', 'error');
+                }
+
+            } catch (error) {
+                addTestResult('❌ Custom prompts test error: ' + error.message, 'error');
+            }
+        }
+
+        async function testSaveConfiguration() {
+            if (!adminUI) {
+                alert('AdminUI not initialized');
+                return;
+            }
+
+            try {
+                await testSaving();
+            } catch (error) {
+                addTestResult('❌ Save configuration test error: ' + error.message, 'error');
+            }
+        }
+
+        async function testValidationErrors() {
+            if (!adminUI) {
+                alert('AdminUI not initialized');
+                return;
+            }
+
+            // Clear required fields to trigger validation errors
+            document.getElementById('agentDescription').value = '';
+            document.getElementById('defaultBasePersonality').value = '';
+            
+            const validationResult = adminUI.validateAgentConfiguration();
+            const systemPromptsResult = adminUI.validateDefaultAgentSystemPrompts({
+                basePersonality: '',
+                financialContext: document.getElementById('defaultFinancialContext').value,
+                responseInstructions: document.getElementById('defaultResponseInstructions').value,
+                customPrompts: []
+            });
+
+            addTestResult('🔍 Validation errors test:', 'info');
+            addTestResult('Agent validation errors: ' + validationResult.errors.join(', '), validationResult.isValid ? 'error' : 'success');
+            addTestResult('System prompts errors: ' + systemPromptsResult.errors.join(', '), systemPromptsResult.isValid ? 'error' : 'success');
+
+            // Restore values
+            document.getElementById('agentDescription').value = 'Primary AI assistant for general banking inquiries';
+            document.getElementById('defaultBasePersonality').value = 'You are a helpful, professional, and friendly AI voice assistant for a UK financial services company.';
+        }
+
+        // Global functions for custom prompts
+        window.addDefaultAgentCustomPrompt = () => {
+            const container = document.getElementById('defaultCustomPromptsList');
+            if (!container) return;
+            
+            const currentPrompts = container.querySelectorAll('.custom-prompt-item').length;
+            
+            if (currentPrompts >= 20) {
+                alert('Maximum of 20 custom prompts allowed');
+                return;
+            }
+            
+            const newPromptHtml = `
+                <div class="custom-prompt-item">
+                    <div class="form-group">
+                        <label class="form-label">Prompt Name</label>
+                        <input type="text" class="form-input" placeholder="Enter prompt name..." 
+                               data-custom-prompt-index="${currentPrompts}" data-field="name" maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Prompt Content</label>
+                        <textarea class="form-textarea" rows="3" placeholder="Enter prompt content..."
+                                  data-custom-prompt-index="${currentPrompts}" data-field="prompt" maxlength="1000"></textarea>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeDefaultAgentCustomPrompt(this)">
+                        🗑️ Remove
+                    </button>
+                </div>
+            `;
+            
+            // Remove "no prompts" message if it exists
+            const noPromptsMsg = container.querySelector('p[style*="font-style: italic"]');
+            if (noPromptsMsg) {
+                noPromptsMsg.remove();
+            }
+            
+            container.insertAdjacentHTML('beforeend', newPromptHtml);
+        };
+
+        window.removeDefaultAgentCustomPrompt = (element) => {
+            const promptItem = element.closest('.custom-prompt-item');
+            if (promptItem) {
+                promptItem.remove();
+                
+                const container = document.getElementById('defaultCustomPromptsList');
+                if (container && container.querySelectorAll('.custom-prompt-item').length === 0) {
+                    container.innerHTML = '<p style="color: #7f8c8d; font-style: italic;">No custom prompts configured</p>';
+                }
+            }
+        };
+    </script>
+</body>
+</html>

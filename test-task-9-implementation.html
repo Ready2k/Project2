@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task 9 Implementation Test - Reset and Test Functionality</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.2em;
+        }
+
+        .test-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+        }
+
+        .test-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary { background: #3498db; color: white; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-warning { background: #f39c12; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-secondary { background: #95a5a6; color: white; }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .result.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .mock-form {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+
+        .form-group textarea,
+        .form-group input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .custom-prompts-list {
+            border: 1px solid #e1e8ed;
+            border-radius: 6px;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+
+        .custom-prompt-item {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Task 9 Implementation Test</h1>
+        <p style="text-align: center; color: #7f8c8d; margin-bottom: 30px;">
+            Testing reset and test functionality for Default Agent configuration
+        </p>
+
+        <!-- Mock Default Agent Form -->
+        <div class="test-section">
+            <h3>Mock Default Agent Configuration Form</h3>
+            <div class="mock-form">
+                <div class="form-group">
+                    <label>Base AI Personality:</label>
+                    <textarea id="default-personality" rows="3">You are a helpful, professional, and friendly AI voice assistant for a UK financial services company.</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Financial Services Context:</label>
+                    <textarea id="default-context" rows="3">When handling financial services requests, be conversational and provide helpful information about UK banking practices.</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Response Instructions:</label>
+                    <textarea id="default-instructions" rows="3">Keep responses conversational and concise (suitable for voice). Use natural speech patterns and British English.</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Custom Scenario Prompts:</label>
+                    <div id="default-custom-prompts" class="custom-prompts-list">
+                        <div class="custom-prompt-item">
+                            <input type="text" placeholder="Prompt Name" value="Loan Inquiries" style="width: 100%; margin-bottom: 5px;">
+                            <textarea placeholder="Prompt Content" rows="2">When discussing loans, always mention interest rates and eligibility criteria.</textarea>
+                        </div>
+                        <div class="custom-prompt-item">
+                            <input type="text" placeholder="Prompt Name" value="Account Issues" style="width: 100%; margin-bottom: 5px;">
+                            <textarea placeholder="Prompt Content" rows="2">For account problems, gather account details and verify customer identity first.</textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-success" onclick="saveAgentPrompts('DefaultAgent')">💾 Save</button>
+                    <button class="btn btn-secondary" onclick="resetAgentPrompts('DefaultAgent')">🔄 Reset</button>
+                    <button class="btn btn-warning" onclick="testAgentPrompts('DefaultAgent')">🧪 Test</button>
+                    <button class="btn btn-primary" onclick="previewAgentPrompts('DefaultAgent')">👁️ Preview</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Functions -->
+        <div class="test-section">
+            <h3>Test 1: Reset Functionality</h3>
+            <p>Test that the reset function properly restores default values and clears custom prompts.</p>
+            <button class="btn btn-primary" onclick="testResetFunctionality()">Run Reset Test</button>
+            <div id="resetTestResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 2: Test Functionality</h3>
+            <p>Test that the test function validates configuration and provides comprehensive feedback.</p>
+            <button class="btn btn-primary" onclick="testTestFunctionality()">Run Test Function Test</button>
+            <div id="testFunctionResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 3: Preview Functionality</h3>
+            <p>Test that the preview function generates proper preview content.</p>
+            <button class="btn btn-primary" onclick="testPreviewFunctionality()">Run Preview Test</button>
+            <div id="previewTestResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 4: Validation Functions</h3>
+            <p>Test the validation functions with various input scenarios.</p>
+            <button class="btn btn-primary" onclick="testValidationFunctions()">Run Validation Tests</button>
+            <div id="validationTestResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 5: Built-in Defaults</h3>
+            <p>Test that built-in default configurations are properly defined.</p>
+            <button class="btn btn-primary" onclick="testBuiltInDefaults()">Run Defaults Test</button>
+            <div id="defaultsTestResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Comprehensive Test</h3>
+            <button class="btn btn-success" onclick="runAllTests()">🚀 Run All Tests</button>
+            <div id="allTestsResult" class="result"></div>
+        </div>
+
+        <!-- Test Statistics -->
+        <div class="stats" id="testStats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="totalTests">0</div>
+                <div class="stat-label">Total Tests</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="passedTests">0</div>
+                <div class="stat-label">Passed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="failedTests">0</div>
+                <div class="stat-label">Failed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="testCoverage">0%</div>
+                <div class="stat-label">Coverage</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="llm-manager-admin-ui.js"></script>
+    
+    <script>
+        // Mock functions and setup for testing
+        let testResults = [];
+        
+        // Mock notification function
+        function showNotification(message, type) {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        // Mock audit logging
+        function logAuditEvent(category, message) {
+            console.log(`[AUDIT] ${category}: ${message}`);
+        }
+        
+        // Mock custom prompts collection
+        function collectCustomPrompts(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return [];
+            
+            const prompts = [];
+            const items = container.querySelectorAll('.custom-prompt-item');
+            
+            items.forEach((item, index) => {
+                const nameInput = item.querySelector('input[type="text"]');
+                const contentTextarea = item.querySelector('textarea');
+                
+                if (nameInput && contentTextarea) {
+                    prompts.push({
+                        id: `prompt_${index}`,
+                        name: nameInput.value.trim(),
+                        prompt: contentTextarea.value.trim()
+                    });
+                }
+            });
+            
+            return prompts;
+        }
+        
+        // Mock reset custom prompts
+        function resetCustomPrompts(containerId, prompts) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            if (prompts && prompts.length > 0) {
+                prompts.forEach(prompt => {
+                    const item = document.createElement('div');
+                    item.className = 'custom-prompt-item';
+                    item.innerHTML = `
+                        <input type="text" placeholder="Prompt Name" value="${prompt.name || ''}" style="width: 100%; margin-bottom: 5px;">
+                        <textarea placeholder="Prompt Content" rows="2">${prompt.prompt || ''}</textarea>
+                    `;
+                    container.appendChild(item);
+                });
+            }
+        }
+        
+        // Test Functions
+        function testResetFunctionality() {
+            const result = document.getElementById('resetTestResult');
+            result.className = 'result info';
+            result.textContent = 'Running reset functionality test...';
+            
+            try {
+                // Store original values
+                const originalPersonality = document.getElementById('default-personality').value;
+                const originalContext = document.getElementById('default-context').value;
+                const originalInstructions = document.getElementById('default-instructions').value;
+                
+                // Modify values
+                document.getElementById('default-personality').value = 'Modified personality';
+                document.getElementById('default-context').value = 'Modified context';
+                document.getElementById('default-instructions').value = 'Modified instructions';
+                
+                // Test reset function exists
+                if (typeof resetAgentPrompts !== 'function') {
+                    throw new Error('resetAgentPrompts function not found');
+                }
+                
+                // Test getBuiltInDefaults function exists
+                if (typeof getBuiltInDefaults !== 'function') {
+                    throw new Error('getBuiltInDefaults function not found');
+                }
+                
+                // Test that defaults are available
+                const defaults = getBuiltInDefaults('DefaultAgent');
+                if (!defaults) {
+                    throw new Error('No built-in defaults found for DefaultAgent');
+                }
+                
+                // Verify default structure
+                const requiredFields = ['basePersonality', 'financialContext', 'responseInstructions', 'customPrompts'];
+                const missingFields = requiredFields.filter(field => !defaults.hasOwnProperty(field));
+                
+                if (missingFields.length > 0) {
+                    throw new Error(`Missing default fields: ${missingFields.join(', ')}`);
+                }
+                
+                result.className = 'result success';
+                result.textContent = `✅ Reset functionality test PASSED
+                
+✓ resetAgentPrompts function exists
+✓ getBuiltInDefaults function exists  
+✓ Built-in defaults available for DefaultAgent
+✓ All required fields present in defaults
+✓ Default values are properly structured
+
+Default configuration includes:
+- Base Personality: ${defaults.basePersonality.substring(0, 50)}...
+- Financial Context: ${defaults.financialContext.substring(0, 50)}...
+- Response Instructions: ${defaults.responseInstructions.substring(0, 50)}...
+- Custom Prompts: ${defaults.customPrompts.length} prompts`;
+                
+                testResults.push({test: 'Reset Functionality', status: 'PASS'});
+                
+            } catch (error) {
+                result.className = 'result error';
+                result.textContent = `❌ Reset functionality test FAILED: ${error.message}`;
+                testResults.push({test: 'Reset Functionality', status: 'FAIL', error: error.message});
+            }
+        }
+        
+        function testTestFunctionality() {
+            const result = document.getElementById('testFunctionResult');
+            result.className = 'result info';
+            result.textContent = 'Running test functionality test...';
+            
+            try {
+                // Test that test function exists
+                if (typeof testAgentPrompts !== 'function') {
+                    throw new Error('testAgentPrompts function not found');
+                }
+                
+                // Test helper functions exist
+                const requiredFunctions = [
+                    'collectAgentConfiguration',
+                    'validateAgentConfiguration', 
+                    'runAgentPromptTests',
+                    'showTestResults'
+                ];
+                
+                const missingFunctions = requiredFunctions.filter(func => typeof window[func] !== 'function');
+                if (missingFunctions.length > 0) {
+                    throw new Error(`Missing test functions: ${missingFunctions.join(', ')}`);
+                }
+                
+                // Test configuration collection
+                const config = collectAgentConfiguration('DefaultAgent');
+                if (!config) {
+                    throw new Error('Failed to collect DefaultAgent configuration');
+                }
+                
+                // Test validation
+                const validation = validateAgentConfiguration('DefaultAgent', config);
+                if (!validation || typeof validation.isValid !== 'boolean') {
+                    throw new Error('Validation function returned invalid result');
+                }
+                
+                // Test comprehensive testing
+                const testResults = runAgentPromptTests('DefaultAgent', config);
+                if (!testResults || typeof testResults.success !== 'boolean') {
+                    throw new Error('Test runner returned invalid result');
+                }
+                
+                result.className = 'result success';
+                result.textContent = `✅ Test functionality test PASSED
+                
+✓ testAgentPrompts function exists
+✓ All helper functions available
+✓ Configuration collection works
+✓ Validation function works
+✓ Test runner function works
+
+Configuration collected:
+- Base Personality: ${config.basePersonality ? 'Present' : 'Missing'}
+- Financial Context: ${config.financialContext ? 'Present' : 'Missing'}
+- Response Instructions: ${config.responseInstructions ? 'Present' : 'Missing'}
+- Custom Prompts: ${config.customPrompts ? config.customPrompts.length : 0} prompts
+
+Validation result: ${validation.isValid ? 'Valid' : 'Invalid'}
+Test execution: ${testResults.success ? 'Successful' : 'Failed'}`;
+                
+                testResults.push({test: 'Test Functionality', status: 'PASS'});
+                
+            } catch (error) {
+                result.className = 'result error';
+                result.textContent = `❌ Test functionality test FAILED: ${error.message}`;
+                testResults.push({test: 'Test Functionality', status: 'FAIL', error: error.message});
+            }
+        }
+        
+        function testPreviewFunctionality() {
+            const result = document.getElementById('previewTestResult');
+            result.className = 'result info';
+            result.textContent = 'Running preview functionality test...';
+            
+            try {
+                // Test that preview function exists
+                if (typeof previewAgentPrompts !== 'function') {
+                    throw new Error('previewAgentPrompts function not found');
+                }
+                
+                // Test helper functions exist
+                const requiredFunctions = [
+                    'generatePromptPreview',
+                    'showPreviewModal',
+                    'closePreviewModal'
+                ];
+                
+                const missingFunctions = requiredFunctions.filter(func => typeof window[func] !== 'function');
+                if (missingFunctions.length > 0) {
+                    throw new Error(`Missing preview functions: ${missingFunctions.join(', ')}`);
+                }
+                
+                // Test preview generation
+                const config = collectAgentConfiguration('DefaultAgent');
+                const preview = generatePromptPreview('DefaultAgent', config);
+                
+                if (!preview || typeof preview !== 'string') {
+                    throw new Error('Preview generation failed');
+                }
+                
+                // Check preview content
+                const expectedSections = ['BASE AI PERSONALITY', 'FINANCIAL SERVICES CONTEXT', 'RESPONSE INSTRUCTIONS'];
+                const missingSections = expectedSections.filter(section => !preview.includes(section));
+                
+                if (missingSections.length > 0) {
+                    throw new Error(`Preview missing sections: ${missingSections.join(', ')}`);
+                }
+                
+                result.className = 'result success';
+                result.textContent = `✅ Preview functionality test PASSED
+                
+✓ previewAgentPrompts function exists
+✓ All helper functions available
+✓ Preview generation works
+✓ All expected sections present
+
+Preview content:
+- Length: ${preview.length} characters
+- Contains personality section: ✓
+- Contains financial context: ✓
+- Contains response instructions: ✓
+- Contains custom prompts: ${preview.includes('CUSTOM SCENARIO PROMPTS') ? '✓' : '✗'}
+- Contains metadata: ${preview.includes('CONFIGURATION SUMMARY') ? '✓' : '✗'}`;
+                
+                testResults.push({test: 'Preview Functionality', status: 'PASS'});
+                
+            } catch (error) {
+                result.className = 'result error';
+                result.textContent = `❌ Preview functionality test FAILED: ${error.message}`;
+                testResults.push({test: 'Preview Functionality', status: 'FAIL', error: error.message});
+            }
+        }
+        
+        function testValidationFunctions() {
+            const result = document.getElementById('validationTestResult');
+            result.className = 'result info';
+            result.textContent = 'Running validation functions test...';
+            
+            try {
+                // Test with valid configuration
+                const validConfig = {
+                    basePersonality: 'Valid personality description',
+                    financialContext: 'Valid financial context',
+                    responseInstructions: 'Valid response instructions',
+                    customPrompts: [
+                        {name: 'Test Prompt', prompt: 'Test content'}
+                    ]
+                };
+                
+                const validResult = validateAgentConfiguration('DefaultAgent', validConfig);
+                if (!validResult.isValid) {
+                    throw new Error('Valid configuration failed validation');
+                }
+                
+                // Test with invalid configuration
+                const invalidConfig = {
+                    basePersonality: '', // Empty - should fail
+                    financialContext: 'Valid context',
+                    responseInstructions: '', // Empty - should fail
+                    customPrompts: [
+                        {name: '', prompt: 'Content without name'} // Invalid
+                    ]
+                };
+                
+                const invalidResult = validateAgentConfiguration('DefaultAgent', invalidConfig);
+                if (invalidResult.isValid) {
+                    throw new Error('Invalid configuration passed validation');
+                }
+                
+                // Test edge cases
+                const edgeCaseConfig = {
+                    basePersonality: 'x'.repeat(3000), // Too long
+                    financialContext: 'Valid context',
+                    responseInstructions: 'Valid instructions',
+                    customPrompts: Array(25).fill({name: 'Test', prompt: 'Test'}) // Too many
+                };
+                
+                const edgeResult = validateAgentConfiguration('DefaultAgent', edgeCaseConfig);
+                if (edgeResult.isValid) {
+                    throw new Error('Edge case configuration should have failed validation');
+                }
+                
+                result.className = 'result success';
+                result.textContent = `✅ Validation functions test PASSED
+                
+✓ Valid configuration passes validation
+✓ Invalid configuration fails validation  
+✓ Edge cases handled properly
+✓ Error messages generated correctly
+
+Validation results:
+- Valid config: ${validResult.isValid ? 'PASS' : 'FAIL'} (${validResult.errors.length} errors)
+- Invalid config: ${!invalidResult.isValid ? 'PASS' : 'FAIL'} (${invalidResult.errors.length} errors)
+- Edge case config: ${!edgeResult.isValid ? 'PASS' : 'FAIL'} (${edgeResult.errors.length} errors)`;
+                
+                testResults.push({test: 'Validation Functions', status: 'PASS'});
+                
+            } catch (error) {
+                result.className = 'result error';
+                result.textContent = `❌ Validation functions test FAILED: ${error.message}`;
+                testResults.push({test: 'Validation Functions', status: 'FAIL', error: error.message});
+            }
+        }
+        
+        function testBuiltInDefaults() {
+            const result = document.getElementById('defaultsTestResult');
+            result.className = 'result info';
+            result.textContent = 'Running built-in defaults test...';
+            
+            try {
+                const agents = ['DefaultAgent', 'FraudAgent', 'PaymentsAgent', 'IDVAgent', 'BankingInfoAgent'];
+                const results = {};
+                
+                agents.forEach(agent => {
+                    const defaults = getBuiltInDefaults(agent);
+                    if (!defaults) {
+                        throw new Error(`No defaults found for ${agent}`);
+                    }
+                    
+                    // Validate structure based on agent type
+                    if (agent === 'DefaultAgent') {
+                        const required = ['basePersonality', 'financialContext', 'responseInstructions', 'customPrompts'];
+                        const missing = required.filter(field => !defaults.hasOwnProperty(field));
+                        if (missing.length > 0) {
+                            throw new Error(`${agent} missing fields: ${missing.join(', ')}`);
+                        }
+                    }
+                    
+                    results[agent] = {
+                        fields: Object.keys(defaults).length,
+                        totalLength: JSON.stringify(defaults).length
+                    };
+                });
+                
+                result.className = 'result success';
+                result.textContent = `✅ Built-in defaults test PASSED
+                
+✓ All agents have default configurations
+✓ Required fields present for each agent
+✓ Configurations are properly structured
+
+Agent defaults summary:
+${agents.map(agent => `- ${agent}: ${results[agent].fields} fields, ${results[agent].totalLength} chars`).join('\n')}`;
+                
+                testResults.push({test: 'Built-in Defaults', status: 'PASS'});
+                
+            } catch (error) {
+                result.className = 'result error';
+                result.textContent = `❌ Built-in defaults test FAILED: ${error.message}`;
+                testResults.push({test: 'Built-in Defaults', status: 'FAIL', error: error.message});
+            }
+        }
+        
+        function runAllTests() {
+            const result = document.getElementById('allTestsResult');
+            result.className = 'result info';
+            result.textContent = 'Running comprehensive test suite...';
+            
+            testResults = []; // Reset results
+            
+            // Run all tests
+            testResetFunctionality();
+            testTestFunctionality();
+            testPreviewFunctionality();
+            testValidationFunctions();
+            testBuiltInDefaults();
+            
+            // Wait a bit for all tests to complete
+            setTimeout(() => {
+                const totalTests = testResults.length;
+                const passedTests = testResults.filter(t => t.status === 'PASS').length;
+                const failedTests = testResults.filter(t => t.status === 'FAIL').length;
+                const coverage = Math.round((passedTests / totalTests) * 100);
+                
+                // Update statistics
+                document.getElementById('totalTests').textContent = totalTests;
+                document.getElementById('passedTests').textContent = passedTests;
+                document.getElementById('failedTests').textContent = failedTests;
+                document.getElementById('testCoverage').textContent = coverage + '%';
+                document.getElementById('testStats').style.display = 'grid';
+                
+                // Update result
+                if (failedTests === 0) {
+                    result.className = 'result success';
+                    result.textContent = `🎉 ALL TESTS PASSED! (${passedTests}/${totalTests})
+                    
+Task 9 implementation is complete and working correctly:
+✅ Reset functionality implemented
+✅ Test functionality implemented  
+✅ Preview functionality enhanced
+✅ Validation functions working
+✅ Built-in defaults available
+
+Coverage: ${coverage}%`;
+                } else {
+                    result.className = 'result error';
+                    result.textContent = `⚠️ SOME TESTS FAILED (${passedTests}/${totalTests} passed)
+                    
+Failed tests:
+${testResults.filter(t => t.status === 'FAIL').map(t => `❌ ${t.test}: ${t.error}`).join('\n')}
+
+Coverage: ${coverage}%`;
+                }
+            }, 1000);
+        }
+        
+        // Initialize test environment
+        console.log('Task 9 Test Environment Initialized');
+        console.log('Available functions:', {
+            resetAgentPrompts: typeof resetAgentPrompts,
+            testAgentPrompts: typeof testAgentPrompts,
+            previewAgentPrompts: typeof previewAgentPrompts,
+            getBuiltInDefaults: typeof getBuiltInDefaults,
+            collectAgentConfiguration: typeof collectAgentConfiguration,
+            validateAgentConfiguration: typeof validateAgentConfiguration
+        });
+    </script>
+</body>
+</html>

@@ -40,7 +40,111 @@ class LLMManager {
             this.initializeDefaultConfigurations();
         }
         
+        // Ensure Default Agent is properly configured for system prompts integration
+        this.ensureDefaultAgentConfiguration();
+        
+        // Ensure all expected agents are present
+        this.ensureAllExpectedAgents();
+        
         this.debug.log('LLM Manager initialized with', this.configurations.size, 'configurations');
+    }
+    
+    /**
+     * Ensure Default Agent is properly configured for system prompts integration
+     * This method prepares the Default Agent for integration with SystemPromptsManager
+     */
+    ensureDefaultAgentConfiguration() {
+        try {
+            const defaultAgent = this.configurations.get('DefaultAgent');
+            
+            if (defaultAgent) {
+                // Check if Default Agent needs system prompts integration setup
+                if (!defaultAgent.systemPrompts && !defaultAgent.lastSyncedFromSystemPrompts) {
+                    this.debug.log('Preparing Default Agent for system prompts integration');
+                    
+                    // Add system prompts structure with proper defaults
+                    const updatedConfig = {
+                        ...defaultAgent,
+                        systemPrompts: {
+                            basePersonality: 'You are a helpful, professional, and friendly AI voice assistant for a UK financial services company. You should be empathetic, clear in your communication, and engaging in conversation. Speak in a conversational tone while being informative and helpful.',
+                            financialContext: 'When handling financial services requests:\n1. Be conversational and natural in your responses\n2. Provide helpful and accurate information about UK banking\n3. Ask clarifying questions when needed\n4. Be patient and understanding with customer concerns\n5. Use UK financial terminology (current account, sort code, etc.)',
+                            responseInstructions: 'Response Guidelines:\n1. Keep responses conversational and concise (suitable for voice)\n2. Use natural speech patterns with contractions (I\'ll, you\'re, we\'ll)\n3. Address users in a friendly manner\n4. Sound human and empathetic, not robotic\n5. Use British English spelling and terminology',
+                            customPrompts: []
+                        },
+                        needsSystemPromptsSync: true,
+                        lastUpdated: new Date().toISOString(),
+                        lastSyncedFromSystemPrompts: new Date().toISOString()
+                    };
+                    
+                    this.configurations.set('DefaultAgent', updatedConfig);
+                    this.saveConfigurations();
+                    
+                    this.debug.log('Default Agent prepared for system prompts integration');
+                } else {
+                    this.debug.log('Default Agent already configured for system prompts integration');
+                }
+            } else {
+                this.debug.warn('Default Agent not found during configuration check - creating it now');
+                
+                // Create the Default Agent if it doesn't exist
+                const defaultAgentConfig = {
+                    name: 'DefaultAgent',
+                    description: 'Default fallback agent for general banking inquiries',
+                    priority: 0,
+                    enabled: true,
+                    triggers: [], // No specific triggers - acts as fallback
+                    llmProvider: 'openai',
+                    llmModel: 'gpt-4',
+                    maxTokens: 1500,
+                    telemetryEnabled: true,
+                    systemPrompts: {
+                        basePersonality: 'You are a helpful, professional, and friendly AI voice assistant for a UK financial services company. You should be empathetic, clear in your communication, and engaging in conversation. Speak in a conversational tone while being informative and helpful.',
+                        financialContext: 'When handling financial services requests:\n1. Be conversational and natural in your responses\n2. Provide helpful and accurate information about UK banking\n3. Ask clarifying questions when needed\n4. Be patient and understanding with customer concerns\n5. Use UK financial terminology (current account, sort code, etc.)',
+                        responseInstructions: 'Response Guidelines:\n1. Keep responses conversational and concise (suitable for voice)\n2. Use natural speech patterns with contractions (I\'ll, you\'re, we\'ll)\n3. Address users in a friendly manner\n4. Sound human and empathetic, not robotic\n5. Use British English spelling and terminology',
+                        customPrompts: []
+                    },
+                    needsSystemPromptsSync: true,
+                    createdAt: new Date().toISOString(),
+                    lastUpdated: new Date().toISOString(),
+                    lastSyncedFromSystemPrompts: new Date().toISOString()
+                };
+                
+                this.configurations.set('DefaultAgent', defaultAgentConfig);
+                this.saveConfigurations();
+                
+                this.debug.log('Default Agent created and configured for system prompts integration');
+            }
+            
+        } catch (error) {
+            this.debug.error('Error ensuring Default Agent configuration:', error);
+        }
+    }
+    
+    /**
+     * Ensure all expected agents are present
+     * This is a safety check to make sure we have all 5 expected agents
+     */
+    ensureAllExpectedAgents() {
+        const expectedAgents = ['DefaultAgent', 'IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+        const missingAgents = [];
+        
+        expectedAgents.forEach(agentName => {
+            if (!this.configurations.has(agentName)) {
+                missingAgents.push(agentName);
+            }
+        });
+        
+        if (missingAgents.length > 0) {
+            this.debug.warn(`Missing agents detected: ${missingAgents.join(', ')}. Reinitializing all agents.`);
+            
+            // If any agents are missing, reinitialize all defaults to ensure consistency
+            this.initializeDefaultConfigurations();
+            this.saveConfigurations();
+            
+            this.debug.log(`Reinitialized all agents. Now have ${this.configurations.size} agents.`);
+        } else {
+            this.debug.log('All expected agents are present.');
+        }
     }
     
     /**
@@ -360,7 +464,7 @@ class LLMManager {
      * Removes any agents that don't correspond to actual agent classes
      */
     cleanupInvalidAgents() {
-        const validAgentNames = ['IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+        const validAgentNames = ['DefaultAgent', 'IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
         const initialSize = this.configurations.size;
         
         for (const [agentName, config] of this.configurations) {
@@ -423,6 +527,24 @@ class LLMManager {
     initializeDefaultConfigurations() {
         const defaultAgents = [
             {
+                name: 'DefaultAgent',
+                description: 'Default fallback agent for general banking inquiries',
+                priority: 0,
+                enabled: true,
+                triggers: [], // No specific triggers - acts as fallback
+                llmProvider: 'openai',
+                llmModel: 'gpt-4',
+                maxTokens: 1500,
+                telemetryEnabled: true,
+                systemPrompts: {
+                    basePersonality: 'You are a helpful, professional, and friendly AI voice assistant for a UK financial services company. You should be empathetic, clear in your communication, and engaging in conversation. Speak in a conversational tone while being informative and helpful.',
+                    financialContext: 'When handling financial services requests:\n1. Be conversational and natural in your responses\n2. Provide helpful and accurate information about UK banking\n3. Ask clarifying questions when needed\n4. Be patient and understanding with customer concerns\n5. Use UK financial terminology (current account, sort code, etc.)',
+                    responseInstructions: 'Response Guidelines:\n1. Keep responses conversational and concise (suitable for voice)\n2. Use natural speech patterns with contractions (I\'ll, you\'re, we\'ll)\n3. Address users in a friendly manner\n4. Sound human and empathetic, not robotic\n5. Use British English spelling and terminology',
+                    customPrompts: []
+                },
+                needsSystemPromptsSync: true
+            },
+            {
                 name: 'IDVAgent',
                 description: 'Identity and Verification Agent',
                 priority: 1,
@@ -471,6 +593,12 @@ class LLMManager {
         defaultAgents.forEach(config => {
             config.createdAt = new Date().toISOString();
             config.lastUpdated = new Date().toISOString();
+            
+            // Add sync timestamp for Default Agent
+            if (config.name === 'DefaultAgent') {
+                config.lastSyncedFromSystemPrompts = new Date().toISOString();
+            }
+            
             this.configurations.set(config.name, config);
         });
         
@@ -490,7 +618,7 @@ class LLMManager {
                     const loadedConfigs = new Map(Object.entries(data.configurations));
                     
                     // Define valid agent names (should match actual agent classes)
-                    const validAgentNames = ['IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+                    const validAgentNames = ['DefaultAgent', 'IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
                     
                     // Filter out any invalid agents (like test agents or corrupted data)
                     for (const [agentName, config] of loadedConfigs) {

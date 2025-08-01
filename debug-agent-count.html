@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Agent Count</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        
+        .debug-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .debug-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+        }
+        
+        .debug-result {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        .agent-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+        }
+        
+        .missing-agent {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .btn:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <h1>🔍 Agent Count Debug Tool</h1>
+        <p>This tool helps diagnose why only 4 agents are showing instead of 5.</p>
+        
+        <div class="debug-section">
+            <h3>🤖 Expected Agents</h3>
+            <div id="expectedAgents">
+                <div class="agent-item">DefaultAgent - Default fallback agent for general banking inquiries</div>
+                <div class="agent-item">IDVAgent - Identity and Verification Agent</div>
+                <div class="agent-item">BankingInfoAgent - Banking Information Agent</div>
+                <div class="agent-item">FraudAgent - Fraud Detection and Security Agent</div>
+                <div class="agent-item">PaymentsAgent - Payment Processing Agent</div>
+            </div>
+        </div>
+        
+        <div class="debug-section">
+            <h3>📊 Current Status</h3>
+            <button class="btn" onclick="debugAgentCount()">🔍 Debug Agent Count</button>
+            <button class="btn" onclick="resetAgents()">🔄 Reset Agents</button>
+            <button class="btn" onclick="forceInitialize()">⚡ Force Initialize</button>
+            <div id="debugResults"></div>
+        </div>
+        
+        <div class="debug-section">
+            <h3>🔧 Actions</h3>
+            <button class="btn" onclick="checkLocalStorage()">💾 Check LocalStorage</button>
+            <button class="btn" onclick="clearLocalStorage()">🗑️ Clear LocalStorage</button>
+            <button class="btn" onclick="reinitializeAgents()">🚀 Reinitialize All Agents</button>
+            <div id="actionResults"></div>
+        </div>
+    </div>
+    
+    <!-- Load Dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="script.js"></script>
+    
+    <script>
+        let llmManager = null;
+        
+        function debugAgentCount() {
+            const resultsDiv = document.getElementById('debugResults');
+            resultsDiv.innerHTML = '<div style="color: #007bff;">Debugging agent count...</div>';
+            
+            try {
+                // Initialize LLM Manager
+                if (typeof LLMManager !== 'undefined') {
+                    llmManager = new LLMManager();
+                    
+                    const stats = llmManager.getConfigurationStats();
+                    const agents = llmManager.getAgentConfigurations();
+                    const expectedAgents = ['DefaultAgent', 'IDVAgent', 'BankingInfoAgent', 'FraudAgent', 'PaymentsAgent'];
+                    
+                    let debugInfo = '';
+                    debugInfo += `Total Agents Found: ${stats.totalAgents}\n`;
+                    debugInfo += `Enabled Agents: ${stats.enabledAgents}\n`;
+                    debugInfo += `Disabled Agents: ${stats.disabledAgents}\n`;
+                    debugInfo += `Last Updated: ${stats.lastUpdated || 'Never'}\n\n`;
+                    
+                    debugInfo += 'Found Agents:\n';
+                    Object.keys(agents).forEach(agentName => {
+                        const agent = agents[agentName];
+                        debugInfo += `- ${agentName}: ${agent.enabled ? 'Enabled' : 'Disabled'} (Priority: ${agent.priority})\n`;
+                    });
+                    
+                    debugInfo += '\nMissing Agents:\n';
+                    const missingAgents = expectedAgents.filter(agent => !agents[agent]);
+                    if (missingAgents.length === 0) {
+                        debugInfo += 'None - All expected agents are present\n';
+                    } else {
+                        missingAgents.forEach(agent => {
+                            debugInfo += `- ${agent}: MISSING\n`;
+                        });
+                    }
+                    
+                    debugInfo += '\nLLM Manager Configuration Map Size: ' + llmManager.configurations.size + '\n';
+                    debugInfo += 'Configuration Keys: ' + Array.from(llmManager.configurations.keys()).join(', ') + '\n';
+                    
+                    resultsDiv.innerHTML = `<div class="debug-result">${debugInfo}</div>`;
+                    
+                    // Update expected agents display
+                    updateExpectedAgentsDisplay(agents, expectedAgents);
+                    
+                } else {
+                    resultsDiv.innerHTML = '<div style="color: #dc3545;">❌ LLM Manager not available</div>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div style="color: #dc3545;">❌ Error: ${error.message}</div>`;
+                console.error('Debug error:', error);
+            }
+        }
+        
+        function updateExpectedAgentsDisplay(actualAgents, expectedAgents) {
+            const container = document.getElementById('expectedAgents');
+            container.innerHTML = '';
+            
+            expectedAgents.forEach(agentName => {
+                const div = document.createElement('div');
+                const isPresent = actualAgents[agentName];
+                
+                div.className = isPresent ? 'agent-item' : 'agent-item missing-agent';
+                
+                const descriptions = {
+                    'DefaultAgent': 'Default fallback agent for general banking inquiries',
+                    'IDVAgent': 'Identity and Verification Agent',
+                    'BankingInfoAgent': 'Banking Information Agent',
+                    'FraudAgent': 'Fraud Detection and Security Agent',
+                    'PaymentsAgent': 'Payment Processing Agent'
+                };
+                
+                const status = isPresent ? '✅' : '❌';
+                div.textContent = `${status} ${agentName} - ${descriptions[agentName]}`;
+                
+                container.appendChild(div);
+            });
+        }
+        
+        function resetAgents() {
+            const resultsDiv = document.getElementById('debugResults');
+            
+            try {
+                if (llmManager) {
+                    llmManager.resetToDefaults();
+                    resultsDiv.innerHTML = '<div style="color: #28a745;">✅ Agents reset to defaults</div>';
+                    
+                    // Re-debug after reset
+                    setTimeout(debugAgentCount, 500);
+                } else {
+                    resultsDiv.innerHTML = '<div style="color: #dc3545;">❌ LLM Manager not initialized</div>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div style="color: #dc3545;">❌ Reset error: ${error.message}</div>`;
+            }
+        }
+        
+        function forceInitialize() {
+            const resultsDiv = document.getElementById('debugResults');
+            
+            try {
+                // Force create a new LLM Manager instance
+                llmManager = new LLMManager();
+                
+                // Check if we need to initialize defaults
+                if (llmManager.configurations.size === 0) {
+                    llmManager.initializeDefaultConfigurations();
+                    llmManager.saveConfigurations();
+                }
+                
+                resultsDiv.innerHTML = '<div style="color: #28a745;">✅ Force initialization completed</div>';
+                
+                // Re-debug after initialization
+                setTimeout(debugAgentCount, 500);
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div style="color: #dc3545;">❌ Force initialization error: ${error.message}</div>`;
+            }
+        }
+        
+        function checkLocalStorage() {
+            const resultsDiv = document.getElementById('actionResults');
+            
+            try {
+                const stored = localStorage.getItem('llm-manager-configurations');
+                
+                if (stored) {
+                    const data = JSON.parse(stored);
+                    let info = 'LocalStorage Contents:\n';
+                    info += `Storage Key: llm-manager-configurations\n`;
+                    info += `Data Type: ${typeof data}\n`;
+                    
+                    if (data.configurations) {
+                        info += `Configurations Count: ${Object.keys(data.configurations).length}\n`;
+                        info += `Agent Names: ${Object.keys(data.configurations).join(', ')}\n`;
+                    } else {
+                        info += 'No configurations object found\n';
+                    }
+                    
+                    info += `\nRaw Data (first 500 chars):\n${JSON.stringify(data, null, 2).substring(0, 500)}...`;
+                    
+                    resultsDiv.innerHTML = `<div class="debug-result">${info}</div>`;
+                } else {
+                    resultsDiv.innerHTML = '<div style="color: #ffc107;">⚠️ No LLM Manager data in LocalStorage</div>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div style="color: #dc3545;">❌ LocalStorage check error: ${error.message}</div>`;
+            }
+        }
+        
+        function clearLocalStorage() {
+            const resultsDiv = document.getElementById('actionResults');
+            
+            try {
+                localStorage.removeItem('llm-manager-configurations');
+                resultsDiv.innerHTML = '<div style="color: #28a745;">✅ LocalStorage cleared</div>';
+            } catch (error) {
+                resultsDiv.innerHTML = `<div style="color: #dc3545;">❌ Clear error: ${error.message}</div>`;
+            }
+        }
+        
+        function reinitializeAgents() {
+            const resultsDiv = document.getElementById('actionResults');
+            
+            try {
+                // Clear localStorage first
+                localStorage.removeItem('llm-manager-configurations');
+                
+                // Create new LLM Manager instance
+                llmManager = new LLMManager();
+                
+                // Force initialization of defaults
+                llmManager.initializeDefaultConfigurations();
+                llmManager.saveConfigurations();
+                
+                resultsDiv.innerHTML = '<div style="color: #28a745;">✅ All agents reinitialized</div>';
+                
+                // Re-debug to show results
+                setTimeout(debugAgentCount, 500);
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div style="color: #dc3545;">❌ Reinitialization error: ${error.message}</div>`;
+            }
+        }
+        
+        // Auto-run debug on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(debugAgentCount, 1000);
+        });
+    </script>
+</body>
+</html>

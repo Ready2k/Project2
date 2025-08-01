@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task 8 Implementation Test - Data Migration and Backward Compatibility</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #e1e8ed;
+            border-radius: 6px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .test-details {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .migration-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .status-success { background-color: #28a745; }
+        .status-error { background-color: #dc3545; }
+        .status-warning { background-color: #ffc107; }
+        .status-pending { background-color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Task 8 Implementation Test - Data Migration and Backward Compatibility</h1>
+        <p>This test verifies the implementation of data migration functionality and backward compatibility for Default Agent configuration.</p>
+        
+        <div class="test-section">
+            <h2>Test Environment Setup</h2>
+            <div id="setupResults"></div>
+            <button onclick="setupTestEnvironment()">Setup Test Environment</button>
+            <button onclick="clearTestData()">Clear Test Data</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Migration Function Tests</h2>
+            <div id="migrationResults"></div>
+            <button onclick="testDataMigration()">Test Data Migration</button>
+            <button onclick="testCorruptedDataHandling()">Test Corrupted Data Handling</button>
+            <button onclick="testFallbackMechanisms()">Test Fallback Mechanisms</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Backward Compatibility Tests</h2>
+            <div id="compatibilityResults"></div>
+            <button onclick="testBackwardCompatibility()">Test Backward Compatibility</button>
+            <button onclick="testLegacyDataLoading()">Test Legacy Data Loading</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Error Handling Tests</h2>
+            <div id="errorResults"></div>
+            <button onclick="testErrorHandling()">Test Error Handling</button>
+            <button onclick="testMissingDependencies()">Test Missing Dependencies</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Data Validation Tests</h2>
+            <div id="validationResults"></div>
+            <button onclick="testDataValidation()">Test Data Validation</button>
+            <button onclick="testDataRepair()">Test Data Repair</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Comprehensive Integration Test</h2>
+            <div id="integrationResults"></div>
+            <button onclick="runComprehensiveTest()">Run Comprehensive Test</button>
+        </div>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../system-prompts-manager.js"></script>
+    <script src="../agents/llm-manager.js"></script>
+    <script src="../llm-manager-admin-ui.js"></script>
+
+    <script>
+        // Test framework
+        class Task8TestFramework {
+            constructor() {
+                this.testResults = [];
+                this.adminUI = null;
+                this.originalLocalStorage = {};
+            }
+            
+            async initialize() {
+                // Initialize debug manager
+                if (!window.debugManager) {
+                    window.debugManager = {
+                        createModuleLogger: (module) => ({
+                            log: (...args) => console.log(`[${module}]`, ...args),
+                            debug: (...args) => console.debug(`[${module}]`, ...args),
+                            info: (...args) => console.info(`[${module}]`, ...args),
+                            warn: (...args) => console.warn(`[${module}]`, ...args),
+                            error: (...args) => console.error(`[${module}]`, ...args)
+                        })
+                    };
+                }
+                
+                // Initialize admin UI
+                this.adminUI = new LLMManagerAdminUI();
+                
+                // Wait for initialization
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            logResult(testName, success, message, details = null) {
+                const result = {
+                    testName,
+                    success,
+                    message,
+                    details,
+                    timestamp: new Date().toISOString()
+                };
+                
+                this.testResults.push(result);
+                console.log(`[TEST] ${testName}: ${success ? 'PASS' : 'FAIL'} - ${message}`);
+                
+                if (details) {
+                    console.log(`[TEST DETAILS]`, details);
+                }
+                
+                return result;
+            }
+            
+            displayResult(containerId, result) {
+                const container = document.getElementById(containerId);
+                const resultDiv = document.createElement('div');
+                resultDiv.className = `test-result ${result.success ? 'success' : 'error'}`;
+                
+                const statusIndicator = document.createElement('div');
+                statusIndicator.className = `migration-status`;
+                statusIndicator.innerHTML = `
+                    <div class="status-indicator ${result.success ? 'status-success' : 'status-error'}"></div>
+                    <strong>${result.testName}</strong>: ${result.message}
+                `;
+                
+                resultDiv.appendChild(statusIndicator);
+                
+                if (result.details) {
+                    const detailsDiv = document.createElement('div');
+                    detailsDiv.className = 'test-details';
+                    detailsDiv.textContent = typeof result.details === 'object' ? 
+                        JSON.stringify(result.details, null, 2) : result.details;
+                    resultDiv.appendChild(detailsDiv);
+                }
+                
+                container.appendChild(resultDiv);
+            }
+            
+            // Backup and restore localStorage for testing
+            backupLocalStorage() {
+                this.originalLocalStorage = {};
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    this.originalLocalStorage[key] = localStorage.getItem(key);
+                }
+            }
+            
+            restoreLocalStorage() {
+                localStorage.clear();
+                for (const [key, value] of Object.entries(this.originalLocalStorage)) {
+                    localStorage.setItem(key, value);
+                }
+            }
+            
+            // Create test data scenarios
+            createValidSystemPromptsData() {
+                return {
+                    basePersonality: "Test personality for migration",
+                    financialContext: "Test financial context",
+                    responseInstructions: "Test response instructions",
+                    customPrompts: [
+                        {
+                            name: "Test Prompt 1",
+                            prompt: "Test prompt content 1",
+                            id: "test1"
+                        },
+                        {
+                            name: "Test Prompt 2", 
+                            prompt: "Test prompt content 2",
+                            id: "test2"
+                        }
+                    ]
+                };
+            }
+            
+            createCorruptedSystemPromptsData() {
+                return {
+                    basePersonality: null, // Invalid
+                    financialContext: "", // Empty
+                    responseInstructions: 123, // Wrong type
+                    customPrompts: "not an array" // Wrong type
+                };
+            }
+            
+            createPartialSystemPromptsData() {
+                return {
+                    basePersonality: "Partial personality",
+                    // Missing financialContext
+                    responseInstructions: "Partial instructions"
+                    // Missing customPrompts
+                };
+            }
+        }
+        
+        // Initialize test framework
+        const testFramework = new Task8TestFramework();
+        
+        // Test functions
+        async function setupTestEnvironment() {
+            const container = document.getElementById('setupResults');
+            container.innerHTML = '';
+            
+            try {
+                await testFramework.initialize();
+                
+                const result = testFramework.logResult(
+                    'Environment Setup',
+                    true,
+                    'Test environment initialized successfully',
+                    {
+                        adminUIInitialized: !!testFramework.adminUI,
+                        debugManagerAvailable: !!window.debugManager,
+                        systemPromptsManagerAvailable: !!window.SystemPromptsManager,
+                        llmManagerAvailable: !!window.LLMManager
+                    }
+                );
+                
+                testFramework.displayResult('setupResults', result);
+                
+            } catch (error) {
+                const result = testFramework.logResult(
+                    'Environment Setup',
+                    false,
+                    'Failed to initialize test environment',
+                    error.message
+                );
+                
+                testFramework.displayResult('setupResults', result);
+            }
+        }
+        
+        async function clearTestData() {
+            const container = document.getElementById('setupResults');
+            
+            try {
+                // Clear localStorage test data
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key.includes('test_') || key.includes('system_prompts') || key.includes('llm_manager')) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                keysToRemove.forEach(key => localStorage.removeItem(key));
+                
+                const result = testFramework.logResult(
+                    'Clear Test Data',
+                    true,
+                    `Cleared ${keysToRemove.length} test data items`,
+                    keysToRemove
+                );
+                
+                testFramework.displayResult('setupResults', result);
+                
+            } catch (error) {
+                const result = testFramework.logResult(
+                    'Clear Test Data',
+                    false,
+                    'Failed to clear test data',
+                    error.message
+                );
+                
+                testFramework.displayResult('setupResults', result);
+            }
+        }
+        
+        async function testDataMigration() {
+            const container = document.getElementById('migrationResults');
+            container.innerHTML = '';
+            
+            if (!testFramework.adminUI) {
+                await setupTestEnvironment();
+            }
+            
+            try {
+                // Test 1: Valid data migration
+                const validData = testFramework.createValidSystemPromptsData();
+                localStorage.setItem('system_prompts', JSON.stringify(validData));
+                
+                const migrationResult = await testFramework.adminUI.migrateDefaultAgentData();
+                
+                const result1 = testFramework.logResult(
+                    'Valid Data Migration',
+                    migrationResult.success,
+                    migrationResult.success ? 'Successfully migrated valid data' : migrationResult.error,
+                    migrationResult
+                );
+                
+                testFramework.displayResult('migrationResults', result1);
+                
+                // Test 2: Verify migrated data structure
+                if (migrationResult.success && testFramework.adminUI.llmManager) {
+                    const defaultAgentConfig = testFramework.adminUI.llmManager.getAgentConfiguration('DefaultAgent');
+                    
+                    const result2 = testFramework.logResult(
+                        'Migrated Data Structure',
+                        !!(defaultAgentConfig && defaultAgentConfig.systemPrompts),
+                        defaultAgentConfig ? 'Default Agent configuration found with system prompts' : 'Default Agent configuration missing',
+                        defaultAgentConfig
+                    );
+                    
+                    testFramework.displayResult('migrationResults', result2);
+                }
+                
+            } catch (error) {
+                const result = testFramework.logResult(
+                    'Data Migration Test',
+                    false,
+                    'Migration test failed with error',
+                    error.message
+                );
+                
+                testFramework.displayResult('migrationResults', result);
+            }
+        }
+        
+        async function testCorruptedDataHandling() {
+            const container = document.getElementById('migrationResults');
+            
+            if (!testFramework.adminUI) {
+                await setupTestEnvironment();
+            }
+            
+            try {
+                // Test corrupted data handling
+                const corruptedData = testFramework.createCorruptedSystemPromptsData();
+                localStorage.setItem('system_prompts', JSON.stringify(corruptedData));
+                
+                const migrationResult = await testFramework.adminUI.migrateDefaultAgentData();
+                
+                const result = testFramework.logResult(
+                    'Corrupted Data Handling',
+                    migrationResult.success || migrationResult.fallbackUsed,
+                    migrationResult.success ? 'Successfully handled corrupted data' : 
+                        (migrationResult.fallbackUsed ? 'Used fallback for corrupted data' : migrationResult.error),
+                    {
+                        migrationResult,
+                        warnings: migrationResult.warnings,
+                        dataSource: migrationResult.dataSource
+                    }
+                );
+                
+                testFramework.displayResult('migrationResults', result);
+                
+            } catch (error) {
+                const result = testFramework.logResult(
+                    'Corrupted Data Handling',
+                    false,
+                    'Corrupted data test failed',
+                    error.message
+                );
+                
+                testFramework.displayResult('migrationResults', result);
+            }
+        }
+        
+        async function testFallbackMechanisms() {
+            const container = document.getElementById('migrationResults');
+            
+            if (!testFramework.adminUI) {
+                await setupTestEnvironment();
+            }
+            
+            try {
+                // Remove system prompts data to trigger fallback
+                localStorage.removeItem('system_prompts');
+                
+                // Temporarily disable SystemPromptsManager
+                const originalSystemPromptsManager = testFramework.adminUI.systemPromptsManager;
+                testFramework.adminUI.systemPromptsManager = null;
+                
+                const fallbackResult = await testFramework.adminUI.loadDefaultAgentFallback();
+                
+                // Restore SystemPromptsManager
+                testFramework.adminUI.systemPromptsManager = originalSystemPromptsManager;
+                
+                const result = testFramework.logResult(
+                    'Fallback Mechanisms',
+                    fallbackResult.success,
+                    fallbackResult.success ? 'Fallback mechanism worked correctly' : fallbackResult.error,
+                    fallbackResult
+                );
+                
+                testFramework.displayResult('migrationResults', result);
+                
+            } catch (error) {
+                const result = testFramework.logResult(
+                    'Fallback Mechanisms',
+                    false,
+                    'Fallback test failed',
+                    error.message
+                );
+                
+                testFramework.displayResult('migrationResults', result);
+            }
+        }
+        
+        async function testBackwardCompatibility() {
+            const container = document.getElementById('compatibilityResults');
+            container.innerHTML = '';
+            
+            if (!testFramework.adminUI) {
+                await setupTestEnvironment();
+            }
+            
+            try {
+                // Test with old format data
+                const oldFormatData = {
+                    basePersonality: "Old format personality",
+                    financialContext: "Old format context",
+                    responseInstructions: "Old format instructions",
+                    customPrompts: [
+                        { name: "Old Prompt", prompt: "Old content" }
+                    ]
+                };
+                
+                localStorage.setItem('system_prompts', JSON.stringify(oldFormatData));
+                
+                const migrationResult = await testFramework.adminUI.migrateDefaultAgentData();
+                
+                const result = testFramework.logResult(
+                    'Backward Compatibility',
+                    migrationResult.success,
+                    migrationResult.success ? 'Successfully handled old format data' : migrationResult.error,
+                    migrationResult
+                );
+                
+                testFramework.displayResult('compatibilityResults', result);
+                
+            } catch (error) {
+                const result = testFramework.logResult(
+                    'Backward Compatibility',
+                    false,
+                    'Backward compatibility test failed',
+                    error.message
+                );
+                
+                testFramework.displayResult('compatibilityResults', result);
+            }
+        }
+        
+        async function testLegacyDataLoading() {
+            const container = document.getElementById('compatibilityResults');
+            
+            if (!testFramework.adminUI) {
+                await setupTestEnvironment();
+            }
+            
+            try {
+                // Test loading from localStorage fallback
+                const legacyData = testFramework.createPartialSystemPromptsData();
+                localStorage.setItem('system_prompts', JSON.stringify(legacyData));
+                
+                const loadedData = testFramework.adminUI.loadSystemPromptsFromLocalStorage();
+                
+                const result = testFramework.logResult(
+                    'Legacy Data Loading',
+                    !!loadedData,
+                    loadedData ? 'Successfully loaded legacy data from localStorage' : 'Failed to load legacy data',
+                    loadedData
+                );
+                
+                testFramework.displayResult('compatibilityResults', result);
+                
+            } catch (error) {
+                const result = testFramework.logResult(
+                    'Legacy Data Loading',
+                    false,
+                    'Legacy data loading test failed',
+                    error.message
+                );
+                
+                testFramework.displayResult('compatibilityResults', result);
+            }
+        }
+        
+        async function testErrorHandling() {
+            const container = document.getElementById('errorResults');
+            container.innerHTML = '';
+            
+            if (!testFramework.adminUI) {
+                await setupTestEnvironment();
+            }
+            
+            try {
+                // Test with invalid JSON
+                localStorage.setItem('system_prompts', 'invalid json data');
+                
+                const loadedData = testFramework.adminUI.loadSystemPromptsFromLocalStorage();
+                
+                const result = testFramework.logResult(
+                    'Invalid JSON Handling',
+                    loadedData === null,
+                    loadedData === null ? 'Correctly handled invalid JSON' : 'Failed to handle invalid JSON',
+                    { loadedData }
+                );
+                
+                testFramework.displayResult('errorResults', result);
+                
+            } catch (error) {
+                const result = testFramework.logResult(
+                    'Error Handling',
+                    false,
+                    'Error handling test failed',
+                    error.message
+                );
+                
+                testFramework.displayResult('errorResults', result);
+            }
+        }
+        
+        async function testMissingDependencies() {
+            const container = document.getElementById('errorResults');
+            
+            try {
+                // Test with missing LLM Manager
+                const tempAdminUI = new LLMManagerAdminUI();
+                tempAdminUI.llmManager = null;
+                
+                const fallbackResult = await tempAdminUI.loadDefaultAgentFallback();
+                
+                const result = testFramework.logResult(
+                    'Missing Dependencies',
+                    !fallbackResult.success && fallbackResult.error.includes('LLM Manager not available'),
+                    fallbackResult.success ? 'Unexpected success with missing dependencies' : 'Correctly handled missing dependencies',
+                    fallbackResult
+                );
+                
+                testFramework.displayResult('errorResults', result);
+                
+            } catch (error) {
+                const result = testFramework.logResult(
+                    'Missing Dependencies',
+                    false,
+                    'Missing dependencies test failed',
+                    error.message
+                );
+                
+                testFramework.displayResult('errorResults', result);
+            }
+        }
+        
+        async function testDataValidation() {
+            const container = document.getElementById('validationResults');
+            container.innerHTML = '';
+            
+            if (!testFramework.adminUI) {
+                await setupTestEnvironment();
+            }
+            
+            try {
+                // Test valid data validation
+                const validData = testFramework.createValidSystemPromptsData();
+                const validationResult = testFramework.adminUI.validateSystemPromptsData(validData);
+                
+                const result1 = testFramework.logResult(
+                    'Valid Data Validation',
+                    validationResult.valid,
+                    validationResult.valid ? 'Valid data passed validation' : 'Valid data failed validation',
+                    validationResult
+                );
+                
+                testFramework.displayResult('validationResults', result1);
+                
+                // Test invalid data validation
+                const invalidData = testFramework.createCorruptedSystemPromptsData();
+                const invalidValidationResult = testFramework.adminUI.validateSystemPromptsData(invalidData);
+                
+                const result2 = testFramework.logResult(
+                    'Invalid Data Validation',
+                    !invalidValidationResult.valid,
+                    !invalidValidationResult.valid ? 'Invalid data correctly failed validation' : 'Invalid data incorrectly passed validation',
+                    invalidValidationResult
+                );
+                
+                testFramework.displayResult('validationResults', result2);
+                
+            } catch (error) {
+                const result = testFramework.logResult(
+                    'Data Validation',
+                    false,
+                    'Data validation test failed',
+                    error.message
+                );
+                
+                testFramework.displayResult('validationResults', result);
+            }
+        }
+        
+        async function testDataRepair() {
+            const container = document.getElementById('validationResults');
+            
+            if (!testFramework.adminUI) {
+                await setupTestEnvironment();
+            }
+            
+            try {
+                // Test data repair functionality
+                const corruptedData = testFramework.createCorruptedSystemPromptsData();
+                const repairedData = testFramework.adminUI.repairSystemPromptsData(corruptedData);
+                
+                // Validate repaired data
+                const validationResult = testFramework.adminUI.validateSystemPromptsData(repairedData);
+                
+                const result = testFramework.logResult(
+                    'Data Repair',
+                    validationResult.valid,
+                    validationResult.valid ? 'Successfully repaired corrupted data' : 'Failed to repair corrupted data',
+                    {
+                        originalData: corruptedData,
+                        repairedData: repairedData,
+                        validationResult: validationResult
+                    }
+                );
+                
+                testFramework.displayResult('validationResults', result);
+                
+            } catch (error) {
+                const result = testFramework.logResult(
+                    'Data Repair',
+                    false,
+                    'Data repair test failed',
+                    error.message
+                );
+                
+                testFramework.displayResult('validationResults', result);
+            }
+        }
+        
+        async function runComprehensiveTest() {
+            const container = document.getElementById('integrationResults');
+            container.innerHTML = '';
+            
+            try {
+                // Backup current localStorage
+                testFramework.backupLocalStorage();
+                
+                // Run all tests in sequence
+                const testResults = [];
+                
+                // Setup
+                await setupTestEnvironment();
+                
+                // Test scenarios
+                const scenarios = [
+                    { name: 'Valid Data Migration', test: testDataMigration },
+                    { name: 'Corrupted Data Handling', test: testCorruptedDataHandling },
+                    { name: 'Fallback Mechanisms', test: testFallbackMechanisms },
+                    { name: 'Backward Compatibility', test: testBackwardCompatibility },
+                    { name: 'Error Handling', test: testErrorHandling },
+                    { name: 'Data Validation', test: testDataValidation },
+                    { name: 'Data Repair', test: testDataRepair }
+                ];
+                
+                for (const scenario of scenarios) {
+                    try {
+                        await scenario.test();
+                        testResults.push({ name: scenario.name, success: true });
+                    } catch (error) {
+                        testResults.push({ name: scenario.name, success: false, error: error.message });
+                    }
+                }
+                
+                // Calculate overall results
+                const successCount = testResults.filter(r => r.success).length;
+                const totalCount = testResults.length;
+                const overallSuccess = successCount === totalCount;
+                
+                const result = testFramework.logResult(
+                    'Comprehensive Integration Test',
+                    overallSuccess,
+                    `${successCount}/${totalCount} tests passed`,
+                    {
+                        testResults,
+                        successRate: `${Math.round((successCount / totalCount) * 100)}%`
+                    }
+                );
+                
+                testFramework.displayResult('integrationResults', result);
+                
+                // Restore localStorage
+                testFramework.restoreLocalStorage();
+                
+            } catch (error) {
+                const result = testFramework.logResult(
+                    'Comprehensive Integration Test',
+                    false,
+                    'Comprehensive test failed',
+                    error.message
+                );
+                
+                testFramework.displayResult('integrationResults', result);
+                
+                // Restore localStorage on error
+                testFramework.restoreLocalStorage();
+            }
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            console.log('Task 8 Implementation Test Page Loaded');
+            console.log('Available test functions:', {
+                setupTestEnvironment,
+                testDataMigration,
+                testCorruptedDataHandling,
+                testFallbackMechanisms,
+                testBackwardCompatibility,
+                testErrorHandling,
+                testDataValidation,
+                runComprehensiveTest
+            });
+        });
+    </script>
+</body>
+</html>

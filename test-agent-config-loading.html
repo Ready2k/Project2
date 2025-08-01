@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Config Loading Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .config-display {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+        .agent-card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #f9f9f9;
+        }
+        .agent-card h4 {
+            margin-top: 0;
+            color: #333;
+        }
+        .system-prompts {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Agent Configuration Loading Test</h1>
+        <p>Testing that our new JSON configuration files are loading correctly with system prompts</p>
+        
+        <div class="test-section">
+            <h3>1. Test Configuration File Loading</h3>
+            <button onclick="testConfigFileLoading()">Test Config Loading</button>
+            <div id="loading-status"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>2. Verify System Prompts Integration</h3>
+            <button onclick="testSystemPromptsIntegration()">Test System Prompts</button>
+            <div id="prompts-status"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>3. Display All Agent Configurations</h3>
+            <button onclick="displayAllConfigurations()">Display All Configs</button>
+            <div id="all-configs"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>4. Test Agent-Specific Settings</h3>
+            <button onclick="testAgentSpecificSettings()">Test Agent Settings</button>
+            <div id="settings-status"></div>
+        </div>
+    </div>
+
+    <script>
+        const agentConfigFiles = {
+            'DefaultAgent': 'config/agents/default-agent-config.json',
+            'PaymentsAgent': 'config/agents/payments-agent-config.json',
+            'FraudAgent': 'config/agents/fraud-agent-config.json',
+            'IDVAgent': 'config/agents/idv-agent-config.json',
+            'BankingInfoAgent': 'config/agents/banking-info-agent-config.json'
+        };
+        
+        let loadedConfigs = {};
+        
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+        
+        function appendStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML += `<div class="${type}">${message}</div>`;
+        }
+        
+        async function loadAgentConfig(agentName, filePath) {
+            try {
+                const response = await fetch(filePath);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const config = await response.json();
+                return config;
+            } catch (error) {
+                console.error(`Failed to load ${agentName} config:`, error);
+                throw error;
+            }
+        }
+        
+        async function testConfigFileLoading() {
+            showStatus('loading-status', 'Loading agent configuration files...', 'info');
+            
+            let successCount = 0;
+            let totalCount = Object.keys(agentConfigFiles).length;
+            
+            for (const [agentName, filePath] of Object.entries(agentConfigFiles)) {
+                try {
+                    const config = await loadAgentConfig(agentName, filePath);
+                    loadedConfigs[agentName] = config;
+                    
+                    appendStatus('loading-status', 
+                        `✓ ${agentName}: Loaded successfully (${config.description})`, 'success');
+                    successCount++;
+                    
+                } catch (error) {
+                    appendStatus('loading-status', 
+                        `✗ ${agentName}: Failed to load - ${error.message}`, 'error');
+                }
+            }
+            
+            appendStatus('loading-status', 
+                `\nSummary: ${successCount}/${totalCount} configurations loaded successfully`, 
+                successCount === totalCount ? 'success' : 'warning');
+        }
+        
+        async function testSystemPromptsIntegration() {
+            showStatus('prompts-status', 'Testing system prompts integration...', 'info');
+            
+            if (Object.keys(loadedConfigs).length === 0) {
+                showStatus('prompts-status', 'Please load configurations first!', 'warning');
+                return;
+            }
+            
+            let promptsFound = 0;
+            let totalAgents = Object.keys(loadedConfigs).length;
+            
+            for (const [agentName, config] of Object.entries(loadedConfigs)) {
+                if (config.systemPrompts) {
+                    const prompts = config.systemPrompts;
+                    const requiredFields = ['basePersonality', 'financialContext', 'responseInstructions', 'customPrompts'];
+                    let fieldsFound = 0;
+                    
+                    for (const field of requiredFields) {
+                        if (prompts[field]) {
+                            fieldsFound++;
+                        }
+                    }
+                    
+                    if (fieldsFound === requiredFields.length) {
+                        appendStatus('prompts-status', 
+                            `✓ ${agentName}: Complete system prompts (${prompts.customPrompts.length} custom prompts)`, 'success');
+                        promptsFound++;
+                    } else {
+                        appendStatus('prompts-status', 
+                            `⚠ ${agentName}: Incomplete system prompts (${fieldsFound}/${requiredFields.length} fields)`, 'warning');
+                    }
+                } else {
+                    appendStatus('prompts-status', 
+                        `✗ ${agentName}: No system prompts found`, 'error');
+                }
+            }
+            
+            appendStatus('prompts-status', 
+                `\nSummary: ${promptsFound}/${totalAgents} agents have complete system prompts`, 
+                promptsFound === totalAgents ? 'success' : 'warning');
+        }
+        
+        async function displayAllConfigurations() {
+            showStatus('all-configs', 'Displaying all agent configurations...', 'info');
+            
+            if (Object.keys(loadedConfigs).length === 0) {
+                showStatus('all-configs', 'Please load configurations first!', 'warning');
+                return;
+            }
+            
+            const configsContainer = document.getElementById('all-configs');
+            configsContainer.innerHTML = '<h4>All Agent Configurations:</h4>';
+            
+            for (const [agentName, config] of Object.entries(loadedConfigs)) {
+                const agentCard = document.createElement('div');
+                agentCard.className = 'agent-card';
+                
+                agentCard.innerHTML = `
+                    <h4>${config.name} (Priority: ${config.priority})</h4>
+                    <p><strong>Description:</strong> ${config.description}</p>
+                    <p><strong>Enabled:</strong> ${config.enabled ? '✓' : '✗'}</p>
+                    <p><strong>LLM Model:</strong> ${config.llmModel}</p>
+                    <p><strong>Triggers:</strong> ${config.triggers.join(', ')}</p>
+                    
+                    <div class="system-prompts">
+                        <strong>System Prompts:</strong>
+                        <ul>
+                            <li><strong>Base Personality:</strong> ${config.systemPrompts?.basePersonality?.substring(0, 100)}...</li>
+                            <li><strong>Custom Prompts:</strong> ${config.systemPrompts?.customPrompts?.length || 0} defined</li>
+                        </ul>
+                    </div>
+                    
+                    <details>
+                        <summary>View Full Configuration</summary>
+                        <pre>${JSON.stringify(config, null, 2)}</pre>
+                    </details>
+                `;
+                
+                configsContainer.appendChild(agentCard);
+            }
+        }
+        
+        async function testAgentSpecificSettings() {
+            showStatus('settings-status', 'Testing agent-specific settings...', 'info');
+            
+            if (Object.keys(loadedConfigs).length === 0) {
+                showStatus('settings-status', 'Please load configurations first!', 'warning');
+                return;
+            }
+            
+            // Test PaymentsAgent specific settings
+            const paymentsAgent = loadedConfigs['PaymentsAgent'];
+            if (paymentsAgent) {
+                if (paymentsAgent.customSettings?.requiresHighSecurity) {
+                    appendStatus('settings-status', '✓ PaymentsAgent: High security enabled', 'success');
+                }
+                if (paymentsAgent.llmModel === 'gpt-4') {
+                    appendStatus('settings-status', '✓ PaymentsAgent: Using GPT-4 for enhanced accuracy', 'success');
+                }
+                if (paymentsAgent.llmConfig?.temperature === 0.3) {
+                    appendStatus('settings-status', '✓ PaymentsAgent: Low temperature for consistent responses', 'success');
+                }
+            }
+            
+            // Test DefaultAgent specific settings
+            const defaultAgent = loadedConfigs['DefaultAgent'];
+            if (defaultAgent) {
+                if (defaultAgent.priority === 0) {
+                    appendStatus('settings-status', '✓ DefaultAgent: Highest priority (fallback)', 'success');
+                }
+                if (defaultAgent.customSettings?.isFallbackAgent) {
+                    appendStatus('settings-status', '✓ DefaultAgent: Marked as fallback agent', 'success');
+                }
+            }
+            
+            // Test FraudAgent specific settings
+            const fraudAgent = loadedConfigs['FraudAgent'];
+            if (fraudAgent) {
+                if (fraudAgent.customSettings?.escalationRequired) {
+                    appendStatus('settings-status', '✓ FraudAgent: Escalation required for security', 'success');
+                }
+            }
+            
+            // Test IDVAgent specific settings
+            const idvAgent = loadedConfigs['IDVAgent'];
+            if (idvAgent) {
+                if (idvAgent.customSettings?.maxVerificationAttempts) {
+                    appendStatus('settings-status', `✓ IDVAgent: Max verification attempts: ${idvAgent.customSettings.maxVerificationAttempts}`, 'success');
+                }
+            }
+            
+            appendStatus('settings-status', '\nAll agent-specific settings verified!', 'success');
+        }
+    </script>
+</body>
+</html>

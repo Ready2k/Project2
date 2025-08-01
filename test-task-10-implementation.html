@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task 10 Implementation Test - LLM Manager Initialization and Integration</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .details {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .test-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .test-card h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-success { background: #27ae60; }
+        .status-error { background: #e74c3c; }
+        .status-warning { background: #f39c12; }
+        .status-info { background: #3498db; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Task 10 Implementation Test</h1>
+        <p><strong>Task:</strong> Update LLM Manager initialization and integration</p>
+        <p><strong>Requirements:</strong> Ensure Default Agent is properly initialized when LLM Manager loads, update agent configuration loading to include Default Agent, test integration with existing SystemPromptsManager functionality</p>
+
+        <div class="test-section">
+            <h2>Test Controls</h2>
+            <button onclick="runAllTests()">🚀 Run All Tests</button>
+            <button onclick="testInitialization()">🔧 Test Initialization</button>
+            <button onclick="testDefaultAgentLoading()">🤖 Test Default Agent Loading</button>
+            <button onclick="testSystemPromptsIntegration()">🔗 Test System Prompts Integration</button>
+            <button onclick="clearResults()">🧹 Clear Results</button>
+        </div>
+
+        <div id="results"></div>
+
+        <div class="test-grid">
+            <div class="test-card">
+                <h3>📊 Test Statistics</h3>
+                <div id="testStats">
+                    <p>Total Tests: <span id="totalTests">0</span></p>
+                    <p>Passed: <span id="passedTests">0</span></p>
+                    <p>Failed: <span id="failedTests">0</span></p>
+                    <p>Success Rate: <span id="successRate">0%</span></p>
+                </div>
+            </div>
+
+            <div class="test-card">
+                <h3>🔍 Component Status</h3>
+                <div id="componentStatus">
+                    <p><span class="status-indicator status-info"></span>Loading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+
+    <script>
+        let testResults = [];
+        let adminUI = null;
+
+        // Initialize components
+        window.addEventListener('load', async () => {
+            try {
+                // Initialize debug manager
+                if (typeof DebugManager !== 'undefined') {
+                    window.debugManager = new DebugManager();
+                    logResult('✅ Debug Manager initialized', 'success');
+                } else {
+                    logResult('⚠️ Debug Manager not available, using console fallback', 'warning');
+                    window.debugManager = {
+                        createModuleLogger: (module) => ({
+                            log: (...args) => console.log(`[${module}]`, ...args),
+                            debug: (...args) => console.debug(`[${module}]`, ...args),
+                            info: (...args) => console.info(`[${module}]`, ...args),
+                            warn: (...args) => console.warn(`[${module}]`, ...args),
+                            error: (...args) => console.error(`[${module}]`, ...args)
+                        })
+                    };
+                }
+
+                // Check component availability
+                updateComponentStatus();
+
+                logResult('🎯 Task 10 Test Environment Ready', 'info');
+            } catch (error) {
+                logResult('❌ Error initializing test environment: ' + error.message, 'error');
+            }
+        });
+
+        function updateComponentStatus() {
+            const components = [
+                { name: 'DebugManager', available: typeof DebugManager !== 'undefined' },
+                { name: 'SystemPromptsManager', available: typeof SystemPromptsManager !== 'undefined' },
+                { name: 'GuardrailsManager', available: typeof GuardrailsManager !== 'undefined' },
+                { name: 'VoiceConfigManager', available: typeof VoiceConfigManager !== 'undefined' },
+                { name: 'LLMManager', available: typeof LLMManager !== 'undefined' },
+                { name: 'LLMManagerAdminUI', available: typeof LLMManagerAdminUI !== 'undefined' }
+            ];
+
+            const statusHtml = components.map(comp => {
+                const statusClass = comp.available ? 'status-success' : 'status-error';
+                const statusText = comp.available ? '✅' : '❌';
+                return `<p><span class="status-indicator ${statusClass}"></span>${statusText} ${comp.name}</p>`;
+            }).join('');
+
+            document.getElementById('componentStatus').innerHTML = statusHtml;
+        }
+
+        async function runAllTests() {
+            clearResults();
+            logResult('🚀 Starting Task 10 Implementation Tests', 'info');
+
+            try {
+                await testInitialization();
+                await testDefaultAgentLoading();
+                await testSystemPromptsIntegration();
+                
+                logResult('✅ All Task 10 tests completed', 'success');
+                updateTestStats();
+            } catch (error) {
+                logResult('❌ Error running tests: ' + error.message, 'error');
+            }
+        }
+
+        async function testInitialization() {
+            logResult('🔧 Testing LLM Manager Initialization and Integration', 'info');
+
+            try {
+                // Test 1: Initialize LLM Manager Admin UI
+                logResult('📋 Test 1: LLM Manager Admin UI Initialization', 'info');
+                
+                if (typeof LLMManagerAdminUI === 'undefined') {
+                    throw new Error('LLMManagerAdminUI class not available');
+                }
+
+                adminUI = new LLMManagerAdminUI();
+                
+                // Wait for initialization to complete
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                if (adminUI.llmManager) {
+                    logResult('✅ LLM Manager Admin UI initialized successfully', 'success');
+                    testResults.push({ name: 'LLM Manager Admin UI Initialization', success: true });
+                } else {
+                    throw new Error('LLM Manager not properly initialized in Admin UI');
+                }
+
+                // Test 2: Check if Default Agent initialization method exists
+                logResult('📋 Test 2: Default Agent Integration Methods', 'info');
+                
+                const requiredMethods = [
+                    'initializeDefaultAgentIntegration',
+                    'ensureDefaultAgentLoaded',
+                    'testSystemPromptsManagerIntegration',
+                    'initializeDefaultAgentOnStartup'
+                ];
+
+                for (const method of requiredMethods) {
+                    if (typeof adminUI[method] === 'function') {
+                        logResult(`✅ Method ${method} exists`, 'success');
+                        testResults.push({ name: `Method ${method} exists`, success: true });
+                    } else {
+                        logResult(`❌ Method ${method} missing`, 'error');
+                        testResults.push({ name: `Method ${method} exists`, success: false });
+                    }
+                }
+
+                // Test 3: Check LLM Manager has Default Agent configuration methods
+                logResult('📋 Test 3: LLM Manager Default Agent Methods', 'info');
+                
+                if (typeof adminUI.llmManager.ensureDefaultAgentConfiguration === 'function') {
+                    logResult('✅ LLM Manager has ensureDefaultAgentConfiguration method', 'success');
+                    testResults.push({ name: 'LLM Manager ensureDefaultAgentConfiguration method', success: true });
+                } else {
+                    logResult('❌ LLM Manager missing ensureDefaultAgentConfiguration method', 'error');
+                    testResults.push({ name: 'LLM Manager ensureDefaultAgentConfiguration method', success: false });
+                }
+
+            } catch (error) {
+                logResult('❌ Initialization test failed: ' + error.message, 'error');
+                testResults.push({ name: 'LLM Manager Initialization', success: false });
+            }
+        }
+
+        async function testDefaultAgentLoading() {
+            logResult('🤖 Testing Default Agent Loading and Configuration', 'info');
+
+            try {
+                if (!adminUI) {
+                    throw new Error('Admin UI not initialized');
+                }
+
+                // Test 1: Ensure Default Agent is loaded
+                logResult('📋 Test 1: Default Agent Loading', 'info');
+                
+                const isLoaded = await adminUI.ensureDefaultAgentLoaded();
+                
+                if (isLoaded) {
+                    logResult('✅ Default Agent loaded successfully', 'success');
+                    testResults.push({ name: 'Default Agent Loading', success: true });
+                } else {
+                    logResult('❌ Default Agent failed to load', 'error');
+                    testResults.push({ name: 'Default Agent Loading', success: false });
+                }
+
+                // Test 2: Check Default Agent configuration
+                logResult('📋 Test 2: Default Agent Configuration', 'info');
+                
+                const defaultAgent = adminUI.llmManager.getAgentConfiguration('DefaultAgent');
+                
+                if (defaultAgent) {
+                    logResult('✅ Default Agent configuration retrieved', 'success');
+                    testResults.push({ name: 'Default Agent Configuration Retrieval', success: true });
+
+                    // Check for system prompts integration
+                    if (defaultAgent.systemPrompts) {
+                        logResult('✅ Default Agent has system prompts integration', 'success');
+                        testResults.push({ name: 'Default Agent System Prompts Integration', success: true });
+
+                        // Check required fields
+                        const requiredFields = ['basePersonality', 'financialContext', 'responseInstructions', 'customPrompts'];
+                        let allFieldsPresent = true;
+
+                        for (const field of requiredFields) {
+                            if (defaultAgent.systemPrompts.hasOwnProperty(field)) {
+                                logResult(`✅ System prompts field '${field}' present`, 'success');
+                            } else {
+                                logResult(`❌ System prompts field '${field}' missing`, 'error');
+                                allFieldsPresent = false;
+                            }
+                        }
+
+                        testResults.push({ name: 'Default Agent System Prompts Fields', success: allFieldsPresent });
+                    } else {
+                        logResult('❌ Default Agent lacks system prompts integration', 'error');
+                        testResults.push({ name: 'Default Agent System Prompts Integration', success: false });
+                    }
+
+                    // Display configuration details
+                    const details = `
+Name: ${defaultAgent.name}
+Description: ${defaultAgent.description}
+Priority: ${defaultAgent.priority}
+Enabled: ${defaultAgent.enabled}
+LLM Provider: ${defaultAgent.llmProvider}
+LLM Model: ${defaultAgent.llmModel}
+Max Tokens: ${defaultAgent.maxTokens}
+Has System Prompts: ${!!defaultAgent.systemPrompts}
+Last Updated: ${defaultAgent.lastUpdated}
+                    `;
+                    logResult('Default Agent Configuration Details:', 'info', details);
+
+                } else {
+                    logResult('❌ Default Agent configuration not found', 'error');
+                    testResults.push({ name: 'Default Agent Configuration Retrieval', success: false });
+                }
+
+                // Test 3: Test Default Agent integration verification
+                logResult('📋 Test 3: Default Agent Integration Verification', 'info');
+                
+                const verificationResult = await adminUI.verifyDefaultAgentIntegration();
+                
+                if (verificationResult.success) {
+                    logResult('✅ Default Agent integration verification passed', 'success');
+                    testResults.push({ name: 'Default Agent Integration Verification', success: true });
+                    
+                    if (verificationResult.details.length > 0) {
+                        logResult('Verification Details:', 'info', verificationResult.details.join('\n'));
+                    }
+                } else {
+                    logResult('❌ Default Agent integration verification failed: ' + verificationResult.error, 'error');
+                    testResults.push({ name: 'Default Agent Integration Verification', success: false });
+                }
+
+            } catch (error) {
+                logResult('❌ Default Agent loading test failed: ' + error.message, 'error');
+                testResults.push({ name: 'Default Agent Loading Test', success: false });
+            }
+        }
+
+        async function testSystemPromptsIntegration() {
+            logResult('🔗 Testing System Prompts Manager Integration', 'info');
+
+            try {
+                if (!adminUI) {
+                    throw new Error('Admin UI not initialized');
+                }
+
+                // Test 1: SystemPromptsManager availability
+                logResult('📋 Test 1: SystemPromptsManager Availability', 'info');
+                
+                if (adminUI.systemPromptsManager) {
+                    logResult('✅ SystemPromptsManager is available in Admin UI', 'success');
+                    testResults.push({ name: 'SystemPromptsManager Availability', success: true });
+                } else {
+                    logResult('⚠️ SystemPromptsManager not available in Admin UI', 'warning');
+                    testResults.push({ name: 'SystemPromptsManager Availability', success: false });
+                }
+
+                // Test 2: Integration test
+                logResult('📋 Test 2: SystemPromptsManager Integration Test', 'info');
+                
+                const integrationResult = await adminUI.testSystemPromptsManagerIntegration();
+                
+                if (integrationResult.success) {
+                    logResult('✅ SystemPromptsManager integration test passed', 'success');
+                    testResults.push({ name: 'SystemPromptsManager Integration Test', success: true });
+                } else {
+                    logResult('❌ SystemPromptsManager integration test failed: ' + integrationResult.error, 'error');
+                    testResults.push({ name: 'SystemPromptsManager Integration Test', success: false });
+                }
+
+                // Display detailed test results
+                if (integrationResult.tests && integrationResult.tests.length > 0) {
+                    let testDetails = 'Integration Test Details:\n';
+                    integrationResult.tests.forEach(test => {
+                        const status = test.success ? '✅' : '❌';
+                        testDetails += `${status} ${test.name}: ${test.details || test.error || 'No details'}\n`;
+                    });
+                    logResult('Integration Test Results:', 'info', testDetails);
+                }
+
+                // Test 3: Data conversion functionality
+                logResult('📋 Test 3: Data Conversion Functionality', 'info');
+                
+                if (typeof adminUI.convertSystemPromptsToLLMManagerFormat === 'function') {
+                    logResult('✅ System prompts to LLM Manager conversion method exists', 'success');
+                    testResults.push({ name: 'Data Conversion Method Exists', success: true });
+
+                    // Test conversion with sample data
+                    const sampleSystemPrompts = {
+                        basePersonality: 'Test personality',
+                        financialContext: 'Test financial context',
+                        responseInstructions: 'Test response instructions',
+                        customPrompts: [
+                            { name: 'Test Prompt', prompt: 'Test prompt content', id: 'test-1' }
+                        ]
+                    };
+
+                    try {
+                        const converted = adminUI.convertSystemPromptsToLLMManagerFormat(sampleSystemPrompts);
+                        
+                        if (converted && converted.systemPrompts) {
+                            logResult('✅ Data conversion works correctly', 'success');
+                            testResults.push({ name: 'Data Conversion Functionality', success: true });
+                        } else {
+                            logResult('❌ Data conversion returned invalid format', 'error');
+                            testResults.push({ name: 'Data Conversion Functionality', success: false });
+                        }
+                    } catch (conversionError) {
+                        logResult('❌ Data conversion failed: ' + conversionError.message, 'error');
+                        testResults.push({ name: 'Data Conversion Functionality', success: false });
+                    }
+                } else {
+                    logResult('❌ Data conversion method missing', 'error');
+                    testResults.push({ name: 'Data Conversion Method Exists', success: false });
+                }
+
+            } catch (error) {
+                logResult('❌ System Prompts integration test failed: ' + error.message, 'error');
+                testResults.push({ name: 'System Prompts Integration Test', success: false });
+            }
+        }
+
+        function logResult(message, type = 'info', details = null) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            
+            if (details) {
+                const detailsDiv = document.createElement('div');
+                detailsDiv.className = 'details';
+                detailsDiv.textContent = details;
+                div.appendChild(detailsDiv);
+            }
+            
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            testResults = [];
+            updateTestStats();
+        }
+
+        function updateTestStats() {
+            const total = testResults.length;
+            const passed = testResults.filter(t => t.success).length;
+            const failed = total - passed;
+            const successRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+
+            document.getElementById('totalTests').textContent = total;
+            document.getElementById('passedTests').textContent = passed;
+            document.getElementById('failedTests').textContent = failed;
+            document.getElementById('successRate').textContent = successRate + '%';
+        }
+    </script>
+</body>
+</html>

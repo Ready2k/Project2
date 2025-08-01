@@ -72,13 +72,7 @@ class MainInterfaceController {
             });
         });
 
-        // Prompt tabs
-        document.querySelectorAll('.prompt-tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                const promptType = e.target.getAttribute('data-prompt');
-                this.switchPromptTab(promptType);
-            });
-        });
+
     }
 
     openPanel(panelId) {
@@ -153,19 +147,7 @@ class MainInterfaceController {
         document.getElementById(`${sectionId}-section`).classList.add('active');
     }
 
-    switchPromptTab(promptType) {
-        // Update tabs
-        document.querySelectorAll('.prompt-tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        document.querySelector(`[data-prompt="${promptType}"]`).classList.add('active');
 
-        // Update content
-        document.querySelectorAll('.prompt-panel').forEach(panel => {
-            panel.classList.remove('active');
-        });
-        document.getElementById(`${promptType}-prompt`).classList.add('active');
-    }
 
     // Utility methods for integration with existing functionality
     updateAgentIndicator(agentName) {
@@ -309,18 +291,15 @@ class MainInterfaceController {
 
 // Quick action functions
 function suggestPhrase(phrase) {
-    // Add the phrase to the conversation as a user message
-    if (window.speechApp && typeof window.speechApp.addUserMessage === 'function') {
-        window.speechApp.addUserMessage(phrase);
-        // Optionally trigger processing
-        if (typeof window.speechApp.processTextInput === 'function') {
-            window.speechApp.processTextInput(phrase);
-        }
-    } else if (window.agentIconManager) {
-        // Use agent icon manager for consistent styling
-        window.agentIconManager.addMessage(phrase, 'user');
+    console.log('suggestPhrase called with:', phrase);
+    
+    // Process the text input directly - this will handle adding the message and generating response
+    if (window.speechApp && typeof window.speechApp.processTextInput === 'function') {
+        console.log('Triggering speechApp.processTextInput');
+        window.speechApp.processTextInput(phrase);
     } else {
-        // Fallback: just add to conversation display
+        // Fallback: just add to conversation display if speechApp is not available
+        console.log('Using fallback conversation display - speechApp not available');
         const conversation = document.getElementById('conversation');
         if (conversation) {
             const userMessage = document.createElement('div');
@@ -337,6 +316,38 @@ function suggestPhrase(phrase) {
             conversation.scrollTop = conversation.scrollHeight;
         }
     }
+}
+
+// Make sure the function is globally accessible
+window.suggestPhrase = suggestPhrase;
+
+// Backup implementation in case of issues
+if (!window.suggestPhrase) {
+    window.suggestPhrase = function(phrase) {
+        console.log('Using backup suggestPhrase implementation');
+        
+        // Simple fallback - just add to conversation
+        const conversation = document.getElementById('conversation');
+        if (conversation) {
+            const userMessage = document.createElement('div');
+            userMessage.className = 'user-message';
+            userMessage.innerHTML = `
+                <div class="message-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">${phrase}</div>
+                </div>
+            `;
+            conversation.appendChild(userMessage);
+            conversation.scrollTop = conversation.scrollHeight;
+            
+            // Try to process the input
+            if (window.speechApp && typeof window.speechApp.processTextInput === 'function') {
+                window.speechApp.processTextInput(phrase);
+            }
+        }
+    };
 }
 
 // Debug utility functions
@@ -425,27 +436,57 @@ function openFullLLMManager() {
 }
 
 function refreshLLMData() {
-    // Trigger refresh of LLM data
-    if (window.speechApp && window.speechApp.agentRouter) {
-        const stats = window.speechApp.agentRouter.getStats();
-        window.mainInterface.updateAgentStats(stats);
+    // Trigger refresh of LLM data using LLM Manager
+    try {
+        // Check if LLM Manager is available
+        if (typeof LLMManager === 'undefined') {
+            throw new Error('LLM Manager not available');
+        }
+        
+        // Create fresh LLM Manager instance to get latest data
+        const llmManager = new LLMManager();
+        const stats = llmManager.getConfigurationStats();
         
         // Update LLM specific stats
-        const llmStats = {
-            total: stats.totalAgents,
-            enabled: stats.enabledAgents,
-            lastUpdated: new Date().toLocaleTimeString()
-        };
+        document.getElementById('llmTotalAgents').textContent = stats.totalAgents;
+        document.getElementById('llmEnabledAgents').textContent = stats.enabledAgents;
+        document.getElementById('llmLastUpdated').textContent = stats.lastUpdated ? 
+            new Date(stats.lastUpdated).toLocaleString() : 'Never';
         
-        document.getElementById('llmTotalAgents').textContent = llmStats.total;
-        document.getElementById('llmEnabledAgents').textContent = llmStats.enabled;
-        document.getElementById('llmLastUpdated').textContent = llmStats.lastUpdated;
+        console.log('LLM data refreshed:', stats);
+        
+        // Also update agent router stats if available
+        if (window.speechApp && window.speechApp.agentRouter) {
+            const routerStats = window.speechApp.agentRouter.getStats();
+            window.mainInterface.updateAgentStats(routerStats);
+        }
+        
+    } catch (error) {
+        console.error('Error refreshing LLM data:', error);
+        
+        // Fallback to agent router if LLM Manager fails
+        if (window.speechApp && window.speechApp.agentRouter) {
+            const stats = window.speechApp.agentRouter.getStats();
+            window.mainInterface.updateAgentStats(stats);
+            
+            document.getElementById('llmTotalAgents').textContent = stats.totalAgents || '0';
+            document.getElementById('llmEnabledAgents').textContent = stats.enabledAgents || '0';
+            document.getElementById('llmLastUpdated').textContent = new Date().toLocaleTimeString();
+        }
     }
 }
 
 // Initialize the main interface controller when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.mainInterface = new MainInterfaceController();
+    
+    // Ensure suggestPhrase is globally available
+    if (typeof suggestPhrase === 'function') {
+        window.suggestPhrase = suggestPhrase;
+        console.log('✅ suggestPhrase function made globally available');
+    } else {
+        console.error('❌ suggestPhrase function not found during initialization');
+    }
     
     // Initialize token update buttons
     const updateTokensBtn = document.getElementById('updateTokens');

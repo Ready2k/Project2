@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test LLM Admin UI Fix</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { margin: 5px; padding: 8px 16px; }
+        textarea { width: 100%; height: 100px; margin: 5px 0; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test LLM Admin UI Fix</h1>
+    <p>This test verifies that the LLM Manager Admin UI correctly loads agent configurations from the config/agents/*.json files.</p>
+
+    <div id="test-results"></div>
+
+    <div class="test-section">
+        <h3>Test 1: Load AgentConfigManager</h3>
+        <button onclick="testAgentConfigManager()">Run Test</button>
+        <div id="test1-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 2: Load Agent Configurations</h3>
+        <button onclick="testLoadConfigurations()">Run Test</button>
+        <div id="test2-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 3: Generate Agent Prompt Cards</h3>
+        <button onclick="testGenerateCards()">Run Test</button>
+        <div id="test3-result"></div>
+        <div id="test-cards-container" style="margin-top: 10px;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 4: Verify System Prompts Content</h3>
+        <button onclick="testSystemPromptsContent()">Run Test</button>
+        <div id="test4-result"></div>
+        <pre id="prompts-content" style="display: none;"></pre>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="agents/agent-config-manager.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+
+    <script>
+        let testResults = [];
+
+        function logTest(testName, success, message, details = null) {
+            const result = { testName, success, message, details, timestamp: new Date().toISOString() };
+            testResults.push(result);
+            
+            const resultDiv = document.getElementById(testName.toLowerCase().replace(/\s+/g, '') + '-result');
+            if (resultDiv) {
+                resultDiv.className = success ? 'success' : 'error';
+                resultDiv.innerHTML = `<strong>${success ? '✅' : '❌'} ${testName}:</strong> ${message}`;
+                if (details) {
+                    resultDiv.innerHTML += `<br><small>${details}</small>`;
+                }
+            }
+        }
+
+        async function testAgentConfigManager() {
+            try {
+                // Test if AgentConfigManager is available
+                if (typeof AgentConfigManager === 'undefined') {
+                    logTest('test1', false, 'AgentConfigManager class not found');
+                    return;
+                }
+
+                // Create instance
+                window.testAgentConfigManager = new AgentConfigManager();
+                
+                // Wait for initialization
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                // Check if it has the expected methods
+                const expectedMethods = ['getAgentConfig', 'setAgentConfig', 'loadAgentConfiguration'];
+                const missingMethods = expectedMethods.filter(method => 
+                    typeof window.testAgentConfigManager[method] !== 'function'
+                );
+                
+                if (missingMethods.length > 0) {
+                    logTest('test1', false, `Missing methods: ${missingMethods.join(', ')}`);
+                    return;
+                }
+
+                logTest('test1', true, 'AgentConfigManager loaded successfully', 
+                    `Instance created with expected methods: ${expectedMethods.join(', ')}`);
+                
+            } catch (error) {
+                logTest('test1', false, `Error: ${error.message}`);
+            }
+        }
+
+        async function testLoadConfigurations() {
+            try {
+                if (!window.testAgentConfigManager) {
+                    await testAgentConfigManager();
+                }
+
+                // Test loading specific agent configurations
+                const agents = ['DefaultAgent', 'PaymentsAgent', 'FraudAgent', 'IDVAgent', 'BankingInfoAgent'];
+                const loadedAgents = [];
+                const failedAgents = [];
+
+                for (const agentName of agents) {
+                    try {
+                        const config = window.testAgentConfigManager.getAgentConfig(agentName);
+                        if (config && config.systemPrompts) {
+                            loadedAgents.push(agentName);
+                        } else {
+                            failedAgents.push(`${agentName} (no systemPrompts)`);
+                        }
+                    } catch (error) {
+                        failedAgents.push(`${agentName} (${error.message})`);
+                    }
+                }
+
+                if (loadedAgents.length === agents.length) {
+                    logTest('test2', true, `All ${loadedAgents.length} agent configurations loaded successfully`, 
+                        `Loaded: ${loadedAgents.join(', ')}`);
+                } else {
+                    logTest('test2', false, `Only ${loadedAgents.length}/${agents.length} configurations loaded`, 
+                        `Failed: ${failedAgents.join(', ')}`);
+                }
+
+            } catch (error) {
+                logTest('test2', false, `Error: ${error.message}`);
+            }
+        }
+
+        async function testGenerateCards() {
+            try {
+                if (!window.testAgentConfigManager) {
+                    await testAgentConfigManager();
+                }
+
+                // Create a test container
+                const container = document.getElementById('test-cards-container');
+                container.innerHTML = '<div id="agents-prompts-grid" class="agents-grid" style="display: grid; grid-template-columns: 1fr; gap: 10px;"></div>';
+
+                // Test the generateAgentPromptCards function
+                if (typeof generateAgentPromptCards !== 'function') {
+                    logTest('test3', false, 'generateAgentPromptCards function not found');
+                    return;
+                }
+
+                // Set up global reference for the function
+                window.agentConfigManager = window.testAgentConfigManager;
+
+                await generateAgentPromptCards();
+
+                const generatedCards = container.querySelectorAll('.agent-prompt-card');
+                
+                if (generatedCards.length > 0) {
+                    logTest('test3', true, `Generated ${generatedCards.length} agent prompt cards`, 
+                        `Cards created for agents with system prompts`);
+                } else {
+                    logTest('test3', false, 'No agent prompt cards were generated');
+                }
+
+            } catch (error) {
+                logTest('test3', false, `Error: ${error.message}`);
+            }
+        }
+
+        async function testSystemPromptsContent() {
+            try {
+                if (!window.testAgentConfigManager) {
+                    await testAgentConfigManager();
+                }
+
+                const defaultAgentConfig = window.testAgentConfigManager.getAgentConfig('DefaultAgent');
+                
+                if (!defaultAgentConfig) {
+                    logTest('test4', false, 'DefaultAgent configuration not found');
+                    return;
+                }
+
+                if (!defaultAgentConfig.systemPrompts) {
+                    logTest('test4', false, 'DefaultAgent systemPrompts not found');
+                    return;
+                }
+
+                const prompts = defaultAgentConfig.systemPrompts;
+                const requiredFields = ['basePersonality', 'financialContext', 'responseInstructions'];
+                const missingFields = requiredFields.filter(field => !prompts[field] || prompts[field].trim().length === 0);
+
+                const contentDiv = document.getElementById('prompts-content');
+                contentDiv.textContent = JSON.stringify(prompts, null, 2);
+                contentDiv.style.display = 'block';
+
+                if (missingFields.length === 0) {
+                    logTest('test4', true, 'DefaultAgent system prompts contain all required fields', 
+                        `Fields: ${requiredFields.join(', ')}`);
+                } else {
+                    logTest('test4', false, `Missing or empty fields: ${missingFields.join(', ')}`);
+                }
+
+            } catch (error) {
+                logTest('test4', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Auto-run all tests on page load
+        window.addEventListener('load', async () => {
+            console.log('🧪 Starting automated tests...');
+            await testAgentConfigManager();
+            await testLoadConfigurations();
+            await testGenerateCards();
+            await testSystemPromptsContent();
+            console.log('🧪 All tests completed');
+        });
+    </script>
+</body>
+</html>

@@ -1,12 +1,22 @@
 /**
  * AgentConfigManager - Manages agent configuration, enabling/disabling, and priorities
  * Provides runtime configuration management for the agent system
+ * Now loads from individual JSON files for each agent
  */
 class AgentConfigManager {
     constructor() {
         this.debug = window.debugManager.createModuleLogger('AgentConfigManager');
         
-        // Default configuration for all agents
+        // Agent configuration files mapping
+        this.agentConfigFiles = {
+            'DefaultAgent': 'config/agents/default-agent-config.json',
+            'PaymentsAgent': 'config/agents/payments-agent-config.json',
+            'FraudAgent': 'config/agents/fraud-agent-config.json',
+            'IDVAgent': 'config/agents/idv-agent-config.json',
+            'BankingInfoAgent': 'config/agents/banking-info-agent-config.json'
+        };
+        
+        // Default configuration template for new agents
         this.defaultConfig = {
             enabled: true,
             priority: 100,
@@ -27,8 +37,9 @@ class AgentConfigManager {
             customSettings: {}
         };
         
-        // Load configuration from localStorage or use defaults
-        this.loadConfiguration();
+        // Initialize configurations
+        this.agentConfigs = {};
+        this.loadAllConfigurations();
         
         this.debug.info('AgentConfigManager initialized', {
             configuredAgents: Object.keys(this.agentConfigs).length
@@ -36,34 +47,112 @@ class AgentConfigManager {
     }
     
     /**
-     * Load agent configurations from localStorage
+     * Load all agent configurations from JSON files
      */
-    loadConfiguration() {
-        try {
-            const savedConfig = localStorage.getItem('agent_configurations');
-            if (savedConfig) {
-                this.agentConfigs = JSON.parse(savedConfig);
-                this.debug.info('Agent configurations loaded from storage');
-            } else {
-                this.agentConfigs = this.getDefaultConfigurations();
-                this.saveConfiguration();
-                this.debug.info('Default agent configurations created');
+    async loadAllConfigurations() {
+        this.debug.info('Loading agent configurations from JSON files');
+        
+        for (const [agentName, filePath] of Object.entries(this.agentConfigFiles)) {
+            try {
+                await this.loadAgentConfiguration(agentName, filePath);
+            } catch (error) {
+                this.debug.error(`Failed to load configuration for ${agentName}`, { 
+                    error: error.message, 
+                    filePath 
+                });
+                // Use default configuration as fallback
+                this.agentConfigs[agentName] = {
+                    ...this.defaultConfig,
+                    name: agentName,
+                    description: `${agentName} - Configuration failed to load`
+                };
             }
+        }
+        
+        this.debug.info('Agent configurations loaded', {
+            loadedAgents: Object.keys(this.agentConfigs)
+        });
+    }
+    
+    /**
+     * Load configuration for a specific agent from its JSON file
+     * @param {string} agentName - Name of the agent
+     * @param {string} filePath - Path to the agent's config file
+     */
+    async loadAgentConfiguration(agentName, filePath) {
+        try {
+            const response = await fetch(filePath);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const config = await response.json();
+            
+            // Validate the configuration
+            if (!this.validateSingleConfiguration(config)) {
+                throw new Error('Invalid configuration format');
+            }
+            
+            this.agentConfigs[agentName] = config;
+            this.debug.info(`Configuration loaded for ${agentName}`, { filePath });
+            
         } catch (error) {
-            this.debug.error('Failed to load agent configurations', { error: error.message });
-            this.agentConfigs = this.getDefaultConfigurations();
+            this.debug.error(`Failed to load ${agentName} configuration`, { 
+                error: error.message, 
+                filePath 
+            });
+            throw error;
         }
     }
     
     /**
-     * Save agent configurations to localStorage
+     * Save agent configuration to its JSON file
+     * @param {string} agentName - Name of the agent
      */
-    saveConfiguration() {
+    async saveAgentConfiguration(agentName) {
+        const filePath = this.agentConfigFiles[agentName];
+        if (!filePath) {
+            this.debug.error('No file path configured for agent', { agentName });
+            return false;
+        }
+        
         try {
-            localStorage.setItem('agent_configurations', JSON.stringify(this.agentConfigs));
-            this.debug.info('Agent configurations saved to storage');
+            const config = this.agentConfigs[agentName];
+            if (!config) {
+                throw new Error('Agent configuration not found');
+            }
+            
+            // Note: In a browser environment, we can't directly write files
+            // This would need to be handled by a server endpoint or download mechanism
+            this.debug.warn('File saving not implemented in browser environment', { 
+                agentName, 
+                filePath,
+                suggestion: 'Use exportConfiguration() to download updated config'
+            });
+            
+            // For now, also save to localStorage as backup
+            this.saveToLocalStorage();
+            
+            return true;
         } catch (error) {
-            this.debug.error('Failed to save agent configurations', { error: error.message });
+            this.debug.error('Failed to save agent configuration', { 
+                error: error.message, 
+                agentName, 
+                filePath 
+            });
+            return false;
+        }
+    }
+    
+    /**
+     * Save all configurations to localStorage as backup
+     */
+    saveToLocalStorage() {
+        try {
+            localStorage.setItem('agent_configurations_backup', JSON.stringify(this.agentConfigs));
+            this.debug.info('Agent configurations backed up to localStorage');
+        } catch (error) {
+            this.debug.error('Failed to backup agent configurations', { error: error.message });
         }
     }
     
@@ -145,7 +234,7 @@ class AgentConfigManager {
      * @param {string} agentName - Name of the agent
      * @param {Object} config - Configuration object
      */
-    setAgentConfig(agentName, config) {
+    async setAgentConfig(agentName, config) {
         if (!config.name) {
             config.name = agentName;
         }
@@ -155,7 +244,7 @@ class AgentConfigManager {
             ...config
         };
         
-        this.saveConfiguration();
+        await this.saveAgentConfiguration(agentName);
         this.debug.info('Agent configuration updated', { agentName, config });
     }
     
@@ -164,7 +253,7 @@ class AgentConfigManager {
      * @param {string} agentName - Name of the agent
      * @param {Object} updates - Properties to update
      */
-    updateAgentConfig(agentName, updates) {
+    async updateAgentConfig(agentName, updates) {
         if (!this.agentConfigs[agentName]) {
             this.debug.warn('Agent not found for configuration update', { agentName });
             return false;
@@ -175,7 +264,7 @@ class AgentConfigManager {
             ...updates
         };
         
-        this.saveConfiguration();
+        await this.saveAgentConfiguration(agentName);
         this.debug.info('Agent configuration updated', { agentName, updates });
         return true;
     }
@@ -183,34 +272,34 @@ class AgentConfigManager {
     /**
      * Enable an agent
      * @param {string} agentName - Name of the agent to enable
-     * @returns {boolean} - True if successful
+     * @returns {Promise<boolean>} - True if successful
      */
-    enableAgent(agentName) {
-        return this.updateAgentConfig(agentName, { enabled: true });
+    async enableAgent(agentName) {
+        return await this.updateAgentConfig(agentName, { enabled: true });
     }
     
     /**
      * Disable an agent
      * @param {string} agentName - Name of the agent to disable
-     * @returns {boolean} - True if successful
+     * @returns {Promise<boolean>} - True if successful
      */
-    disableAgent(agentName) {
-        return this.updateAgentConfig(agentName, { enabled: false });
+    async disableAgent(agentName) {
+        return await this.updateAgentConfig(agentName, { enabled: false });
     }
     
     /**
      * Set agent priority
      * @param {string} agentName - Name of the agent
      * @param {number} priority - Priority value (lower = higher priority)
-     * @returns {boolean} - True if successful
+     * @returns {Promise<boolean>} - True if successful
      */
-    setAgentPriority(agentName, priority) {
+    async setAgentPriority(agentName, priority) {
         if (typeof priority !== 'number' || priority < 0) {
             this.debug.error('Invalid priority value', { agentName, priority });
             return false;
         }
         
-        return this.updateAgentConfig(agentName, { priority });
+        return await this.updateAgentConfig(agentName, { priority });
     }
     
     /**
@@ -261,12 +350,12 @@ class AgentConfigManager {
     }
     
     /**
-     * Reset all configurations to defaults
+     * Reset all configurations to defaults (reload from files)
      */
-    resetToDefaults() {
-        this.agentConfigs = this.getDefaultConfigurations();
-        this.saveConfiguration();
-        this.debug.info('Agent configurations reset to defaults');
+    async resetToDefaults() {
+        this.agentConfigs = {};
+        await this.loadAllConfigurations();
+        this.debug.info('Agent configurations reset to file defaults');
     }
     
     /**
@@ -312,13 +401,121 @@ class AgentConfigManager {
         }
         
         for (const [agentName, config] of Object.entries(configs)) {
-            if (!config.name || !config.description || typeof config.enabled !== 'boolean') {
+            if (!this.validateSingleConfiguration(config)) {
                 this.debug.error('Invalid agent configuration', { agentName, config });
                 return false;
             }
         }
         
         return true;
+    }
+    
+    /**
+     * Validate a single agent configuration
+     * @param {Object} config - Configuration to validate
+     * @returns {boolean} - True if valid
+     */
+    validateSingleConfiguration(config) {
+        if (!config || typeof config !== 'object') {
+            return false;
+        }
+        
+        // Required fields
+        const requiredFields = ['name', 'description', 'enabled'];
+        for (const field of requiredFields) {
+            if (!(field in config)) {
+                this.debug.error('Missing required field in configuration', { field, config });
+                return false;
+            }
+        }
+        
+        // Type validation
+        if (typeof config.enabled !== 'boolean') {
+            return false;
+        }
+        
+        if (config.priority !== undefined && typeof config.priority !== 'number') {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Add a new agent configuration file
+     * @param {string} agentName - Name of the new agent
+     * @param {string} filePath - Path to the config file
+     * @param {Object} config - Initial configuration
+     */
+    addAgentConfigFile(agentName, filePath, config = null) {
+        this.agentConfigFiles[agentName] = filePath;
+        
+        if (config) {
+            this.agentConfigs[agentName] = {
+                ...this.defaultConfig,
+                ...config,
+                name: agentName
+            };
+        }
+        
+        this.debug.info('Agent config file added', { agentName, filePath });
+    }
+    
+    /**
+     * Remove an agent configuration
+     * @param {string} agentName - Name of the agent to remove
+     */
+    removeAgentConfig(agentName) {
+        delete this.agentConfigFiles[agentName];
+        delete this.agentConfigs[agentName];
+        this.debug.info('Agent configuration removed', { agentName });
+    }
+    
+    /**
+     * Get the file path for an agent's configuration
+     * @param {string} agentName - Name of the agent
+     * @returns {string|null} - File path or null if not found
+     */
+    getAgentConfigFilePath(agentName) {
+        return this.agentConfigFiles[agentName] || null;
+    }
+    
+    /**
+     * List all configured agent files
+     * @returns {Object} - Mapping of agent names to file paths
+     */
+    listAgentConfigFiles() {
+        return { ...this.agentConfigFiles };
+    }
+    
+    /**
+     * Export a single agent configuration for download
+     * @param {string} agentName - Name of the agent
+     * @returns {string|null} - JSON string or null if agent not found
+     */
+    exportAgentConfiguration(agentName) {
+        const config = this.agentConfigs[agentName];
+        if (!config) {
+            this.debug.warn('Agent not found for export', { agentName });
+            return null;
+        }
+        
+        return JSON.stringify(config, null, 2);
+    }
+    
+    /**
+     * Create a download link for an agent configuration
+     * @param {string} agentName - Name of the agent
+     * @returns {string|null} - Data URL for download or null if agent not found
+     */
+    createConfigDownloadLink(agentName) {
+        const configJson = this.exportAgentConfiguration(agentName);
+        if (!configJson) {
+            return null;
+        }
+        
+        const blob = new Blob([configJson], { type: 'application/json' });
+        return URL.createObjectURL(blob);
     }
     
     /**

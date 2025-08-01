@@ -1,6 +1,6 @@
-# 🎤 Voice-to-Voice Financial Services Bot
+# 🎤 Voice-to-Voice Financial Services Assistant
 
-An advanced AI-powered voice assistant for financial services customer support, featuring **dual-mode operation** (Batch & Streaming), real-time speech recognition, natural voice responses, comprehensive customer persona management, and **configurable AI system prompts** - all without touching code!
+An advanced AI-powered voice assistant for financial services customer support with **intelligent agent routing**, **dual-mode operation** (Batch & Streaming), real-time speech recognition, natural voice responses, and comprehensive management interfaces.
 
 ## 🚀 Quick Start
 
@@ -12,129 +12,72 @@ python3 -m http.server 8000
 
 ## ✨ Key Features
 
+### 🤖 **Intelligent Agent System**
+- **Domain-Specific Agents**: Banking Info, Payments, Fraud Detection, Identity Verification
+- **AI-Powered Routing**: Automatic request routing to appropriate specialist agents
+- **Security Boundaries**: Each agent restricted to its domain with audit logging
+- **Guardrails Management**: Configurable capability restrictions per agent
+- **Performance Monitoring**: Real-time metrics and success rate tracking
+
 ### 🔄 **Dual-Mode Operation**
 - **Batch Mode**: Traditional record → process → respond workflow
-- **Streaming Mode**: Real-time conversation using OpenAI Realtime API with full-duplex audio
+- **Streaming Mode**: Real-time conversation using OpenAI Realtime API
 - **Seamless switching** between modes with visual toggle
-- **Mode-specific settings** and optimizations
+- **Agent integration** in both modes for consistent experience
 
-### 🧠 **Advanced LLM Manager System**
-- **Configuration Templates**: Pre-built agent setups (Basic Banking, Security-Focused, Payments Specialist, Customer Service)
-- **Performance Metrics Dashboard**: Real-time monitoring with charts, success rates, and token usage analytics
-- **Configuration Comparison Tools**: Side-by-side agent comparison with compatibility scoring
-- **Scheduled Configuration Changes**: Time-based updates with rollback support and notifications
-- **Multi-Environment Management**: Development, staging, and production environment separation with promotion workflows
+### 🎙️ **Advanced Voice Processing**
+- **OpenAI Whisper**: High-accuracy speech-to-text with financial terminology
+- **OpenAI TTS**: 6 professional voices with customizable speed and quality
+- **Real-time streaming**: Full-duplex audio with voice activity detection
+- **Persistent microphone**: Eliminates repeated permission requests
 
-### 🎙️ **Advanced Speech Recognition**
-- **OpenAI Whisper** integration for high-accuracy speech-to-text
-- **Financial context optimization** for banking terminology
-- **Multi-language support** (English variants: US, UK, AU)
-- **Noise reduction** and audio quality enhancement
-- **Persistent microphone access** - eliminates permission popups
+### 👥 **Customer Persona Management**
+- **JSON-driven personas**: Modular customer profiles with UK banking data
+- **Transaction management**: Real-time balance updates and transaction history
+- **Admin interface**: Visual persona and transaction management
+- **GBP currency formatting**: Proper UK Sterling display (£1,234.56)
 
-### 🗣️ **Natural Voice Responses**
-- **OpenAI TTS** with 6 professional voices (Nova, Shimmer, Onyx, etc.)
-- **High-quality audio** (TTS-1 and TTS-1-HD models)
-- **Customizable speech speed** and voice selection
-- **Natural conversation flow** with proper pauses
+### 🛡️ **Enterprise-Grade Robustness**
+- **Error Recovery**: Automatic retry with exponential backoff
+- **Resource Management**: Proper cleanup of audio streams and connections
+- **Rate Limiting**: API abuse prevention with configurable limits
+- **Audit Logging**: Comprehensive security event tracking
+- **Graceful Degradation**: Fallback mechanisms for component failures
 
-### 👥 **JSON-Driven Customer Persona Management**
-- **Fully modular personas** - extracted to separate JSON file and manager class
-- **UK Sterling currency** - all amounts displayed in proper GBP formatting (£1,234.56)
-- **Transaction management** - add/remove transactions with real-time balance updates
-- **Pre-loaded UK customer profiles** - realistic data with UK merchants
-- **Admin panel** for comprehensive persona and transaction management
-- **Dynamic persona switching** for testing various customer scenarios
+### 🧪 **Comprehensive Testing Framework**
+- **Mock vs Real API**: Switch between simulated and actual OpenAI calls
+- **100+ Test Suites**: Agent routing, security boundaries, performance validation
+- **Failure Simulation**: Network failures, resource constraints, edge cases
+- **Security Testing**: Data access validation and penetration testing
 
-### 🤖 **JSON-Driven AI System Prompts**
-- **Fully modular system prompts** - extracted to separate JSON file and manager class
-- **No-code AI customization** - modify AI behavior by editing JSON or admin panel
-- **Base personality configuration** - set tone, empathy, professionalism
-- **Financial context prompts** - customize banking procedures and UK-specific responses
-- **Real-time prompt testing** - preview generated prompts before use
-- **Banking restrictions** - configurable topic limitations
-
-### 📞 **Full-Duplex Streaming Mode**
-- **Real-time conversation** - Continuous bidirectional audio like a phone call
-- **OpenAI Realtime API** - Direct WebSocket connection to GPT-4o Realtime
-- **Voice Activity Detection** - Server-side VAD with configurable sensitivity
-- **Persona integration** - AI knows customer details (balance, transactions, card info)
-- **Real-time audio streaming** - PCM16 audio processing with proper buffering
-- **Text + Audio responses** - See responses in chat AND hear them spoken
-
-### 💰 **Comprehensive Cost Tracking**
-- **Real-time token usage monitoring** for all OpenAI services
-- **Cost breakdown** by service (Whisper, GPT, TTS)
-- **Usage analytics** with detailed pricing information
-- **Reset functionality** for cost tracking
-
-### 🔍 **Debug & Development Tools**
-- **Real-time API communication display**
-- **Speech-to-text transcription monitoring**
-- **System prompt and GPT response visibility**
-- **Voice generation details and statistics**
-- **Enhanced audio level monitoring** with quality indicators
-
-### 🧪 **Advanced Testing System**
-- **Mock vs Real API Testing** - Switch between simulated and actual OpenAI API calls
-- **Test Mode Selector** - Visual toggle for development vs production testing
-- **Comprehensive Test Suites** - Agent routing, security boundaries, streaming compatibility, semantic matching
-- **Performance Validation** - Token usage tracking and response time monitoring
-- **Security Testing** - Data access boundary validation and audit logging
-- **AI Routing Tests** - Contextual conversation flow and semantic understanding validation
-
-### 🔧 **Professional Admin Interface**
-- **Visual Notification System** - Toast notifications for all user actions with auto-dismiss
-- **Bulk Agent Operations** - Enable/disable all agents with proper async handling
-- **Configuration Validation** - Smart validation supporting both full and partial updates
-- **Real-time Status Updates** - Live feedback for all administrative operations
-- **Error Recovery** - Graceful degradation and comprehensive error handling
+### 🔧 **Advanced Management Interface**
+- **LLM Manager**: Configuration templates, performance dashboards, comparison tools
+- **Voice Configuration**: Per-agent voice settings with real-time preview
+- **System Prompts**: No-code AI behavior customization
+- **Real-time Updates**: Hot-reload configurations without restart
 
 ## 🎯 Supported Use Cases
 
-### **Financial Services Scenarios:**
-- **Lost Card Reporting** - "I've lost my credit card"
-- **Account Balance Inquiries** - "What's my account balance?"
-- **Transaction History** - "Tell me about my recent transactions"
-- **Transaction Disputes** - "I need to dispute a charge"
-- **Money Transfers** - "How do I transfer money?"
-- **Account Information** - "What type of account do I have?"
-- **General Banking Support** - Various customer service scenarios
+- **Lost Card Reporting**: "I've lost my credit card" → Fraud Agent
+- **Account Inquiries**: "What's my balance?" → Banking Info Agent  
+- **Money Transfers**: "Send £50 to Alice" → Payments Agent
+- **Identity Verification**: "I forgot my password" → IDV Agent
+- **Transaction Disputes**: "I need to dispute a charge" → Fraud Agent
+- **General Banking**: Various customer service scenarios with intelligent routing
 
 ## 🛠️ Technical Stack
 
 - **Frontend**: Vanilla JavaScript (ES6+), HTML5, CSS3
-- **Architecture**: Modular design with separated concerns
-  - `api-client.js` - OpenAI API interactions (Whisper, GPT, TTS)
-  - `token-tracker.js` - Usage tracking and cost calculation
-  - `streaming-manager.js` - Real-time WebSocket streaming
-  - `persona-manager.js` - Customer persona management
-  - `system-prompts-manager.js` - AI system prompts configuration
-  - `script.js` - Main application logic and UI coordination
-- **Agent System**: Domain-specific intelligent routing with AI-powered semantic matching
-  - `agents/agent-router.js` - Central routing with contextual conversation support
-  - `agents/base-agent.js` - Abstract base class for all agents
-  - `agents/banking-info-agent.js` - Account information specialist
-  - `agents/payments-agent.js` - Payment processing specialist
-  - `agents/fraud-agent.js` - Security and fraud prevention
-  - `agents/idv-agent.js` - Identity verification specialist
-  - `agents/llm-manager.js` - Advanced configuration management system
-  - `agents/guardrails-manager.js` - Security and compliance management
-  - `agents/voice-config-manager.js` - Voice and audio configuration
-  - `agents/config-update-manager.js` - Real-time configuration updates
-- **Testing Framework**: Comprehensive test mode system with advanced features testing
-  - `test-api-factory.js` - Mock vs Real API client factory
-  - `test-mode-selector.js` - Visual test mode switching UI
-  - `debug-manager.js` - Enhanced debugging with test mode support
-  - `llm-manager-advanced-ui.js` - Advanced features UI controller
-  - **Test Suites**: 
-    - `test-llm-manager-advanced-features.html` - Advanced features comprehensive testing
-    - `test-ai-agent-routing.html` - AI routing and semantic matching tests
-    - `test-agent-configuration.html` - Agent configuration management tests
-    - `test-script-loading.html` - Dependency loading verification
-- **APIs**: OpenAI (Whisper, GPT-3.5-turbo, TTS, Realtime API)
+- **Architecture**: Modular ES6 classes with dependency injection
+- **APIs**: OpenAI (Whisper, GPT-3.5/4, TTS, Realtime API)
 - **Audio**: Web Audio API, MediaRecorder API
-- **Storage**: LocalStorage for settings persistence
+- **Storage**: LocalStorage for settings and configuration persistence
+
+### Core Components
+- **Agent System**: 4 domain-specific agents with AI-powered routing
+- **Robustness Layer**: Error recovery, rate limiting, resource management
+- **Management Interface**: LLM Manager with guardrails and voice configuration
+- **Testing Framework**: 100+ test suites with mock/real API switching
 
 ## 📋 Setup Instructions
 
@@ -158,120 +101,60 @@ cd Project2
 
 ### 4. **Test the System**
 
-#### **Batch Mode (Traditional):**
-- Select a customer persona (John Doe, Sarah Smith, or Mike Johnson)
-- Click "🎤 Start Speaking"
-- Grant microphone permissions (only once - permissions persist)
-- Say something like "What's my account balance?"
-- Listen to the AI response
+#### **Basic Usage:**
+- Select a customer persona and click "🎤 Start Speaking"
+- Try: "What's my balance?", "I lost my card", "Send money to Alice"
+- Watch intelligent agent routing in action
 
-#### **Streaming Mode (Real-time):**
-- Toggle "Streaming Mode" switch
-- Click "📞 Connect" to establish real-time connection
-- Grant microphone permissions
-- Have a natural conversation - AI responds automatically when you stop speaking
-- See responses in chat AND hear them spoken simultaneously
+#### **Streaming Mode:**
+- Toggle "Streaming Mode" for real-time conversation
+- Click "📞 Connect" and have natural conversations
 
 #### **Testing Modes:**
-- **Mock Mode (Default)**: Free testing with simulated API responses - no API key required
-- **Real Mode**: Actual OpenAI API calls for production validation - requires API key and costs money
-- Use the test mode selector in any test page to switch between modes
-- Access comprehensive test suites at:
-  - `test-agent-system-comprehensive.html` - Complete agent system testing
-  - `test-ai-agent-routing.html` - AI-powered semantic routing tests
-  - `test-llm-manager-advanced-features.html` - Advanced LLM Manager features testing
-  - `test-agent-configuration.html` - Agent configuration management testing
-  - `test-script-loading.html` - Script loading and dependency verification
-  - `test-mode-example.html` - Simple test mode demonstration
+- **Mock Mode**: Free testing with simulated responses (no API key needed)
+- **Real Mode**: Actual OpenAI API calls (requires API key and costs money)
+- Access 100+ test suites in `/test/` directory
 
-## 🧪 Test Mode System
+## 🧪 Testing Framework
 
-The application includes a comprehensive testing framework that supports both **Mock** and **Real** API testing modes:
+### **Dual Testing Modes**
+- **Mock Mode**: Free testing with simulated responses (no API key needed)
+- **Real Mode**: Actual OpenAI API calls for production validation
 
-### **Mock Mode (Default)**
-- ✅ **Free testing** - No API costs or key required
-- ✅ **Realistic responses** - Simulated banking scenarios with proper delays
-- ✅ **Token tracking simulation** - Practice cost monitoring without charges
-- ✅ **Full functionality** - All features work with mock data
-- ✅ **Development friendly** - Perfect for development and demonstration
+### **Test Suites**
+- **Agent Routing**: AI-powered semantic matching and contextual understanding
+- **Security Boundaries**: Data access validation and audit logging  
+- **Performance**: Token tracking accuracy and response time monitoring
+- **Robustness**: Network failures, resource constraints, edge cases
+- **Integration**: End-to-end voice-to-agent-to-response workflows
 
-### **Real Mode**
-- 🌐 **Production validation** - Actual OpenAI API calls
-- 🌐 **Real cost tracking** - Accurate token usage and billing
-- 🌐 **Live API testing** - Validate against actual OpenAI services
-- ⚠️ **Requires API key** - OpenAI API key needed
-- ⚠️ **Costs money** - Real API usage charges apply
+## 🏗️ Architecture
 
-### **Test Mode Controls**
-```javascript
-// Console commands for test mode management
-getTestMode()        // Check current mode ('mock' or 'real')
-setTestMode('real')  // Switch to real API mode
-setTestMode('mock')  // Switch to mock mode
-toggleTestMode()     // Toggle between modes
-```
+### **JSON-Driven Configuration**
+- **Customer Personas**: Modular profiles in `personas.json`
+- **System Prompts**: AI behavior configuration in `system-prompts.json`
+- **Agent Settings**: Guardrails, voice settings, and capabilities
+- **No-code customization**: Modify behavior without touching code
 
-### **Using Test Mode in Development**
-```javascript
-// Create API client respecting current test mode
-const apiClient = TestAPIFactory.createAPIClient();
+### **Agent-Based System**
+- **BaseAgent**: Abstract class for all domain agents
+- **AgentRouter**: AI-powered routing with fallback mechanisms
+- **Security Manager**: Domain boundaries and audit logging
+- **LLM Manager**: Configuration templates and performance monitoring
 
-// Create complete test context
-const testContext = TestAPIFactory.createTestContext();
+## ⚙️ Configuration
 
-// The system automatically uses mock or real APIs based on current mode
-const result = await agentRouter.route(userInput, testContext);
-```
+### **Voice Settings**
+- **6 Professional Voices**: Nova, Shimmer, Onyx, Alloy, Echo, Fable
+- **Quality Options**: TTS-1 (fast) vs TTS-1-HD (high quality)
+- **Speed Control**: 0.25x to 4.0x speech rate
+- **Per-Agent Configuration**: Different voices for different agents
 
-## 🏗️ JSON-Driven Architecture
-
-### **Modular Configuration System**
-The application uses a fully modular, JSON-driven architecture that separates data from code:
-
-#### **Customer Personas** (`personas.json`)
-```json
-{
-  "john_doe": {
-    "name": "John Doe",
-    "balance": 2450.75,
-    "currency": "GBP",
-    "cardLast4": "1234",
-    "accountType": "checking",
-    "recentTransactions": [...]
-  }
-}
-```
-
-#### **AI System Prompts** (`system-prompts.json`)
-```json
-{
-  "basePersonality": "You are a helpful, professional AI assistant...",
-  "financialContext": "When handling financial services requests...",
-  "responseInstructions": "Response Guidelines...",
-  "customPrompts": [...]
-}
-```
-
-### **Benefits of JSON-Driven Design**
-- ✅ **No code changes needed** - modify behavior by editing JSON files
-- ✅ **Easy deployment** - update personas/prompts without redeployment
-- ✅ **Version control friendly** - track changes to AI behavior
-- ✅ **Team collaboration** - non-developers can modify AI behavior
-- ✅ **A/B testing ready** - swap configurations easily
-
-## ⚙️ Configuration Options
-
-### **Speech Recognition Settings**
-- **Audio Quality**: Standard (16kHz) vs High (48kHz)
-- **Noise Reduction**: Off/Low/Medium/High
-- **Language Model**: English variants for accent optimization
-- **Recognition Mode**: Financial context vs Precise vs Standard
-- **Keep Microphone Active**: Prevents permission popups between recordings
-
-### **Voice Response Settings**
-- **TTS Model**: TTS-1 (fast) vs TTS-1-HD (high quality)
-- **Voice Selection**: 6 professional voices available
-- **Speech Speed**: 0.25x to 4.0x speed control
+### **Agent Configuration**
+- **Guardrails**: Configurable capability restrictions per agent
+- **System Prompts**: Customizable AI behavior and personality
+- **Performance Monitoring**: Success rates, token usage, response times
+- **Security Boundaries**: Domain-specific data access controls
 
 ## 📊 Cost Estimation
 
@@ -292,31 +175,21 @@ A 5-minute conversation typically costs **$0.05-0.10** total.
 
 ⚠️ **Security Notice**: This project is a prototype and not intended for production use. No data is stored, and no encryption is enforced. Do not use real customer data.
 
-## 🆕 Recent Major Updates
+## 🆕 Recent Updates
 
-### **Advanced LLM Manager Features (v2.1.0)**
-- ✅ **Configuration Templates**: 4 pre-built agent templates for quick setup
-- ✅ **Performance Metrics**: Real-time monitoring dashboard with charts and analytics
-- ✅ **Configuration Comparison**: Side-by-side agent comparison with diff tools
-- ✅ **Scheduled Changes**: Time-based configuration updates with rollback support
-- ✅ **Multi-Environment Management**: Development, staging, production workflows
+### **Intelligent Agent System**
+- ✅ **4 Domain Agents**: Banking, Payments, Fraud, Identity Verification
+- ✅ **AI-Powered Routing**: Semantic understanding with fallback mechanisms
+- ✅ **Security Boundaries**: Domain-restricted data access with audit logging
+- ✅ **LLM Manager**: Configuration templates, performance dashboards, comparison tools
 
-### **Critical Bug Fixes & Improvements**
-- ✅ **Script Loading Fix**: Resolved GuardrailsManager dependency issues
-- ✅ **Async/Sync Routing Fix**: Fixed agent.onActivate function errors in tests
-- ✅ **Semantic Matching Enhancement**: Improved AI contextual understanding for ambiguous responses
-- ✅ **Admin Interface Fix**: Added professional notification system and fixed bulk operations
-- ✅ **Partial Configuration Updates**: Enhanced validation for partial agent configuration updates
+### **Enterprise Robustness**
+- ✅ **Error Recovery**: Automatic retry with exponential backoff
+- ✅ **Resource Management**: Proper cleanup of audio streams and connections
+- ✅ **Rate Limiting**: API abuse prevention with configurable limits
+- ✅ **Comprehensive Testing**: 100+ test suites with mock/real API switching
 
-### **Enhanced Testing Infrastructure**
-- ✅ **5 New Test Suites**: Comprehensive testing for all new features
-- ✅ **Automated Verification**: Script-based testing with detailed reporting
-- ✅ **Semantic Understanding Tests**: Contextual conversation flow validation
-- ✅ **Performance Testing**: Metrics accuracy and system reliability validation
-
-See `RECENT_FIXES_SUMMARY.md` for complete details on all improvements.
-
-## 🚀 Deployment Options
+## 🚀 Deployment
 
 ### **Local Development**
 ```bash
@@ -324,17 +197,12 @@ python3 -m http.server 8000
 ```
 
 ### **Static Hosting**
-Deploy to any static hosting service:
-- GitHub Pages
-- Netlify
-- Vercel
-- AWS S3 + CloudFront
+Deploy to GitHub Pages, Netlify, Vercel, or any static host - no build step required.
 
 ### **Production Considerations**
-- Implement API key management (environment variables)
-- Add rate limiting and usage quotas
-- Consider WebSocket connections for real-time features
-- Add user authentication for multi-tenant usage
+- API key management and rate limiting
+- User authentication for multi-tenant usage
+- WebSocket scaling for real-time features
 
 ## 🤝 Contributing
 

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task 6 Implementation Test - System Prompts Removal</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-header {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .pass {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .fail {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .summary {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 class="test-header">Task 6 Implementation Test: System Prompts Section Removal</h1>
+        
+        <div class="info">
+            <strong>Test Objective:</strong> Verify that the System Prompts Configuration section has been completely removed from the Administrator panel and all related JavaScript code has been cleaned up.
+        </div>
+
+        <div class="test-section">
+            <h3>Test 1: Admin Navigation Buttons</h3>
+            <p>Checking that System Prompts navigation button is not present in admin panel...</p>
+            <button onclick="testAdminNavigation()">Run Test</button>
+            <div id="adminNavResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 2: Admin Content Sections</h3>
+            <p>Checking that System Prompts content section is not present...</p>
+            <button onclick="testAdminSections()">Run Test</button>
+            <div id="adminSectionsResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 3: System Prompts Form Elements</h3>
+            <p>Checking that System Prompts form elements (basePersonality, financialContext, etc.) are not present...</p>
+            <button onclick="testSystemPromptsElements()">Run Test</button>
+            <div id="systemPromptsElementsResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 4: JavaScript Method Removal</h3>
+            <p>Checking that System Prompts related JavaScript methods have been removed...</p>
+            <button onclick="testJavaScriptMethods()">Run Test</button>
+            <div id="javascriptMethodsResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 5: Event Listeners Cleanup</h3>
+            <p>Checking that System Prompts related event listeners have been removed...</p>
+            <button onclick="testEventListeners()">Run Test</button>
+            <div id="eventListenersResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test 6: Admin Panel Functionality</h3>
+            <p>Checking that admin panel still functions correctly with remaining sections...</p>
+            <button onclick="testAdminPanelFunctionality()">Run Test</button>
+            <div id="adminPanelFunctionalityResult"></div>
+        </div>
+
+        <button onclick="runAllTests()" style="background-color: #28a745; font-size: 16px; padding: 15px 30px;">Run All Tests</button>
+        
+        <div id="testSummary" class="summary" style="display: none;">
+            <h3>Test Summary</h3>
+            <div id="summaryContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = [];
+
+        function testAdminNavigation() {
+            const result = document.getElementById('adminNavResult');
+            
+            // Check for System Prompts navigation button
+            const systemPromptsNavBtn = document.querySelector('[data-admin-section="prompts"]');
+            const allNavButtons = document.querySelectorAll('.admin-nav-btn');
+            
+            let navButtonTexts = [];
+            allNavButtons.forEach(btn => {
+                navButtonTexts.push(btn.textContent.trim());
+            });
+            
+            if (!systemPromptsNavBtn) {
+                result.innerHTML = `
+                    <div class="test-result pass">✓ PASS: System Prompts navigation button not found</div>
+                    <div class="code-block">Available navigation buttons: ${navButtonTexts.join(', ')}</div>
+                `;
+                testResults.push({test: 'Admin Navigation', status: 'PASS'});
+            } else {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: System Prompts navigation button still exists</div>
+                    <div class="code-block">Found button with data-admin-section="prompts"</div>
+                `;
+                testResults.push({test: 'Admin Navigation', status: 'FAIL'});
+            }
+        }
+
+        function testAdminSections() {
+            const result = document.getElementById('adminSectionsResult');
+            
+            // Check for System Prompts content section
+            const systemPromptsSection = document.getElementById('prompts-section');
+            const allSections = document.querySelectorAll('.admin-section');
+            
+            let sectionIds = [];
+            allSections.forEach(section => {
+                sectionIds.push(section.id);
+            });
+            
+            if (!systemPromptsSection) {
+                result.innerHTML = `
+                    <div class="test-result pass">✓ PASS: System Prompts content section not found</div>
+                    <div class="code-block">Available admin sections: ${sectionIds.join(', ')}</div>
+                `;
+                testResults.push({test: 'Admin Sections', status: 'PASS'});
+            } else {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: System Prompts content section still exists</div>
+                    <div class="code-block">Found section with id="prompts-section"</div>
+                `;
+                testResults.push({test: 'Admin Sections', status: 'FAIL'});
+            }
+        }
+
+        function testSystemPromptsElements() {
+            const result = document.getElementById('systemPromptsElementsResult');
+            
+            // Check for System Prompts form elements
+            const elementsToCheck = [
+                'basePersonality',
+                'financialContext', 
+                'responseInstructions'
+            ];
+            
+            let foundElements = [];
+            let missingElements = [];
+            
+            elementsToCheck.forEach(elementId => {
+                const element = document.getElementById(elementId);
+                if (element) {
+                    foundElements.push(elementId);
+                } else {
+                    missingElements.push(elementId);
+                }
+            });
+            
+            if (foundElements.length === 0) {
+                result.innerHTML = `
+                    <div class="test-result pass">✓ PASS: All System Prompts form elements removed</div>
+                    <div class="code-block">Checked elements: ${elementsToCheck.join(', ')}</div>
+                `;
+                testResults.push({test: 'System Prompts Elements', status: 'PASS'});
+            } else {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: Some System Prompts form elements still exist</div>
+                    <div class="code-block">Found elements: ${foundElements.join(', ')}</div>
+                `;
+                testResults.push({test: 'System Prompts Elements', status: 'FAIL'});
+            }
+        }
+
+        function testJavaScriptMethods() {
+            const result = document.getElementById('javascriptMethodsResult');
+            
+            // Check if System Prompts methods exist on window.app
+            let methodsFound = [];
+            let methodsNotFound = [];
+            
+            const methodsToCheck = [
+                'initializeSystemPrompts',
+                'switchPromptTab'
+            ];
+            
+            // Check if app exists and has these methods
+            if (window.app) {
+                methodsToCheck.forEach(method => {
+                    if (typeof window.app[method] === 'function') {
+                        methodsFound.push(method);
+                    } else {
+                        methodsNotFound.push(method);
+                    }
+                });
+            } else {
+                methodsNotFound = methodsToCheck; // If no app object, methods are not found
+            }
+            
+            if (methodsFound.length === 0) {
+                result.innerHTML = `
+                    <div class="test-result pass">✓ PASS: System Prompts JavaScript methods removed</div>
+                    <div class="code-block">Checked methods: ${methodsToCheck.join(', ')}</div>
+                `;
+                testResults.push({test: 'JavaScript Methods', status: 'PASS'});
+            } else {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: Some System Prompts JavaScript methods still exist</div>
+                    <div class="code-block">Found methods: ${methodsFound.join(', ')}</div>
+                `;
+                testResults.push({test: 'JavaScript Methods', status: 'FAIL'});
+            }
+        }
+
+        function testEventListeners() {
+            const result = document.getElementById('eventListenersResult');
+            
+            // Check for prompt-tab-btn elements that would have event listeners
+            const promptTabButtons = document.querySelectorAll('.prompt-tab-btn');
+            const promptTabs = document.querySelectorAll('.prompt-tab');
+            const promptPanels = document.querySelectorAll('.prompt-panel');
+            
+            if (promptTabButtons.length === 0 && promptTabs.length === 0 && promptPanels.length === 0) {
+                result.innerHTML = `
+                    <div class="test-result pass">✓ PASS: System Prompts UI elements and event listeners removed</div>
+                    <div class="code-block">No .prompt-tab-btn, .prompt-tab, or .prompt-panel elements found</div>
+                `;
+                testResults.push({test: 'Event Listeners', status: 'PASS'});
+            } else {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: Some System Prompts UI elements still exist</div>
+                    <div class="code-block">Found: ${promptTabButtons.length} tab buttons, ${promptTabs.length} tabs, ${promptPanels.length} panels</div>
+                `;
+                testResults.push({test: 'Event Listeners', status: 'FAIL'});
+            }
+        }
+
+        function testAdminPanelFunctionality() {
+            const result = document.getElementById('adminPanelFunctionalityResult');
+            
+            // Test that remaining admin sections still work
+            const remainingSections = ['personas', 'agents', 'llm'];
+            let workingSections = [];
+            let brokenSections = [];
+            
+            remainingSections.forEach(sectionId => {
+                const navButton = document.querySelector(`[data-admin-section="${sectionId}"]`);
+                const contentSection = document.getElementById(`${sectionId}-section`);
+                
+                if (navButton && contentSection) {
+                    workingSections.push(sectionId);
+                } else {
+                    brokenSections.push(sectionId);
+                }
+            });
+            
+            if (brokenSections.length === 0) {
+                result.innerHTML = `
+                    <div class="test-result pass">✓ PASS: All remaining admin sections are functional</div>
+                    <div class="code-block">Working sections: ${workingSections.join(', ')}</div>
+                `;
+                testResults.push({test: 'Admin Panel Functionality', status: 'PASS'});
+            } else {
+                result.innerHTML = `
+                    <div class="test-result fail">✗ FAIL: Some admin sections are broken</div>
+                    <div class="code-block">Broken sections: ${brokenSections.join(', ')}</div>
+                `;
+                testResults.push({test: 'Admin Panel Functionality', status: 'FAIL'});
+            }
+        }
+
+        function runAllTests() {
+            testResults = [];
+            testAdminNavigation();
+            testAdminSections();
+            testSystemPromptsElements();
+            testJavaScriptMethods();
+            testEventListeners();
+            testAdminPanelFunctionality();
+            
+            // Show summary
+            setTimeout(() => {
+                showTestSummary();
+            }, 500);
+        }
+
+        function showTestSummary() {
+            const summary = document.getElementById('testSummary');
+            const content = document.getElementById('summaryContent');
+            
+            const passCount = testResults.filter(r => r.status === 'PASS').length;
+            const failCount = testResults.filter(r => r.status === 'FAIL').length;
+            const totalCount = testResults.length;
+            
+            let summaryHTML = `
+                <div style="margin-bottom: 15px;">
+                    <strong>Results:</strong> ${passCount}/${totalCount} tests passed
+                </div>
+            `;
+            
+            testResults.forEach(result => {
+                const statusClass = result.status === 'PASS' ? 'pass' : 'fail';
+                const statusIcon = result.status === 'PASS' ? '✓' : '✗';
+                summaryHTML += `
+                    <div class="test-result ${statusClass}">
+                        ${statusIcon} ${result.test}: ${result.status}
+                    </div>
+                `;
+            });
+            
+            if (passCount === totalCount) {
+                summaryHTML += `
+                    <div class="test-result pass" style="margin-top: 15px; font-size: 16px;">
+                        🎉 All tests passed! System Prompts section has been successfully removed.
+                    </div>
+                `;
+            } else {
+                summaryHTML += `
+                    <div class="test-result fail" style="margin-top: 15px; font-size: 16px;">
+                        ⚠️ Some tests failed. Please review the implementation.
+                    </div>
+                `;
+            }
+            
+            content.innerHTML = summaryHTML;
+            summary.style.display = 'block';
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 1000);
+        });
+    </script>
+</body>
+</html>

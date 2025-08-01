@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Default Agent Loading</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Default Agent Data Loading Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="testResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>System Prompts Data</h2>
+        <pre id="systemPromptsData"></pre>
+    </div>
+    
+    <div class="test-section">
+        <h2>Default Agent Configuration</h2>
+        <pre id="defaultAgentConfig"></pre>
+    </div>
+    
+    <div class="test-section">
+        <h2>All Agent Configurations</h2>
+        <pre id="allAgentConfigs"></pre>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script src="debug-manager.js"></script>
+    <script src="system-prompts-manager.js"></script>
+    <script src="agents/llm-manager.js"></script>
+    <script src="agents/guardrails-manager.js"></script>
+    <script src="agents/voice-config-manager.js"></script>
+    <script src="llm-manager-admin-ui.js"></script>
+
+    <script>
+        async function runTests() {
+            const results = document.getElementById('testResults');
+            const systemPromptsEl = document.getElementById('systemPromptsData');
+            const defaultAgentEl = document.getElementById('defaultAgentConfig');
+            const allAgentsEl = document.getElementById('allAgentConfigs');
+            
+            let testResults = [];
+            
+            try {
+                // Test 1: Initialize SystemPromptsManager
+                results.innerHTML += '<p class="info">🔄 Testing SystemPromptsManager initialization...</p>';
+                const systemPromptsManager = new SystemPromptsManager();
+                await systemPromptsManager.init();
+                
+                const systemPrompts = systemPromptsManager.getAllPrompts();
+                systemPromptsEl.textContent = JSON.stringify(systemPrompts, null, 2);
+                
+                if (systemPrompts.basePersonality) {
+                    testResults.push('✅ SystemPromptsManager initialized successfully');
+                } else {
+                    testResults.push('❌ SystemPromptsManager missing data');
+                }
+                
+                // Test 2: Initialize LLM Manager
+                results.innerHTML += '<p class="info">🔄 Testing LLM Manager initialization...</p>';
+                const llmManager = new LLMManager();
+                const guardrailsManager = new GuardrailsManager();
+                const voiceConfigManager = new VoiceConfigManager();
+                
+                llmManager.setManagers(guardrailsManager, voiceConfigManager, null);
+                
+                // Test 3: Initialize LLMManagerAdminUI
+                results.innerHTML += '<p class="info">🔄 Testing LLMManagerAdminUI initialization...</p>';
+                const adminUI = new LLMManagerAdminUI();
+                
+                // Wait a bit for async initialization
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Test 4: Check if Default Agent is loaded
+                results.innerHTML += '<p class="info">🔄 Testing Default Agent loading...</p>';
+                const defaultAgentConfig = llmManager.getAgentConfiguration('DefaultAgent');
+                
+                if (defaultAgentConfig) {
+                    testResults.push('✅ Default Agent configuration loaded');
+                    defaultAgentEl.textContent = JSON.stringify(defaultAgentConfig, null, 2);
+                    
+                    // Test 5: Check system prompts integration
+                    if (defaultAgentConfig.systemPrompts) {
+                        testResults.push('✅ System prompts integrated into Default Agent');
+                        
+                        if (defaultAgentConfig.systemPrompts.basePersonality === systemPrompts.basePersonality) {
+                            testResults.push('✅ Base personality correctly synced');
+                        } else {
+                            testResults.push('❌ Base personality sync failed');
+                        }
+                        
+                        if (defaultAgentConfig.systemPrompts.financialContext === systemPrompts.financialContext) {
+                            testResults.push('✅ Financial context correctly synced');
+                        } else {
+                            testResults.push('❌ Financial context sync failed');
+                        }
+                        
+                        if (defaultAgentConfig.systemPrompts.responseInstructions === systemPrompts.responseInstructions) {
+                            testResults.push('✅ Response instructions correctly synced');
+                        } else {
+                            testResults.push('❌ Response instructions sync failed');
+                        }
+                        
+                        if (Array.isArray(defaultAgentConfig.systemPrompts.customPrompts)) {
+                            testResults.push('✅ Custom prompts array correctly loaded');
+                        } else {
+                            testResults.push('❌ Custom prompts array missing or invalid');
+                        }
+                    } else {
+                        testResults.push('❌ System prompts not integrated into Default Agent');
+                    }
+                } else {
+                    testResults.push('❌ Default Agent configuration not found');
+                }
+                
+                // Test 6: Check all agent configurations
+                results.innerHTML += '<p class="info">🔄 Testing all agent configurations...</p>';
+                const allAgents = llmManager.getAgentConfigurations();
+                allAgentsEl.textContent = JSON.stringify(allAgents, null, 2);
+                
+                if (allAgents.DefaultAgent) {
+                    testResults.push('✅ Default Agent included in all configurations');
+                } else {
+                    testResults.push('❌ Default Agent missing from all configurations');
+                }
+                
+                // Test 7: Test adapter methods
+                results.innerHTML += '<p class="info">🔄 Testing adapter methods...</p>';
+                if (adminUI.convertSystemPromptsToLLMManagerFormat) {
+                    const converted = adminUI.convertSystemPromptsToLLMManagerFormat(systemPrompts);
+                    if (converted.systemPrompts && converted.description) {
+                        testResults.push('✅ System prompts to LLM Manager conversion works');
+                    } else {
+                        testResults.push('❌ System prompts to LLM Manager conversion failed');
+                    }
+                } else {
+                    testResults.push('❌ Adapter method not found');
+                }
+                
+                if (adminUI.convertLLMManagerToSystemPromptsFormat) {
+                    const backConverted = adminUI.convertLLMManagerToSystemPromptsFormat(defaultAgentConfig);
+                    if (backConverted.basePersonality && backConverted.financialContext) {
+                        testResults.push('✅ LLM Manager to system prompts conversion works');
+                    } else {
+                        testResults.push('❌ LLM Manager to system prompts conversion failed');
+                    }
+                } else {
+                    testResults.push('❌ Reverse adapter method not found');
+                }
+                
+            } catch (error) {
+                testResults.push(`❌ Test failed with error: ${error.message}`);
+                console.error('Test error:', error);
+            }
+            
+            // Display results
+            results.innerHTML = testResults.map(result => `<p class="${result.startsWith('✅') ? 'success' : 'error'}">${result}</p>`).join('');
+        }
+        
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(runTests, 1000); // Give time for scripts to load
+        });
+    </script>
+</body>
+</html>

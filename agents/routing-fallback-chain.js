@@ -168,9 +168,18 @@ class RoutingFallbackChain {
                 });
                 return suggestedAgent;
             }
+            
+            // CRITICAL: If context manager returns null, respect that decision
+            // This means it detected an intent change and wants AI routing to handle it
+            // Don't fall back to conversation history inference
+            this.debug.info('Context manager returned null - respecting decision', {
+                inputText: inputText.substring(0, 50),
+                reason: 'context manager explicitly declined to suggest agent'
+            });
+            return null;
         }
         
-        // Fallback to original context-based logic
+        // Only use fallback logic if context manager is not available
         // If we have a last agent used and the input is ambiguous, prefer that agent
         if (context.lastAgentUsed && this.isAmbiguousInput(inputText)) {
             const lastAgent = this.router.agents.find(a => 
@@ -181,19 +190,20 @@ class RoutingFallbackChain {
                 this.debug.info('Context-based routing selected last agent', {
                     agentName: lastAgent.name,
                     inputText: inputText.substring(0, 50),
-                    reason: 'ambiguous input with conversation context'
+                    reason: 'ambiguous input with conversation context (no context manager)'
                 });
                 return lastAgent;
             }
         }
 
-        // Try to infer from conversation history
+        // Try to infer from conversation history (only if no context manager)
         if (context.conversationHistory && context.conversationHistory.length > 0) {
             const recentAgent = this.inferAgentFromHistory(context.conversationHistory, inputText);
             if (recentAgent) {
                 this.debug.info('Context-based routing from conversation history', {
                     agentName: recentAgent.name,
-                    inputText: inputText.substring(0, 50)
+                    inputText: inputText.substring(0, 50),
+                    reason: 'conversation history inference (no context manager)'
                 });
                 return recentAgent;
             }

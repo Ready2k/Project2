@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Handoff Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .test-case h3 { margin-top: 0; color: #333; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 3px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .failure { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .log { background-color: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 3px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Agent Handoff Fix Test</h1>
+    <p>This test verifies that agents properly hand off between each other instead of getting stuck due to context caching.</p>
+    
+    <button onclick="runAllTests()">Run All Tests</button>
+    <button onclick="clearCache()">Clear Cache</button>
+    <button onclick="clearLogs()">Clear Logs</button>
+    
+    <div id="results"></div>
+    <div id="logs" class="log"></div>
+
+    <!-- Load required dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/conversation-context-manager.js"></script>
+
+    <script>
+        let testResults = [];
+        let contextManager;
+        let router;
+
+        // Mock debug manager
+        if (!window.debugManager) {
+            window.debugManager = {
+                createModuleLogger: (name) => ({
+                    info: (...args) => log(`[INFO] ${name}: ${JSON.stringify(args)}`),
+                    debug: (...args) => log(`[DEBUG] ${name}: ${JSON.stringify(args)}`),
+                    warn: (...args) => log(`[WARN] ${name}: ${JSON.stringify(args)}`),
+                    error: (...args) => log(`[ERROR] ${name}: ${JSON.stringify(args)}`)
+                })
+            };
+        }
+
+        function log(message) {
+            const logsDiv = document.getElementById('logs');
+            logsDiv.innerHTML += message + '\n';
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        function clearCache() {
+            if (contextManager) {
+                contextManager.resetContextRouting();
+                log('Context routing reset');
+            }
+        }
+
+        async function initializeSystem() {
+            try {
+                // Initialize context manager
+                contextManager = new ConversationContextManager();
+                
+                // Create mock agents (no need for full router)
+                const agents = [
+                    { name: 'BankingInfoAgent', enabled: true, canHandle: (input) => /balance|account|statement/.test(input.toLowerCase()) },
+                    { name: 'FraudAgent', enabled: true, canHandle: (input) => /fraud|unauthorized|block|freeze|stolen/.test(input.toLowerCase()) },
+                    { name: 'PaymentsAgent', enabled: true, canHandle: (input) => /transfer|payment|send money/.test(input.toLowerCase()) },
+                    { name: 'IDVAgent', enabled: true, canHandle: (input) => /verify|identity|authentication/.test(input.toLowerCase()) }
+                ];
+
+                // Store agents for testing
+                window.testAgents = agents;
+
+                log('System initialized successfully');
+                return true;
+            } catch (error) {
+                log(`Initialization failed: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testAgentHandoff() {
+            const testCases = [
+                {
+                    name: 'Banking to Fraud Handoff',
+                    steps: [
+                        { input: "What's my balance?", expectedAgent: 'BankingInfoAgent', description: 'Should suggest BankingInfoAgent for balance inquiry' },
+                        { input: "I have fraud in my account. The coffee shop transaction was not me.", expectedAgent: null, description: 'Should return null to allow AI routing for fraud intent' }
+                    ]
+                },
+                {
+                    name: 'Fraud to Banking Handoff',
+                    steps: [
+                        { input: "Block my card, it's been stolen", expectedAgent: 'FraudAgent', description: 'Should suggest FraudAgent for fraud intent' },
+                        { input: "What's my current balance?", expectedAgent: null, description: 'Should return null to allow AI routing for banking intent change' }
+                    ]
+                },
+                {
+                    name: 'Banking to Payments Handoff',
+                    steps: [
+                        { input: "Show me my account balance", expectedAgent: 'BankingInfoAgent', description: 'Should suggest BankingInfoAgent for balance inquiry' },
+                        { input: "I want to transfer money to my friend", expectedAgent: null, description: 'Should return null to allow AI routing for payment intent' }
+                    ]
+                },
+                {
+                    name: 'Fraud Follow-up (Should Stay)',
+                    steps: [
+                        { input: "I have fraud in my account", expectedAgent: 'FraudAgent', description: 'Should suggest FraudAgent for fraud intent' },
+                        { input: "Yes, block that card", expectedAgent: 'FraudAgent', description: 'Should suggest FraudAgent for fraud follow-up' }
+                    ]
+                }
+            ];
+
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+
+            for (const testCase of testCases) {
+                const testDiv = document.createElement('div');
+                testDiv.className = 'test-case';
+                testDiv.innerHTML = `<h3>${testCase.name}</h3>`;
+
+                let allStepsPassed = true;
+
+                for (let i = 0; i < testCase.steps.length; i++) {
+                    const step = testCase.steps[i];
+                    
+                    try {
+                        // Simulate the step
+                        if (i > 0) {
+                            // Add previous step to conversation history
+                            const prevStep = testCase.steps[i - 1];
+                            contextManager.addMessage('user', prevStep.input);
+                            contextManager.addMessage('assistant', 'Mock response', prevStep.expectedAgent);
+                        }
+
+                        // Test the routing
+                        const suggestedAgent = contextManager.getSuggestedAgent(step.input, window.testAgents);
+                        const agentName = suggestedAgent ? suggestedAgent.name : 'None';
+
+                        const expectedAgentName = step.expectedAgent;
+                        const stepPassed = (expectedAgentName === null && agentName === 'None') || 
+                                         (expectedAgentName !== null && agentName === expectedAgentName);
+
+                        const resultDiv = document.createElement('div');
+                        resultDiv.className = `result ${stepPassed ? 'success' : 'failure'}`;
+                        resultDiv.innerHTML = `
+                            <strong>Step ${i + 1}:</strong> "${step.input}"<br>
+                            <strong>Description:</strong> ${step.description || 'No description'}<br>
+                            <strong>Expected:</strong> ${step.expectedAgent || 'null (AI routing)'}<br>
+                            <strong>Got:</strong> ${agentName || 'null'}<br>
+                            <strong>Result:</strong> ${stepPassed ? '✅ PASS' : '❌ FAIL'}
+                        `;
+                        testDiv.appendChild(resultDiv);
+
+                        if (!stepPassed) {
+                            allStepsPassed = false;
+                        }
+
+                        log(`${testCase.name} Step ${i + 1}: "${step.input}" -> Expected: ${step.expectedAgent}, Got: ${agentName} (${stepPassed ? 'PASS' : 'FAIL'})`);
+
+                    } catch (error) {
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'result failure';
+                        errorDiv.innerHTML = `<strong>Step ${i + 1} ERROR:</strong> ${error.message}`;
+                        testDiv.appendChild(errorDiv);
+                        allStepsPassed = false;
+                        log(`${testCase.name} Step ${i + 1} ERROR: ${error.message}`);
+                    }
+                }
+
+                // Overall test result
+                const overallDiv = document.createElement('div');
+                overallDiv.className = `result ${allStepsPassed ? 'success' : 'failure'}`;
+                overallDiv.innerHTML = `<strong>Overall Result:</strong> ${allStepsPassed ? '✅ PASS' : '❌ FAIL'}`;
+                testDiv.appendChild(overallDiv);
+
+                resultsDiv.appendChild(testDiv);
+
+                // Clear context between test cases
+                contextManager.clearContext();
+            }
+        }
+
+        async function runAllTests() {
+            clearLogs();
+            log('Starting agent handoff tests...');
+            
+            const initialized = await initializeSystem();
+            if (!initialized) {
+                return;
+            }
+
+            await testAgentHandoff();
+            log('All tests completed');
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            log('Page loaded, ready to run tests');
+        });
+    </script>
+</body>
+</html>

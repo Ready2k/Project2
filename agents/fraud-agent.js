@@ -124,12 +124,19 @@ class FraudAgent extends BaseAgent {
             // Validate data access permissions for fraud detection
             this.validateDataAccess(['fraud_alerts', 'security_actions', 'card_status']);
             
-            // Validate guardrails for fraud detection actions
-            const requiresSecondaryAuth = this.checkSecondaryAuthRequired('blockCard', context);
-            this.validateGuardrails('blockCard', { 
-                action: 'card_blocking', 
-                requiresSecondaryAuth 
-            });
+            // Only validate specific actions if the user is explicitly requesting them
+            // Don't pre-validate all possible actions as this causes unnecessary guardrails violations
+            const lowerInput = inputText.toLowerCase();
+            const isBlockCardRequest = /block.*card|freeze.*card|stop.*card|disable.*card/.test(lowerInput);
+            
+            if (isBlockCardRequest) {
+                // Only validate blockCard action if user is explicitly requesting it
+                const requiresSecondaryAuth = this.checkSecondaryAuthRequired('blockCard', context);
+                this.validateGuardrails('blockCard', { 
+                    action: 'card_blocking', 
+                    requiresSecondaryAuth 
+                });
+            }
 
             // Generate domain-specific system prompt
             const systemPrompt = this.generateSystemPrompt(context, inputText);

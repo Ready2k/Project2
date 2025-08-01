@@ -3,7 +3,13 @@
   "description": "Handles identity verification requests",
   "enabled": true,
   "priority": 30,
-  "triggers": ["verify", "identity", "password", "pin", "security question"],
+  "triggers": [
+    "verify",
+    "identity",
+    "password",
+    "pin",
+    "security question"
+  ],
   "llmProvider": "openai",
   "llmModel": "gpt-3.5-turbo",
   "llmConfig": {

@@ -97,7 +97,8 @@
                                         <i class="fas fa-eye"></i>
                                     </button>
                                 </div>
-                                <small class="help-text">Your API key is stored locally and never transmitted to our servers.</small>
+                                <small class="help-text">Your API key is stored locally and never transmitted to our
+                                    servers.</small>
                             </div>
                             <div class="form-group">
                                 <label for="gptModel">GPT Model:</label>
@@ -122,7 +123,7 @@
                                     <option value="browser">Browser TTS (Free)</option>
                                 </select>
                             </div>
-                            
+
                             <!-- OpenAI TTS Settings -->
                             <div id="openaiTtsSettings" class="tts-settings">
                                 <div class="form-group">
@@ -232,7 +233,8 @@
                         </div>
                         <div class="debug-section">
                             <h3><i class="fas fa-microphone"></i> Speech Input</h3>
-                            <div class="debug-output" id="speechInput">Speech recognition results will appear here...</div>
+                            <div class="debug-output" id="speechInput">Speech recognition results will appear here...
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -316,9 +318,11 @@
 
                         <div class="help-section">
                             <h3><i class="fas fa-info-circle"></i> About</h3>
-                            <p>AI Voice Assistant Professional Edition - A sophisticated voice interface for OpenAI's GPT models with advanced features for professional use.</p>
-                            <p><strong>Version:</strong> 2.0.0</p>
-                            <p><strong>Privacy:</strong> All processing happens locally in your browser. Your conversations and API keys are never sent to our servers.</p>
+                            <p>AI Voice Assistant Professional Edition - A sophisticated voice interface for OpenAI's
+                                GPT models with advanced features for professional use.</p>
+                            <p><strong>Version:</strong> 2.4.1</p>
+                            <p><strong>Privacy:</strong> All processing happens locally in your browser. Your
+                                conversations and API keys are never sent to our servers.</p>
                         </div>
                     </div>
                 </div>
@@ -364,12 +368,12 @@
             'script.js',
             'main-interface.js'
         ];
-        
+
         // Load scripts sequentially with cache busting
         let scriptIndex = 0;
         function loadNextScript() {
             if (scriptIndex >= scripts.length) return;
-            
+
             const script = document.createElement('script');
             script.src = scripts[scriptIndex] + '?v=' + cacheBust;
             script.onload = () => {
@@ -383,9 +387,10 @@
             };
             document.head.appendChild(script);
         }
-        
+
         // Start loading scripts
         loadNextScript();
     </script>
 </body>
+
 </html>

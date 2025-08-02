@@ -4,17 +4,40 @@
  */
 
 const VERSION_CONFIG = {
-    version: "v2.4.1",
+    version: "v2.4.2",
     buildDate: "2025-02-08",
-    lastUpdated: "Conversation Context & Quick Actions Improvements",
+    lastUpdated: "Enhanced Customer Personas Management System",
     releaseNotes: [
-        "Fixed System Prompts Management to load agent-specific data from config files",
-        "Enhanced Agent Configuration Management with full CRUD operations",
-        "Improved page detection to prevent unnecessary initialization",
-        "Added proper agent config file loading from config/agents/ directory",
-        "Fixed console errors and warnings for better user experience"
+        "Complete overhaul of Customer Personas Management with transaction support",
+        "New dedicated persona editor opening in separate tab for full-screen editing",
+        "Enhanced transaction management with add/edit/remove capabilities",
+        "Improved data persistence and real-time refresh system",
+        "Professional UI with responsive design and visual feedback"
     ],
     changelog: {
+        "v2.4.2": {
+            date: "2025-02-08",
+            changes: [
+                "Complete overhaul of Customer Personas Management system",
+                "Added comprehensive transaction management (add/edit/remove transactions)",
+                "New dedicated persona editor opening in separate tab for unlimited editing space",
+                "Enhanced persona cards with transaction summaries and visual indicators",
+                "Improved data persistence with real-time refresh between editor and admin panel",
+                "Professional UI with responsive design, color-coded amounts, and smooth animations",
+                "Fixed data synchronization issues between localStorage and admin interface",
+                "Added manual refresh capability and smart data reloading system"
+            ]
+        },
+        "v2.4.1": {
+            date: "2025-02-08",
+            changes: [
+                "Fixed System Prompts Management to load agent-specific data from config files",
+                "Enhanced Agent Configuration Management with full CRUD operations",
+                "Improved page detection to prevent unnecessary initialization",
+                "Added proper agent config file loading from config/agents/ directory",
+                "Fixed console errors and warnings for better user experience"
+            ]
+        },
         "v2.4.0": {
             date: "2025-01-08",
             changes: [

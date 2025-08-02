@@ -149,6 +149,28 @@ class PersonaManager {
         return this.personas;
     }
 
+    // Force reload personas from localStorage (useful for refreshing data)
+    async reloadPersonas() {
+        this.debug.log('Reloading personas from localStorage...');
+        
+        // Load fresh data from localStorage
+        const storedPersonas = localStorage.getItem('personas');
+        if (storedPersonas) {
+            try {
+                const parsedPersonas = JSON.parse(storedPersonas);
+                this.personas = parsedPersonas;
+                this.debug.log('Reloaded personas from localStorage:', Object.keys(this.personas));
+                return true;
+            } catch (error) {
+                this.debug.error('Error parsing stored personas:', error);
+                return false;
+            }
+        } else {
+            this.debug.log('No stored personas found, keeping current data');
+            return false;
+        }
+    }
+
     addPersona(personaId, personaData) {
         this.personas[personaId] = personaData;
         this.saveToLocalStorage();

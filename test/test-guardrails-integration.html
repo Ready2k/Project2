@@ -6,212 +6,269 @@
     <title>Guardrails Integration Test</title>
     <style>
         body {
-            font-family: 'Courier New', monospace;
-            max-width: 1000px;
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #1e1e1e;
-            color: #d4d4d4;
+            background-color: #f5f5f5;
         }
         .container {
-            background: #2d2d30;
+            background: white;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        h1 {
-            color: #569cd6;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .console-output {
-            background: #1e1e1e;
-            border: 1px solid #3e3e42;
-            border-radius: 4px;
-            padding: 15px;
-            min-height: 400px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.4;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-        .controls {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 20px;
-            text-align: center;
         }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
         button {
-            background-color: #0e639c;
+            background-color: #007bff;
             color: white;
             border: none;
             padding: 10px 20px;
             border-radius: 4px;
             cursor: pointer;
-            margin: 0 10px;
-            font-family: inherit;
+            margin: 5px;
         }
-        button:hover {
-            background-color: #1177bb;
-        }
-        button:disabled {
-            background-color: #666;
-            cursor: not-allowed;
-        }
-        .status {
-            text-align: center;
-            margin: 10px 0;
-            font-weight: bold;
-        }
-        .status.running {
-            color: #ffcc02;
-        }
-        .status.success {
-            color: #4ec9b0;
-        }
-        .status.error {
-            color: #f44747;
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🛡️ Guardrails Integration Test</h1>
+        <h1>Guardrails Integration Test</h1>
+        <p>Testing that guardrails work with our new agent configuration files</p>
         
-        <div class="controls">
-            <button id="runTests" onclick="runIntegrationTests()">Run Integration Tests</button>
-            <button id="clearConsole" onclick="clearConsole()">Clear Console</button>
+        <div class="test-section">
+            <h3>1. Load Dependencies</h3>
+            <button onclick="loadDependencies()">Load Dependencies</button>
+            <div id="dependencies-status"></div>
         </div>
         
-        <div id="status" class="status">Ready to run tests</div>
+        <div class="test-section">
+            <h3>2. Test PaymentsAgent Guardrails</h3>
+            <button onclick="testPaymentsAgentGuardrails()">Test PaymentsAgent</button>
+            <div id="payments-status"></div>
+        </div>
         
-        <div id="console" class="console-output">
-Click "Run Integration Tests" to start the comprehensive guardrails system test...
-
-This test will verify:
-• Guardrails configuration and validation
-• Agent capability restrictions
-• Action validation and blocking
-• Transaction amount limits
-• Violation logging and audit trail
-• Secondary authentication requirements
-• Integration with agent router
-
+        <div class="test-section">
+            <h3>3. Test Action Validation</h3>
+            <button onclick="testActionValidation()">Test Actions</button>
+            <div id="actions-status"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>4. Test Secondary Auth Requirements</h3>
+            <button onclick="testSecondaryAuth()">Test Secondary Auth</button>
+            <div id="auth-status"></div>
         </div>
     </div>
 
-    <!-- Load all dependencies -->
-    <script src="../agents/debug-manager.js"></script>
-    <script src="../agents/guardrails-manager.js"></script>
-    <script src="../agents/base-agent.js"></script>
-    <script src="../agents/idv-agent.js"></script>
-    <script src="../agents/banking-info-agent.js"></script>
-    <script src="../agents/fraud-agent.js"></script>
-    <script src="../agents/payments-agent.js"></script>
-    <script src="test-guardrails-integration.js"></script>
-
     <script>
-        let originalConsoleLog, originalConsoleInfo, originalConsoleWarn, originalConsoleError;
-        let consoleOutput = '';
-
-        function setupConsoleCapture() {
-            const consoleDiv = document.getElementById('console');
-            
-            // Store original console methods
-            originalConsoleLog = console.log;
-            originalConsoleInfo = console.info;
-            originalConsoleWarn = console.warn;
-            originalConsoleError = console.error;
-            
-            // Override console methods to capture output
-            console.log = (...args) => {
-                const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-                consoleOutput += message + '\n';
-                consoleDiv.textContent = consoleOutput;
-                consoleDiv.scrollTop = consoleDiv.scrollHeight;
-                originalConsoleLog.apply(console, args);
-            };
-            
-            console.info = (...args) => {
-                const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-                consoleOutput += message + '\n';
-                consoleDiv.textContent = consoleOutput;
-                consoleDiv.scrollTop = consoleDiv.scrollHeight;
-                originalConsoleInfo.apply(console, args);
-            };
-            
-            console.warn = (...args) => {
-                const message = '⚠️  ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-                consoleOutput += message + '\n';
-                consoleDiv.textContent = consoleOutput;
-                consoleDiv.scrollTop = consoleDiv.scrollHeight;
-                originalConsoleWarn.apply(console, args);
-            };
-            
-            console.error = (...args) => {
-                const message = '❌ ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
-                consoleOutput += message + '\n';
-                consoleDiv.textContent = consoleOutput;
-                consoleDiv.scrollTop = consoleDiv.scrollHeight;
-                originalConsoleError.apply(console, args);
-            };
+        let debugManager = null;
+        let agentConfigManager = null;
+        let guardrailsManager = null;
+        
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="${type}">${message}</div>`;
         }
-
-        function restoreConsole() {
-            if (originalConsoleLog) {
-                console.log = originalConsoleLog;
-                console.info = originalConsoleInfo;
-                console.warn = originalConsoleWarn;
-                console.error = originalConsoleError;
+        
+        function appendStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML += `<div class="${type}">${message}</div>`;
+        }
+        
+        async function loadDependencies() {
+            try {
+                showStatus('dependencies-status', 'Loading dependencies...', 'info');
+                
+                // Create debug manager
+                window.debugManager = {
+                    createModuleLogger: function(moduleName) {
+                        return {
+                            log: (msg, ...args) => console.log(`[${moduleName}]`, msg, ...args),
+                            info: (msg, ...args) => console.log(`[${moduleName}] INFO:`, msg, ...args),
+                            warn: (msg, ...args) => console.warn(`[${moduleName}] WARN:`, msg, ...args),
+                            error: (msg, ...args) => console.error(`[${moduleName}] ERROR:`, msg, ...args),
+                            debug: (msg, ...args) => console.debug(`[${moduleName}] DEBUG:`, msg, ...args)
+                        };
+                    }
+                };
+                debugManager = window.debugManager;
+                appendStatus('dependencies-status', '✓ Debug manager loaded', 'success');
+                
+                // Load agent config manager
+                await loadScript('agents/agent-config-manager.js');
+                agentConfigManager = new AgentConfigManager();
+                window.agentConfigManager = agentConfigManager;
+                appendStatus('dependencies-status', '✓ Agent config manager loaded', 'success');
+                
+                // Wait for configs to load
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Load guardrails manager
+                await loadScript('agents/guardrails-manager.js');
+                guardrailsManager = new GuardrailsManager();
+                appendStatus('dependencies-status', '✓ Guardrails manager loaded', 'success');
+                
+                appendStatus('dependencies-status', 'All dependencies loaded successfully!', 'success');
+                
+            } catch (error) {
+                appendStatus('dependencies-status', `Failed to load dependencies: ${error.message}`, 'error');
             }
         }
-
-        function clearConsole() {
-            consoleOutput = '';
-            document.getElementById('console').textContent = 'Console cleared. Click "Run Integration Tests" to start testing...';
-            updateStatus('Ready to run tests', '');
+        
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
         }
-
-        function updateStatus(message, className) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.textContent = message;
-            statusDiv.className = 'status ' + className;
-        }
-
-        async function runIntegrationTests() {
-            const runButton = document.getElementById('runTests');
-            runButton.disabled = true;
-            
+        
+        async function testPaymentsAgentGuardrails() {
             try {
-                updateStatus('Running integration tests...', 'running');
-                clearConsole();
-                setupConsoleCapture();
+                showStatus('payments-status', 'Testing PaymentsAgent guardrails...', 'info');
                 
-                const tester = new GuardrailsIntegrationTest();
-                await tester.runAllTests();
+                if (!guardrailsManager || !agentConfigManager) {
+                    throw new Error('Dependencies must be loaded first');
+                }
                 
-                // Determine overall result
-                const passedTests = tester.testResults.filter(r => r.passed).length;
-                const totalTests = tester.testResults.length;
+                // Get PaymentsAgent guardrails
+                const guardrails = guardrailsManager.getGuardrails('PaymentsAgent');
                 
-                if (passedTests === totalTests) {
-                    updateStatus(`All ${totalTests} tests passed! ✅`, 'success');
+                if (guardrails) {
+                    appendStatus('payments-status', '✓ PaymentsAgent guardrails loaded', 'success');
+                    
+                    // Check if it has the expected structure
+                    if (guardrails.allowedCapabilities) {
+                        appendStatus('payments-status', '✓ Allowed capabilities found', 'success');
+                    }
+                    
+                    if (guardrails.restrictions) {
+                        appendStatus('payments-status', '✓ Restrictions found', 'success');
+                        
+                        // Check secondary auth settings
+                        const secondaryAuth = guardrails.restrictions.requiresSecondaryAuth;
+                        if (secondaryAuth && secondaryAuth.initiateTransfer) {
+                            const authEnabled = secondaryAuth.initiateTransfer.enabled;
+                            appendStatus('payments-status', 
+                                `✓ Secondary auth for transfers: ${authEnabled ? 'ENABLED' : 'DISABLED'}`, 
+                                authEnabled ? 'warning' : 'success');
+                        }
+                        
+                        // Check transaction limits
+                        const maxAmount = guardrails.restrictions.maxTransactionAmount;
+                        appendStatus('payments-status', `✓ Max transaction amount: £${maxAmount}`, 'info');
+                    }
+                    
+                    appendStatus('payments-status', 'PaymentsAgent guardrails test completed!', 'success');
+                    
                 } else {
-                    updateStatus(`${passedTests}/${totalTests} tests passed ⚠️`, 'error');
+                    appendStatus('payments-status', '✗ No guardrails found for PaymentsAgent', 'error');
                 }
                 
             } catch (error) {
-                console.error('Test execution failed:', error);
-                updateStatus('Test execution failed ❌', 'error');
-            } finally {
-                restoreConsole();
-                runButton.disabled = false;
+                appendStatus('payments-status', `PaymentsAgent test failed: ${error.message}`, 'error');
             }
         }
-
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            updateStatus('Test environment loaded - Ready to run tests', '');
-        });
+        
+        async function testActionValidation() {
+            try {
+                showStatus('actions-status', 'Testing action validation...', 'info');
+                
+                if (!guardrailsManager) {
+                    throw new Error('Guardrails manager must be loaded first');
+                }
+                
+                // Test various actions for PaymentsAgent
+                const testActions = [
+                    { action: 'initiateTransfer', context: { amount: 50 } },
+                    { action: 'checkBalance', context: {} },
+                    { action: 'blockCard', context: {} },
+                    { action: 'resetPassword', context: {} }
+                ];
+                
+                for (const test of testActions) {
+                    const result = guardrailsManager.validateAction('PaymentsAgent', test.action, test.context);
+                    
+                    const statusType = result.allowed ? 'success' : 'warning';
+                    appendStatus('actions-status', 
+                        `${result.allowed ? '✓' : '⚠'} ${test.action}: ${result.allowed ? 'ALLOWED' : 'BLOCKED'} - ${result.reason}`, 
+                        statusType);
+                }
+                
+                appendStatus('actions-status', 'Action validation tests completed!', 'success');
+                
+            } catch (error) {
+                appendStatus('actions-status', `Action validation test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testSecondaryAuth() {
+            try {
+                showStatus('auth-status', 'Testing secondary authentication requirements...', 'info');
+                
+                if (!guardrailsManager) {
+                    throw new Error('Guardrails manager must be loaded first');
+                }
+                
+                // Get PaymentsAgent guardrails
+                const guardrails = guardrailsManager.getGuardrails('PaymentsAgent');
+                
+                if (guardrails && guardrails.restrictions && guardrails.restrictions.requiresSecondaryAuth) {
+                    const authRequirements = guardrails.restrictions.requiresSecondaryAuth;
+                    
+                    appendStatus('auth-status', 'Secondary authentication requirements:', 'info');
+                    
+                    for (const [action, config] of Object.entries(authRequirements)) {
+                        const status = config.enabled ? 'REQUIRED' : 'NOT REQUIRED';
+                        const statusType = config.enabled ? 'warning' : 'success';
+                        
+                        appendStatus('auth-status', 
+                            `${action}: ${status} (${config.authType || 'N/A'})`, 
+                            statusType);
+                    }
+                    
+                    appendStatus('auth-status', 'Secondary auth test completed!', 'success');
+                    
+                } else {
+                    appendStatus('auth-status', '✗ No secondary auth requirements found', 'error');
+                }
+                
+            } catch (error) {
+                appendStatus('auth-status', `Secondary auth test failed: ${error.message}`, 'error');
+            }
+        }
     </script>
 </body>
 </html>

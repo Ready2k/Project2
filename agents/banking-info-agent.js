@@ -104,11 +104,37 @@ class BankingInfoAgent extends BaseAgent {
             // Generate domain-specific system prompt with account context
             const systemPrompt = this.generateSystemPrompt(context, inputText, personaData);
             
+            // Get conversation history for context
+            const conversationHistory = context.conversationHistory || 
+                (context.contextManager ? context.contextManager.getHistory(6) : []);
+
             // Prepare the request for the LLM using sandboxed API client
             const messages = [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: inputText }
+                { role: 'system', content: systemPrompt }
             ];
+
+            // Add recent conversation history (excluding system messages)
+            if (conversationHistory && conversationHistory.length > 0) {
+                // Get the last few exchanges for context
+                const recentHistory = conversationHistory.slice(-6);
+                for (const msg of recentHistory) {
+                    if (msg.role === 'user' || msg.role === 'assistant') {
+                        messages.push({
+                            role: msg.role,
+                            content: msg.content
+                        });
+                    }
+                }
+            }
+
+            // Add the current user input
+            messages.push({ role: 'user', content: inputText });
+
+            this.debug.info('Prepared messages for LLM', {
+                messageCount: messages.length,
+                hasConversationHistory: conversationHistory && conversationHistory.length > 0,
+                currentInput: inputText.substring(0, 50) + '...'
+            });
             
             // Call the LLM API through sandboxed client
             const apiResponse = await this.sandboxedApiClient.generateChatCompletion(messages, {
@@ -119,17 +145,11 @@ class BankingInfoAgent extends BaseAgent {
             
             if (!apiResponse || !apiResponse.choices || !apiResponse.choices.length) {
                 throw new Error("No response from LLM");
-              }
+            }
               
-              const content = apiResponse.choices[0].message.content;
-              
-              return {
-                success: true,
-                response: content,
-                agentName: "BankingInfoAgent",
-                tokensUsed: apiResponse.usage?.total_tokens || 0,
-                processingTime: Date.now() - startTime,
-              };
+            const response = apiResponse.choices[0].message.content;
+            const tokensUsed = apiResponse.usage?.total_tokens || 0;
+            const processingTime = Date.now() - startTime;
               
             
             // Demonstrate secure domain API access for banking data with guardrails
@@ -170,9 +190,7 @@ class BankingInfoAgent extends BaseAgent {
                 this.debug.info('Guardrails working: BankingInfoAgent correctly blocked from transaction capability');
             }
             
-            const response = apiResponse.text;
-            const tokensUsed = apiResponse.tokensUsed || 0;
-            const processingTime = Date.now() - startTime;
+
             
             // Track tokens if tracker is available
             if (context.tokenTracker) {
@@ -382,7 +400,14 @@ RESPONSE GUIDELINES:
 - Format currency amounts clearly using GBP (£) symbol
 - Present transaction information in a clear, chronological format
 - Be helpful and informative about account details
-- Provide context about spending patterns when relevant`;
+- Provide context about spending patterns when relevant
+
+CONVERSATION CONTINUITY INSTRUCTIONS:
+- Pay close attention to the conversation history provided in the messages
+- When users ask follow-up questions about transactions or balances, reference the previous context
+- If discussing specific transactions, maintain context about which transactions were mentioned
+- Provide detailed information when users ask for "more details" about previously mentioned items
+- Always reference the conversation history to provide contextually relevant responses`;
 
         return basePrompt + bankingEnhancements;
     }

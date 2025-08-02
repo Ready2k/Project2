@@ -104,6 +104,6 @@
 - Increased functionality with advanced configuration management
 - Future-ready architecture with extensible design
 
-## 🚀 Version: v2.1.0
+## 🚀 Version: v2.4.1
 
-This release significantly enhances the Voice Banking Agent Architecture system with advanced configuration management, comprehensive testing, and critical bug fixes, making it more robust, feature-rich, and user-friendly.
+This release fixes critical conversation context issues and enhances the quick actions interface, making the voice assistant much more responsive to follow-up conversations and user-friendly for custom interactions.

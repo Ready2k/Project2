@@ -116,7 +116,7 @@ script.js, styles.css, test-*.html, *.md documentation"
     
     echo ""
     echo "🏷️ Creating version tag..."
-    git tag -a v2.1.0 -m "Version 2.1.0: Advanced LLM Manager Features & Critical Bug Fixes
+    git tag -a v2.4.1 -m "Version 2.4.1: Conversation Context & Quick Actions Improvements
 
 Major release featuring:
 - Advanced LLM Manager System with templates, metrics, and scheduling

@@ -91,11 +91,37 @@ class IDVAgent extends BaseAgent {
             // Get current persona data for context (through secure access)
             const personaData = this.getPersonaData(context);
             
+            // Get conversation history for context
+            const conversationHistory = context.conversationHistory || 
+                (context.contextManager ? context.contextManager.getHistory(6) : []);
+
             // Prepare the request for the LLM using sandboxed API client
             const messages = [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: inputText }
+                { role: 'system', content: systemPrompt }
             ];
+
+            // Add recent conversation history (excluding system messages)
+            if (conversationHistory && conversationHistory.length > 0) {
+                // Get the last few exchanges for context
+                const recentHistory = conversationHistory.slice(-6);
+                for (const msg of recentHistory) {
+                    if (msg.role === 'user' || msg.role === 'assistant') {
+                        messages.push({
+                            role: msg.role,
+                            content: msg.content
+                        });
+                    }
+                }
+            }
+
+            // Add the current user input
+            messages.push({ role: 'user', content: inputText });
+
+            this.debug.info('Prepared messages for LLM', {
+                messageCount: messages.length,
+                hasConversationHistory: conversationHistory && conversationHistory.length > 0,
+                currentInput: inputText.substring(0, 50) + '...'
+            });
             
             // Call the LLM API through sandboxed client
             const apiResponse = await this.sandboxedApiClient.generateChatCompletion(messages, {
@@ -106,17 +132,11 @@ class IDVAgent extends BaseAgent {
             
             if (!apiResponse || !apiResponse.choices || !apiResponse.choices.length) {
                 throw new Error("No response from LLM");
-              }
+            }
               
-              const content = apiResponse.choices[0].message.content;
-              
-              return {
-                success: true,
-                response: content,
-                agentName: "IDVAgent",
-                tokensUsed: apiResponse.usage?.total_tokens || 0,
-                processingTime: Date.now() - startTime,
-              };
+            const response = apiResponse.choices[0].message.content;
+            const tokensUsed = apiResponse.usage?.total_tokens || 0;
+            const processingTime = Date.now() - startTime;
             
             // Demonstrate secure domain API access with guardrails
             try {
@@ -139,9 +159,7 @@ class IDVAgent extends BaseAgent {
                 });
             }
             
-            const response = apiResponse.text;
-            const tokensUsed = apiResponse.tokensUsed || 0;
-            const processingTime = Date.now() - startTime;
+
             
             // Track tokens if tracker is available
             if (context.tokenTracker) {
@@ -280,7 +298,15 @@ VERIFICATION CAPABILITIES:
 - Provide password reset instructions and security best practices
 - Help with security question setup and recovery procedures
 - Offer general account security advice and best practices
-- Explain authentication methods and security requirements`;
+- Explain authentication methods and security requirements
+
+CONVERSATION CONTINUITY INSTRUCTIONS:
+- Pay close attention to the conversation history provided in the messages
+- When users respond with "yes", "proceed", "send it", etc., they are confirming a previously discussed verification action
+- If password reset or verification was previously discussed and user confirms, proceed with the action
+- Always reference the specific verification process from the conversation history
+- Provide clear next steps when processing verification requests
+- Maintain security context throughout the verification process`;
 
         return basePrompt + idvEnhancements;
     }

@@ -170,11 +170,37 @@ class PaymentsAgent extends BaseAgent {
             // Generate domain-specific system prompt with security context
             const systemPrompt = this.generateSystemPrompt(context, inputText, personaData);
             
+            // Get conversation history for context
+            const conversationHistory = context.conversationHistory || 
+                (context.contextManager ? context.contextManager.getHistory(6) : []);
+
             // Prepare the request for the LLM using sandboxed API client
             const messages = [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: inputText }
+                { role: 'system', content: systemPrompt }
             ];
+
+            // Add recent conversation history (excluding system messages)
+            if (conversationHistory && conversationHistory.length > 0) {
+                // Get the last few exchanges for context
+                const recentHistory = conversationHistory.slice(-6);
+                for (const msg of recentHistory) {
+                    if (msg.role === 'user' || msg.role === 'assistant') {
+                        messages.push({
+                            role: msg.role,
+                            content: msg.content
+                        });
+                    }
+                }
+            }
+
+            // Add the current user input
+            messages.push({ role: 'user', content: inputText });
+
+            this.debug.info('Prepared messages for LLM', {
+                messageCount: messages.length,
+                hasConversationHistory: conversationHistory && conversationHistory.length > 0,
+                currentInput: inputText.substring(0, 50) + '...'
+            });
             
             // Call the LLM API through sandboxed client with highest security settings
             const apiResponse = await this.sandboxedApiClient.generateChatCompletion(messages, {
@@ -185,17 +211,11 @@ class PaymentsAgent extends BaseAgent {
             
             if (!apiResponse || !apiResponse.choices || !apiResponse.choices.length) {
                 throw new Error("No response from LLM");
-              }
+            }
               
-              const content = apiResponse.choices[0].message.content;
-              
-              return {
-                success: true,
-                response: content,
-                agentName: "PaymentsAgent",
-                tokensUsed: apiResponse.usage?.total_tokens || 0,
-                processingTime: Date.now() - startTime,
-              };
+            const response = apiResponse.choices[0].message.content;
+            const tokensUsed = apiResponse.usage?.total_tokens || 0;
+            const processingTime = Date.now() - startTime;
             
             // Demonstrate secure domain API access for payment processing with guardrails
             try {
@@ -248,9 +268,7 @@ class PaymentsAgent extends BaseAgent {
                 });
             }
             
-            const response = apiResponse.text;
-            const tokensUsed = apiResponse.tokensUsed || 0;
-            const processingTime = Date.now() - startTime;
+
             
             // Track tokens if tracker is available
             if (context.tokenTracker) {
@@ -473,7 +491,15 @@ TRANSACTION VALIDATION CHECKLIST:
 - Confirm payment amount is within available balance
 - Check for any account restrictions or holds
 - Validate payment method and authorization
-- Ensure compliance with transfer limits and regulations`;
+- Ensure compliance with transfer limits and regulations
+
+CONVERSATION CONTINUITY INSTRUCTIONS:
+- Pay close attention to the conversation history provided in the messages
+- When users respond with "proceed", "yes", "confirm", or similar affirmative responses, they are confirming a previously discussed transaction
+- If a payment was previously discussed and user confirms, process the payment with the previously agreed details
+- Always reference the specific transaction details from the conversation history
+- Provide clear confirmation when processing payments, including transaction reference numbers
+- If conversation context is unclear, ask for clarification rather than starting over`;
 
         return basePrompt + paymentEnhancements;
     }

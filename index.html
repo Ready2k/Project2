@@ -154,6 +154,31 @@
             <!-- Quick Actions Panel -->
             <section class="quick-actions">
                 <h3>Quick Actions</h3>
+                
+                <!-- Custom Message Input -->
+                <div class="custom-message-input">
+                    <div class="input-group">
+                        <input type="text" id="customMessageInput" placeholder="Type your message here..." maxlength="500">
+                        <button class="send-btn" onclick="sendCustomMessage()">
+                            <i class="fas fa-paper-plane"></i>
+                            <span>Send</span>
+                        </button>
+                    </div>
+                    <div class="input-info">
+                        <span class="char-counter">
+                            <span id="charCount">0</span>/500 characters
+                        </span>
+                        <span class="input-hint">Press Enter to send</span>
+                    </div>
+                </div>
+                
+                <!-- Recent Messages -->
+                <div id="recentMessagesSection" class="recent-messages-section" style="display: none;">
+                    <h4>Recent Messages</h4>
+                    <div id="recentMessages" class="recent-messages-grid"></div>
+                </div>
+                
+                <!-- Predefined Actions -->
                 <div class="action-grid">
                     <button class="action-btn" onclick="suggestPhrase('Hello, how are you today?')">
                         <i class="fas fa-comment"></i>
@@ -565,7 +590,7 @@
                     <!-- Version Information -->
                     <div class="help-card version-info">
                         <div class="version-header" onclick="toggleVersionDetails()">
-                            <h4><i class="fas fa-code-branch"></i> Version <span id="appVersion">v2.1.0</span></h4>
+                            <h4><i class="fas fa-code-branch"></i> Version <span id="appVersion">v2.4.1</span></h4>
                             <i class="fas fa-chevron-down version-toggle" id="versionToggle"></i>
                         </div>
                         <div class="version-details" id="versionDetails" style="display: none;">

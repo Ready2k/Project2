@@ -4,9 +4,9 @@
  */
 
 const VERSION_CONFIG = {
-    version: "v2.4.0",
-    buildDate: "2025-01-08",
-    lastUpdated: "System Prompts & Configuration Management Fixes",
+    version: "v2.4.1",
+    buildDate: "2025-02-08",
+    lastUpdated: "Conversation Context & Quick Actions Improvements",
     releaseNotes: [
         "Fixed System Prompts Management to load agent-specific data from config files",
         "Enhanced Agent Configuration Management with full CRUD operations",

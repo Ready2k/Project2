@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Actions Chat Test</title>
+    <link rel="stylesheet" href="main-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .conversation {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            min-height: 200px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 10px;
+            max-width: 70%;
+        }
+        .user-message {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+        }
+        .bot-message {
+            background: #e9ecef;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1><i class="fas fa-comments"></i> Quick Actions Chat Test</h1>
+            <p>Test the new chat-like quick actions functionality with custom input and recent messages.</p>
+        </div>
+
+        <div class="conversation" id="testConversation">
+            <div class="message bot-message">
+                <strong>Assistant:</strong> Hello! Try the quick actions below or type your own message.
+            </div>
+        </div>
+
+        <!-- Quick Actions Panel -->
+        <section class="quick-actions">
+            <h3>Quick Actions</h3>
+            
+            <!-- Custom Message Input -->
+            <div class="custom-message-input">
+                <div class="input-group">
+                    <input type="text" id="customMessageInput" placeholder="Type your message here..." maxlength="500">
+                    <button class="send-btn" onclick="sendCustomMessage()">
+                        <i class="fas fa-paper-plane"></i>
+                        <span>Send</span>
+                    </button>
+                </div>
+                <div class="input-info">
+                    <span class="char-counter">
+                        <span id="charCount">0</span>/500 characters
+                    </span>
+                    <span class="input-hint">Press Enter to send</span>
+                </div>
+            </div>
+            
+            <!-- Recent Messages -->
+            <div id="recentMessagesSection" class="recent-messages-section" style="display: none;">
+                <h4>Recent Messages</h4>
+                <div id="recentMessages" class="recent-messages-grid"></div>
+            </div>
+            
+            <!-- Predefined Actions -->
+            <div class="action-grid">
+                <button class="action-btn" onclick="suggestPhrase('Hello, how are you today?')">
+                    <i class="fas fa-comment"></i>
+                    <span>Greeting</span>
+                </button>
+                <button class="action-btn" onclick="suggestPhrase('What\'s my account balance?')">
+                    <i class="fas fa-wallet"></i>
+                    <span>Balance</span>
+                </button>
+                <button class="action-btn" onclick="suggestPhrase('I need help with a transaction')">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Transaction</span>
+                </button>
+                <button class="action-btn" onclick="suggestPhrase('I think there\'s fraud on my account')">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Fraud Alert</span>
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Mock the suggestPhrase function for testing
+        function suggestPhrase(phrase) {
+            console.log('suggestPhrase called with:', phrase);
+            
+            // Add message to test conversation
+            const conversation = document.getElementById('testConversation');
+            const userMessage = document.createElement('div');
+            userMessage.className = 'message user-message';
+            userMessage.innerHTML = `<strong>You:</strong> ${phrase}`;
+            conversation.appendChild(userMessage);
+            
+            // Mock bot response
+            setTimeout(() => {
+                const botMessage = document.createElement('div');
+                botMessage.className = 'message bot-message';
+                botMessage.innerHTML = `<strong>Assistant:</strong> I received your message: "${phrase}". This is a test response.`;
+                conversation.appendChild(botMessage);
+                conversation.scrollTop = conversation.scrollHeight;
+            }, 500);
+            
+            conversation.scrollTop = conversation.scrollHeight;
+        }
+
+        // Custom message function
+        function sendCustomMessage() {
+            const input = document.getElementById('customMessageInput');
+            const message = input.value.trim();
+            
+            if (!message) {
+                input.style.borderColor = '#dc3545';
+                input.placeholder = 'Please enter a message...';
+                setTimeout(() => {
+                    input.style.borderColor = '#e9ecef';
+                    input.placeholder = 'Type your message here...';
+                }, 2000);
+                return;
+            }
+            
+            // Save to recent messages
+            saveRecentMessage(message);
+            
+            // Send the custom message
+            suggestPhrase(message);
+            
+            // Clear the input field
+            input.value = '';
+            
+            // Update character counter
+            const charCount = document.getElementById('charCount');
+            if (charCount) {
+                charCount.textContent = '0';
+                charCount.style.color = '#6c757d';
+            }
+        }
+
+        // Recent messages functionality
+        function saveRecentMessage(message) {
+            try {
+                let recentMessages = JSON.parse(localStorage.getItem('recentQuickActions') || '[]');
+                
+                // Remove if already exists (to move to top)
+                recentMessages = recentMessages.filter(msg => msg !== message);
+                
+                // Add to beginning
+                recentMessages.unshift(message);
+                
+                // Keep only last 5 messages
+                recentMessages = recentMessages.slice(0, 5);
+                
+                localStorage.setItem('recentQuickActions', JSON.stringify(recentMessages));
+                updateRecentMessagesDisplay();
+            } catch (error) {
+                console.warn('Could not save recent message:', error);
+            }
+        }
+
+        function updateRecentMessagesDisplay() {
+            try {
+                const recentMessages = JSON.parse(localStorage.getItem('recentQuickActions') || '[]');
+                const container = document.getElementById('recentMessages');
+                
+                if (!container || recentMessages.length === 0) return;
+                
+                container.innerHTML = recentMessages.map(message => `
+                    <button class="recent-message-btn" onclick="suggestPhrase('${message.replace(/'/g, "\\'")}')">
+                        <i class="fas fa-history"></i>
+                        <span>${message.length > 30 ? message.substring(0, 30) + '...' : message}</span>
+                    </button>
+                `).join('');
+                
+                // Show/hide recent messages section
+                const recentSection = document.getElementById('recentMessagesSection');
+                if (recentSection) {
+                    recentSection.style.display = recentMessages.length > 0 ? 'block' : 'none';
+                }
+            } catch (error) {
+                console.warn('Could not update recent messages display:', error);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Character counter
+            const customInput = document.getElementById('customMessageInput');
+            if (customInput) {
+                customInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        sendCustomMessage();
+                    }
+                });
+                
+                customInput.addEventListener('input', (e) => {
+                    const charCount = document.getElementById('charCount');
+                    if (charCount) {
+                        const length = e.target.value.length;
+                        charCount.textContent = length;
+                        
+                        if (length > 450) {
+                            charCount.style.color = '#dc3545';
+                        } else if (length > 400) {
+                            charCount.style.color = '#ffc107';
+                        } else {
+                            charCount.style.color = '#6c757d';
+                        }
+                    }
+                });
+            }
+            
+            // Initialize recent messages display
+            updateRecentMessagesDisplay();
+        });
+    </script>
+</body>
+</html>

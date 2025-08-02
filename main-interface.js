@@ -13,6 +13,35 @@ class MainInterfaceController {
         document.getElementById('debugBtn').addEventListener('click', () => this.openPanel('debugPanel'));
         document.getElementById('helpBtn').addEventListener('click', () => this.openPanel('helpPanel'));
 
+        // Custom message input - Enter key support and character counter
+        const customInput = document.getElementById('customMessageInput');
+        if (customInput) {
+            customInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sendCustomMessage();
+                }
+            });
+            
+            // Character counter
+            customInput.addEventListener('input', (e) => {
+                const charCount = document.getElementById('charCount');
+                if (charCount) {
+                    const length = e.target.value.length;
+                    charCount.textContent = length;
+                    
+                    // Change color when approaching limit
+                    if (length > 450) {
+                        charCount.style.color = '#dc3545';
+                    } else if (length > 400) {
+                        charCount.style.color = '#ffc107';
+                    } else {
+                        charCount.style.color = '#6c757d';
+                    }
+                }
+            });
+        }
+
         // Close panel buttons
         document.querySelectorAll('.close-panel').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -318,8 +347,97 @@ function suggestPhrase(phrase) {
     }
 }
 
-// Make sure the function is globally accessible
+// Custom message function
+function sendCustomMessage() {
+    const input = document.getElementById('customMessageInput');
+    const message = input.value.trim();
+    
+    if (!message) {
+        // Add visual feedback for empty input
+        input.style.borderColor = '#dc3545';
+        input.placeholder = 'Please enter a message...';
+        setTimeout(() => {
+            input.style.borderColor = '#e9ecef';
+            input.placeholder = 'Type your message here...';
+        }, 2000);
+        return;
+    }
+    
+    // Save to recent messages
+    saveRecentMessage(message);
+    
+    // Send the custom message using the same function as predefined actions
+    suggestPhrase(message);
+    
+    // Clear the input field
+    input.value = '';
+    
+    // Update character counter
+    const charCount = document.getElementById('charCount');
+    if (charCount) {
+        charCount.textContent = '0';
+        charCount.style.color = '#6c757d';
+    }
+    
+    // Log user action
+    if (window.systemLogger) {
+        window.systemLogger.logUserAction('Sent custom message', { 
+            message: message,
+            source: 'custom input'
+        });
+    }
+}
+
+// Recent messages functionality
+function saveRecentMessage(message) {
+    try {
+        let recentMessages = JSON.parse(localStorage.getItem('recentQuickActions') || '[]');
+        
+        // Remove if already exists (to move to top)
+        recentMessages = recentMessages.filter(msg => msg !== message);
+        
+        // Add to beginning
+        recentMessages.unshift(message);
+        
+        // Keep only last 5 messages
+        recentMessages = recentMessages.slice(0, 5);
+        
+        localStorage.setItem('recentQuickActions', JSON.stringify(recentMessages));
+        updateRecentMessagesDisplay();
+    } catch (error) {
+        console.warn('Could not save recent message:', error);
+    }
+}
+
+function updateRecentMessagesDisplay() {
+    try {
+        const recentMessages = JSON.parse(localStorage.getItem('recentQuickActions') || '[]');
+        const container = document.getElementById('recentMessages');
+        
+        if (!container || recentMessages.length === 0) return;
+        
+        container.innerHTML = recentMessages.map(message => `
+            <button class="recent-message-btn" onclick="suggestPhrase('${message.replace(/'/g, "\\'")}')">
+                <i class="fas fa-history"></i>
+                <span>${message.length > 30 ? message.substring(0, 30) + '...' : message}</span>
+            </button>
+        `).join('');
+        
+        // Show/hide recent messages section
+        const recentSection = document.getElementById('recentMessagesSection');
+        if (recentSection) {
+            recentSection.style.display = recentMessages.length > 0 ? 'block' : 'none';
+        }
+    } catch (error) {
+        console.warn('Could not update recent messages display:', error);
+    }
+}
+
+// Make sure the functions are globally accessible
 window.suggestPhrase = suggestPhrase;
+window.sendCustomMessage = sendCustomMessage;
+window.saveRecentMessage = saveRecentMessage;
+window.updateRecentMessagesDisplay = updateRecentMessagesDisplay;
 
 // Backup implementation in case of issues
 if (!window.suggestPhrase) {
@@ -549,6 +667,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.debugManager) {
         updateDebugToggleButton(window.debugManager.isEnabled());
     }
+    
+    // Initialize recent messages display
+    updateRecentMessagesDisplay();
     
     // Log system initialization
     if (window.systemLogger) {

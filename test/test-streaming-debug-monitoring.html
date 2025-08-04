@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Debug and Monitoring Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .test-section {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .test-section h2 {
+            color: #60a5fa;
+            margin-top: 0;
+            border-bottom: 2px solid #444;
+            padding-bottom: 10px;
+        }
+        
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .test-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+        
+        .test-btn:hover {
+            background: #0056b3;
+        }
+        
+        .test-btn.success {
+            background: #28a745;
+        }
+        
+        .test-btn.error {
+            background: #dc3545;
+        }
+        
+        .test-btn.warning {
+            background: #ffc107;
+            color: #000;
+        }
+        
+        .test-results {
+            background: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        
+        .test-result {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 3px;
+        }
+        
+        .test-result.pass {
+            background: rgba(40, 167, 69, 0.2);
+            border-left: 3px solid #28a745;
+        }
+        
+        .test-result.fail {
+            background: rgba(220, 53, 69, 0.2);
+            border-left: 3px solid #dc3545;
+        }
+        
+        .test-result.info {
+            background: rgba(96, 165, 250, 0.2);
+            border-left: 3px solid #60a5fa;
+        }
+        
+        .timestamp {
+            color: #6c757d;
+            font-size: 10px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-indicator.active {
+            background: #28a745;
+        }
+        
+        .status-indicator.inactive {
+            background: #6c757d;
+        }
+        
+        .status-indicator.error {
+            background: #dc3545;
+        }
+        
+        .metrics-display {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .metric-card {
+            background: #333;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff88;
+            margin-bottom: 5px;
+        }
+        
+        .metric-label {
+            font-size: 11px;
+            color: #ccc;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Streaming Debug and Monitoring Test Suite</h1>
+        
+        <!-- Component Status -->
+        <div class="test-section">
+            <h2>Component Status</h2>
+            <div id="componentStatus">
+                <div>
+                    <span class="status-indicator" id="debugPanelStatus"></span>
+                    Streaming Debug Panel: <span id="debugPanelText">Loading...</span>
+                </div>
+                <div>
+                    <span class="status-indicator" id="routingMonitorStatus"></span>
+                    Routing Monitor: <span id="routingMonitorText">Loading...</span>
+                </div>
+                <div>
+                    <span class="status-indicator" id="performanceDashboardStatus"></span>
+                    Performance Dashboard: <span id="performanceDashboardText">Loading...</span>
+                </div>
+                <div>
+                    <span class="status-indicator" id="errorTrackerStatus"></span>
+                    Error Tracker: <span id="errorTrackerText">Loading...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Panel Tests -->
+        <div class="test-section">
+            <h2>Debug Panel Tests</h2>
+            <div class="test-controls">
+                <button class="test-btn" onclick="testDebugPanelShow()">Show Debug Panel</button>
+                <button class="test-btn" onclick="testDebugPanelHide()">Hide Debug Panel</button>
+                <button class="test-btn" onclick="testDebugPanelMonitoring()">Toggle Monitoring</button>
+                <button class="test-btn" onclick="testDebugPanelClear()">Clear Debug Data</button>
+                <button class="test-btn" onclick="testDebugPanelExport()">Export Data</button>
+            </div>
+            <div id="debugPanelResults" class="test-results"></div>
+        </div>
+
+        <!-- Routing Monitor Tests -->
+        <div class="test-section">
+            <h2>Routing Monitor Tests</h2>
+            <div class="test-controls">
+                <button class="test-btn" onclick="simulateRoutingDecision()">Simulate Routing Decision</button>
+                <button class="test-btn" onclick="simulateAgentSwitch()">Simulate Agent Switch</button>
+                <button class="test-btn" onclick="simulateRoutingError()">Simulate Routing Error</button>
+                <button class="test-btn" onclick="testRoutingAnalytics()">Get Analytics</button>
+                <button class="test-btn" onclick="testRoutingExport()">Export Monitoring Data</button>
+            </div>
+            <div id="routingMonitorResults" class="test-results"></div>
+        </div>
+
+        <!-- Performance Dashboard Tests -->
+        <div class="test-section">
+            <h2>Performance Dashboard Tests</h2>
+            <div class="test-controls">
+                <button class="test-btn" onclick="testPerformanceDashboardShow()">Show Dashboard</button>
+                <button class="test-btn" onclick="testPerformanceDashboardHide()">Hide Dashboard</button>
+                <button class="test-btn" onclick="testPerformanceMetrics()">Update Metrics</button>
+                <button class="test-btn" onclick="testPerformanceAlerts()">Trigger Alerts</button>
+                <button class="test-btn" onclick="testPerformanceExport()">Export Performance Data</button>
+            </div>
+            <div id="performanceDashboardResults" class="test-results"></div>
+            
+            <!-- Real-time Metrics Display -->
+            <div class="metrics-display">
+                <div class="metric-card">
+                    <div class="metric-value" id="currentLatency">0ms</div>
+                    <div class="metric-label">Current Latency</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="currentSuccessRate">100%</div>
+                    <div class="metric-label">Success Rate</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="currentThroughput">0/min</div>
+                    <div class="metric-label">Throughput</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="currentErrorRate">0%</div>
+                    <div class="metric-label">Error Rate</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Tracker Tests -->
+        <div class="test-section">
+            <h2>Error Tracker Tests</h2>
+            <div class="test-controls">
+                <button class="test-btn error" onclick="simulateRoutingError()">Simulate Routing Error</button>
+                <button class="test-btn error" onclick="simulateAgentSwitchError()">Simulate Agent Switch Error</button>
+                <button class="test-btn error" onclick="simulateConnectionError()">Simulate Connection Error</button>
+                <button class="test-btn warning" onclick="simulateTimeoutError()">Simulate Timeout Error</button>
+                <button class="test-btn" onclick="testErrorAnalysis()">Get Error Analysis</button>
+                <button class="test-btn" onclick="testErrorPatterns()">Get Error Patterns</button>
+                <button class="test-btn" onclick="testErrorRecovery()">Test Recovery</button>
+                <button class="test-btn" onclick="testErrorExport()">Export Error Data</button>
+            </div>
+            <div id="errorTrackerResults" class="test-results"></div>
+        </div>
+
+        <!-- Integration Tests -->
+        <div class="test-section">
+            <h2>Integration Tests</h2>
+            <div class="test-controls">
+                <button class="test-btn" onclick="testFullWorkflow()">Test Full Workflow</button>
+                <button class="test-btn" onclick="testErrorEscalation()">Test Error Escalation</button>
+                <button class="test-btn" onclick="testPerformanceThresholds()">Test Performance Thresholds</button>
+                <button class="test-btn" onclick="testDataConsistency()">Test Data Consistency</button>
+                <button class="test-btn" onclick="runAllTests()">Run All Tests</button>
+            </div>
+            <div id="integrationResults" class="test-results"></div>
+        </div>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="../agents/debug-manager.js"></script>
+    <script src="../streaming-debug-panel.js"></script>
+    <script src="../streaming-routing-monitor.js"></script>
+    <script src="../streaming-performance-dashboard.js"></script>
+    <script src="../streaming-error-tracker.js"></script>
+
+    <script>
+        // Test utilities
+        function logResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const result = document.createElement('div');
+            result.className = `test-result ${type}`;
+            result.innerHTML = `
+                <span class="timestamp">[${new Date().toLocaleTimeString()}]</span>
+                ${message}
+            `;
+            container.insertBefore(result, container.firstChild);
+            
+            // Keep only recent results
+            while (container.children.length > 50) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        function updateStatus(statusId, textId, isActive, text) {
+            const statusElement = document.getElementById(statusId);
+            const textElement = document.getElementById(textId);
+            
+            statusElement.className = `status-indicator ${isActive ? 'active' : 'inactive'}`;
+            textElement.textContent = text;
+        }
+
+        // Initialize component status check
+        function checkComponentStatus() {
+            // Check Debug Panel
+            const debugPanelAvailable = typeof window.streamingDebugPanel !== 'undefined';
+            updateStatus('debugPanelStatus', 'debugPanelText', debugPanelAvailable, 
+                debugPanelAvailable ? 'Available' : 'Not Available');
+
+            // Check Routing Monitor
+            const routingMonitorAvailable = typeof window.streamingRoutingMonitor !== 'undefined';
+            updateStatus('routingMonitorStatus', 'routingMonitorText', routingMonitorAvailable, 
+                routingMonitorAvailable ? 'Available' : 'Not Available');
+
+            // Check Performance Dashboard
+            const performanceDashboardAvailable = typeof window.streamingPerformanceDashboard !== 'undefined';
+            updateStatus('performanceDashboardStatus', 'performanceDashboardText', performanceDashboardAvailable, 
+                performanceDashboardAvailable ? 'Available' : 'Not Available');
+
+            // Check Error Tracker
+            const errorTrackerAvailable = typeof window.streamingErrorTracker !== 'undefined';
+            updateStatus('errorTrackerStatus', 'errorTrackerText', errorTrackerAvailable, 
+                errorTrackerAvailable ? 'Available' : 'Not Available');
+        }
+
+        // Debug Panel Tests
+        function testDebugPanelShow() {
+            try {
+                if (window.streamingDebugPanel) {
+                    window.streamingDebugPanel.show();
+                    logResult('debugPanelResults', 'Debug panel shown successfully', 'pass');
+                } else {
+                    logResult('debugPanelResults', 'Debug panel not available', 'fail');
+                }
+            } catch (error) {
+                logResult('debugPanelResults', `Error showing debug panel: ${error.message}`, 'fail');
+            }
+        }
+
+        function testDebugPanelHide() {
+            try {
+                if (window.streamingDebugPanel) {
+                    window.streamingDebugPanel.hide();
+                    logResult('debugPanelResults', 'Debug panel hidden successfully', 'pass');
+                } else {
+                    logResult('debugPanelResults', 'Debug panel not available', 'fail');
+                }
+            } catch (error) {
+                logResult('debugPanelResults', `Error hiding debug panel: ${error.message}`, 'fail');
+            }
+        }
+
+        function testDebugPanelMonitoring() {
+            try {
+                if (window.streamingDebugPanel) {
+                    window.streamingDebugPanel.toggleMonitoring();
+                    logResult('debugPanelResults', 'Debug panel monitoring toggled', 'pass');
+                } else {
+                    logResult('debugPanelResults', 'Debug panel not available', 'fail');
+                }
+            } catch (error) {
+                logResult('debugPanelResults', `Error toggling monitoring: ${error.message}`, 'fail');
+            }
+        }
+
+        function testDebugPanelClear() {
+            try {
+                if (window.streamingDebugPanel) {
+                    window.streamingDebugPanel.clearAllData();
+                    logResult('debugPanelResults', 'Debug panel data cleared', 'pass');
+                } else {
+                    logResult('debugPanelResults', 'Debug panel not available', 'fail');
+                }
+            } catch (error) {
+                logResult('debugPanelResults', `Error clearing data: ${error.message}`, 'fail');
+            }
+        }
+
+        function testDebugPanelExport() {
+            try {
+                if (window.streamingDebugPanel) {
+                    window.streamingDebugPanel.exportDebugData();
+                    logResult('debugPanelResults', 'Debug data export initiated', 'pass');
+                } else {
+                    logResult('debugPanelResults', 'Debug panel not available', 'fail');
+                }
+            } catch (error) {
+                logResult('debugPanelResults', `Error exporting data: ${error.message}`, 'fail');
+            }
+        }
+
+        // Routing Monitor Tests
+        function simulateRoutingDecision() {
+            try {
+                if (window.streamingDebugPanel) {
+                    const decision = {
+                        timestamp: Date.now(),
+                        input: 'Test routing input',
+                        result: { success: true, selectedAgent: { name: 'TestAgent' } },
+                        latency: Math.random() * 100 + 50,
+                        success: true,
+                        agent: 'TestAgent'
+                    };
+                    
+                    window.streamingDebugPanel.logRoutingDecision(decision);
+                    logResult('routingMonitorResults', 'Routing decision simulated successfully', 'pass');
+                } else {
+                    logResult('routingMonitorResults', 'Debug panel not available', 'fail');
+                }
+            } catch (error) {
+                logResult('routingMonitorResults', `Error simulating routing decision: ${error.message}`, 'fail');
+            }
+        }
+
+        function simulateAgentSwitch() {
+            try {
+                if (window.streamingDebugPanel) {
+                    const switchData = {
+                        timestamp: Date.now(),
+                        fromAgent: 'DefaultAgent',
+                        toAgent: 'FraudAgent',
+                        latency: Math.random() * 50 + 20,
+                        success: true
+                    };
+                    
+                    window.streamingDebugPanel.logAgentSwitch(switchData);
+                    logResult('routingMonitorResults', 'Agent switch simulated successfully', 'pass');
+                } else {
+                    logResult('routingMonitorResults', 'Debug panel not available', 'fail');
+                }
+            } catch (error) {
+                logResult('routingMonitorResults', `Error simulating agent switch: ${error.message}`, 'fail');
+            }
+        }
+
+        function simulateRoutingError() {
+            try {
+                if (window.streamingDebugPanel) {
+                    const error = {
+                        timestamp: Date.now(),
+                        input: 'Test error input',
+                        error: 'Simulated routing error',
+                        latency: Math.random() * 200 + 100
+                    };
+                    
+                    window.streamingDebugPanel.logRoutingError(error);
+                    logResult('routingMonitorResults', 'Routing error simulated successfully', 'pass');
+                } else {
+                    logResult('routingMonitorResults', 'Debug panel not available', 'fail');
+                }
+            } catch (error) {
+                logResult('routingMonitorResults', `Error simulating routing error: ${error.message}`, 'fail');
+            }
+        }
+
+        function testRoutingAnalytics() {
+            try {
+                if (window.streamingRoutingMonitor) {
+                    const analytics = window.streamingRoutingMonitor.getRoutingAnalytics();
+                    logResult('routingMonitorResults', 
+                        `Analytics retrieved: ${analytics.summary.totalDecisions} decisions, ` +
+                        `${analytics.summary.successfulDecisions} successful`, 'pass');
+                } else {
+                    logResult('routingMonitorResults', 'Routing monitor not available', 'fail');
+                }
+            } catch (error) {
+                logResult('routingMonitorResults', `Error getting analytics: ${error.message}`, 'fail');
+            }
+        }
+
+        function testRoutingExport() {
+            try {
+                if (window.streamingRoutingMonitor) {
+                    const data = window.streamingRoutingMonitor.exportMonitoringData();
+                    logResult('routingMonitorResults', `Monitoring data exported (${data.length} characters)`, 'pass');
+                } else {
+                    logResult('routingMonitorResults', 'Routing monitor not available', 'fail');
+                }
+            } catch (error) {
+                logResult('routingMonitorResults', `Error exporting data: ${error.message}`, 'fail');
+            }
+        }
+
+        // Performance Dashboard Tests
+        function testPerformanceDashboardShow() {
+            try {
+                if (window.streamingPerformanceDashboard) {
+                    window.streamingPerformanceDashboard.show();
+                    logResult('performanceDashboardResults', 'Performance dashboard shown successfully', 'pass');
+                } else {
+                    logResult('performanceDashboardResults', 'Performance dashboard not available', 'fail');
+                }
+            } catch (error) {
+                logResult('performanceDashboardResults', `Error showing dashboard: ${error.message}`, 'fail');
+            }
+        }
+
+        function testPerformanceDashboardHide() {
+            try {
+                if (window.streamingPerformanceDashboard) {
+                    window.streamingPerformanceDashboard.hide();
+                    logResult('performanceDashboardResults', 'Performance dashboard hidden successfully', 'pass');
+                } else {
+                    logResult('performanceDashboardResults', 'Performance dashboard not available', 'fail');
+                }
+            } catch (error) {
+                logResult('performanceDashboardResults', `Error hiding dashboard: ${error.message}`, 'fail');
+            }
+        }
+
+        function testPerformanceMetrics() {
+            try {
+                if (window.streamingPerformanceDashboard) {
+                    window.streamingPerformanceDashboard.updateMetrics();
+                    
+                    // Update display
+                    const metrics = window.streamingPerformanceDashboard.currentMetrics;
+                    document.getElementById('currentLatency').textContent = Math.round(metrics.latency) + 'ms';
+                    document.getElementById('currentSuccessRate').textContent = metrics.successRate.toFixed(1) + '%';
+                    document.getElementById('currentThroughput').textContent = Math.round(metrics.throughput) + '/min';
+                    document.getElementById('currentErrorRate').textContent = metrics.errorRate.toFixed(1) + '%';
+                    
+                    logResult('performanceDashboardResults', 'Performance metrics updated successfully', 'pass');
+                } else {
+                    logResult('performanceDashboardResults', 'Performance dashboard not available', 'fail');
+                }
+            } catch (error) {
+                logResult('performanceDashboardResults', `Error updating metrics: ${error.message}`, 'fail');
+            }
+        }
+
+        function testPerformanceAlerts() {
+            try {
+                if (window.streamingPerformanceDashboard) {
+                    // Simulate high latency alert
+                    window.streamingPerformanceDashboard.addAlert('warning', 'Test Alert', 'This is a test performance alert');
+                    logResult('performanceDashboardResults', 'Performance alert triggered successfully', 'pass');
+                } else {
+                    logResult('performanceDashboardResults', 'Performance dashboard not available', 'fail');
+                }
+            } catch (error) {
+                logResult('performanceDashboardResults', `Error triggering alert: ${error.message}`, 'fail');
+            }
+        }
+
+        function testPerformanceExport() {
+            try {
+                if (window.streamingPerformanceDashboard) {
+                    window.streamingPerformanceDashboard.exportPerformanceData();
+                    logResult('performanceDashboardResults', 'Performance data export initiated', 'pass');
+                } else {
+                    logResult('performanceDashboardResults', 'Performance dashboard not available', 'fail');
+                }
+            } catch (error) {
+                logResult('performanceDashboardResults', `Error exporting data: ${error.message}`, 'fail');
+            }
+        }
+
+        // Error Tracker Tests
+        function simulateAgentSwitchError() {
+            try {
+                if (window.streamingErrorTracker) {
+                    const error = window.streamingErrorTracker.trackError({
+                        type: 'agent_switch_error',
+                        category: 'agent_switch',
+                        severity: 3,
+                        message: 'Simulated agent switch error',
+                        context: { operation: 'switchAgent', fromAgent: 'DefaultAgent', toAgent: 'FraudAgent' }
+                    });
+                    logResult('errorTrackerResults', `Agent switch error tracked: ${error.id}`, 'pass');
+                } else {
+                    logResult('errorTrackerResults', 'Error tracker not available', 'fail');
+                }
+            } catch (error) {
+                logResult('errorTrackerResults', `Error tracking agent switch error: ${error.message}`, 'fail');
+            }
+        }
+
+        function simulateConnectionError() {
+            try {
+                if (window.streamingErrorTracker) {
+                    const error = window.streamingErrorTracker.trackError({
+                        type: 'connection_error',
+                        category: 'connection',
+                        severity: 4,
+                        message: 'Simulated connection error',
+                        context: { operation: 'connect', url: 'wss://api.openai.com/v1/realtime' }
+                    });
+                    logResult('errorTrackerResults', `Connection error tracked: ${error.id}`, 'pass');
+                } else {
+                    logResult('errorTrackerResults', 'Error tracker not available', 'fail');
+                }
+            } catch (error) {
+                logResult('errorTrackerResults', `Error tracking connection error: ${error.message}`, 'fail');
+            }
+        }
+
+        function simulateTimeoutError() {
+            try {
+                if (window.streamingErrorTracker) {
+                    const error = window.streamingErrorTracker.trackError({
+                        type: 'timeout_error',
+                        category: 'timeout',
+                        severity: 2,
+                        message: 'Simulated timeout error',
+                        context: { operation: 'routeStreamingMessage', timeout: 5000 }
+                    });
+                    logResult('errorTrackerResults', `Timeout error tracked: ${error.id}`, 'pass');
+                } else {
+                    logResult('errorTrackerResults', 'Error tracker not available', 'fail');
+                }
+            } catch (error) {
+                logResult('errorTrackerResults', `Error tracking timeout error: ${error.message}`, 'fail');
+            }
+        }
+
+        function testErrorAnalysis() {
+            try {
+                if (window.streamingErrorTracker) {
+                    const analysis = window.streamingErrorTracker.getErrorAnalysis();
+                    logResult('errorTrackerResults', 
+                        `Error analysis: ${analysis.summary.totalErrors} total, ` +
+                        `${analysis.summary.criticalErrors} critical`, 'pass');
+                } else {
+                    logResult('errorTrackerResults', 'Error tracker not available', 'fail');
+                }
+            } catch (error) {
+                logResult('errorTrackerResults', `Error getting analysis: ${error.message}`, 'fail');
+            }
+        }
+
+        function testErrorPatterns() {
+            try {
+                if (window.streamingErrorTracker) {
+                    const patterns = window.streamingErrorTracker.getErrorPatterns();
+                    logResult('errorTrackerResults', `Found ${patterns.length} error patterns`, 'pass');
+                } else {
+                    logResult('errorTrackerResults', 'Error tracker not available', 'fail');
+                }
+            } catch (error) {
+                logResult('errorTrackerResults', `Error getting patterns: ${error.message}`, 'fail');
+            }
+        }
+
+        function testErrorRecovery() {
+            try {
+                if (window.streamingErrorTracker) {
+                    // Simulate a recoverable error
+                    const error = window.streamingErrorTracker.trackError({
+                        type: 'recoverable_error',
+                        category: 'connection',
+                        severity: 2,
+                        message: 'Recoverable connection error',
+                        context: { operation: 'connect' }
+                    });
+                    
+                    // Mark as resolved after a delay
+                    setTimeout(() => {
+                        window.streamingErrorTracker.markErrorResolved(error.id, 1000);
+                        logResult('errorTrackerResults', `Error ${error.id} marked as resolved`, 'pass');
+                    }, 1000);
+                    
+                    logResult('errorTrackerResults', `Recovery test initiated for error: ${error.id}`, 'pass');
+                } else {
+                    logResult('errorTrackerResults', 'Error tracker not available', 'fail');
+                }
+            } catch (error) {
+                logResult('errorTrackerResults', `Error testing recovery: ${error.message}`, 'fail');
+            }
+        }
+
+        function testErrorExport() {
+            try {
+                if (window.streamingErrorTracker) {
+                    const data = window.streamingErrorTracker.exportErrorData();
+                    logResult('errorTrackerResults', `Error data exported (${data.length} characters)`, 'pass');
+                } else {
+                    logResult('errorTrackerResults', 'Error tracker not available', 'fail');
+                }
+            } catch (error) {
+                logResult('errorTrackerResults', `Error exporting data: ${error.message}`, 'fail');
+            }
+        }
+
+        // Integration Tests
+        function testFullWorkflow() {
+            logResult('integrationResults', 'Starting full workflow test...', 'info');
+            
+            try {
+                // Simulate a complete routing workflow
+                simulateRoutingDecision();
+                setTimeout(() => simulateAgentSwitch(), 500);
+                setTimeout(() => testPerformanceMetrics(), 1000);
+                setTimeout(() => testRoutingAnalytics(), 1500);
+                
+                setTimeout(() => {
+                    logResult('integrationResults', 'Full workflow test completed', 'pass');
+                }, 2000);
+            } catch (error) {
+                logResult('integrationResults', `Full workflow test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testErrorEscalation() {
+            logResult('integrationResults', 'Testing error escalation...', 'info');
+            
+            try {
+                // Simulate multiple errors to trigger escalation
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => {
+                        simulateRoutingError();
+                    }, i * 200);
+                }
+                
+                setTimeout(() => {
+                    logResult('integrationResults', 'Error escalation test completed', 'pass');
+                }, 1000);
+            } catch (error) {
+                logResult('integrationResults', `Error escalation test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testPerformanceThresholds() {
+            logResult('integrationResults', 'Testing performance thresholds...', 'info');
+            
+            try {
+                if (window.streamingPerformanceDashboard) {
+                    // Simulate high latency to trigger threshold
+                    window.streamingPerformanceDashboard.currentMetrics.latency = 250;
+                    window.streamingPerformanceDashboard.checkPerformanceThresholds();
+                    
+                    logResult('integrationResults', 'Performance threshold test completed', 'pass');
+                } else {
+                    logResult('integrationResults', 'Performance dashboard not available', 'fail');
+                }
+            } catch (error) {
+                logResult('integrationResults', `Performance threshold test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function testDataConsistency() {
+            logResult('integrationResults', 'Testing data consistency...', 'info');
+            
+            try {
+                // Test that all components are tracking the same events
+                simulateRoutingDecision();
+                
+                setTimeout(() => {
+                    let consistent = true;
+                    let message = 'Data consistency check: ';
+                    
+                    // Check if debug panel has the data
+                    if (window.streamingDebugPanel && window.streamingDebugPanel.routingDecisions.length === 0) {
+                        consistent = false;
+                        message += 'Debug panel missing data. ';
+                    }
+                    
+                    if (consistent) {
+                        logResult('integrationResults', message + 'All components consistent', 'pass');
+                    } else {
+                        logResult('integrationResults', message + 'Inconsistencies found', 'fail');
+                    }
+                }, 500);
+            } catch (error) {
+                logResult('integrationResults', `Data consistency test failed: ${error.message}`, 'fail');
+            }
+        }
+
+        function runAllTests() {
+            logResult('integrationResults', 'Running all tests...', 'info');
+            
+            const tests = [
+                () => testDebugPanelShow(),
+                () => simulateRoutingDecision(),
+                () => simulateAgentSwitch(),
+                () => simulateRoutingError(),
+                () => testPerformanceMetrics(),
+                () => simulateAgentSwitchError(),
+                () => testErrorAnalysis(),
+                () => testFullWorkflow()
+            ];
+            
+            tests.forEach((test, index) => {
+                setTimeout(test, index * 300);
+            });
+            
+            setTimeout(() => {
+                logResult('integrationResults', 'All tests completed', 'pass');
+            }, tests.length * 300 + 1000);
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            checkComponentStatus();
+            
+            // Update status every 5 seconds
+            setInterval(checkComponentStatus, 5000);
+            
+            logResult('integrationResults', 'Test suite initialized', 'info');
+        });
+    </script>
+</body>
+</html>

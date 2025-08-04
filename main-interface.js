@@ -176,6 +176,137 @@ class MainInterfaceController {
         document.getElementById(`${sectionId}-section`).classList.add('active');
     }
 
+    /**
+     * Open streaming debug panel with routing monitoring
+     */
+    openStreamingDebugPanel() {
+        // Show the streaming debug panel
+        if (window.streamingDebugPanel) {
+            window.streamingDebugPanel.show();
+        } else {
+            console.warn('Streaming debug panel not available');
+        }
+        
+        // Log user action
+        if (window.systemLogger) {
+            window.systemLogger.logUserAction('Opened streaming debug panel', { 
+                source: 'main interface',
+                timestamp: Date.now()
+            });
+        }
+    }
+
+    /**
+     * Open streaming performance dashboard
+     */
+    openPerformanceDashboard() {
+        if (window.streamingPerformanceDashboard) {
+            window.streamingPerformanceDashboard.show();
+        } else {
+            console.warn('Streaming performance dashboard not available');
+        }
+        
+        // Log user action
+        if (window.systemLogger) {
+            window.systemLogger.logUserAction('Opened performance dashboard', { 
+                source: 'main interface',
+                timestamp: Date.now()
+            });
+        }
+    }
+
+    /**
+     * Show error analysis panel
+     */
+    showErrorAnalysis() {
+        if (window.streamingErrorTracker) {
+            const analysis = window.streamingErrorTracker.getErrorAnalysis();
+            const patterns = window.streamingErrorTracker.getErrorPatterns();
+            
+            // Create a simple error analysis display
+            const analysisWindow = window.open('', 'errorAnalysis', 'width=800,height=600,scrollbars=yes');
+            analysisWindow.document.write(`
+                <html>
+                <head>
+                    <title>Streaming Error Analysis</title>
+                    <style>
+                        body { font-family: monospace; background: #1a1a1a; color: #ffffff; padding: 20px; }
+                        .section { margin-bottom: 30px; padding: 15px; background: #2a2a2a; border-radius: 6px; }
+                        .metric { margin: 5px 0; }
+                        .error-pattern { background: #333; padding: 10px; margin: 5px 0; border-radius: 4px; }
+                        h2 { color: #60a5fa; }
+                        h3 { color: #ffc107; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Streaming Error Analysis</h1>
+                    
+                    <div class="section">
+                        <h2>Summary</h2>
+                        <div class="metric">Total Errors: ${analysis.summary.totalErrors}</div>
+                        <div class="metric">Resolved Errors: ${analysis.summary.resolvedErrors}</div>
+                        <div class="metric">Critical Errors: ${analysis.summary.criticalErrors}</div>
+                        <div class="metric">Average Resolution Time: ${Math.round(analysis.summary.averageResolutionTime)}ms</div>
+                    </div>
+                    
+                    <div class="section">
+                        <h2>Category Breakdown</h2>
+                        ${Object.entries(analysis.categoryBreakdown).map(([category, count]) => 
+                            `<div class="metric">${category}: ${count}</div>`
+                        ).join('')}
+                    </div>
+                    
+                    <div class="section">
+                        <h2>Top Error Patterns</h2>
+                        ${patterns.slice(0, 5).map(pattern => 
+                            `<div class="error-pattern">
+                                <strong>${pattern.pattern}</strong> (${pattern.count} occurrences)<br>
+                                First: ${new Date(pattern.firstOccurrence).toLocaleString()}<br>
+                                Last: ${new Date(pattern.lastOccurrence).toLocaleString()}
+                            </div>`
+                        ).join('')}
+                    </div>
+                    
+                    <div class="section">
+                        <h2>Agent Error Breakdown</h2>
+                        ${Object.entries(analysis.agentErrorBreakdown).map(([agent, count]) => 
+                            `<div class="metric">${agent}: ${count}</div>`
+                        ).join('')}
+                    </div>
+                </body>
+                </html>
+            `);
+            analysisWindow.document.close();
+        } else {
+            console.warn('Streaming error tracker not available');
+        }
+    }
+
+    /**
+     * Run message flow tests manually
+     */
+    async runMessageFlowTests() {
+        if (window.componentInitializer) {
+            return await window.componentInitializer.runSafeTests();
+        } else if (window.runMessageFlowTests) {
+            return window.runMessageFlowTests();
+        } else {
+            console.warn('Message flow tests not available');
+            return false;
+        }
+    }
+
+    /**
+     * Get component status for debugging
+     */
+    getComponentStatus() {
+        if (window.componentInitializer) {
+            return window.componentInitializer.getComponentStatus();
+        } else {
+            return { error: 'Component initializer not available' };
+        }
+    }
+
 
 
     // Utility methods for integration with existing functionality

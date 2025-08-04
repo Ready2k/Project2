@@ -64,22 +64,37 @@
 
                 <!-- Voice Controls -->
                 <div class="voice-controls">
-                    <!-- Mode Toggle -->
-                    <div class="mode-selector">
-                        <div class="mode-toggle">
-                            <input type="checkbox" id="streamingMode" class="mode-checkbox">
-                            <label for="streamingMode" class="toggle-label">
-                                <span class="toggle-slider"></span>
-                                <span class="toggle-text">Streaming Mode</span>
-                            </label>
+                    <!-- Row 1: Mode Toggle, Status, and Audio Level -->
+                    <div class="control-row-1">
+                        <div class="mode-toggle-section">
+                            <div class="mode-toggle">
+                                <input type="checkbox" id="streamingMode" class="mode-checkbox">
+                                <label for="streamingMode" class="toggle-label">
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-text">Streaming Mode</span>
+                                </label>
+                            </div>
                         </div>
-                        <div class="mode-description">
-                            <span id="modeDescription">Batch Mode: Click to record, then process</span>
+                        
+                        <div class="status-section">
+                            <div id="status" class="status-text">Ready to listen</div>
+                            <div id="recordingQuality" class="quality-indicator">
+                                <i class="fas fa-circle"></i>
+                                Not Recording
+                            </div>
+                        </div>
+                        
+                        <div class="audio-level-section">
+                            <span class="level-label">Audio Level:</span>
+                            <div class="level-bar">
+                                <div id="audioLevel" class="level-fill"></div>
+                            </div>
+                            <span id="audioLevelText">0%</span>
                         </div>
                     </div>
 
-                    <!-- Control Buttons -->
-                    <div class="control-buttons">
+                    <!-- Row 2: Control Buttons -->
+                    <div class="control-row-2">
                         <!-- Batch Mode Controls -->
                         <div id="batchControls" class="control-group">
                             <button id="startBtn" class="primary-btn">
@@ -94,6 +109,10 @@
                                 <i class="fas fa-microphone-slash"></i>
                                 <span>Mute</span>
                             </button>
+                            <button id="clearConversationBtn" class="clear-btn">
+                                <i class="fas fa-trash"></i>
+                                <span>Clear Chat</span>
+                            </button>
                         </div>
 
                         <!-- Streaming Mode Controls -->
@@ -102,51 +121,57 @@
                                 <i class="fas fa-phone"></i>
                                 <span>Connect</span>
                             </button>
-                            <button id="disconnectBtn" class="secondary-btn" disabled>
-                                <i class="fas fa-phone-slash"></i>
-                                <span>Disconnect</span>
-                            </button>
                             <button id="muteBtn" class="mute-btn" disabled>
                                 <i class="fas fa-microphone-slash"></i>
                                 <span>Mute</span>
                             </button>
+                            <button id="disconnectBtn" class="secondary-btn" disabled>
+                                <i class="fas fa-phone-slash"></i>
+                                <span>Disconnect</span>
+                            </button>
+                            <button id="clearConversationBtn" class="clear-btn">
+                                <i class="fas fa-trash"></i>
+                                <span>Clear Chat</span>
+                            </button>
                         </div>
-
-                        <!-- Clear Button -->
-                        <button id="clearConversationBtn" class="clear-btn">
-                            <i class="fas fa-trash"></i>
-                            <span>Clear Chat</span>
-                        </button>
                     </div>
 
-                    <!-- Status Indicators -->
-                    <div class="status-indicators">
+                    <!-- Row 3: Additional Information -->
+                    <div class="control-row-3">
                         <div class="connection-status">
                             <span id="connectionStatus" class="status-badge disconnected">
                                 <i class="fas fa-circle"></i>
                                 Disconnected
                             </span>
                         </div>
+                        
                         <div class="agent-indicator">
                             <span class="agent-label">Active Agent:</span>
                             <span id="currentAgent" class="agent-name">Default Agent</span>
-                        </div>
-                        <div class="audio-level">
-                            <span class="level-label">Audio Level:</span>
-                            <div class="level-bar">
-                                <div id="audioLevel" class="level-fill"></div>
+                            <div id="agentSwitchingIndicator" class="agent-switching-indicator hidden">
+                                <i class="fas fa-sync fa-spin"></i>
+                                <span>Switching...</span>
                             </div>
-                            <span id="audioLevelText">0%</span>
+                        </div>
+                        
+                        <div class="streaming-agent-status" id="streamingAgentStatus" style="display: none;">
+                            <div class="streaming-agent-info">
+                                <span class="streaming-agent-label">Streaming Agent:</span>
+                                <span id="streamingCurrentAgent" class="streaming-agent-name">Default Agent</span>
+                                <span id="streamingAgentType" class="streaming-agent-type">General</span>
+                            </div>
+                            <div class="streaming-routing-status">
+                                <span id="routingStatus" class="routing-status-badge enabled">
+                                    <i class="fas fa-route"></i>
+                                    Routing Enabled
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Main Status -->
-                    <div class="main-status">
-                        <div id="status" class="status-text">Ready to listen</div>
-                        <div id="recordingQuality" class="quality-indicator">
-                            <i class="fas fa-circle"></i>
-                            Not Recording
-                        </div>
+                    <!-- Mode Description (shown below everything) -->
+                    <div class="mode-description">
+                        <span id="modeDescription">Batch Mode: Click to record, then process</span>
                     </div>
                 </div>
             </section>
@@ -609,6 +634,23 @@
                             <h4>Text-to-Speech</h4>
                             <div id="ttsOutput" class="debug-output">TTS information will appear here...</div>
                         </div>
+                        <div class="debug-card streaming-debug" id="streamingAgentDebug" style="display: none;">
+                            <h4>Streaming Agent Routing</h4>
+                            <div class="streaming-debug-content">
+                                <div class="debug-section">
+                                    <h5>Current Routing State</h5>
+                                    <div id="streamingRoutingState" class="debug-output">No routing activity...</div>
+                                </div>
+                                <div class="debug-section">
+                                    <h5>Agent Decisions</h5>
+                                    <div id="streamingAgentDecisions" class="debug-output">No agent decisions...</div>
+                                </div>
+                                <div class="debug-section">
+                                    <h5>Performance Metrics</h5>
+                                    <div id="streamingPerformanceMetrics" class="debug-output">No metrics available...</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Testing Tools -->
@@ -631,6 +673,40 @@
                                 <button class="test-btn" onclick="window.open('test/test-llm-manager-comprehensive.html', '_blank')">
                                     <i class="fas fa-brain"></i>
                                     LLM Manager Test
+                                </button>
+                                <button class="test-btn" onclick="window.open('test/test-streaming-debug-monitoring.html', '_blank')">
+                                    <i class="fas fa-chart-line"></i>
+                                    Debug Monitoring Test
+                                </button>
+                                <button class="test-btn" onclick="if(window.streamingDebugPanel) window.streamingDebugPanel.show(); else console.warn('Streaming debug panel not available')">
+                                    <i class="fas fa-stream"></i>
+                                    Streaming Debug Panel
+                                </button>
+                                <button class="test-btn" onclick="if(window.streamingPerformanceDashboard) window.streamingPerformanceDashboard.show(); else console.warn('Performance dashboard not available')">
+                                    <i class="fas fa-tachometer-alt"></i>
+                                    Performance Dashboard
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="debug-card">
+                            <h4>Message Flow Tests</h4>
+                            <div class="test-buttons">
+                                <button class="test-btn" onclick="if(window.mainInterface) window.mainInterface.runMessageFlowTests()">
+                                    <i class="fas fa-play"></i>
+                                    Run Message Flow Tests
+                                </button>
+                                <button class="test-btn" onclick="console.log('Component Status:', window.getComponentStatus ? window.getComponentStatus() : 'Not available'); console.log('StreamingManager Info:', window.getStreamingManagerInfo ? window.getStreamingManagerInfo() : 'Not available');">
+                                    <i class="fas fa-info-circle"></i>
+                                    Check Component Status
+                                </button>
+                                <button class="test-btn" onclick="localStorage.setItem('debugMode', 'true'); location.reload()">
+                                    <i class="fas fa-bug"></i>
+                                    Enable Debug Mode
+                                </button>
+                                <button class="test-btn" onclick="localStorage.removeItem('debugMode'); location.reload()">
+                                    <i class="fas fa-times"></i>
+                                    Disable Debug Mode
                                 </button>
                             </div>
                         </div>
@@ -743,6 +819,19 @@
     <script src="connection-manager.js"></script>
     
     <script src="streaming-manager.js"></script>
+    <script src="streaming-agent-router.js"></script>
+    <script src="streaming-response-handler.js"></script>
+    <script src="streaming-agent-middleware.js"></script>
+    <script src="streaming-error-handler.js"></script>
+    <script src="streaming-agent-ui.js"></script>
+    <script src="streaming-agent-config.js"></script>
+    <script src="streaming-performance-optimizer.js"></script>
+    
+    <!-- Streaming Debug and Monitoring Scripts -->
+    <script src="streaming-debug-panel.js"></script>
+    <script src="streaming-routing-monitor.js"></script>
+    <script src="streaming-performance-dashboard.js"></script>
+    <script src="streaming-error-tracker.js"></script>
     <!-- Agent system scripts (must load before main script) -->
     <script src="agents/base-agent.js"></script>
     <script src="agents/payments-agent.js"></script>
@@ -771,6 +860,10 @@
     <script src="script.js"></script>
     <script src="persona-admin.js"></script>
     <script src="main-interface.js"></script>
+    
+    <!-- Component initialization and test scripts -->
+    <script src="component-initializer.js"></script>
+    <script src="test-message-flow-fix.js"></script>
 </body>
 
 </html>

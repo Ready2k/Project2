@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Agent Routing Initialization Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007acc;
+        }
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .btn:hover {
+            background: #005a9e;
+        }
+        .btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        .btn.success {
+            background: #28a745;
+        }
+        .btn.warning {
+            background: #ffc107;
+            color: #000;
+        }
+        .btn.danger {
+            background: #dc3545;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-healthy { background: #28a745; }
+        .status-degraded { background: #ffc107; }
+        .status-unhealthy { background: #dc3545; }
+        .status-unknown { background: #6c757d; }
+        .log-output {
+            background: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 10px;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .metric-card {
+            background: #333;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007acc;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #ccc;
+            margin-top: 5px;
+        }
+        .component-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .component-item {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .component-name {
+            font-weight: bold;
+        }
+        .component-status {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        .status-initialized {
+            background: #28a745;
+            color: white;
+        }
+        .status-not-initialized {
+            background: #dc3545;
+            color: white;
+        }
+        .status-missing {
+            background: #6c757d;
+            color: white;
+        }
+        .error-message {
+            background: #dc3545;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success-message {
+            background: #28a745;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .warning-message {
+            background: #ffc107;
+            color: #000;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Streaming Agent Routing Initialization Test</h1>
+        
+        <div class="test-section">
+            <h2>Test Controls</h2>
+            <div class="test-controls">
+                <button class="btn" onclick="runInitializationTest()">Initialize System</button>
+                <button class="btn" onclick="runHealthCheck()">Health Check</button>
+                <button class="btn" onclick="runConfigurationTest()">Test Configuration</button>
+                <button class="btn" onclick="runDependencyTest()">Test Dependencies</button>
+                <button class="btn" onclick="runCleanupTest()">Cleanup System</button>
+                <button class="btn" onclick="runGracefulShutdownTest()">Graceful Shutdown</button>
+                <button class="btn" onclick="clearLogs()">Clear Logs</button>
+                <button class="btn" onclick="exportLogs()">Export Logs</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>System Status</h2>
+            <div id="systemStatus">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value" id="initializationStatus">Unknown</div>
+                        <div class="metric-label">Initialization Status</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="componentCount">0</div>
+                        <div class="metric-label">Components Initialized</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="healthStatus">Unknown</div>
+                        <div class="metric-label">Health Status</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="errorCount">0</div>
+                        <div class="metric-label">Error Count</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Component Status</h2>
+            <div id="componentStatus" class="component-list">
+                <!-- Component status will be populated here -->
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Configuration Validation</h2>
+            <div id="configurationStatus">
+                <p>Click "Test Configuration" to validate system configuration</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Dependency Validation</h2>
+            <div id="dependencyStatus">
+                <p>Click "Test Dependencies" to validate system dependencies</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test Logs</h2>
+            <div id="testLogs" class="log-output">
+                Test logs will appear here...
+            </div>
+        </div>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="../debug-manager.js"></script>
+    <script src="../system-logger.js"></script>
+    <script src="../component-initializer.js"></script>
+    <script src="../streaming-agent-routing-initializer.js"></script>
+    
+    <!-- Mock dependencies for testing -->
+    <script>
+        // Mock StreamingManager for testing
+        class MockStreamingManager {
+            constructor() {
+                this.isConnected = false;
+                this.agentRoutingEnabled = false;
+            }
+            
+            connect() {
+                return Promise.resolve({ success: true });
+            }
+            
+            sendMessage(message) {
+                console.log('Mock StreamingManager sendMessage:', message);
+            }
+            
+            setAgentRoutingEnabled(enabled) {
+                this.agentRoutingEnabled = enabled;
+            }
+            
+            setStreamingAgentRouter(router) {
+                this.streamingAgentRouter = router;
+            }
+            
+            handleMessage(event) {
+                console.log('Mock StreamingManager handleMessage:', event);
+                return Promise.resolve();
+            }
+        }
+
+        // Mock AgentRouter for testing
+        class MockAgentRouter {
+            constructor() {
+                this.agents = new Map();
+            }
+            
+            route(message, context) {
+                return Promise.resolve({
+                    success: true,
+                    agent: 'DefaultAgent',
+                    response: 'Mock response',
+                    confidence: 0.8
+                });
+            }
+            
+            getStats() {
+                return {
+                    totalAgents: 5,
+                    enabledAgents: 4,
+                    disabledAgents: 1
+                };
+            }
+        }
+
+        // Mock ConversationContextManager for testing
+        class MockConversationContextManager {
+            constructor() {
+                this.context = {};
+            }
+            
+            getContext() {
+                return this.context;
+            }
+            
+            updateContext(newContext) {
+                this.context = { ...this.context, ...newContext };
+            }
+        }
+
+        // Create mock instances
+        window.mockStreamingManager = new MockStreamingManager();
+        window.mockAgentRouter = new MockAgentRouter();
+        window.mockConversationContextManager = new MockConversationContextManager();
+    </script>
+
+    <script>
+        // Test logging
+        const testLogs = document.getElementById('testLogs');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const logEntry = `[${timestamp}] [${type.toUpperCase()}] ${message}\n`;
+            testLogs.textContent += logEntry;
+            testLogs.scrollTop = testLogs.scrollHeight;
+            
+            // Also log to console
+            console.log(logEntry.trim());
+        }
+
+        function clearLogs() {
+            testLogs.textContent = 'Test logs cleared...\n';
+        }
+
+        function exportLogs() {
+            const logs = testLogs.textContent;
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `streaming-agent-routing-test-logs-${new Date().toISOString().slice(0, 19)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Update system status display
+        function updateSystemStatus() {
+            try {
+                if (!window.streamingAgentRoutingInitializer) {
+                    document.getElementById('initializationStatus').textContent = 'Not Available';
+                    return;
+                }
+
+                const status = window.streamingAgentRoutingInitializer.getStatus();
+                
+                document.getElementById('initializationStatus').textContent = 
+                    status.isInitialized ? 'Initialized' : 
+                    status.isInitializing ? 'Initializing' : 
+                    status.isShuttingDown ? 'Shutting Down' : 'Not Initialized';
+                
+                document.getElementById('componentCount').textContent = status.components.length;
+                document.getElementById('healthStatus').textContent = status.healthStatus || 'Unknown';
+                document.getElementById('errorCount').textContent = status.errorCount || 0;
+
+            } catch (error) {
+                log(`Error updating system status: ${error.message}`, 'error');
+            }
+        }
+
+        // Update component status display
+        function updateComponentStatus() {
+            try {
+                const container = document.getElementById('componentStatus');
+                container.innerHTML = '';
+
+                if (!window.streamingAgentRoutingInitializer) {
+                    container.innerHTML = '<p>Streaming agent routing initializer not available</p>';
+                    return;
+                }
+
+                const status = window.streamingAgentRoutingInitializer.getStatus();
+                const components = status.components || [];
+
+                if (components.length === 0) {
+                    container.innerHTML = '<p>No components initialized</p>';
+                    return;
+                }
+
+                components.forEach(componentName => {
+                    const item = document.createElement('div');
+                    item.className = 'component-item';
+                    
+                    const name = document.createElement('div');
+                    name.className = 'component-name';
+                    name.textContent = componentName;
+                    
+                    const statusSpan = document.createElement('span');
+                    statusSpan.className = 'component-status status-initialized';
+                    statusSpan.textContent = 'Initialized';
+                    
+                    item.appendChild(name);
+                    item.appendChild(statusSpan);
+                    container.appendChild(item);
+                });
+
+            } catch (error) {
+                log(`Error updating component status: ${error.message}`, 'error');
+            }
+        }
+
+        // Test functions
+        async function runInitializationTest() {
+            try {
+                log('Starting initialization test...');
+                
+                if (!window.streamingAgentRoutingInitializer) {
+                    throw new Error('StreamingAgentRoutingInitializer not available');
+                }
+
+                const config = {
+                    agentRoutingEnabled: true,
+                    routingLatencyThreshold: 100,
+                    maxRoutingTimeout: 200,
+                    circuitBreakerThreshold: 5,
+                    sessionUpdateRetries: 3,
+                    performanceOptimizationEnabled: true,
+                    healthCheckInterval: 15000
+                };
+
+                const dependencies = {
+                    streamingManager: window.mockStreamingManager,
+                    agentRouter: window.mockAgentRouter,
+                    conversationContextManager: window.mockConversationContextManager,
+                    debugManager: window.debugManager,
+                    systemLogger: window.systemLogger
+                };
+
+                log('Initializing with config: ' + JSON.stringify(config, null, 2));
+                log('Dependencies: ' + Object.keys(dependencies).join(', '));
+
+                const result = await window.streamingAgentRoutingInitializer.initialize(config, dependencies);
+
+                if (result.success) {
+                    log(`✅ Initialization successful in ${result.initializationTime}ms`, 'success');
+                    log(`Components initialized: ${result.componentsInitialized.join(', ')}`);
+                    
+                    const successDiv = document.createElement('div');
+                    successDiv.className = 'success-message';
+                    successDiv.textContent = `Initialization completed successfully in ${result.initializationTime}ms`;
+                    document.getElementById('systemStatus').appendChild(successDiv);
+                } else {
+                    throw new Error(result.error);
+                }
+
+                updateSystemStatus();
+                updateComponentStatus();
+
+            } catch (error) {
+                log(`❌ Initialization test failed: ${error.message}`, 'error');
+                
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.textContent = `Initialization failed: ${error.message}`;
+                document.getElementById('systemStatus').appendChild(errorDiv);
+            }
+        }
+
+        async function runHealthCheck() {
+            try {
+                log('Running health check...');
+                
+                if (!window.streamingAgentRoutingInitializer) {
+                    throw new Error('StreamingAgentRoutingInitializer not available');
+                }
+
+                const healthResult = await window.streamingAgentRoutingInitializer.performHealthCheck();
+                
+                log(`Health check completed: ${healthResult.overallHealth}`, 
+                    healthResult.overallHealth === 'healthy' ? 'success' : 'warning');
+                
+                if (healthResult.summary) {
+                    log(`Components - Total: ${healthResult.summary.total}, ` +
+                        `Healthy: ${healthResult.summary.healthy}, ` +
+                        `Degraded: ${healthResult.summary.degraded}, ` +
+                        `Unhealthy: ${healthResult.summary.unhealthy}`);
+                }
+
+                updateSystemStatus();
+
+            } catch (error) {
+                log(`❌ Health check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function runConfigurationTest() {
+            try {
+                log('Testing configuration validation...');
+                
+                if (!window.streamingAgentRoutingInitializer) {
+                    throw new Error('StreamingAgentRoutingInitializer not available');
+                }
+
+                // Test valid configuration
+                const validConfig = {
+                    agentRoutingEnabled: true,
+                    routingLatencyThreshold: 100,
+                    maxRoutingTimeout: 200,
+                    circuitBreakerThreshold: 5
+                };
+
+                const validResult = await window.streamingAgentRoutingInitializer.validateConfiguration(validConfig);
+                
+                if (validResult.isValid) {
+                    log('✅ Valid configuration test passed', 'success');
+                } else {
+                    log(`❌ Valid configuration test failed: ${validResult.errors.join(', ')}`, 'error');
+                }
+
+                // Test invalid configuration
+                const invalidConfig = {
+                    agentRoutingEnabled: 'not-a-boolean',
+                    routingLatencyThreshold: -50,
+                    maxRoutingTimeout: 50, // Less than threshold
+                    circuitBreakerThreshold: 'invalid'
+                };
+
+                const invalidResult = await window.streamingAgentRoutingInitializer.validateConfiguration(invalidConfig);
+                
+                if (!invalidResult.isValid) {
+                    log('✅ Invalid configuration test passed (correctly rejected)', 'success');
+                    log(`Validation errors: ${invalidResult.errors.join(', ')}`);
+                } else {
+                    log('❌ Invalid configuration test failed (should have been rejected)', 'error');
+                }
+
+                // Update UI
+                const statusDiv = document.getElementById('configurationStatus');
+                statusDiv.innerHTML = `
+                    <div class="success-message">Configuration validation tests completed</div>
+                    <p><strong>Valid config test:</strong> ${validResult.isValid ? 'Passed' : 'Failed'}</p>
+                    <p><strong>Invalid config test:</strong> ${!invalidResult.isValid ? 'Passed' : 'Failed'}</p>
+                `;
+
+            } catch (error) {
+                log(`❌ Configuration test failed: ${error.message}`, 'error');
+                
+                const statusDiv = document.getElementById('configurationStatus');
+                statusDiv.innerHTML = `<div class="error-message">Configuration test failed: ${error.message}</div>`;
+            }
+        }
+
+        async function runDependencyTest() {
+            try {
+                log('Testing dependency validation...');
+                
+                if (!window.streamingAgentRoutingInitializer) {
+                    throw new Error('StreamingAgentRoutingInitializer not available');
+                }
+
+                // Test valid dependencies
+                const validDependencies = {
+                    streamingManager: window.mockStreamingManager,
+                    agentRouter: window.mockAgentRouter,
+                    conversationContextManager: window.mockConversationContextManager
+                };
+
+                const validResult = await window.streamingAgentRoutingInitializer.validateDependencies(validDependencies);
+                
+                if (validResult.isValid) {
+                    log('✅ Valid dependencies test passed', 'success');
+                } else {
+                    log(`❌ Valid dependencies test failed: ${validResult.errors.join(', ')}`, 'error');
+                }
+
+                // Test missing dependencies
+                const invalidDependencies = {
+                    streamingManager: null,
+                    agentRouter: 'not-an-object'
+                };
+
+                const invalidResult = await window.streamingAgentRoutingInitializer.validateDependencies(invalidDependencies);
+                
+                if (!invalidResult.isValid) {
+                    log('✅ Invalid dependencies test passed (correctly rejected)', 'success');
+                    log(`Validation errors: ${invalidResult.errors.join(', ')}`);
+                } else {
+                    log('❌ Invalid dependencies test failed (should have been rejected)', 'error');
+                }
+
+                // Update UI
+                const statusDiv = document.getElementById('dependencyStatus');
+                statusDiv.innerHTML = `
+                    <div class="success-message">Dependency validation tests completed</div>
+                    <p><strong>Valid dependencies test:</strong> ${validResult.isValid ? 'Passed' : 'Failed'}</p>
+                    <p><strong>Invalid dependencies test:</strong> ${!invalidResult.isValid ? 'Passed' : 'Failed'}</p>
+                    <p><strong>Available dependencies:</strong> ${validResult.availableDependencies?.join(', ') || 'None'}</p>
+                `;
+
+            } catch (error) {
+                log(`❌ Dependency test failed: ${error.message}`, 'error');
+                
+                const statusDiv = document.getElementById('dependencyStatus');
+                statusDiv.innerHTML = `<div class="error-message">Dependency test failed: ${error.message}</div>`;
+            }
+        }
+
+        async function runCleanupTest() {
+            try {
+                log('Testing cleanup functionality...');
+                
+                if (!window.streamingAgentRoutingInitializer) {
+                    throw new Error('StreamingAgentRoutingInitializer not available');
+                }
+
+                const result = await window.streamingAgentRoutingInitializer.cleanup();
+
+                if (result.success) {
+                    log(`✅ Cleanup successful in ${result.cleanupTime}ms`, 'success');
+                    log(`Components cleaned up: ${result.componentResults?.filter(r => r.success).length || 0}`);
+                    
+                    const successDiv = document.createElement('div');
+                    successDiv.className = 'success-message';
+                    successDiv.textContent = `Cleanup completed successfully in ${result.cleanupTime}ms`;
+                    document.getElementById('systemStatus').appendChild(successDiv);
+                } else {
+                    throw new Error(result.error);
+                }
+
+                updateSystemStatus();
+                updateComponentStatus();
+
+            } catch (error) {
+                log(`❌ Cleanup test failed: ${error.message}`, 'error');
+                
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.textContent = `Cleanup failed: ${error.message}`;
+                document.getElementById('systemStatus').appendChild(errorDiv);
+            }
+        }
+
+        async function runGracefulShutdownTest() {
+            try {
+                log('Testing graceful shutdown...');
+                
+                if (!window.streamingAgentRoutingInitializer) {
+                    throw new Error('StreamingAgentRoutingInitializer not available');
+                }
+
+                const result = await window.streamingAgentRoutingInitializer.gracefulShutdown(5000);
+
+                if (result.success) {
+                    log(`✅ Graceful shutdown successful`, 'success');
+                    log(`Graceful: ${result.graceful}, Forced: ${result.forced || false}`);
+                } else {
+                    log(`⚠️ Graceful shutdown completed with issues: ${result.error}`, 'warning');
+                }
+
+                updateSystemStatus();
+                updateComponentStatus();
+
+            } catch (error) {
+                log(`❌ Graceful shutdown test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            log('Streaming Agent Routing Initialization Test loaded');
+            updateSystemStatus();
+            updateComponentStatus();
+            
+            // Auto-update status every 5 seconds
+            setInterval(() => {
+                updateSystemStatus();
+                updateComponentStatus();
+            }, 5000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamingAgentMiddleware Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+        }
+
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .log-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 5px;
+            border-radius: 2px;
+        }
+
+        .log-debug {
+            background-color: #e9ecef;
+        }
+
+        .log-info {
+            background-color: #d1ecf1;
+        }
+
+        .log-warn {
+            background-color: #fff3cd;
+        }
+
+        .log-error {
+            background-color: #f8d7da;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>StreamingAgentMiddleware Test Suite</h1>
+        <p>Comprehensive testing of the StreamingAgentMiddleware WebSocket integration layer.</p>
+
+        <div class="test-section">
+            <h3>Test Controls</h3>
+            <button onclick="runAllTests()">Run All Tests</button>
+            <button onclick="runBasicTests()">Basic Tests</button>
+            <button onclick="runIntegrationTests()">Integration Tests</button>
+            <button onclick="runErrorHandlingTests()">Error Handling Tests</button>
+            <button onclick="clearResults()">Clear Results</button>
+            <button onclick="showStats()">Show Statistics</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Test Results</h3>
+            <div id="testResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Middleware Statistics</h3>
+            <div id="statsContainer"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Debug Log</h3>
+            <div id="debugLog" class="log-container"></div>
+        </div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/agent-router.js"></script>
+    <script src="../streaming-manager.js"></script>
+    <script src="../streaming-agent-router.js"></script>
+    <script src="../streaming-agent-middleware.js"></script>
+
+    <script>
+        // Test framework setup
+        let testResults = [];
+        let debugLog = [];
+        let mockStreamingManager = null;
+        let mockStreamingAgentRouter = null;
+        let middleware = null;
+
+        // Initialize debug manager
+        if (!window.debugManager) {
+            window.debugManager = {
+                createModuleLogger: (module) => ({
+                    log: (msg, data) => addDebugLog('debug', `[${module}] ${msg}`, data),
+                    debug: (msg, data) => addDebugLog('debug', `[${module}] ${msg}`, data),
+                    info: (msg, data) => addDebugLog('info', `[${module}] ${msg}`, data),
+                    warn: (msg, data) => addDebugLog('warn', `[${module}] ${msg}`, data),
+                    error: (msg, data) => addDebugLog('error', `[${module}] ${msg}`, data)
+                })
+            };
+        }
+
+        function addDebugLog(level, message, data) {
+            const timestamp = new Date().toISOString().substr(11, 12);
+            const logEntry = {
+                timestamp,
+                level,
+                message,
+                data: data ? JSON.stringify(data, null, 2) : null
+            };
+            debugLog.push(logEntry);
+
+            // Update debug log display
+            updateDebugLogDisplay();
+        }
+
+        function updateDebugLogDisplay() {
+            const logContainer = document.getElementById('debugLog');
+            const recentLogs = debugLog.slice(-50); // Show last 50 entries
+
+            logContainer.innerHTML = recentLogs.map(entry =>
+                `<div class="log-entry log-${entry.level}">
+                    <span style="color: #666;">[${entry.timestamp}]</span> 
+                    ${entry.message}
+                    ${entry.data ? `\n${entry.data}` : ''}
+                </div>`
+            ).join('');
+
+            // Auto-scroll to bottom
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Mock StreamingManager
+        class MockStreamingManager {
+            constructor() {
+                this.websocket = { readyState: WebSocket.OPEN };
+                this.sessionId = 'test_session_123';
+                this.connectionId = 'test_connection_123';
+                this.messagesSent = [];
+                this.originalHandleMessage = this.handleMessage.bind(this);
+            }
+
+            handleMessage(event) {
+                // Original handler simulation
+                const message = JSON.parse(event.data);
+                addDebugLog('info', 'MockStreamingManager handling message', { type: message.type });
+                return Promise.resolve();
+            }
+
+            sendMessage(message) {
+                this.messagesSent.push(message);
+                addDebugLog('info', 'MockStreamingManager sent message', { type: message.type });
+            }
+        }
+
+        // Mock StreamingAgentRouter
+        class MockStreamingAgentRouter {
+            constructor() {
+                this.routingResults = [];
+                this.sessionUpdates = [];
+            }
+
+            async routeStreamingMessage(transcript, sessionContext) {
+                const result = {
+                    success: true,
+                    selectedAgent: { name: 'TestAgent' },
+                    agentResponse: { response: 'Test response', success: true },
+                    agentChanged: true,
+                    sessionUpdateRequired: true,
+                    routingReason: 'test_routing'
+                };
+
+                this.routingResults.push({ transcript, sessionContext, result });
+                addDebugLog('info', 'MockStreamingAgentRouter routed message', { transcript: transcript.substring(0, 50) });
+
+                return result;
+            }
+
+            async updateSessionForAgent(agent, context) {
+                const result = {
+                    success: true,
+                    agentName: agent.name,
+                    voiceConfig: { voice: 'shimmer' },
+                    instructions: 'Test instructions'
+                };
+
+                this.sessionUpdates.push({ agent, context, result });
+                addDebugLog('info', 'MockStreamingAgentRouter updated session', { agentName: agent.name });
+
+                return result;
+            }
+        }
+
+        // Test helper functions
+        function addTestResult(testName, success, message, details = null) {
+            const result = {
+                testName,
+                success,
+                message,
+                details,
+                timestamp: new Date().toISOString()
+            };
+
+            testResults.push(result);
+            displayTestResult(result);
+        }
+
+        function displayTestResult(result) {
+            const resultsContainer = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${result.success ? 'success' : 'error'}`;
+
+            let content = `[${result.timestamp.substr(11, 8)}] ${result.testName}: ${result.message}`;
+            if (result.details) {
+                content += `\nDetails: ${JSON.stringify(result.details, null, 2)}`;
+            }
+
+            resultDiv.textContent = content;
+            resultsContainer.appendChild(resultDiv);
+            resultsContainer.scrollTop = resultsContainer.scrollHeight;
+        }
+
+        function clearResults() {
+            testResults = [];
+            debugLog = [];
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('debugLog').innerHTML = '';
+            document.getElementById('statsContainer').innerHTML = '';
+        }
+
+        // Test setup
+        function setupTests() {
+            try {
+                mockStreamingManager = new MockStreamingManager();
+                mockStreamingAgentRouter = new MockStreamingAgentRouter();
+
+                middleware = new StreamingAgentMiddleware(
+                    mockStreamingManager,
+                    mockStreamingAgentRouter
+                );
+
+                addTestResult('Setup', true, 'Test environment initialized successfully');
+                return true;
+            } catch (error) {
+                addTestResult('Setup', false, 'Failed to initialize test environment', { error: error.message });
+                return false;
+            }
+        }
+
+        // Basic functionality tests
+        async function runBasicTests() {
+            addDebugLog('info', 'Starting basic tests');
+
+            if (!setupTests()) return;
+
+            // Test 1: Constructor validation
+            try {
+                new StreamingAgentMiddleware(null, mockStreamingAgentRouter);
+                addTestResult('Constructor Validation', false, 'Should throw error for null StreamingManager');
+            } catch (error) {
+                addTestResult('Constructor Validation', true, 'Correctly validates StreamingManager requirement');
+            }
+
+            try {
+                new StreamingAgentMiddleware(mockStreamingManager, null);
+                addTestResult('Constructor Validation', false, 'Should throw error for null StreamingAgentRouter');
+            } catch (error) {
+                addTestResult('Constructor Validation', true, 'Correctly validates StreamingAgentRouter requirement');
+            }
+
+            // Test 2: Middleware initialization
+            const stats = middleware.getStats();
+            addTestResult('Initialization', true, 'Middleware initialized with correct state', {
+                isEnabled: stats.isEnabled,
+                interceptedTypes: stats.interceptedMessageTypes.length
+            });
+
+            // Test 3: Message interception setup
+            const originalHandler = mockStreamingManager.originalHandleMessage;
+            const currentHandler = mockStreamingManager.handleMessage;
+
+            addTestResult('Handler Integration',
+                originalHandler !== currentHandler,
+                'StreamingManager handler successfully replaced'
+            );
+
+            // Test 4: Message type filtering
+            const shouldIntercept = middleware.shouldInterceptMessage({ type: 'conversation.item.input_audio_transcription.completed' });
+            const shouldNotIntercept = middleware.shouldInterceptMessage({ type: 'unknown.message.type' });
+
+            addTestResult('Message Filtering',
+                shouldIntercept && !shouldNotIntercept,
+                'Message type filtering works correctly'
+            );
+        }
+
+        // Integration tests
+        async function runIntegrationTests() {
+            addDebugLog('info', 'Starting integration tests');
+
+            if (!setupTests()) return;
+
+            // Test 1: Transcription completed handling
+            const transcriptionMessage = {
+                type: 'conversation.item.input_audio_transcription.completed',
+                transcript: 'Hello, I need help with my account balance'
+            };
+
+            try {
+                const result = await middleware.handleTranscriptionCompleted(transcriptionMessage);
+                addTestResult('Transcription Handling',
+                    result.success && result.handled,
+                    'Transcription message handled successfully',
+                    { routingResult: result.routingResult }
+                );
+            } catch (error) {
+                addTestResult('Transcription Handling', false, 'Transcription handling failed', { error: error.message });
+            }
+
+            // Test 2: Session created handling
+            const sessionMessage = {
+                type: 'session.created',
+                session: { id: 'test_session_456' }
+            };
+
+            try {
+                const result = await middleware.handleSessionCreated(sessionMessage);
+                const agentState = middleware.getAgentState('test_session_456');
+
+                addTestResult('Session Creation',
+                    result.success && agentState !== null,
+                    'Session created and agent state initialized',
+                    { sessionId: agentState?.sessionId }
+                );
+            } catch (error) {
+                addTestResult('Session Creation', false, 'Session creation handling failed', { error: error.message });
+            }
+
+            // Test 3: Agent state management
+            try {
+                await middleware.manageAgentState('test_session_789', 'TestAgent', {
+                    responseActive: true,
+                    routingReason: 'test_routing'
+                });
+
+                const agentState = middleware.getAgentState('test_session_789');
+                addTestResult('Agent State Management',
+                    agentState && agentState.currentAgent === 'TestAgent',
+                    'Agent state managed correctly',
+                    { currentAgent: agentState?.currentAgent }
+                );
+            } catch (error) {
+                addTestResult('Agent State Management', false, 'Agent state management failed', { error: error.message });
+            }
+
+            // Test 4: Full message interception flow
+            const mockEvent = {
+                data: JSON.stringify(transcriptionMessage)
+            };
+
+            try {
+                // This should trigger the full interception flow
+                await mockStreamingManager.handleMessage(mockEvent);
+
+                // Check if routing was called
+                const routingCalled = mockStreamingAgentRouter.routingResults.length > 0;
+                addTestResult('Full Interception Flow',
+                    routingCalled,
+                    'Full message interception flow completed',
+                    { routingCalls: mockStreamingAgentRouter.routingResults.length }
+                );
+            } catch (error) {
+                addTestResult('Full Interception Flow', false, 'Full interception flow failed', { error: error.message });
+            }
+        }
+
+        // Error handling tests
+        async function runErrorHandlingTests() {
+            addDebugLog('info', 'Starting error handling tests');
+
+            if (!setupTests()) return;
+            
+            // Ensure middleware is enabled for error handling tests
+            middleware.setEnabled(true);
+
+            // Test 1: Routing timeout handling
+            const originalRouteMethod = mockStreamingAgentRouter.routeStreamingMessage;
+            mockStreamingAgentRouter.routeStreamingMessage = async () => {
+                throw new Error('Routing timeout occurred');
+            };
+
+            try {
+                const result = await middleware.handleRoutingError(
+                    new Error('Routing timeout occurred'),
+                    { type: 'routing_timeout_test' }
+                );
+
+                addTestResult('Routing Timeout Handling',
+                    !result.success && result.fallbackStrategy,
+                    'Routing timeout handled with fallback strategy',
+                    { fallbackStrategy: result.fallbackStrategy }
+                );
+            } catch (error) {
+                addTestResult('Routing Timeout Handling', false, 'Timeout handling failed', { error: error.message });
+            }
+
+            // Restore original method
+            mockStreamingAgentRouter.routeStreamingMessage = originalRouteMethod;
+
+            // Test 2: Agent error handling
+            // Reset middleware state for clean test
+            middleware.setEnabled(true);
+            
+            try {
+                const result = await middleware.handleRoutingError(
+                    new Error('Agent processing failed'),
+                    { type: 'agent_error_test' }
+                );
+
+                addTestResult('Agent Error Handling',
+                    !result.success && result.errorType === 'AGENT_ERROR',
+                    'Agent error handled correctly',
+                    { errorType: result.errorType }
+                );
+            } catch (error) {
+                addTestResult('Agent Error Handling', false, 'Agent error handling failed', { error: error.message });
+            }
+
+            // Test 3: WebSocket error handling
+            // Reset middleware state for clean test
+            middleware.setEnabled(true);
+            
+            try {
+                const result = await middleware.handleRoutingError(
+                    new Error('WebSocket connection lost'),
+                    { type: 'websocket_error_test' }
+                );
+
+                addTestResult('WebSocket Error Handling',
+                    !result.success && result.errorType === 'WEBSOCKET_ERROR',
+                    'WebSocket error handled correctly',
+                    { errorType: result.errorType }
+                );
+            } catch (error) {
+                addTestResult('WebSocket Error Handling', false, 'WebSocket error handling failed', { error: error.message });
+            }
+
+            // Test 4: Fallback strategy execution
+            // Reset middleware state for clean test
+            middleware.setEnabled(true);
+            
+            try {
+                const fallbackResult = await middleware.executeFallbackStrategy(
+                    'ROUTING_TIMEOUT',
+                    'continue_standard_streaming',
+                    new Error('Test error'),
+                    { type: 'fallback_test' }
+                );
+
+                addTestResult('Fallback Strategy Execution',
+                    fallbackResult.action === 'continue_standard_streaming',
+                    'Fallback strategy executed correctly',
+                    { action: fallbackResult.action }
+                );
+            } catch (error) {
+                addTestResult('Fallback Strategy Execution', false, 'Fallback strategy execution failed', { error: error.message });
+            }
+
+            // Test 5: Circuit breaker simulation
+            try {
+                // Simulate multiple consecutive errors
+                for (let i = 0; i < 5; i++) {
+                    await middleware.handleRoutingError(
+                        new Error(`Consecutive error ${i + 1}`),
+                        { type: 'circuit_breaker_test' }
+                    );
+                }
+
+                const stats = middleware.getStats();
+                addTestResult('Circuit Breaker Simulation',
+                    stats.interceptMetrics.errorCount >= 5,
+                    'Multiple errors handled, circuit breaker logic tested',
+                    { errorCount: stats.interceptMetrics.errorCount }
+                );
+            } catch (error) {
+                addTestResult('Circuit Breaker Simulation', false, 'Circuit breaker test failed', { error: error.message });
+            }
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            clearResults();
+            addDebugLog('info', 'Starting comprehensive test suite');
+
+            await runBasicTests();
+            await runIntegrationTests();
+            await runErrorHandlingTests();
+
+            showStats();
+
+            const successCount = testResults.filter(r => r.success).length;
+            const totalCount = testResults.length;
+
+            addTestResult('Test Suite Complete',
+                successCount === totalCount,
+                `Completed ${totalCount} tests, ${successCount} passed, ${totalCount - successCount} failed`
+            );
+        }
+
+        // Show statistics
+        function showStats() {
+            if (!middleware) {
+                document.getElementById('statsContainer').innerHTML = '<p>No middleware instance available</p>';
+                return;
+            }
+
+            const stats = middleware.getStats();
+            const statsHtml = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.isEnabled ? 'Enabled' : 'Disabled'}</div>
+                        <div class="stat-label">Middleware Status</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.interceptMetrics.totalIntercepted}</div>
+                        <div class="stat-label">Total Intercepted</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.interceptMetrics.successfulRouting}</div>
+                        <div class="stat-label">Successful Routing</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.interceptMetrics.fallbackCount}</div>
+                        <div class="stat-label">Fallback Count</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.interceptMetrics.errorCount}</div>
+                        <div class="stat-label">Error Count</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${Math.round(stats.interceptMetrics.averageProcessingTime)}ms</div>
+                        <div class="stat-label">Avg Processing Time</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.agentStates}</div>
+                        <div class="stat-label">Active Agent States</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.interceptedMessageTypes.length}</div>
+                        <div class="stat-label">Intercepted Message Types</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <h4>Intercepted Message Types:</h4>
+                    <div style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace;">
+                        ${stats.interceptedMessageTypes.join(', ')}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('statsContainer').innerHTML = statsHtml;
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function () {
+            addDebugLog('info', 'StreamingAgentMiddleware test page loaded');
+
+            // Show initial stats
+            setTimeout(() => {
+                if (setupTests()) {
+                    showStats();
+                }
+            }, 100);
+        });
+    </script>
+</body>
+
+</html>

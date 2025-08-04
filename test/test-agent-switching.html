@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Switching Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.success { background-color: #d4edda; color: #155724; }
+        .status.error { background-color: #f8d7da; color: #721c24; }
+        .status.info { background-color: #d1ecf1; color: #0c5460; }
+        .status.warning { background-color: #fff3cd; color: #856404; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .log-output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .stat-card h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        .agent-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .agent-card {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .agent-card:hover {
+            background: #dee2e6;
+        }
+        .agent-card.current {
+            border-color: #007bff;
+            background: #cce7ff;
+        }
+        .agent-card.unavailable {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Agent Switching Test Suite</h1>
+        <p>This page tests the agent switching functionality in StreamingAgentRouter.</p>
+        
+        <div id="initialization-status" class="status info">
+            Initializing test environment...
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="test-section">
+            <h3>1. Agent Switching Capabilities</h3>
+            <button onclick="testAgentCapabilities()">Test Agent Capabilities</button>
+            <div id="capabilities-output" class="log-output" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Manual Agent Switching</h3>
+            <div id="agent-selector" class="agent-list">
+                <!-- Agent cards will be populated here -->
+            </div>
+            <button onclick="testManualSwitch()">Test Manual Switch</button>
+            <div id="manual-switch-output" class="log-output" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Agent Switch Validation</h3>
+            <button onclick="testSwitchValidation()">Test Switch Validation</button>
+            <div id="validation-output" class="log-output" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Context Preservation</h3>
+            <button onclick="testContextPreservation()">Test Context Preservation</button>
+            <div id="context-output" class="log-output" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>5. Error Handling</h3>
+            <button onclick="testErrorHandling()">Test Error Handling</button>
+            <div id="error-output" class="log-output" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>6. Agent Switching Statistics</h3>
+            <button onclick="updateStats()">Refresh Statistics</button>
+            <div id="stats-container" class="stats-grid">
+                <!-- Statistics will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script src="../agents/debug-manager.js"></script>
+    <script src="../agents/base-agent.js"></script>
+    <script src="../agents/agent-router.js"></script>
+    <script src="../agents/fraud-agent.js"></script>
+    <script src="../agents/payments-agent.js"></script>
+    <script src="../agents/idv-agent.js"></script>
+    <script src="../agents/banking-info-agent.js"></script>
+    <script src="../streaming-manager.js"></script>
+    <script src="../streaming-agent-router.js"></script>
+
+    <script>
+        let streamingAgentRouter;
+        let mockStreamingManager;
+        let mockAgentRouter;
+        let testResults = [];
+
+        // Initialize test environment
+        async function initializeTestEnvironment() {
+            try {
+                updateStatus('initialization-status', 'Initializing debug manager...', 'info');
+                
+                // Initialize debug manager
+                if (!window.debugManager) {
+                    window.debugManager = new DebugManager();
+                }
+
+                // Create mock streaming manager
+                mockStreamingManager = {
+                    websocket: {
+                        readyState: WebSocket.OPEN
+                    },
+                    sendMessage: function(message) {
+                        console.log('Mock WebSocket message sent:', message);
+                        return true;
+                    },
+                    apiClient: {
+                        // Mock API client
+                    }
+                };
+
+                // Initialize agent router with mock agents
+                updateStatus('initialization-status', 'Creating mock agents...', 'info');
+                
+                const fraudAgent = new FraudAgent();
+                const paymentsAgent = new PaymentsAgent();
+                const idvAgent = new IDVAgent();
+                const bankingInfoAgent = new BankingInfoAgent();
+
+                mockAgentRouter = new AgentRouter();
+                mockAgentRouter.registerAgent(fraudAgent);
+                mockAgentRouter.registerAgent(paymentsAgent);
+                mockAgentRouter.registerAgent(idvAgent);
+                mockAgentRouter.registerAgent(bankingInfoAgent);
+
+                // Create streaming agent router
+                updateStatus('initialization-status', 'Creating StreamingAgentRouter...', 'info');
+                streamingAgentRouter = new StreamingAgentRouter(mockAgentRouter, mockStreamingManager);
+
+                // Initialize session
+                streamingAgentRouter.resetSession('test-session-' + Date.now());
+
+                updateStatus('initialization-status', 'Test environment initialized successfully!', 'success');
+                
+                // Populate agent selector
+                populateAgentSelector();
+                
+                // Initial stats update
+                updateStats();
+
+            } catch (error) {
+                console.error('Initialization failed:', error);
+                updateStatus('initialization-status', `Initialization failed: ${error.message}`, 'error');
+            }
+        }
+
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = message;
+                element.className = `status ${type}`;
+            }
+        }
+
+        function logToOutput(outputId, message, type = 'info') {
+            const output = document.getElementById(outputId);
+            if (output) {
+                output.style.display = 'block';
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+                output.textContent += logEntry;
+                output.scrollTop = output.scrollHeight;
+            }
+        }
+
+        function clearOutput(outputId) {
+            const output = document.getElementById(outputId);
+            if (output) {
+                output.textContent = '';
+            }
+        }
+
+        async function testAgentCapabilities() {
+            clearOutput('capabilities-output');
+            logToOutput('capabilities-output', 'Testing agent switching capabilities...');
+
+            try {
+                const capabilities = streamingAgentRouter.getAgentSwitchingCapabilities();
+                
+                logToOutput('capabilities-output', `Switching enabled: ${capabilities.switchingEnabled}`);
+                logToOutput('capabilities-output', `Current agent: ${capabilities.currentAgent || 'None'}`);
+                logToOutput('capabilities-output', `Total available agents: ${capabilities.totalAvailableAgents}`);
+                logToOutput('capabilities-output', `Switchable agents: ${capabilities.switchableAgents}`);
+                logToOutput('capabilities-output', `WebSocket connected: ${capabilities.webSocketConnected}`);
+                
+                logToOutput('capabilities-output', '\nAvailable agents:');
+                capabilities.availableAgents.forEach(agent => {
+                    const status = agent.isCurrentAgent ? ' (CURRENT)' : 
+                                  agent.canSwitchTo ? ' (Available)' : ' (Unavailable)';
+                    logToOutput('capabilities-output', `- ${agent.name}: ${agent.description}${status}`);
+                });
+
+                logToOutput('capabilities-output', '\nCapabilities test completed successfully!', 'success');
+
+            } catch (error) {
+                logToOutput('capabilities-output', `Capabilities test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function populateAgentSelector() {
+            const selector = document.getElementById('agent-selector');
+            if (!selector || !streamingAgentRouter) return;
+
+            const capabilities = streamingAgentRouter.getAgentSwitchingCapabilities();
+            selector.innerHTML = '';
+
+            capabilities.availableAgents.forEach(agent => {
+                const card = document.createElement('div');
+                card.className = 'agent-card';
+                
+                if (agent.isCurrentAgent) {
+                    card.classList.add('current');
+                }
+                
+                if (!agent.canSwitchTo) {
+                    card.classList.add('unavailable');
+                }
+
+                card.innerHTML = `
+                    <strong>${agent.name}</strong><br>
+                    <small>${agent.description}</small><br>
+                    <small>Voice: ${agent.voiceConfig.voice}</small>
+                `;
+
+                if (agent.canSwitchTo && !agent.isCurrentAgent) {
+                    card.onclick = () => switchToAgent(agent.name);
+                }
+
+                selector.appendChild(card);
+            });
+        }
+
+        async function switchToAgent(agentName) {
+            logToOutput('manual-switch-output', `Switching to agent: ${agentName}...`);
+
+            try {
+                const result = await streamingAgentRouter.switchToAgent(agentName, 'manual_ui_selection');
+                
+                if (result.success) {
+                    logToOutput('manual-switch-output', `Successfully switched to ${result.newAgent}`, 'success');
+                    logToOutput('manual-switch-output', `Switch latency: ${result.switchLatency}ms`);
+                    logToOutput('manual-switch-output', `Previous agent: ${result.previousAgent || 'None'}`);
+                    
+                    // Update UI
+                    populateAgentSelector();
+                    updateStats();
+                } else {
+                    logToOutput('manual-switch-output', `Switch failed: ${result.error}`, 'error');
+                }
+
+            } catch (error) {
+                logToOutput('manual-switch-output', `Switch error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testManualSwitch() {
+            clearOutput('manual-switch-output');
+            logToOutput('manual-switch-output', 'Testing manual agent switching...');
+
+            try {
+                // Test switching to FraudAgent
+                logToOutput('manual-switch-output', 'Switching to FraudAgent...');
+                let result = await streamingAgentRouter.switchToAgent('FraudAgent', 'test_manual_switch');
+                
+                if (result.success) {
+                    logToOutput('manual-switch-output', `✓ Successfully switched to FraudAgent (${result.switchLatency}ms)`, 'success');
+                } else {
+                    logToOutput('manual-switch-output', `✗ Failed to switch to FraudAgent: ${result.error}`, 'error');
+                }
+
+                // Wait a moment
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // Test switching to PaymentsAgent
+                logToOutput('manual-switch-output', 'Switching to PaymentsAgent...');
+                result = await streamingAgentRouter.switchToAgent('PaymentsAgent', 'test_manual_switch');
+                
+                if (result.success) {
+                    logToOutput('manual-switch-output', `✓ Successfully switched to PaymentsAgent (${result.switchLatency}ms)`, 'success');
+                } else {
+                    logToOutput('manual-switch-output', `✗ Failed to switch to PaymentsAgent: ${result.error}`, 'error');
+                }
+
+                populateAgentSelector();
+                updateStats();
+
+            } catch (error) {
+                logToOutput('manual-switch-output', `Manual switch test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSwitchValidation() {
+            clearOutput('validation-output');
+            logToOutput('validation-output', 'Testing agent switch validation...');
+
+            try {
+                // Test switching to null agent
+                logToOutput('validation-output', 'Testing null agent validation...');
+                let result = await streamingAgentRouter.switchAgent(null, {}, 'test_validation');
+                if (!result.success) {
+                    logToOutput('validation-output', `✓ Correctly rejected null agent: ${result.error}`, 'success');
+                } else {
+                    logToOutput('validation-output', `✗ Should have rejected null agent`, 'error');
+                }
+
+                // Test switching to invalid agent
+                logToOutput('validation-output', 'Testing invalid agent validation...');
+                const invalidAgent = { name: 'InvalidAgent' }; // Missing processMessage method
+                result = await streamingAgentRouter.switchAgent(invalidAgent, {}, 'test_validation');
+                if (!result.success) {
+                    logToOutput('validation-output', `✓ Correctly rejected invalid agent: ${result.error}`, 'success');
+                } else {
+                    logToOutput('validation-output', `✗ Should have rejected invalid agent`, 'error');
+                }
+
+                // Test switching to same agent
+                if (streamingAgentRouter.currentAgent) {
+                    logToOutput('validation-output', 'Testing same agent validation...');
+                    result = await streamingAgentRouter.switchAgent(streamingAgentRouter.currentAgent, {}, 'test_validation');
+                    if (!result.success) {
+                        logToOutput('validation-output', `✓ Correctly rejected same agent: ${result.error}`, 'success');
+                    } else {
+                        logToOutput('validation-output', `✗ Should have rejected same agent`, 'error');
+                    }
+                }
+
+                logToOutput('validation-output', 'Validation tests completed!', 'success');
+
+            } catch (error) {
+                logToOutput('validation-output', `Validation test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testContextPreservation() {
+            clearOutput('context-output');
+            logToOutput('context-output', 'Testing context preservation during agent switches...');
+
+            try {
+                // Set up some context
+                const testContext = {
+                    conversationHistory: [
+                        { role: 'user', content: 'Hello' },
+                        { role: 'assistant', content: 'Hi there!' }
+                    ],
+                    userPreferences: {
+                        language: 'en',
+                        currency: 'USD'
+                    },
+                    sessionData: {
+                        accountNumber: '12345',
+                        lastTransaction: 'payment'
+                    }
+                };
+
+                // Switch to FraudAgent with context
+                logToOutput('context-output', 'Switching to FraudAgent with test context...');
+                let result = await streamingAgentRouter.switchToAgent('FraudAgent', 'test_context_preservation');
+                
+                if (result.success) {
+                    logToOutput('context-output', `✓ Switched to FraudAgent successfully`, 'success');
+                    
+                    // Check if context was preserved
+                    if (result.preservedContext) {
+                        logToOutput('context-output', `✓ Context preservation data available`, 'success');
+                        logToOutput('context-output', `Preserved from: ${result.preservedContext.preservedFrom}`);
+                    }
+                } else {
+                    logToOutput('context-output', `✗ Failed to switch: ${result.error}`, 'error');
+                }
+
+                // Switch to another agent to test preservation
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                logToOutput('context-output', 'Switching to PaymentsAgent to test context transfer...');
+                result = await streamingAgentRouter.switchToAgent('PaymentsAgent', 'test_context_preservation');
+                
+                if (result.success) {
+                    logToOutput('context-output', `✓ Switched to PaymentsAgent successfully`, 'success');
+                    
+                    if (result.preservedContext) {
+                        logToOutput('context-output', `✓ Context preserved from: ${result.preservedContext.preservedFrom}`, 'success');
+                    }
+                } else {
+                    logToOutput('context-output', `✗ Failed to switch: ${result.error}`, 'error');
+                }
+
+                logToOutput('context-output', 'Context preservation tests completed!', 'success');
+
+            } catch (error) {
+                logToOutput('context-output', `Context preservation test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testErrorHandling() {
+            clearOutput('error-output');
+            logToOutput('error-output', 'Testing error handling scenarios...');
+
+            try {
+                // Test with disconnected WebSocket
+                logToOutput('error-output', 'Testing with disconnected WebSocket...');
+                const originalWebSocket = mockStreamingManager.websocket;
+                mockStreamingManager.websocket = { readyState: WebSocket.CLOSED };
+
+                let result = await streamingAgentRouter.switchToAgent('FraudAgent', 'test_error_handling');
+                if (!result.success) {
+                    logToOutput('error-output', `✓ Correctly handled WebSocket disconnection: ${result.error}`, 'success');
+                } else {
+                    logToOutput('error-output', `✗ Should have failed with disconnected WebSocket`, 'error');
+                }
+
+                // Restore WebSocket
+                mockStreamingManager.websocket = originalWebSocket;
+
+                // Test with non-existent agent
+                logToOutput('error-output', 'Testing with non-existent agent...');
+                result = await streamingAgentRouter.switchToAgent('NonExistentAgent', 'test_error_handling');
+                if (!result.success) {
+                    logToOutput('error-output', `✓ Correctly handled non-existent agent: ${result.error}`, 'success');
+                } else {
+                    logToOutput('error-output', `✗ Should have failed with non-existent agent`, 'error');
+                }
+
+                logToOutput('error-output', 'Error handling tests completed!', 'success');
+
+            } catch (error) {
+                logToOutput('error-output', `Error handling test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function updateStats() {
+            const container = document.getElementById('stats-container');
+            if (!container || !streamingAgentRouter) return;
+
+            const stats = streamingAgentRouter.getRoutingStats();
+            const switchingStats = streamingAgentRouter.getAgentSwitchingStats();
+
+            container.innerHTML = `
+                <div class="stat-card">
+                    <h4>Current Session</h4>
+                    <p><strong>Current Agent:</strong> ${stats.currentAgent || 'None'}</p>
+                    <p><strong>Session ID:</strong> ${streamingAgentRouter.sessionContext.sessionId}</p>
+                    <p><strong>Session Duration:</strong> ${Math.round(switchingStats.currentSessionDuration / 1000)}s</p>
+                </div>
+
+                <div class="stat-card">
+                    <h4>Agent Switches</h4>
+                    <p><strong>Total Switches:</strong> ${switchingStats.totalSwitches}</p>
+                    <p><strong>Successful:</strong> ${switchingStats.successfulSwitches}</p>
+                    <p><strong>Failed:</strong> ${switchingStats.failedSwitches}</p>
+                    <p><strong>Success Rate:</strong> ${switchingStats.successRate}%</p>
+                    <p><strong>Avg Latency:</strong> ${switchingStats.averageSwitchLatency}ms</p>
+                </div>
+
+                <div class="stat-card">
+                    <h4>Switch Reasons</h4>
+                    ${Object.entries(switchingStats.switchReasons).map(([reason, count]) => 
+                        `<p><strong>${reason}:</strong> ${count}</p>`
+                    ).join('')}
+                </div>
+
+                <div class="stat-card">
+                    <h4>Agent Usage</h4>
+                    ${Object.entries(switchingStats.agentUsage).map(([agent, count]) => 
+                        `<p><strong>${agent}:</strong> ${count}</p>`
+                    ).join('')}
+                </div>
+
+                <div class="stat-card">
+                    <h4>Error Tracking</h4>
+                    <p><strong>Consecutive Errors:</strong> ${stats.errorTracking.consecutiveErrors}</p>
+                    <p><strong>Circuit Breaker:</strong> ${stats.errorTracking.circuitBreakerOpen ? 'Open' : 'Closed'}</p>
+                    <p><strong>Fallback Count:</strong> ${stats.sessionMetrics.fallbackCount}</p>
+                </div>
+
+                <div class="stat-card">
+                    <h4>Recent Activity</h4>
+                    ${switchingStats.recentSwitches.map(switch_ => 
+                        `<p><small>${new Date(switch_.timestamp).toLocaleTimeString()}: ${switch_.agentName || switch_.targetAgentName} (${switch_.switchReason})</small></p>`
+                    ).join('') || '<p><small>No recent activity</small></p>'}
+                </div>
+            `;
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', initializeTestEnvironment);
+
+        // Auto-refresh stats every 5 seconds
+        setInterval(updateStats, 5000);
+    </script>
+</body>
+</html>

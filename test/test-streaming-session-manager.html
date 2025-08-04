@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Session Manager Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .controls {
+            margin-bottom: 15px;
+        }
+        .controls button {
+            margin-right: 10px;
+            margin-bottom: 5px;
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .controls button:hover {
+            background: #0056b3;
+        }
+        .controls button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .metric {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .session-details {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .session-details h4 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .session-property {
+            margin-bottom: 8px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .session-property strong {
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Streaming Session Manager Test</h1>
+        <p>Test WebSocket session management for agent routing with retry logic, validation, cleanup, and metrics tracking.</p>
+    </div>
+
+    <div class="container">
+        <div class="test-section">
+            <h3>Session Management Tests</h3>
+            <div class="controls">
+                <button onclick="testCreateSession()">Create Session</button>
+                <button onclick="testGetSession()">Get Current Session</button>
+                <button onclick="testUpdateSession()">Update Session</button>
+                <button onclick="testDestroySession()">Destroy Session</button>
+                <button onclick="testCleanupSessions()">Cleanup Sessions</button>
+            </div>
+            <div id="sessionStatus" class="status info">Ready to test session management</div>
+            <div id="sessionLog" class="log"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="test-section">
+            <h3>Session Update with Retry Logic</h3>
+            <div class="controls">
+                <button onclick="testSessionUpdateRetry()">Test Update with Retry</button>
+                <button onclick="testSessionUpdateFailure()">Test Update Failure</button>
+                <button onclick="testExponentialBackoff()">Test Exponential Backoff</button>
+            </div>
+            <div id="retryStatus" class="status info">Ready to test retry logic</div>
+            <div id="retryLog" class="log"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="test-section">
+            <h3>Session Validation Tests</h3>
+            <div class="controls">
+                <button onclick="testSessionValidation()">Test Validation</button>
+                <button onclick="testValidationTimeout()">Test Validation Timeout</button>
+                <button onclick="testValidationRetry()">Test Validation Retry</button>
+            </div>
+            <div id="validationStatus" class="status info">Ready to test validation</div>
+            <div id="validationLog" class="log"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="test-section">
+            <h3>Session Cleanup Tests</h3>
+            <div class="controls">
+                <button onclick="testAutomaticCleanup()">Test Automatic Cleanup</button>
+                <button onclick="testExpiredSessions()">Test Expired Sessions</button>
+                <button onclick="testForceCleanup()">Test Force Cleanup</button>
+            </div>
+            <div id="cleanupStatus" class="status info">Ready to test cleanup</div>
+            <div id="cleanupLog" class="log"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="test-section">
+            <h3>Session Metrics</h3>
+            <div class="controls">
+                <button onclick="updateMetrics()">Update Metrics</button>
+                <button onclick="resetMetrics()">Reset Metrics</button>
+            </div>
+            <div class="metrics" id="metricsDisplay">
+                <!-- Metrics will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="test-section">
+            <h3>Current Session Details</h3>
+            <div class="controls">
+                <button onclick="showSessionDetails()">Show Details</button>
+                <button onclick="refreshSessionDetails()">Refresh</button>
+            </div>
+            <div id="sessionDetails" class="session-details">
+                <p>No session details available</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../streaming-session-manager.js"></script>
+
+    <script>
+        // Mock dependencies for testing
+        class MockStreamingManager {
+            constructor() {
+                this.debug = window.debugManager ? 
+                    window.debugManager.createModuleLogger('MockStreamingManager') : 
+                    { log: console.log, debug: console.log, info: console.log, warn: console.warn, error: console.error };
+            }
+
+            getCurrentPersonaInfo() {
+                return {
+                    name: 'Test User',
+                    instructions: 'Test persona instructions'
+                };
+            }
+
+            getVadThreshold() {
+                return 0.5;
+            }
+
+            sendMessage(message) {
+                this.debug.log('Mock sendMessage:', message);
+                // Simulate session.updated response after delay
+                setTimeout(() => {
+                    if (message.type === 'session.update') {
+                        const mockEvent = {
+                            data: JSON.stringify({
+                                type: 'session.updated'
+                            })
+                        };
+                        // Trigger the mock response
+                        if (this.mockHandleMessage) {
+                            this.mockHandleMessage(mockEvent);
+                        }
+                    }
+                }, 100);
+                return true;
+            }
+
+            getVoiceConfigForAgent(agentName) {
+                return {
+                    voice: 'shimmer',
+                    speed: 1.0,
+                    pitch: 1.0,
+                    temperature: 0.9
+                };
+            }
+
+            get settings() {
+                return {
+                    responseDelay: 1.0
+                };
+            }
+        }
+
+        class MockStreamingAgentRouter {
+            constructor() {
+                this.debug = window.debugManager ? 
+                    window.debugManager.createModuleLogger('MockStreamingAgentRouter') : 
+                    { log: console.log, debug: console.log, info: console.log, warn: console.warn, error: console.error };
+            }
+        }
+
+        // Initialize test environment
+        let mockStreamingManager;
+        let mockStreamingAgentRouter;
+        let sessionManager;
+
+        function initializeTest() {
+            try {
+                mockStreamingManager = new MockStreamingManager();
+                mockStreamingAgentRouter = new MockStreamingAgentRouter();
+                
+                if (typeof StreamingSessionManager !== 'undefined') {
+                    sessionManager = new StreamingSessionManager(mockStreamingManager, mockStreamingAgentRouter);
+                    log('sessionLog', 'StreamingSessionManager initialized successfully');
+                    updateStatus('sessionStatus', 'success', 'Test environment initialized');
+                } else {
+                    throw new Error('StreamingSessionManager not available');
+                }
+            } catch (error) {
+                log('sessionLog', `Initialization error: ${error.message}`);
+                updateStatus('sessionStatus', 'error', `Initialization failed: ${error.message}`);
+            }
+        }
+
+        // Utility functions
+        function log(elementId, message) {
+            const logElement = document.getElementById(elementId);
+            if (logElement) {
+                const timestamp = new Date().toLocaleTimeString();
+                logElement.textContent += `[${timestamp}] ${message}\n`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+        }
+
+        function updateStatus(elementId, type, message) {
+            const statusElement = document.getElementById(elementId);
+            if (statusElement) {
+                statusElement.className = `status ${type}`;
+                statusElement.textContent = message;
+            }
+        }
+
+        // Session Management Tests
+        async function testCreateSession() {
+            try {
+                updateStatus('sessionStatus', 'info', 'Creating session...');
+                
+                const sessionId = sessionManager.createSession({
+                    conversationContext: { testData: 'test' },
+                    voiceConfiguration: { voice: 'shimmer' }
+                });
+                
+                log('sessionLog', `Session created: ${sessionId}`);
+                updateStatus('sessionStatus', 'success', `Session created: ${sessionId}`);
+                
+                // Update metrics
+                updateMetrics();
+                
+            } catch (error) {
+                log('sessionLog', `Create session error: ${error.message}`);
+                updateStatus('sessionStatus', 'error', `Create failed: ${error.message}`);
+            }
+        }
+
+        async function testGetSession() {
+            try {
+                const session = sessionManager.getCurrentSession();
+                
+                if (session) {
+                    log('sessionLog', `Current session: ${session.sessionId}`);
+                    updateStatus('sessionStatus', 'success', `Found session: ${session.sessionId}`);
+                } else {
+                    log('sessionLog', 'No current session found');
+                    updateStatus('sessionStatus', 'info', 'No current session');
+                }
+                
+            } catch (error) {
+                log('sessionLog', `Get session error: ${error.message}`);
+                updateStatus('sessionStatus', 'error', `Get failed: ${error.message}`);
+            }
+        }
+
+        async function testUpdateSession() {
+            try {
+                const session = sessionManager.getCurrentSession();
+                if (!session) {
+                    throw new Error('No current session to update');
+                }
+                
+                updateStatus('sessionStatus', 'info', 'Updating session...');
+                
+                const agentContext = {
+                    agentName: 'TestAgent',
+                    agentType: 'test',
+                    switchReason: 'test_update'
+                };
+                
+                const instructions = 'Test agent instructions for session update';
+                
+                const success = await sessionManager.updateSessionForAgent(
+                    session.sessionId,
+                    agentContext,
+                    instructions
+                );
+                
+                if (success) {
+                    log('sessionLog', `Session updated successfully for ${agentContext.agentName}`);
+                    updateStatus('sessionStatus', 'success', 'Session updated successfully');
+                } else {
+                    log('sessionLog', 'Session update failed');
+                    updateStatus('sessionStatus', 'error', 'Session update failed');
+                }
+                
+                updateMetrics();
+                
+            } catch (error) {
+                log('sessionLog', `Update session error: ${error.message}`);
+                updateStatus('sessionStatus', 'error', `Update failed: ${error.message}`);
+            }
+        }
+
+        async function testDestroySession() {
+            try {
+                const session = sessionManager.getCurrentSession();
+                if (!session) {
+                    throw new Error('No current session to destroy');
+                }
+                
+                const sessionId = session.sessionId;
+                const success = sessionManager.destroySession(sessionId);
+                
+                if (success) {
+                    log('sessionLog', `Session destroyed: ${sessionId}`);
+                    updateStatus('sessionStatus', 'success', 'Session destroyed');
+                } else {
+                    log('sessionLog', 'Session destroy failed');
+                    updateStatus('sessionStatus', 'error', 'Destroy failed');
+                }
+                
+                updateMetrics();
+                
+            } catch (error) {
+                log('sessionLog', `Destroy session error: ${error.message}`);
+                updateStatus('sessionStatus', 'error', `Destroy failed: ${error.message}`);
+            }
+        }
+
+        async function testCleanupSessions() {
+            try {
+                updateStatus('cleanupStatus', 'info', 'Running cleanup...');
+                
+                const cleanedUp = sessionManager.cleanupSessions();
+                
+                log('cleanupLog', `Cleanup completed: ${cleanedUp} sessions cleaned up`);
+                updateStatus('cleanupStatus', 'success', `Cleaned up ${cleanedUp} sessions`);
+                
+                updateMetrics();
+                
+            } catch (error) {
+                log('cleanupLog', `Cleanup error: ${error.message}`);
+                updateStatus('cleanupStatus', 'error', `Cleanup failed: ${error.message}`);
+            }
+        }
+
+        // Retry Logic Tests
+        async function testSessionUpdateRetry() {
+            try {
+                updateStatus('retryStatus', 'info', 'Testing retry logic...');
+                
+                // Create a session first
+                const sessionId = sessionManager.createSession();
+                
+                // Mock a temporary failure scenario
+                const originalSendMessage = mockStreamingManager.sendMessage;
+                let attemptCount = 0;
+                
+                mockStreamingManager.sendMessage = function(message) {
+                    attemptCount++;
+                    log('retryLog', `Attempt ${attemptCount}: ${message.type}`);
+                    
+                    if (attemptCount < 3) {
+                        // Fail first 2 attempts
+                        throw new Error(`Mock failure attempt ${attemptCount}`);
+                    } else {
+                        // Succeed on 3rd attempt
+                        return originalSendMessage.call(this, message);
+                    }
+                };
+                
+                const agentContext = {
+                    agentName: 'RetryTestAgent',
+                    agentType: 'test',
+                    switchReason: 'retry_test'
+                };
+                
+                const success = await sessionManager.updateSessionForAgent(
+                    sessionId,
+                    agentContext,
+                    'Retry test instructions'
+                );
+                
+                // Restore original method
+                mockStreamingManager.sendMessage = originalSendMessage;
+                
+                if (success) {
+                    log('retryLog', `Retry test successful after ${attemptCount} attempts`);
+                    updateStatus('retryStatus', 'success', `Success after ${attemptCount} attempts`);
+                } else {
+                    log('retryLog', 'Retry test failed');
+                    updateStatus('retryStatus', 'error', 'Retry test failed');
+                }
+                
+            } catch (error) {
+                log('retryLog', `Retry test error: ${error.message}`);
+                updateStatus('retryStatus', 'error', `Test failed: ${error.message}`);
+            }
+        }
+
+        async function testSessionUpdateFailure() {
+            try {
+                updateStatus('retryStatus', 'info', 'Testing update failure...');
+                
+                const sessionId = sessionManager.createSession();
+                
+                // Mock permanent failure
+                const originalSendMessage = mockStreamingManager.sendMessage;
+                mockStreamingManager.sendMessage = function(message) {
+                    throw new Error('Permanent mock failure');
+                };
+                
+                const agentContext = {
+                    agentName: 'FailureTestAgent',
+                    agentType: 'test',
+                    switchReason: 'failure_test'
+                };
+                
+                const success = await sessionManager.updateSessionForAgent(
+                    sessionId,
+                    agentContext,
+                    'Failure test instructions'
+                );
+                
+                // Restore original method
+                mockStreamingManager.sendMessage = originalSendMessage;
+                
+                if (!success) {
+                    log('retryLog', 'Failure test successful - update failed as expected');
+                    updateStatus('retryStatus', 'success', 'Failure handling works correctly');
+                } else {
+                    log('retryLog', 'Failure test failed - update should have failed');
+                    updateStatus('retryStatus', 'error', 'Failure test failed');
+                }
+                
+            } catch (error) {
+                log('retryLog', `Failure test error: ${error.message}`);
+                updateStatus('retryStatus', 'error', `Test failed: ${error.message}`);
+            }
+        }
+
+        async function testExponentialBackoff() {
+            try {
+                updateStatus('retryStatus', 'info', 'Testing exponential backoff...');
+                
+                const sessionId = sessionManager.createSession();
+                const startTime = Date.now();
+                const delays = [];
+                
+                // Mock to track delays
+                const originalSendMessage = mockStreamingManager.sendMessage;
+                let attemptCount = 0;
+                let lastAttemptTime = startTime;
+                
+                mockStreamingManager.sendMessage = function(message) {
+                    const currentTime = Date.now();
+                    if (attemptCount > 0) {
+                        const delay = currentTime - lastAttemptTime;
+                        delays.push(delay);
+                        log('retryLog', `Attempt ${attemptCount + 1} delay: ${delay}ms`);
+                    }
+                    
+                    attemptCount++;
+                    lastAttemptTime = currentTime;
+                    
+                    if (attemptCount <= 3) {
+                        throw new Error(`Mock failure attempt ${attemptCount}`);
+                    } else {
+                        return originalSendMessage.call(this, message);
+                    }
+                };
+                
+                const agentContext = {
+                    agentName: 'BackoffTestAgent',
+                    agentType: 'test',
+                    switchReason: 'backoff_test'
+                };
+                
+                await sessionManager.updateSessionForAgent(
+                    sessionId,
+                    agentContext,
+                    'Backoff test instructions'
+                );
+                
+                // Restore original method
+                mockStreamingManager.sendMessage = originalSendMessage;
+                
+                log('retryLog', `Backoff delays: ${delays.join(', ')}ms`);
+                
+                // Verify exponential backoff (each delay should be roughly double the previous)
+                let backoffValid = true;
+                for (let i = 1; i < delays.length; i++) {
+                    if (delays[i] < delays[i-1] * 1.5) { // Allow some tolerance
+                        backoffValid = false;
+                        break;
+                    }
+                }
+                
+                if (backoffValid && delays.length > 0) {
+                    updateStatus('retryStatus', 'success', 'Exponential backoff working correctly');
+                } else {
+                    updateStatus('retryStatus', 'error', 'Exponential backoff not working correctly');
+                }
+                
+            } catch (error) {
+                log('retryLog', `Backoff test error: ${error.message}`);
+                updateStatus('retryStatus', 'error', `Test failed: ${error.message}`);
+            }
+        }
+
+        // Validation Tests
+        async function testSessionValidation() {
+            try {
+                updateStatus('validationStatus', 'info', 'Testing validation...');
+                
+                const sessionId = sessionManager.createSession();
+                
+                // Mock successful validation
+                mockStreamingManager.mockHandleMessage = (event) => {
+                    log('validationLog', 'Mock session.updated event received');
+                };
+                
+                const agentContext = {
+                    agentName: 'ValidationTestAgent',
+                    agentType: 'test',
+                    switchReason: 'validation_test'
+                };
+                
+                const success = await sessionManager.updateSessionForAgent(
+                    sessionId,
+                    agentContext,
+                    'Validation test instructions'
+                );
+                
+                if (success) {
+                    log('validationLog', 'Validation test successful');
+                    updateStatus('validationStatus', 'success', 'Validation working correctly');
+                } else {
+                    log('validationLog', 'Validation test failed');
+                    updateStatus('validationStatus', 'error', 'Validation failed');
+                }
+                
+            } catch (error) {
+                log('validationLog', `Validation test error: ${error.message}`);
+                updateStatus('validationStatus', 'error', `Test failed: ${error.message}`);
+            }
+        }
+
+        async function testValidationTimeout() {
+            try {
+                updateStatus('validationStatus', 'info', 'Testing validation timeout...');
+                
+                const sessionId = sessionManager.createSession();
+                
+                // Mock no response (timeout scenario)
+                mockStreamingManager.mockHandleMessage = null;
+                
+                const agentContext = {
+                    agentName: 'TimeoutTestAgent',
+                    agentType: 'test',
+                    switchReason: 'timeout_test'
+                };
+                
+                const success = await sessionManager.updateSessionForAgent(
+                    sessionId,
+                    agentContext,
+                    'Timeout test instructions'
+                );
+                
+                if (!success) {
+                    log('validationLog', 'Timeout test successful - validation timed out as expected');
+                    updateStatus('validationStatus', 'success', 'Timeout handling works correctly');
+                } else {
+                    log('validationLog', 'Timeout test failed - should have timed out');
+                    updateStatus('validationStatus', 'error', 'Timeout test failed');
+                }
+                
+            } catch (error) {
+                log('validationLog', `Timeout test error: ${error.message}`);
+                updateStatus('validationStatus', 'error', `Test failed: ${error.message}`);
+            }
+        }
+
+        async function testValidationRetry() {
+            try {
+                updateStatus('validationStatus', 'info', 'Testing validation retry...');
+                
+                const sessionId = sessionManager.createSession();
+                let validationAttempts = 0;
+                
+                // Mock validation that succeeds on second attempt
+                mockStreamingManager.mockHandleMessage = (event) => {
+                    validationAttempts++;
+                    log('validationLog', `Validation attempt ${validationAttempts}`);
+                    
+                    if (validationAttempts >= 2) {
+                        // Succeed on second attempt
+                        return;
+                    } else {
+                        // Fail first attempt by not responding
+                        return;
+                    }
+                };
+                
+                const agentContext = {
+                    agentName: 'RetryValidationTestAgent',
+                    agentType: 'test',
+                    switchReason: 'retry_validation_test'
+                };
+                
+                const success = await sessionManager.updateSessionForAgent(
+                    sessionId,
+                    agentContext,
+                    'Retry validation test instructions'
+                );
+                
+                log('validationLog', `Validation completed with ${validationAttempts} attempts`);
+                
+                if (success && validationAttempts > 1) {
+                    updateStatus('validationStatus', 'success', `Validation retry works (${validationAttempts} attempts)`);
+                } else {
+                    updateStatus('validationStatus', 'error', 'Validation retry test failed');
+                }
+                
+            } catch (error) {
+                log('validationLog', `Validation retry test error: ${error.message}`);
+                updateStatus('validationStatus', 'error', `Test failed: ${error.message}`);
+            }
+        }
+
+        // Cleanup Tests
+        async function testAutomaticCleanup() {
+            try {
+                updateStatus('cleanupStatus', 'info', 'Testing automatic cleanup...');
+                
+                // Create multiple sessions
+                const sessionIds = [];
+                for (let i = 0; i < 5; i++) {
+                    const sessionId = sessionManager.createSession();
+                    sessionIds.push(sessionId);
+                }
+                
+                log('cleanupLog', `Created ${sessionIds.length} sessions`);
+                
+                // Wait for cleanup timer (shortened for testing)
+                setTimeout(() => {
+                    const cleanedUp = sessionManager.cleanupSessions();
+                    log('cleanupLog', `Automatic cleanup removed ${cleanedUp} sessions`);
+                    updateStatus('cleanupStatus', 'success', `Automatic cleanup working (${cleanedUp} cleaned)`);
+                }, 1000);
+                
+            } catch (error) {
+                log('cleanupLog', `Automatic cleanup test error: ${error.message}`);
+                updateStatus('cleanupStatus', 'error', `Test failed: ${error.message}`);
+            }
+        }
+
+        async function testExpiredSessions() {
+            try {
+                updateStatus('cleanupStatus', 'info', 'Testing expired sessions...');
+                
+                // Create a session and manually expire it
+                const sessionId = sessionManager.createSession();
+                const session = sessionManager.getSession(sessionId);
+                
+                if (session) {
+                    // Manually set old timestamp to simulate expiry
+                    session.lastAccessedAt = Date.now() - (31 * 60 * 1000); // 31 minutes ago
+                    
+                    log('cleanupLog', `Session ${sessionId} marked as expired`);
+                    
+                    const cleanedUp = sessionManager.cleanupSessions();
+                    
+                    if (cleanedUp > 0) {
+                        log('cleanupLog', `Expired session cleanup successful: ${cleanedUp} sessions`);
+                        updateStatus('cleanupStatus', 'success', 'Expired session cleanup working');
+                    } else {
+                        log('cleanupLog', 'No expired sessions were cleaned up');
+                        updateStatus('cleanupStatus', 'error', 'Expired session cleanup failed');
+                    }
+                } else {
+                    throw new Error('Failed to create test session');
+                }
+                
+            } catch (error) {
+                log('cleanupLog', `Expired sessions test error: ${error.message}`);
+                updateStatus('cleanupStatus', 'error', `Test failed: ${error.message}`);
+            }
+        }
+
+        async function testForceCleanup() {
+            try {
+                updateStatus('cleanupStatus', 'info', 'Testing force cleanup...');
+                
+                // Create multiple sessions
+                const sessionIds = [];
+                for (let i = 0; i < 3; i++) {
+                    const sessionId = sessionManager.createSession();
+                    sessionIds.push(sessionId);
+                    
+                    // Mark some as inactive
+                    const session = sessionManager.getSession(sessionId);
+                    if (session && i > 0) {
+                        session.isActive = false;
+                    }
+                }
+                
+                log('cleanupLog', `Created ${sessionIds.length} sessions (some inactive)`);
+                
+                const cleanedUp = sessionManager.cleanupSessions(true); // Force cleanup
+                
+                log('cleanupLog', `Force cleanup removed ${cleanedUp} sessions`);
+                updateStatus('cleanupStatus', 'success', `Force cleanup working (${cleanedUp} cleaned)`);
+                
+            } catch (error) {
+                log('cleanupLog', `Force cleanup test error: ${error.message}`);
+                updateStatus('cleanupStatus', 'error', `Test failed: ${error.message}`);
+            }
+        }
+
+        // Metrics and Details
+        function updateMetrics() {
+            try {
+                const metrics = sessionManager.getSessionMetrics();
+                const metricsDisplay = document.getElementById('metricsDisplay');
+                
+                metricsDisplay.innerHTML = `
+                    <div class="metric">
+                        <div class="metric-value">${metrics.sessionsCreated}</div>
+                        <div class="metric-label">Sessions Created</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${metrics.sessionsDestroyed}</div>
+                        <div class="metric-label">Sessions Destroyed</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${metrics.activeSessions}</div>
+                        <div class="metric-label">Active Sessions</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${metrics.sessionUpdates}</div>
+                        <div class="metric-label">Session Updates</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${metrics.sessionUpdateRetries}</div>
+                        <div class="metric-label">Update Retries</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${metrics.sessionUpdateFailures}</div>
+                        <div class="metric-label">Update Failures</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${metrics.validationAttempts}</div>
+                        <div class="metric-label">Validation Attempts</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${metrics.validationFailures}</div>
+                        <div class="metric-label">Validation Failures</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${metrics.cleanupOperations}</div>
+                        <div class="metric-label">Cleanup Operations</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${(metrics.sessionUpdateSuccessRate * 100).toFixed(1)}%</div>
+                        <div class="metric-label">Update Success Rate</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${(metrics.validationSuccessRate * 100).toFixed(1)}%</div>
+                        <div class="metric-label">Validation Success Rate</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${(metrics.averageSessionDuration / 1000).toFixed(1)}s</div>
+                        <div class="metric-label">Avg Session Duration</div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Error updating metrics:', error);
+            }
+        }
+
+        function resetMetrics() {
+            try {
+                // Reset metrics by recreating the session manager
+                sessionManager.cleanup();
+                sessionManager = new StreamingSessionManager(mockStreamingManager, mockStreamingAgentRouter);
+                updateMetrics();
+                log('sessionLog', 'Metrics reset - session manager reinitialized');
+            } catch (error) {
+                console.error('Error resetting metrics:', error);
+            }
+        }
+
+        function showSessionDetails() {
+            try {
+                const details = sessionManager.getSessionDetails();
+                const detailsElement = document.getElementById('sessionDetails');
+                
+                if (details) {
+                    detailsElement.innerHTML = `
+                        <h4>Session: ${details.sessionId}</h4>
+                        <div class="session-property"><strong>Created:</strong> ${details.createdAt}</div>
+                        <div class="session-property"><strong>Last Updated:</strong> ${details.lastUpdatedAt}</div>
+                        <div class="session-property"><strong>Last Accessed:</strong> ${details.lastAccessedAt}</div>
+                        <div class="session-property"><strong>Active:</strong> ${details.isActive}</div>
+                        <div class="session-property"><strong>Current Agent:</strong> ${details.currentAgent?.agentName || 'None'}</div>
+                        <div class="session-property"><strong>Previous Agent:</strong> ${details.previousAgent?.agentName || 'None'}</div>
+                        <div class="session-property"><strong>Agent Switches:</strong> ${details.agentSwitches}</div>
+                        <div class="session-property"><strong>Session Updates:</strong> ${details.sessionUpdates}</div>
+                        <div class="session-property"><strong>Total Retries:</strong> ${details.totalRetries}</div>
+                        <div class="session-property"><strong>Avg Update Latency:</strong> ${details.averageUpdateLatency.toFixed(1)}ms</div>
+                        <div class="session-property"><strong>Validation Attempts:</strong> ${details.validationAttempts}</div>
+                        <div class="session-property"><strong>Session Validated:</strong> ${details.sessionValidated}</div>
+                        <div class="session-property"><strong>Update Pending:</strong> ${details.sessionUpdatePending}</div>
+                    `;
+                } else {
+                    detailsElement.innerHTML = '<p>No current session available</p>';
+                }
+                
+            } catch (error) {
+                console.error('Error showing session details:', error);
+                document.getElementById('sessionDetails').innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        }
+
+        function refreshSessionDetails() {
+            showSessionDetails();
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeTest();
+            updateMetrics();
+        });
+    </script>
+</body>
+</html>

@@ -9,7 +9,7 @@ Successfully migrated the agent configuration system from localStorage-based sto
 - `config/agents/default-agent-config.json` - DefaultAgent configuration (fallback agent)
 - `config/agents/payments-agent-config.json` - PaymentsAgent configuration
 - `config/agents/fraud-agent-config.json` - FraudAgent configuration  
-- `config/agents/banking-info-agent-config.json` - BankingInfoAgent configuration
+- `config/agents/bankinginfo-agent-config.json` - BankingInfoAgent configuration
 - `config/agents/idv-agent-config.json` - IDVAgent configuration
 
 ### 2. Updated AgentConfigManager Class
@@ -96,7 +96,7 @@ config/
     ├── default-agent-config.json
     ├── payments-agent-config.json
     ├── fraud-agent-config.json
-    ├── banking-info-agent-config.json
+    ├── bankinginfo-agent-config.json
     └── idv-agent-config.json
 ```
 

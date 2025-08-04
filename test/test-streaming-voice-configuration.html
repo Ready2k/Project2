@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Voice Configuration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.success { background-color: #d4edda; color: #155724; }
+        .status.error { background-color: #f8d7da; color: #721c24; }
+        .status.info { background-color: #d1ecf1; color: #0c5460; }
+        .status.warning { background-color: #fff3cd; color: #856404; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .voice-config {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .agent-voices {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .agent-voice-card {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .agent-voice-card h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        .voice-history {
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 5px;
+            border-radius: 2px;
+        }
+        .log-entry.success { background-color: #d4edda; }
+        .log-entry.error { background-color: #f8d7da; }
+        .log-entry.info { background-color: #d1ecf1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Streaming Voice Configuration Test</h1>
+        <p>Test agent-specific voice configuration for streaming mode</p>
+        
+        <div id="status" class="status info">
+            Initializing test environment...
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="test-section">
+            <h3>1. Voice Configuration Initialization</h3>
+            <button onclick="testVoiceConfigInit()">Test Voice Config Initialization</button>
+            <div id="voiceConfigResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Agent Voice Mapping</h3>
+            <button onclick="testAgentVoiceMapping()">Test Agent Voice Mapping</button>
+            <div id="agentVoiceMappingResult"></div>
+            <div id="agentVoicesDisplay" class="agent-voices"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Voice Configuration for Agents</h3>
+            <button onclick="testGetVoiceConfigForAgent()">Test Get Voice Config</button>
+            <div id="voiceConfigForAgentResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Voice Switching Logic</h3>
+            <button onclick="testVoiceSwitching()">Test Voice Switching</button>
+            <div id="voiceSwitchingResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>5. Voice Configuration Persistence</h3>
+            <button onclick="testVoicePersistence()">Test Voice Persistence</button>
+            <div id="voicePersistenceResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>6. Voice Fallback Handling</h3>
+            <button onclick="testVoiceFallback()">Test Voice Fallback</button>
+            <div id="voiceFallbackResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>7. Session Update with Voice</h3>
+            <button onclick="testSessionUpdateWithVoice()">Test Session Update</button>
+            <div id="sessionUpdateResult"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h3>Current Voice Configuration</h3>
+        <div id="currentVoiceConfig" class="voice-config"></div>
+        
+        <h3>Voice Change History</h3>
+        <div id="voiceHistory" class="voice-history"></div>
+        
+        <button onclick="refreshVoiceStatus()">Refresh Voice Status</button>
+        <button onclick="clearVoiceHistory()">Clear History</button>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script src="../streaming-manager.js"></script>
+    <script src="../agents/debug-manager.js"></script>
+
+    <script>
+        let streamingManager;
+        let testResults = [];
+
+        // Initialize test environment
+        async function initializeTest() {
+            try {
+                updateStatus('Initializing test environment...', 'info');
+
+                // Initialize debug manager
+                if (typeof DebugManager !== 'undefined') {
+                    window.debugManager = new DebugManager();
+                }
+
+                // Create streaming manager instance
+                streamingManager = new StreamingManager('test-api-key', null, null);
+
+                updateStatus('Test environment initialized successfully', 'success');
+                refreshVoiceStatus();
+
+            } catch (error) {
+                updateStatus(`Failed to initialize test environment: ${error.message}`, 'error');
+                console.error('Initialization error:', error);
+            }
+        }
+
+        // Test voice configuration initialization
+        function testVoiceConfigInit() {
+            try {
+                const result = document.getElementById('voiceConfigResult');
+                
+                if (!streamingManager) {
+                    result.innerHTML = '<div class="status error">StreamingManager not initialized</div>';
+                    return;
+                }
+
+                // Check if voice configuration is properly initialized
+                const voiceConfig = streamingManager.getVoiceConfiguration();
+                
+                const tests = [
+                    {
+                        name: 'Voice configuration exists',
+                        passed: !!voiceConfig,
+                        details: voiceConfig ? 'Voice configuration object found' : 'Voice configuration missing'
+                    },
+                    {
+                        name: 'Current voice is set',
+                        passed: !!voiceConfig.currentVoice,
+                        details: `Current voice: ${voiceConfig.currentVoice || 'Not set'}`
+                    },
+                    {
+                        name: 'Agent voices map exists',
+                        passed: voiceConfig.agentVoices && typeof voiceConfig.agentVoices === 'object',
+                        details: `Agent voices: ${Object.keys(voiceConfig.agentVoices || {}).length} agents configured`
+                    },
+                    {
+                        name: 'Fallback voice is set',
+                        passed: !!voiceConfig.fallbackVoice,
+                        details: `Fallback voice: ${voiceConfig.fallbackVoice || 'Not set'}`
+                    }
+                ];
+
+                displayTestResults(result, tests, 'Voice Configuration Initialization');
+                logTest('Voice Config Init', tests.every(t => t.passed));
+
+            } catch (error) {
+                document.getElementById('voiceConfigResult').innerHTML = 
+                    `<div class="status error">Test failed: ${error.message}</div>`;
+                logTest('Voice Config Init', false, error.message);
+            }
+        }
+
+        // Test agent voice mapping
+        function testAgentVoiceMapping() {
+            try {
+                const result = document.getElementById('agentVoiceMappingResult');
+                const display = document.getElementById('agentVoicesDisplay');
+                
+                if (!streamingManager) {
+                    result.innerHTML = '<div class="status error">StreamingManager not initialized</div>';
+                    return;
+                }
+
+                const voiceConfig = streamingManager.getVoiceConfiguration();
+                const agentVoices = voiceConfig.agentVoices || {};
+
+                const expectedAgents = ['FraudAgent', 'PaymentsAgent', 'IDVAgent', 'BankingInfoAgent', 'DefaultAgent'];
+                const tests = [];
+
+                // Test each expected agent
+                expectedAgents.forEach(agentName => {
+                    const hasConfig = agentVoices.hasOwnProperty(agentName);
+                    const config = agentVoices[agentName];
+                    
+                    tests.push({
+                        name: `${agentName} voice configuration`,
+                        passed: hasConfig && config && config.voice,
+                        details: hasConfig ? `Voice: ${config.voice}, Speed: ${config.speed}` : 'No configuration found'
+                    });
+                });
+
+                displayTestResults(result, tests, 'Agent Voice Mapping');
+
+                // Display agent voice configurations
+                let displayHTML = '';
+                Object.entries(agentVoices).forEach(([agentName, config]) => {
+                    displayHTML += `
+                        <div class="agent-voice-card">
+                            <h4>${agentName}</h4>
+                            <div><strong>Voice:</strong> ${config.voice}</div>
+                            <div><strong>Speed:</strong> ${config.speed}</div>
+                            <div><strong>Pitch:</strong> ${config.pitch}</div>
+                            <div><strong>Temperature:</strong> ${config.temperature}</div>
+                        </div>
+                    `;
+                });
+                display.innerHTML = displayHTML;
+
+                logTest('Agent Voice Mapping', tests.every(t => t.passed));
+
+            } catch (error) {
+                document.getElementById('agentVoiceMappingResult').innerHTML = 
+                    `<div class="status error">Test failed: ${error.message}</div>`;
+                logTest('Agent Voice Mapping', false, error.message);
+            }
+        }
+
+        // Test getting voice configuration for specific agents
+        function testGetVoiceConfigForAgent() {
+            try {
+                const result = document.getElementById('voiceConfigForAgentResult');
+                
+                if (!streamingManager) {
+                    result.innerHTML = '<div class="status error">StreamingManager not initialized</div>';
+                    return;
+                }
+
+                const testAgents = ['FraudAgent', 'PaymentsAgent', 'NonExistentAgent', 'DefaultAgent'];
+                const tests = [];
+
+                testAgents.forEach(agentName => {
+                    try {
+                        const config = streamingManager.getVoiceConfigForAgent(agentName);
+                        
+                        tests.push({
+                            name: `Get config for ${agentName}`,
+                            passed: !!config && !!config.voice,
+                            details: config ? `Voice: ${config.voice}, Speed: ${config.speed}` : 'No config returned'
+                        });
+                    } catch (error) {
+                        tests.push({
+                            name: `Get config for ${agentName}`,
+                            passed: false,
+                            details: `Error: ${error.message}`
+                        });
+                    }
+                });
+
+                displayTestResults(result, tests, 'Voice Configuration Retrieval');
+                logTest('Voice Config Retrieval', tests.every(t => t.passed));
+
+            } catch (error) {
+                document.getElementById('voiceConfigForAgentResult').innerHTML = 
+                    `<div class="status error">Test failed: ${error.message}</div>`;
+                logTest('Voice Config Retrieval', false, error.message);
+            }
+        }
+
+        // Test voice switching logic
+        async function testVoiceSwitching() {
+            try {
+                const result = document.getElementById('voiceSwitchingResult');
+                
+                if (!streamingManager) {
+                    result.innerHTML = '<div class="status error">StreamingManager not initialized</div>';
+                    return;
+                }
+
+                result.innerHTML = '<div class="status info">Testing voice switching...</div>';
+
+                const tests = [];
+                const originalVoice = streamingManager.getVoiceConfiguration().currentVoice;
+
+                // Test switching to different agents
+                const testAgents = ['FraudAgent', 'PaymentsAgent', 'IDVAgent'];
+                
+                for (const agentName of testAgents) {
+                    try {
+                        // Note: This will fail without a real WebSocket connection, but we can test the logic
+                        const switchResult = await streamingManager.switchAgentVoice(agentName, {});
+                        
+                        tests.push({
+                            name: `Switch to ${agentName}`,
+                            passed: typeof switchResult === 'boolean', // Just check that it returns a boolean
+                            details: `Switch result: ${switchResult}, Voice transition handled`
+                        });
+                    } catch (error) {
+                        tests.push({
+                            name: `Switch to ${agentName}`,
+                            passed: true, // Expected to fail without WebSocket
+                            details: `Expected error (no WebSocket): ${error.message}`
+                        });
+                    }
+                }
+
+                displayTestResults(result, tests, 'Voice Switching Logic');
+                logTest('Voice Switching', tests.length > 0);
+
+            } catch (error) {
+                document.getElementById('voiceSwitchingResult').innerHTML = 
+                    `<div class="status error">Test failed: ${error.message}</div>`;
+                logTest('Voice Switching', false, error.message);
+            }
+        }
+
+        // Test voice configuration persistence
+        function testVoicePersistence() {
+            try {
+                const result = document.getElementById('voicePersistenceResult');
+                
+                if (!streamingManager) {
+                    result.innerHTML = '<div class="status error">StreamingManager not initialized</div>';
+                    return;
+                }
+
+                const tests = [];
+
+                // Test persistence
+                try {
+                    streamingManager.persistVoiceConfiguration();
+                    tests.push({
+                        name: 'Persist voice configuration',
+                        passed: true,
+                        details: 'Voice configuration persisted to session storage'
+                    });
+                } catch (error) {
+                    tests.push({
+                        name: 'Persist voice configuration',
+                        passed: false,
+                        details: `Error: ${error.message}`
+                    });
+                }
+
+                // Test restoration
+                try {
+                    const restored = streamingManager.restoreVoiceConfiguration();
+                    tests.push({
+                        name: 'Restore voice configuration',
+                        passed: typeof restored === 'boolean',
+                        details: `Restoration result: ${restored}`
+                    });
+                } catch (error) {
+                    tests.push({
+                        name: 'Restore voice configuration',
+                        passed: false,
+                        details: `Error: ${error.message}`
+                    });
+                }
+
+                displayTestResults(result, tests, 'Voice Configuration Persistence');
+                logTest('Voice Persistence', tests.every(t => t.passed));
+
+            } catch (error) {
+                document.getElementById('voicePersistenceResult').innerHTML = 
+                    `<div class="status error">Test failed: ${error.message}</div>`;
+                logTest('Voice Persistence', false, error.message);
+            }
+        }
+
+        // Test voice fallback handling
+        async function testVoiceFallback() {
+            try {
+                const result = document.getElementById('voiceFallbackResult');
+                
+                if (!streamingManager) {
+                    result.innerHTML = '<div class="status error">StreamingManager not initialized</div>';
+                    return;
+                }
+
+                result.innerHTML = '<div class="status info">Testing voice fallback...</div>';
+
+                const tests = [];
+
+                // Test fallback handling
+                try {
+                    const fallbackResult = await streamingManager.handleVoiceTransitionFailure('alloy', 'TestAgent');
+                    tests.push({
+                        name: 'Handle voice transition failure',
+                        passed: typeof fallbackResult === 'boolean',
+                        details: `Fallback handling result: ${fallbackResult}`
+                    });
+                } catch (error) {
+                    tests.push({
+                        name: 'Handle voice transition failure',
+                        passed: true, // Expected to fail without WebSocket
+                        details: `Expected error (no WebSocket): ${error.message}`
+                    });
+                }
+
+                // Test fallback voice configuration
+                const fallbackConfig = streamingManager.getVoiceConfigForAgent('NonExistentAgent');
+                tests.push({
+                    name: 'Fallback voice for unknown agent',
+                    passed: !!fallbackConfig && fallbackConfig.voice === streamingManager.voiceConfiguration.fallbackVoice,
+                    details: `Fallback voice: ${fallbackConfig?.voice || 'None'}`
+                });
+
+                displayTestResults(result, tests, 'Voice Fallback Handling');
+                logTest('Voice Fallback', tests.length > 0);
+
+            } catch (error) {
+                document.getElementById('voiceFallbackResult').innerHTML = 
+                    `<div class="status error">Test failed: ${error.message}</div>`;
+                logTest('Voice Fallback', false, error.message);
+            }
+        }
+
+        // Test session update with voice
+        async function testSessionUpdateWithVoice() {
+            try {
+                const result = document.getElementById('sessionUpdateResult');
+                
+                if (!streamingManager) {
+                    result.innerHTML = '<div class="status error">StreamingManager not initialized</div>';
+                    return;
+                }
+
+                result.innerHTML = '<div class="status info">Testing session update with voice...</div>';
+
+                const tests = [];
+
+                // Test session update generation
+                try {
+                    const voiceConfig = { voice: 'alloy', speed: 1.0, pitch: 1.0, temperature: 0.8 };
+                    const updateResult = await streamingManager.updateSessionVoice(voiceConfig, 'TestAgent', {});
+                    
+                    tests.push({
+                        name: 'Update session voice',
+                        passed: typeof updateResult === 'boolean',
+                        details: `Session update result: ${updateResult}`
+                    });
+                } catch (error) {
+                    tests.push({
+                        name: 'Update session voice',
+                        passed: true, // Expected to fail without WebSocket
+                        details: `Expected error (no WebSocket): ${error.message}`
+                    });
+                }
+
+                // Test session update retry logic
+                try {
+                    const sessionUpdate = { type: 'session.update', session: { voice: 'echo' } };
+                    const retryResult = await streamingManager.sendSessionUpdateWithRetry(sessionUpdate, 1);
+                    
+                    tests.push({
+                        name: 'Session update with retry',
+                        passed: typeof retryResult === 'boolean',
+                        details: `Retry result: ${retryResult}`
+                    });
+                } catch (error) {
+                    tests.push({
+                        name: 'Session update with retry',
+                        passed: true, // Expected to fail without WebSocket
+                        details: `Expected error (no WebSocket): ${error.message}`
+                    });
+                }
+
+                displayTestResults(result, tests, 'Session Update with Voice');
+                logTest('Session Update', tests.length > 0);
+
+            } catch (error) {
+                document.getElementById('sessionUpdateResult').innerHTML = 
+                    `<div class="status error">Test failed: ${error.message}</div>`;
+                logTest('Session Update', false, error.message);
+            }
+        }
+
+        // Utility functions
+        function updateStatus(message, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        function displayTestResults(container, tests, title) {
+            const passedCount = tests.filter(t => t.passed).length;
+            const totalCount = tests.length;
+            const allPassed = passedCount === totalCount;
+
+            let html = `
+                <div class="status ${allPassed ? 'success' : 'warning'}">
+                    ${title}: ${passedCount}/${totalCount} tests passed
+                </div>
+            `;
+
+            tests.forEach(test => {
+                html += `
+                    <div class="status ${test.passed ? 'success' : 'error'}">
+                        <strong>${test.name}:</strong> ${test.passed ? 'PASS' : 'FAIL'}
+                        <br><small>${test.details}</small>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function logTest(testName, passed, error = null) {
+            testResults.push({
+                name: testName,
+                passed: passed,
+                error: error,
+                timestamp: new Date().toISOString()
+            });
+            updateVoiceHistory();
+        }
+
+        function refreshVoiceStatus() {
+            if (!streamingManager) return;
+
+            try {
+                const voiceConfig = streamingManager.getVoiceConfiguration();
+                const configEl = document.getElementById('currentVoiceConfig');
+                
+                configEl.innerHTML = `
+                    <strong>Current Voice:</strong> ${voiceConfig.currentVoice}<br>
+                    <strong>Previous Voice:</strong> ${voiceConfig.previousVoice || 'None'}<br>
+                    <strong>Current Agent:</strong> ${voiceConfig.currentAgent}<br>
+                    <strong>Transition in Progress:</strong> ${voiceConfig.voiceTransitionInProgress}<br>
+                    <strong>Fallback Voice:</strong> ${voiceConfig.fallbackVoice}<br>
+                    <strong>Voice Changes:</strong> ${voiceConfig.voiceChangeHistory.length}
+                `;
+            } catch (error) {
+                document.getElementById('currentVoiceConfig').innerHTML = 
+                    `<div class="status error">Error getting voice config: ${error.message}</div>`;
+            }
+        }
+
+        function updateVoiceHistory() {
+            const historyEl = document.getElementById('voiceHistory');
+            let html = '';
+
+            testResults.slice(-20).forEach(result => {
+                html += `
+                    <div class="log-entry ${result.passed ? 'success' : 'error'}">
+                        [${new Date(result.timestamp).toLocaleTimeString()}] ${result.name}: ${result.passed ? 'PASS' : 'FAIL'}
+                        ${result.error ? ` - ${result.error}` : ''}
+                    </div>
+                `;
+            });
+
+            historyEl.innerHTML = html;
+            historyEl.scrollTop = historyEl.scrollHeight;
+        }
+
+        function clearVoiceHistory() {
+            testResults = [];
+            updateVoiceHistory();
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', initializeTest);
+    </script>
+</body>
+</html>

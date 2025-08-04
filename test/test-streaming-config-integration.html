@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Agent Configuration Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .test-header {
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .test-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        
+        .test-button:hover {
+            background: #0056b3;
+        }
+        
+        .test-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .test-results {
+            margin-top: 20px;
+        }
+        
+        .test-result {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .test-result.pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .test-result.fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .console-output {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🔧 Streaming Agent Configuration Integration Test</h1>
+            <p>Testing integration between StreamingAgentConfig and StreamingManager</p>
+        </div>
+
+        <!-- Test Statistics -->
+        <div class="test-stats">
+            <div class="stat-card">
+                <div class="stat-value" id="totalTests">0</div>
+                <div class="stat-label">Total Tests</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="passedTests">0</div>
+                <div class="stat-label">Passed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="failedTests">0</div>
+                <div class="stat-label">Failed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="testStatus">Ready</div>
+                <div class="stat-label">Status</div>
+            </div>
+        </div>
+
+        <!-- Test Controls -->
+        <div style="margin-bottom: 20px;">
+            <button class="test-button" id="runTestsBtn" onclick="runIntegrationTests()">
+                Run Integration Tests
+            </button>
+            <button class="test-button" onclick="clearConsole()">Clear Console</button>
+            <button class="test-button" onclick="showTestDetails()">Show Details</button>
+        </div>
+
+        <!-- Test Results -->
+        <div class="test-results">
+            <h3>Test Results</h3>
+            <div id="testResults"></div>
+        </div>
+
+        <!-- Console Output -->
+        <div style="margin-top: 20px;">
+            <h3>Console Output</h3>
+            <div id="consoleOutput" class="console-output">Console output will appear here...</div>
+        </div>
+    </div>
+
+    <!-- Include required scripts -->
+    <script src="../streaming-agent-config.js"></script>
+    <script src="test-streaming-config-integration.js"></script>
+
+    <script>
+        let integrationTester = null;
+        let originalConsoleLog = console.log;
+        let originalConsoleError = console.error;
+        let consoleBuffer = [];
+
+        // Override console methods to capture output
+        function setupConsoleCapture() {
+            console.log = function(...args) {
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                ).join(' ');
+                consoleBuffer.push(`[LOG] ${new Date().toLocaleTimeString()} ${message}`);
+                updateConsoleDisplay();
+                originalConsoleLog.apply(console, args);
+            };
+
+            console.error = function(...args) {
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                ).join(' ');
+                consoleBuffer.push(`[ERROR] ${new Date().toLocaleTimeString()} ${message}`);
+                updateConsoleDisplay();
+                originalConsoleError.apply(console, args);
+            };
+        }
+
+        function updateConsoleDisplay() {
+            const consoleOutput = document.getElementById('consoleOutput');
+            consoleOutput.textContent = consoleBuffer.join('\n');
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        function clearConsole() {
+            consoleBuffer = [];
+            updateConsoleDisplay();
+        }
+
+        function updateTestStats(results) {
+            document.getElementById('totalTests').textContent = results.total;
+            document.getElementById('passedTests').textContent = results.passed;
+            document.getElementById('failedTests').textContent = results.failed;
+        }
+
+        function updateTestResults(results) {
+            const resultsContainer = document.getElementById('testResults');
+            resultsContainer.innerHTML = results.results.map(result => `
+                <div class="test-result ${result.passed ? 'pass' : 'fail'}">
+                    [${result.timestamp}] ${result.name}: ${result.message}
+                </div>
+            `).join('');
+        }
+
+        async function runIntegrationTests() {
+            const runButton = document.getElementById('runTestsBtn');
+            const statusElement = document.getElementById('testStatus');
+            
+            try {
+                // Disable button and show loading
+                runButton.disabled = true;
+                runButton.innerHTML = '<span class="loading"></span> Running Tests...';
+                statusElement.textContent = 'Running';
+                statusElement.style.color = '#ffc107';
+
+                // Clear previous results
+                clearConsole();
+                
+                // Create and run integration tester
+                integrationTester = new StreamingConfigIntegrationTest();
+                const results = await integrationTester.runAllTests();
+                
+                // Update display
+                updateTestStats(results);
+                updateTestResults(results);
+                
+                // Update status
+                if (results.failed === 0) {
+                    statusElement.textContent = 'All Passed';
+                    statusElement.style.color = '#28a745';
+                } else {
+                    statusElement.textContent = 'Some Failed';
+                    statusElement.style.color = '#dc3545';
+                }
+                
+            } catch (error) {
+                console.error('Error running integration tests:', error);
+                statusElement.textContent = 'Error';
+                statusElement.style.color = '#dc3545';
+            } finally {
+                // Re-enable button
+                runButton.disabled = false;
+                runButton.textContent = 'Run Integration Tests';
+            }
+        }
+
+        function showTestDetails() {
+            if (integrationTester) {
+                const results = integrationTester.getResults();
+                console.log('Detailed Test Results:', results);
+            } else {
+                console.log('No test results available. Run tests first.');
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            setupConsoleCapture();
+            console.log('Streaming Agent Configuration Integration Test Page Loaded');
+            console.log('Click "Run Integration Tests" to start testing');
+        });
+    </script>
+</body>
+</html>

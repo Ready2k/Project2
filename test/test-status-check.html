@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Status Check</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #f0f0f0; }
+        .result { margin: 5px 0; padding: 8px; border-radius: 4px; }
+        .pass { background: #d4edda; color: #155724; }
+        .fail { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .summary { background: #fff3cd; color: #856404; padding: 15px; margin: 20px 0; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <h1>Test Status Check</h1>
+    <div id="results"></div>
+
+    <!-- Load dependencies -->
+    <script src="../streaming-agent-router.js"></script>
+    <script src="../streaming-response-handler.js"></script>
+    <script src="../streaming-agent-middleware.js"></script>
+    <script src="test-basic-connectivity.js"></script>
+    <script src="test-streaming-agent-router-unit.js"></script>
+
+    <script>
+        async function runStatusCheck() {
+            const results = document.getElementById('results');
+            
+            function addResult(message, type = 'info') {
+                const div = document.createElement('div');
+                div.className = `result ${type}`;
+                div.textContent = message;
+                results.appendChild(div);
+            }
+
+            addResult('🔍 Running test status check...', 'info');
+
+            try {
+                // Run a subset of unit tests to check status
+                const unitTest = new StreamingAgentRouterUnitTests();
+                
+                // Test just a few key methods
+                addResult('Testing constructor...', 'info');
+                await unitTest.testConstructor();
+                
+                addResult('Testing session instruction generation...', 'info');
+                await unitTest.testSessionInstructionGeneration();
+                
+                addResult('Testing voice configuration...', 'info');
+                await unitTest.testVoiceConfiguration();
+                
+                // Get results
+                const testResults = unitTest.testResults;
+                const passed = testResults.filter(r => r.passed).length;
+                const total = testResults.length;
+                
+                addResult(`📊 Results: ${passed}/${total} tests passed`, 
+                         passed === total ? 'pass' : 'fail');
+                
+                // Show individual results
+                testResults.forEach(result => {
+                    addResult(`  ${result.test}: ${result.passed ? '✅' : '❌'} ${result.message}`, 
+                             result.passed ? 'pass' : 'fail');
+                });
+                
+                // Summary
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = 'summary';
+                summaryDiv.innerHTML = `
+                    <strong>Summary:</strong><br>
+                    • Tests are ${passed === total ? 'working correctly' : 'partially working'}<br>
+                    • Success rate: ${((passed/total)*100).toFixed(1)}%<br>
+                    • ${total - passed} test(s) need attention
+                `;
+                results.appendChild(summaryDiv);
+                
+            } catch (error) {
+                addResult(`❌ Status check failed: ${error.message}`, 'fail');
+                console.error('Status check error:', error);
+            }
+        }
+
+        // Run status check when page loads
+        window.addEventListener('load', runStatusCheck);
+    </script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Fixes Verification</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #f0f0f0; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .pass { background: #d4edda; color: #155724; }
+        .fail { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>Test Fixes Verification</h1>
+    <div id="results"></div>
+
+    <!-- Load dependencies -->
+    <script src="../streaming-agent-router.js"></script>
+    <script src="../streaming-response-handler.js"></script>
+    <script src="../streaming-agent-middleware.js"></script>
+    <script src="test-basic-connectivity.js"></script>
+    <script src="test-streaming-agent-router-unit.js"></script>
+
+    <script>
+        async function runVerification() {
+            const results = document.getElementById('results');
+            
+            function addResult(message, type = 'info') {
+                const div = document.createElement('div');
+                div.className = `result ${type}`;
+                div.textContent = message;
+                results.appendChild(div);
+            }
+
+            addResult('🔍 Starting test fixes verification...', 'info');
+
+            // Test 1: Check if test classes are loaded
+            const testClasses = [
+                'BasicConnectivityTest',
+                'StreamingAgentRouterUnitTests'
+            ];
+
+            testClasses.forEach(className => {
+                const isAvailable = typeof window[className] === 'function';
+                addResult(`${className}: ${isAvailable ? '✅ Available' : '❌ Missing'}`, 
+                         isAvailable ? 'pass' : 'fail');
+            });
+
+            // Test 2: Run basic connectivity test
+            try {
+                addResult('🧪 Running basic connectivity test...', 'info');
+                const basicTest = new BasicConnectivityTest();
+                const basicResults = await basicTest.runAllTests();
+                
+                const passed = basicResults.filter(r => r.passed).length;
+                const total = basicResults.length;
+                addResult(`Basic connectivity: ${passed}/${total} tests passed`, 
+                         passed === total ? 'pass' : 'fail');
+                
+                basicResults.forEach(result => {
+                    addResult(`  ${result.test}: ${result.passed ? '✅' : '❌'} ${result.message}`, 
+                             result.passed ? 'pass' : 'fail');
+                });
+            } catch (error) {
+                addResult(`Basic connectivity test failed: ${error.message}`, 'fail');
+            }
+
+            // Test 3: Test StreamingAgentRouter mock setup
+            try {
+                addResult('🧪 Testing StreamingAgentRouter mock setup...', 'info');
+                const unitTest = new StreamingAgentRouterUnitTests();
+                
+                // Test just the constructor
+                const mockAgentRouter = unitTest.mockAgentRouter;
+                const mockStreamingManager = unitTest.mockStreamingManager;
+                
+                addResult(`Mock AgentRouter: ${mockAgentRouter ? '✅' : '❌'}`, 
+                         mockAgentRouter ? 'pass' : 'fail');
+                addResult(`Mock StreamingManager: ${mockStreamingManager ? '✅' : '❌'}`, 
+                         mockStreamingManager ? 'pass' : 'fail');
+                addResult(`SendMessage method: ${typeof mockStreamingManager.sendMessage === 'function' ? '✅' : '❌'}`, 
+                         typeof mockStreamingManager.sendMessage === 'function' ? 'pass' : 'fail');
+                
+                // Test agent registration
+                const agents = mockAgentRouter.getRegisteredAgents();
+                addResult(`Registered agents: ${agents.length} found`, agents.length > 0 ? 'pass' : 'fail');
+                
+                agents.forEach(agent => {
+                    const hasProcessMessage = typeof agent.processMessage === 'function';
+                    addResult(`  ${agent.name}: ${hasProcessMessage ? '✅' : '❌'} processMessage`, 
+                             hasProcessMessage ? 'pass' : 'fail');
+                });
+                
+            } catch (error) {
+                addResult(`StreamingAgentRouter mock test failed: ${error.message}`, 'fail');
+            }
+
+            addResult('🏁 Verification complete!', 'info');
+        }
+
+        // Run verification when page loads
+        window.addEventListener('load', runVerification);
+    </script>
+</body>
+</html>

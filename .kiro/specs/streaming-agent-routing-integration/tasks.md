@@ -104,7 +104,7 @@
   - Add error tracking and analysis tools for routing failures
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 14. Implement WebSocket session management for agent routing
+- [x] 14. Implement WebSocket session management for agent routing
   - Create session state management for agent context across WebSocket connections
   - Add session update retry logic with exponential backoff
   - Implement session validation to ensure agent instructions are properly applied
@@ -112,7 +112,7 @@
   - Add session metrics tracking for monitoring and debugging
   - _Requirements: 2.2, 2.3, 5.2, 5.3, 5.4_
 
-- [ ] 15. Create agent routing integration initialization and cleanup
+- [x] 15. Create agent routing integration initialization and cleanup
   - Add initialization logic to main application startup for streaming agent routing
   - Implement proper cleanup and resource disposal for streaming routing components
   - Create configuration validation and error handling during initialization

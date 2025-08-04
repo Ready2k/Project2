@@ -1,6 +1,7 @@
 /**
  * ConversationContextManager - Manages conversation context and history
  * Provides context-based agent routing and conversation state persistence
+ * Enhanced with streaming session support for real-time conversations
  */
 class ConversationContextManager {
     constructor(maxHistorySize = 50, maxContextAge = 30 * 60 * 1000) { // 30 minutes
@@ -11,14 +12,26 @@ class ConversationContextManager {
         this.sessionStartTime = Date.now();
         this.debug = window.debugManager?.createModuleLogger('ConversationContextManager') || console;
 
+        // Streaming session support
+        this.streamingSessions = new Map(); // sessionId -> StreamingSessionContext
+        this.streamingMetrics = {
+            totalSessions: 0,
+            activeSessions: 0,
+            agentSwitches: 0,
+            reconnections: 0,
+            averageSessionDuration: 0
+        };
+
         // Start cleanup interval
         this.cleanupInterval = setInterval(() => {
             this.cleanupExpiredContext();
+            this.cleanupExpiredStreamingSessions();
         }, 5 * 60 * 1000); // Cleanup every 5 minutes
 
         this.debug.info('ConversationContextManager initialized', {
             maxHistorySize,
-            maxContextAge: maxContextAge / 1000 / 60 + ' minutes'
+            maxContextAge: maxContextAge / 1000 / 60 + ' minutes',
+            streamingSupport: true
         });
     }
 
@@ -427,6 +440,429 @@ class ConversationContextManager {
     }
 
     /**
+     * Get streaming-specific context data for a session
+     * @param {string} sessionId - WebSocket session ID
+     * @returns {Object} - Streaming context data
+     */
+    getStreamingContext(sessionId) {
+        const session = this.streamingSessions.get(sessionId);
+        
+        if (!session) {
+            this.debug.warn('Streaming session not found', { sessionId });
+            return null;
+        }
+
+        // Update last accessed time
+        session.lastAccessTime = Date.now();
+
+        // Get recent conversation history for context
+        const recentHistory = this.getHistory(8); // More history for streaming context
+
+        return {
+            sessionId,
+            currentAgent: session.currentAgent,
+            agentHistory: [...session.agentHistory],
+            conversationContext: {
+                ...this.getRoutingContext(6),
+                streamingMode: true,
+                sessionDuration: Date.now() - session.startTime,
+                agentSwitchCount: session.agentHistory.length
+            },
+            voiceConfiguration: {
+                currentVoice: session.voiceConfiguration.currentVoice,
+                agentVoices: new Map(session.voiceConfiguration.agentVoices)
+            },
+            routingMetrics: {
+                ...session.routingMetrics,
+                sessionUptime: Date.now() - session.startTime
+            },
+            webSocketState: {
+                connected: session.webSocketState.connected,
+                lastReconnection: session.webSocketState.lastReconnection,
+                reconnectionCount: session.webSocketState.reconnectionCount
+            }
+        };
+    }
+
+    /**
+     * Update streaming context for agent changes and session events
+     * @param {string} sessionId - WebSocket session ID
+     * @param {Object} updates - Context updates to apply
+     */
+    updateStreamingContext(sessionId, updates) {
+        let session = this.streamingSessions.get(sessionId);
+
+        // Create new session if it doesn't exist
+        if (!session) {
+            session = this.createStreamingSession(sessionId);
+            this.debug.info('Created new streaming session', { sessionId });
+        }
+
+        const previousAgent = session.currentAgent;
+        session.lastAccessTime = Date.now();
+
+        // Handle agent changes
+        if (updates.currentAgent && updates.currentAgent !== session.currentAgent) {
+            // Record agent switch
+            if (session.currentAgent) {
+                session.agentHistory.push({
+                    agentName: session.currentAgent,
+                    endTime: Date.now(),
+                    duration: Date.now() - session.agentStartTime,
+                    switchReason: updates.switchReason || 'context_change'
+                });
+            }
+
+            session.currentAgent = updates.currentAgent;
+            session.agentStartTime = Date.now();
+            session.routingMetrics.agentSwitches++;
+            this.streamingMetrics.agentSwitches++;
+
+            this.debug.info('Agent switched in streaming session', {
+                sessionId,
+                previousAgent,
+                newAgent: updates.currentAgent,
+                switchReason: updates.switchReason
+            });
+        }
+
+        // Update voice configuration
+        if (updates.voiceConfiguration) {
+            if (updates.voiceConfiguration.currentVoice) {
+                session.voiceConfiguration.currentVoice = updates.voiceConfiguration.currentVoice;
+            }
+            if (updates.voiceConfiguration.agentVoices) {
+                // Merge agent voice mappings
+                for (const [agent, voice] of Object.entries(updates.voiceConfiguration.agentVoices)) {
+                    session.voiceConfiguration.agentVoices.set(agent, voice);
+                }
+            }
+        }
+
+        // Update routing metrics
+        if (updates.routingMetrics) {
+            Object.assign(session.routingMetrics, updates.routingMetrics);
+        }
+
+        // Update WebSocket state
+        if (updates.webSocketState) {
+            Object.assign(session.webSocketState, updates.webSocketState);
+        }
+
+        // Update conversation context if provided
+        if (updates.conversationContext) {
+            // Add to regular conversation history if it's a message
+            if (updates.conversationContext.role && updates.conversationContext.content) {
+                this.addMessage(
+                    updates.conversationContext.role,
+                    updates.conversationContext.content,
+                    updates.conversationContext.agent || session.currentAgent,
+                    { 
+                        sessionId,
+                        streamingMode: true,
+                        ...updates.conversationContext.metadata 
+                    }
+                );
+            }
+        }
+
+        this.debug.debug('Streaming context updated', {
+            sessionId,
+            currentAgent: session.currentAgent,
+            agentSwitches: session.routingMetrics.agentSwitches,
+            sessionDuration: Math.round((Date.now() - session.startTime) / 1000) + 's'
+        });
+    }
+
+    /**
+     * Preserve context across WebSocket reconnection
+     * @param {string} sessionId - WebSocket session ID
+     * @param {Object} reconnectionInfo - Information about the reconnection
+     * @returns {Object} - Preserved context for session restoration
+     */
+    preserveContextAcrossReconnection(sessionId, reconnectionInfo = {}) {
+        const session = this.streamingSessions.get(sessionId);
+
+        if (!session) {
+            this.debug.warn('Cannot preserve context - session not found', { sessionId });
+            return null;
+        }
+
+        // Update reconnection metrics
+        session.webSocketState.lastReconnection = Date.now();
+        session.webSocketState.reconnectionCount++;
+        session.webSocketState.connected = false; // Will be set to true when reconnected
+        this.streamingMetrics.reconnections++;
+
+        // Create preservation snapshot
+        const preservedContext = {
+            sessionId,
+            preservationTime: Date.now(),
+            currentAgent: session.currentAgent,
+            agentStartTime: session.agentStartTime,
+            conversationHistory: this.getHistory(10), // More history for reconnection
+            contextData: this.exportContextData(),
+            voiceConfiguration: {
+                currentVoice: session.voiceConfiguration.currentVoice,
+                agentVoices: Object.fromEntries(session.voiceConfiguration.agentVoices)
+            },
+            routingMetrics: { ...session.routingMetrics },
+            sessionMetrics: {
+                startTime: session.startTime,
+                totalDuration: Date.now() - session.startTime,
+                reconnectionCount: session.webSocketState.reconnectionCount
+            },
+            reconnectionInfo: {
+                reason: reconnectionInfo.reason || 'unknown',
+                lastMessageTime: reconnectionInfo.lastMessageTime,
+                connectionLostTime: Date.now()
+            }
+        };
+
+        this.debug.info('Context preserved for reconnection', {
+            sessionId,
+            currentAgent: session.currentAgent,
+            historySize: preservedContext.conversationHistory.length,
+            reconnectionCount: session.webSocketState.reconnectionCount
+        });
+
+        return preservedContext;
+    }
+
+    /**
+     * Restore context after WebSocket reconnection
+     * @param {string} sessionId - WebSocket session ID
+     * @param {Object} preservedContext - Previously preserved context
+     * @returns {boolean} - True if restoration was successful
+     */
+    restoreContextAfterReconnection(sessionId, preservedContext) {
+        if (!preservedContext || preservedContext.sessionId !== sessionId) {
+            this.debug.error('Invalid preserved context for restoration', { sessionId });
+            return false;
+        }
+
+        let session = this.streamingSessions.get(sessionId);
+        
+        // Recreate session if it was cleaned up
+        if (!session) {
+            session = this.createStreamingSession(sessionId);
+        }
+
+        // Restore session state
+        session.currentAgent = preservedContext.currentAgent;
+        session.agentStartTime = preservedContext.agentStartTime;
+        session.startTime = preservedContext.sessionMetrics.startTime;
+        session.webSocketState.connected = true;
+        session.webSocketState.reconnectionCount = preservedContext.sessionMetrics.reconnectionCount;
+        session.lastAccessTime = Date.now();
+
+        // Restore voice configuration
+        session.voiceConfiguration.currentVoice = preservedContext.voiceConfiguration.currentVoice;
+        session.voiceConfiguration.agentVoices = new Map(
+            Object.entries(preservedContext.voiceConfiguration.agentVoices)
+        );
+
+        // Restore routing metrics
+        Object.assign(session.routingMetrics, preservedContext.routingMetrics);
+
+        // Import conversation history if needed
+        if (preservedContext.conversationHistory.length > this.conversationHistory.length) {
+            this.conversationHistory = preservedContext.conversationHistory;
+        }
+
+        // Import context data
+        if (preservedContext.contextData) {
+            this.importContextData(preservedContext.contextData);
+        }
+
+        const restorationTime = Date.now() - preservedContext.preservationTime;
+
+        this.debug.info('Context restored after reconnection', {
+            sessionId,
+            currentAgent: session.currentAgent,
+            restorationTime: restorationTime + 'ms',
+            reconnectionCount: session.webSocketState.reconnectionCount
+        });
+
+        return true;
+    }
+
+    /**
+     * Create a new streaming session context
+     * @param {string} sessionId - WebSocket session ID
+     * @returns {Object} - New streaming session context
+     */
+    createStreamingSession(sessionId) {
+        const session = {
+            sessionId,
+            startTime: Date.now(),
+            lastAccessTime: Date.now(),
+            currentAgent: null,
+            agentStartTime: null,
+            agentHistory: [],
+            voiceConfiguration: {
+                currentVoice: 'alloy', // Default OpenAI voice
+                agentVoices: new Map()
+            },
+            routingMetrics: {
+                routingLatency: 0,
+                agentSwitches: 0,
+                fallbackCount: 0,
+                totalRoutingCalls: 0,
+                averageRoutingTime: 0
+            },
+            webSocketState: {
+                connected: true,
+                lastReconnection: null,
+                reconnectionCount: 0
+            }
+        };
+
+        this.streamingSessions.set(sessionId, session);
+        this.streamingMetrics.totalSessions++;
+        this.streamingMetrics.activeSessions++;
+
+        this.debug.info('Created streaming session', {
+            sessionId,
+            totalSessions: this.streamingMetrics.totalSessions,
+            activeSessions: this.streamingMetrics.activeSessions
+        });
+
+        return session;
+    }
+
+    /**
+     * End a streaming session and clean up resources
+     * @param {string} sessionId - WebSocket session ID
+     * @param {string} reason - Reason for ending the session
+     */
+    endStreamingSession(sessionId, reason = 'session_ended') {
+        const session = this.streamingSessions.get(sessionId);
+
+        if (!session) {
+            this.debug.warn('Cannot end session - not found', { sessionId });
+            return;
+        }
+
+        const sessionDuration = Date.now() - session.startTime;
+
+        // Record final agent usage if there was one
+        if (session.currentAgent) {
+            session.agentHistory.push({
+                agentName: session.currentAgent,
+                endTime: Date.now(),
+                duration: Date.now() - session.agentStartTime,
+                switchReason: 'session_ended'
+            });
+        }
+
+        // Update metrics
+        this.streamingMetrics.activeSessions--;
+        this.updateAverageSessionDuration(sessionDuration);
+
+        this.debug.info('Streaming session ended', {
+            sessionId,
+            reason,
+            duration: Math.round(sessionDuration / 1000) + 's',
+            agentSwitches: session.routingMetrics.agentSwitches,
+            reconnections: session.webSocketState.reconnectionCount
+        });
+
+        this.streamingSessions.delete(sessionId);
+    }
+
+    /**
+     * Get streaming session metrics and statistics
+     * @returns {Object} - Streaming metrics
+     */
+    getStreamingMetrics() {
+        const activeSessions = Array.from(this.streamingSessions.values());
+        const currentTime = Date.now();
+
+        return {
+            ...this.streamingMetrics,
+            activeSessions: activeSessions.length,
+            activeSessionDetails: activeSessions.map(session => ({
+                sessionId: session.sessionId,
+                currentAgent: session.currentAgent,
+                duration: Math.round((currentTime - session.startTime) / 1000),
+                agentSwitches: session.routingMetrics.agentSwitches,
+                reconnections: session.webSocketState.reconnectionCount,
+                connected: session.webSocketState.connected
+            })),
+            totalActiveTime: activeSessions.reduce((total, session) => 
+                total + (currentTime - session.startTime), 0
+            )
+        };
+    }
+
+    /**
+     * Clean up expired streaming sessions
+     */
+    cleanupExpiredStreamingSessions() {
+        const now = Date.now();
+        const maxSessionAge = 60 * 60 * 1000; // 1 hour
+        const maxInactiveTime = 10 * 60 * 1000; // 10 minutes
+        let cleanedCount = 0;
+
+        for (const [sessionId, session] of this.streamingSessions) {
+            const sessionAge = now - session.startTime;
+            const inactiveTime = now - session.lastAccessTime;
+
+            if (sessionAge > maxSessionAge || inactiveTime > maxInactiveTime) {
+                this.endStreamingSession(sessionId, 'expired');
+                cleanedCount++;
+            }
+        }
+
+        if (cleanedCount > 0) {
+            this.debug.info('Cleaned up expired streaming sessions', {
+                cleanedCount,
+                remainingSessions: this.streamingSessions.size
+            });
+        }
+    }
+
+    /**
+     * Update average session duration metric
+     * @param {number} sessionDuration - Duration of completed session
+     */
+    updateAverageSessionDuration(sessionDuration) {
+        const completedSessions = this.streamingMetrics.totalSessions - this.streamingMetrics.activeSessions;
+        
+        if (completedSessions === 1) {
+            this.streamingMetrics.averageSessionDuration = sessionDuration;
+        } else {
+            // Calculate running average
+            const currentAverage = this.streamingMetrics.averageSessionDuration;
+            this.streamingMetrics.averageSessionDuration = 
+                ((currentAverage * (completedSessions - 1)) + sessionDuration) / completedSessions;
+        }
+    }
+
+    /**
+     * Export context data for preservation
+     * @returns {Object} - Exportable context data
+     */
+    exportContextData() {
+        const contextObj = {};
+        for (const [key, entry] of this.contextData) {
+            contextObj[key] = entry;
+        }
+        return contextObj;
+    }
+
+    /**
+     * Import context data from preservation
+     * @param {Object} contextData - Context data to import
+     */
+    importContextData(contextData) {
+        for (const [key, entry] of Object.entries(contextData)) {
+            this.contextData.set(key, entry);
+        }
+    }
+
+    /**
      * Clean up expired context data
      */
     cleanupExpiredContext() {
@@ -515,7 +951,8 @@ class ConversationContextManager {
             lastAgentUsed: this.getContextData('lastAgentUsed'),
             averageMessageLength: this.getAverageMessageLength(),
             userMessages: this.conversationHistory.filter(m => m.role === 'user').length,
-            assistantMessages: this.conversationHistory.filter(m => m.role === 'assistant').length
+            assistantMessages: this.conversationHistory.filter(m => m.role === 'assistant').length,
+            streaming: this.getStreamingMetrics()
         };
     }
 
@@ -545,7 +982,15 @@ class ConversationContextManager {
             contextData: Object.fromEntries(this.contextData),
             sessionStartTime: this.sessionStartTime,
             exportTimestamp: Date.now(),
-            stats: this.getStats()
+            stats: this.getStats(),
+            streamingSessions: Array.from(this.streamingSessions.entries()).map(([id, session]) => ({
+                sessionId: id,
+                ...session,
+                voiceConfiguration: {
+                    currentVoice: session.voiceConfiguration.currentVoice,
+                    agentVoices: Object.fromEntries(session.voiceConfiguration.agentVoices)
+                }
+            }))
         };
     }
 
@@ -566,10 +1011,200 @@ class ConversationContextManager {
             this.sessionStartTime = contextData.sessionStartTime;
         }
 
+        // Import streaming sessions if available
+        if (contextData.streamingSessions) {
+            this.streamingSessions.clear();
+            contextData.streamingSessions.forEach(sessionData => {
+                const session = {
+                    ...sessionData,
+                    voiceConfiguration: {
+                        currentVoice: sessionData.voiceConfiguration.currentVoice,
+                        agentVoices: new Map(Object.entries(sessionData.voiceConfiguration.agentVoices))
+                    }
+                };
+                this.streamingSessions.set(sessionData.sessionId, session);
+            });
+        }
+
         this.debug.info('Context imported', {
             historySize: this.conversationHistory.length,
-            contextEntries: this.contextData.size
+            contextEntries: this.contextData.size,
+            streamingSessions: this.streamingSessions.size
         });
+    }
+
+    /**
+     * Optimize memory usage for streaming sessions
+     * @returns {Object} - Optimization results
+     */
+    optimizeStreamingMemory() {
+        const startTime = Date.now();
+        let optimizedSessions = 0;
+        let freedMemory = 0;
+
+        try {
+            // Compress old conversation history in sessions
+            for (const [sessionId, session] of this.streamingSessions.entries()) {
+                const sessionAge = Date.now() - session.startTime;
+                
+                // For sessions older than 30 minutes, compress agent history
+                if (sessionAge > 30 * 60 * 1000 && session.agentHistory.length > 10) {
+                    const originalSize = JSON.stringify(session.agentHistory).length;
+                    
+                    // Keep only the last 5 agent switches and summarize the rest
+                    const recentHistory = session.agentHistory.slice(-5);
+                    const oldHistory = session.agentHistory.slice(0, -5);
+                    
+                    // Create summary of old history
+                    const historySummary = {
+                        totalSwitches: oldHistory.length,
+                        firstSwitch: oldHistory[0],
+                        lastSwitch: oldHistory[oldHistory.length - 1],
+                        mostUsedAgent: this.getMostUsedAgent(oldHistory),
+                        compressed: true,
+                        compressionTime: Date.now()
+                    };
+                    
+                    session.agentHistory = [historySummary, ...recentHistory];
+                    
+                    const newSize = JSON.stringify(session.agentHistory).length;
+                    freedMemory += originalSize - newSize;
+                    optimizedSessions++;
+                    
+                    this.debug.debug('Compressed agent history for session', {
+                        sessionId,
+                        originalEntries: oldHistory.length + recentHistory.length,
+                        compressedEntries: session.agentHistory.length,
+                        memorySaved: originalSize - newSize
+                    });
+                }
+            }
+
+            // Clean up expired context data
+            const expiredKeys = [];
+            for (const [key, entry] of this.contextData.entries()) {
+                if (entry.ttl && Date.now() > entry.ttl) {
+                    expiredKeys.push(key);
+                }
+            }
+
+            expiredKeys.forEach(key => {
+                const entry = this.contextData.get(key);
+                if (entry) {
+                    freedMemory += JSON.stringify(entry).length;
+                }
+                this.contextData.delete(key);
+            });
+
+            const optimizationTime = Date.now() - startTime;
+
+            this.debug.info('Streaming memory optimization completed', {
+                optimizedSessions,
+                expiredContextKeys: expiredKeys.length,
+                freedMemoryBytes: freedMemory,
+                optimizationTime,
+                activeSessions: this.streamingSessions.size,
+                contextEntries: this.contextData.size
+            });
+
+            return {
+                success: true,
+                optimizedSessions,
+                expiredContextKeys: expiredKeys.length,
+                freedMemoryBytes: freedMemory,
+                optimizationTime,
+                activeSessions: this.streamingSessions.size
+            };
+
+        } catch (error) {
+            this.debug.error('Streaming memory optimization failed', {
+                error: error.message,
+                optimizedSessions,
+                freedMemory
+            });
+
+            return {
+                success: false,
+                error: error.message,
+                optimizedSessions,
+                freedMemoryBytes: freedMemory
+            };
+        }
+    }
+
+    /**
+     * Get the most used agent from history
+     * @param {Array} agentHistory - Agent history array
+     * @returns {string} - Most used agent name
+     */
+    getMostUsedAgent(agentHistory) {
+        const agentCounts = {};
+        
+        agentHistory.forEach(entry => {
+            if (entry.agentName && !entry.compressed) {
+                agentCounts[entry.agentName] = (agentCounts[entry.agentName] || 0) + 1;
+            }
+        });
+
+        let mostUsedAgent = null;
+        let maxCount = 0;
+
+        for (const [agent, count] of Object.entries(agentCounts)) {
+            if (count > maxCount) {
+                maxCount = count;
+                mostUsedAgent = agent;
+            }
+        }
+
+        return mostUsedAgent;
+    }
+
+    /**
+     * Get memory usage statistics
+     * @returns {Object} - Memory usage statistics
+     */
+    getMemoryUsageStats() {
+        try {
+            const conversationHistorySize = JSON.stringify(this.conversationHistory).length;
+            const contextDataSize = JSON.stringify(Object.fromEntries(this.contextData)).length;
+            
+            let streamingSessionsSize = 0;
+            let compressedSessions = 0;
+            
+            for (const [sessionId, session] of this.streamingSessions.entries()) {
+                streamingSessionsSize += JSON.stringify(session).length;
+                
+                // Check if session has compressed history
+                if (session.agentHistory.some(entry => entry.compressed)) {
+                    compressedSessions++;
+                }
+            }
+
+            const totalSize = conversationHistorySize + contextDataSize + streamingSessionsSize;
+
+            return {
+                totalMemoryBytes: totalSize,
+                conversationHistoryBytes: conversationHistorySize,
+                contextDataBytes: contextDataSize,
+                streamingSessionsBytes: streamingSessionsSize,
+                conversationHistoryEntries: this.conversationHistory.length,
+                contextDataEntries: this.contextData.size,
+                streamingSessions: this.streamingSessions.size,
+                compressedSessions,
+                averageSessionSize: this.streamingSessions.size > 0 ? 
+                    Math.round(streamingSessionsSize / this.streamingSessions.size) : 0
+            };
+
+        } catch (error) {
+            this.debug.error('Failed to calculate memory usage stats', {
+                error: error.message
+            });
+
+            return {
+                totalMemoryBytes: 0,
+                error: error.message
+            };
+        }
     }
 
     /**
@@ -581,8 +1216,15 @@ class ConversationContextManager {
             this.cleanupInterval = null;
         }
 
+        // Clean up all streaming sessions
+        for (const [sessionId] of this.streamingSessions) {
+            this.endStreamingSession(sessionId, 'manager_destroyed');
+        }
+
         this.clearContext();
-        this.debug.info('ConversationContextManager destroyed');
+        this.debug.info('ConversationContextManager destroyed', {
+            cleanedStreamingSessions: this.streamingSessions.size
+        });
     }
 }
 

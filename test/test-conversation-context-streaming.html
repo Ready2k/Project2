@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test ConversationContextManager Streaming Features</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 3px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>ConversationContextManager Streaming Features Test</h1>
+    <div id="test-results"></div>
+
+    <script src="../agents/conversation-context-manager.js"></script>
+    <script>
+        // Mock debug manager
+        window.debugManager = {
+            createModuleLogger: (name) => ({
+                info: (...args) => console.log(`[${name}] INFO:`, ...args),
+                debug: (...args) => console.log(`[${name}] DEBUG:`, ...args),
+                warn: (...args) => console.warn(`[${name}] WARN:`, ...args),
+                error: (...args) => console.error(`[${name}] ERROR:`, ...args)
+            })
+        };
+
+        const resultsDiv = document.getElementById('test-results');
+
+        function addTestResult(title, success, message, details = null) {
+            const div = document.createElement('div');
+            div.className = `test-result ${success ? 'success' : 'error'}`;
+            div.innerHTML = `
+                <strong>${title}</strong>: ${message}
+                ${details ? `<pre>${JSON.stringify(details, null, 2)}</pre>` : ''}
+            `;
+            resultsDiv.appendChild(div);
+        }
+
+        function addInfoResult(title, message, details = null) {
+            const div = document.createElement('div');
+            div.className = 'test-result info';
+            div.innerHTML = `
+                <strong>${title}</strong>: ${message}
+                ${details ? `<pre>${JSON.stringify(details, null, 2)}</pre>` : ''}
+            `;
+            resultsDiv.appendChild(div);
+        }
+
+        // Test streaming functionality
+        async function runStreamingTests() {
+            try {
+                const contextManager = new ConversationContextManager();
+                
+                // Test 1: Create streaming session
+                const sessionId = 'test-session-123';
+                const streamingContext = contextManager.getStreamingContext(sessionId);
+                
+                if (streamingContext === null) {
+                    addTestResult('Create Streaming Session', true, 'Correctly returned null for non-existent session');
+                } else {
+                    addTestResult('Create Streaming Session', false, 'Should return null for non-existent session');
+                }
+
+                // Test 2: Update streaming context (creates session)
+                contextManager.updateStreamingContext(sessionId, {
+                    currentAgent: 'FraudAgent',
+                    switchReason: 'initial_setup',
+                    voiceConfiguration: {
+                        currentVoice: 'nova',
+                        agentVoices: { 'FraudAgent': 'nova' }
+                    }
+                });
+
+                const context1 = contextManager.getStreamingContext(sessionId);
+                if (context1 && context1.currentAgent === 'FraudAgent') {
+                    addTestResult('Update Streaming Context', true, 'Successfully created session and set agent');
+                    addInfoResult('Session Context', 'Initial session state', context1);
+                } else {
+                    addTestResult('Update Streaming Context', false, 'Failed to create session or set agent');
+                }
+
+                // Test 3: Agent switching
+                contextManager.updateStreamingContext(sessionId, {
+                    currentAgent: 'PaymentsAgent',
+                    switchReason: 'user_intent_change',
+                    voiceConfiguration: {
+                        currentVoice: 'alloy',
+                        agentVoices: { 'PaymentsAgent': 'alloy' }
+                    }
+                });
+
+                const context2 = contextManager.getStreamingContext(sessionId);
+                if (context2 && context2.currentAgent === 'PaymentsAgent' && context2.routingMetrics.agentSwitches > 0) {
+                    addTestResult('Agent Switching', true, 'Successfully switched agents and tracked metrics');
+                    addInfoResult('Agent Switch', 'Updated session state', {
+                        currentAgent: context2.currentAgent,
+                        agentSwitches: context2.routingMetrics.agentSwitches,
+                        agentHistory: context2.agentHistory
+                    });
+                } else {
+                    addTestResult('Agent Switching', false, 'Failed to switch agents or track metrics');
+                }
+
+                // Test 4: Context preservation for reconnection
+                const preservedContext = contextManager.preserveContextAcrossReconnection(sessionId, {
+                    reason: 'connection_lost',
+                    lastMessageTime: Date.now() - 1000
+                });
+
+                if (preservedContext && preservedContext.currentAgent === 'PaymentsAgent') {
+                    addTestResult('Context Preservation', true, 'Successfully preserved context for reconnection');
+                    addInfoResult('Preserved Context', 'Context snapshot', {
+                        currentAgent: preservedContext.currentAgent,
+                        sessionDuration: preservedContext.sessionMetrics.totalDuration,
+                        reconnectionCount: preservedContext.sessionMetrics.reconnectionCount
+                    });
+                } else {
+                    addTestResult('Context Preservation', false, 'Failed to preserve context');
+                }
+
+                // Test 5: Context restoration
+                const newSessionId = 'test-session-456';
+                const restored = contextManager.restoreContextAfterReconnection(newSessionId, preservedContext);
+
+                if (restored) {
+                    const restoredContext = contextManager.getStreamingContext(newSessionId);
+                    if (restoredContext && restoredContext.currentAgent === 'PaymentsAgent') {
+                        addTestResult('Context Restoration', true, 'Successfully restored context after reconnection');
+                    } else {
+                        addTestResult('Context Restoration', false, 'Context restored but agent not preserved');
+                    }
+                } else {
+                    addTestResult('Context Restoration', false, 'Failed to restore context');
+                }
+
+                // Test 6: Streaming metrics
+                const metrics = contextManager.getStreamingMetrics();
+                if (metrics.totalSessions >= 2 && metrics.activeSessions >= 2) {
+                    addTestResult('Streaming Metrics', true, 'Metrics tracking working correctly');
+                    addInfoResult('Metrics', 'Current streaming metrics', metrics);
+                } else {
+                    addTestResult('Streaming Metrics', false, 'Metrics not tracking correctly');
+                }
+
+                // Test 7: Session cleanup
+                contextManager.endStreamingSession(sessionId, 'test_completed');
+                contextManager.endStreamingSession(newSessionId, 'test_completed');
+
+                const finalMetrics = contextManager.getStreamingMetrics();
+                if (finalMetrics.activeSessions === 0) {
+                    addTestResult('Session Cleanup', true, 'Sessions cleaned up correctly');
+                } else {
+                    addTestResult('Session Cleanup', false, 'Sessions not cleaned up properly');
+                }
+
+                // Test 8: Integration with existing functionality
+                contextManager.addMessage('user', 'I need help with a fraudulent transaction', null, { sessionId: 'test-integration' });
+                contextManager.addMessage('assistant', 'I can help you with that fraud case.', 'FraudAgent', { sessionId: 'test-integration' });
+
+                const routingContext = contextManager.getRoutingContext();
+                if (routingContext.conversationHistory.length >= 2) {
+                    addTestResult('Integration Test', true, 'Streaming features integrate with existing functionality');
+                } else {
+                    addTestResult('Integration Test', false, 'Integration issues detected');
+                }
+
+                // Test 9: Export/Import with streaming data
+                const exportedData = contextManager.exportContext();
+                const newContextManager = new ConversationContextManager();
+                newContextManager.importContext(exportedData);
+
+                const importedStats = newContextManager.getStats();
+                if (importedStats.historySize === exportedData.stats.historySize) {
+                    addTestResult('Export/Import', true, 'Context export/import working with streaming data');
+                } else {
+                    addTestResult('Export/Import', false, 'Context export/import failed');
+                }
+
+                // Cleanup
+                contextManager.destroy();
+                newContextManager.destroy();
+
+                addInfoResult('Test Complete', 'All streaming functionality tests completed');
+
+            } catch (error) {
+                addTestResult('Test Execution', false, `Test failed with error: ${error.message}`);
+                console.error('Test error:', error);
+            }
+        }
+
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', runStreamingTests);
+    </script>
+</body>
+</html>

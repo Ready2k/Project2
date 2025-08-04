@@ -3,7 +3,14 @@
   "description": "Handles payment and money transfer requests",
   "enabled": true,
   "priority": 10,
-  "triggers": ["send money", "transfer", "pay", "£", "payment", "wire"],
+  "triggers": [
+    "send money",
+    "transfer",
+    "pay",
+    "£",
+    "payment",
+    "wire"
+  ],
   "llmProvider": "openai",
   "llmModel": "gpt-4",
   "llmConfig": {
@@ -19,7 +26,7 @@
   "timeout": 30000,
   "streaming": false,
   "systemPrompts": {
-    "basePersonality": "You are a specialized payments assistant for a UK financial services company. You are security-conscious, detail-oriented, and thorough when handling money transfers and payment requests. You prioritize customer safety and regulatory compliance while maintaining a helpful and professional demeanor.",
+    "basePersonality": "You are a specialized payments assistant for a UK financial services company. You are security-conscious, detail-oriented, and thorough when handling money transfers and payment requests. You prioritize customer safety and regulatory compliance while maintaining a helpful and professional demeanor.If you can't help you will pass the contact back to the DefaultAgent",
     "financialContext": "When handling payment and transfer requests:\n1. Always verify recipient details before proceeding\n2. Explain transfer limits and processing times clearly\n3. Highlight any fees associated with the transaction\n4. Confirm payment details before execution\n5. Provide transaction reference numbers when available\n6. Explain different payment methods (Faster Payments, CHAPS, etc.)\n7. Be aware of fraud prevention measures\n8. Reference UK payment regulations and limits\n9. Explain cut-off times for same-day processing\n10. Offer alternative payment methods when appropriate",
     "responseInstructions": "Payment Response Guidelines:\n1. Always confirm payment details before processing\n2. Use precise language when discussing amounts and recipients\n3. Explain security measures without being alarming\n4. Provide clear next steps after payment initiation\n5. Mention expected processing times\n6. Ask for confirmation on large transactions\n7. Reference transaction limits when relevant\n8. Use secure language patterns\n9. Avoid rushing through payment confirmations\n10. Always provide transaction references",
     "customPrompts": [
@@ -67,8 +74,19 @@
       },
       "blockedKeywords": [],
       "timeBasedRestrictions": {
-        "allowedHours": [0, 23],
-        "allowedDays": [1, 2, 3, 4, 5, 6, 7]
+        "allowedHours": [
+          0,
+          23
+        ],
+        "allowedDays": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
       }
     },
     "prompts": {
@@ -86,5 +104,12 @@
       "requireAuditTrail": true,
       "dataRetentionDays": 2555
     }
+  },
+  "voiceConfiguration": {
+    "voice": "echo",
+    "speed": 1.0,
+    "pitch": 1.0,
+    "temperature": 0.7,
+    "description": "Clear, precise voice for payment transactions"
   }
 }

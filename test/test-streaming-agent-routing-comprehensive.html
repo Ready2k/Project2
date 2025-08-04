@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Streaming Agent Routing Tests</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0056b3;
+            transform: translateY(-1px);
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .test-suite {
+            margin: 20px;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .test-suite-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .test-suite-title {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #495057;
+        }
+        
+        .test-suite-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .status-pending {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+        
+        .status-running {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-passed {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .test-suite-content {
+            padding: 20px;
+            display: none;
+        }
+        
+        .test-suite.expanded .test-suite-content {
+            display: block;
+        }
+        
+        .test-results {
+            margin-top: 15px;
+        }
+        
+        .test-result {
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .test-result.pass {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        
+        .test-result.fail {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .summary {
+            margin: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .summary h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 15px;
+            white-space: pre-wrap;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .requirements-info {
+            margin: 20px;
+            padding: 15px;
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            border-radius: 6px;
+        }
+        
+        .requirements-info h4 {
+            margin-top: 0;
+            color: #0056b3;
+        }
+        
+        .requirements-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .requirements-list li {
+            padding: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .requirements-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Streaming Agent Routing Test Suite</h1>
+            <p>Comprehensive testing for streaming agent routing integration</p>
+        </div>
+        
+        <div class="requirements-info">
+            <h4>Test Coverage - Requirements Validation</h4>
+            <ul class="requirements-list">
+                <li><strong>Requirement 1.1-1.4:</strong> Agent routing and response generation</li>
+                <li><strong>Requirement 2.1-2.3:</strong> Agent switching and context preservation</li>
+                <li><strong>Requirement 3.1-3.2:</strong> Performance optimization and latency requirements</li>
+                <li><strong>Additional:</strong> Error handling, fallback mechanisms, and memory management</li>
+            </ul>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" onclick="runAllTests()">
+                <span id="runAllIcon">▶</span> Run All Tests
+            </button>
+            <button class="btn btn-success" onclick="runUnitTests()">Unit Tests</button>
+            <button class="btn btn-warning" onclick="runIntegrationTests()">Integration Tests</button>
+            <button class="btn btn-danger" onclick="runPerformanceTests()">Performance Tests</button>
+            <button class="btn btn-secondary" onclick="runErrorTests()">Error Scenarios</button>
+            <button class="btn btn-secondary" onclick="runContextTests()">Context Switching</button>
+            <button class="btn btn-secondary" onclick="runBasicTest()">Basic Test</button>
+            <button class="btn btn-secondary" onclick="clearResults()">Clear Results</button>
+        </div>
+        
+        <div class="summary" id="summary" style="display: none;">
+            <h3>Test Execution Summary</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="summary-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalTests">0</div>
+                    <div class="stat-label">Total Tests</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="passedTests" style="color: #28a745;">0</div>
+                    <div class="stat-label">Passed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="failedTests" style="color: #dc3545;">0</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="successRate" style="color: #007bff;">0%</div>
+                    <div class="stat-label">Success Rate</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Unit Tests -->
+        <div class="test-suite" id="unitTestSuite">
+            <div class="test-suite-header" onclick="toggleSuite('unitTestSuite')">
+                <div class="test-suite-title">Unit Tests - StreamingAgentRouter Core Functionality</div>
+                <div class="test-suite-status status-pending" id="unitTestStatus">Pending</div>
+            </div>
+            <div class="test-suite-content">
+                <p>Tests core functionality of StreamingAgentRouter class including constructor, routing methods, agent switching, voice configuration, and error handling.</p>
+                <div class="test-results" id="unitTestResults"></div>
+                <div class="console-output" id="unitTestConsole" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <!-- Integration Tests -->
+        <div class="test-suite" id="integrationTestSuite">
+            <div class="test-suite-header" onclick="toggleSuite('integrationTestSuite')">
+                <div class="test-suite-title">Integration Tests - End-to-End Streaming Flow</div>
+                <div class="test-suite-status status-pending" id="integrationTestStatus">Pending</div>
+            </div>
+            <div class="test-suite-content">
+                <p>Tests complete end-to-end streaming agent routing flow including WebSocket integration, agent switching, context preservation, and voice transitions.</p>
+                <div class="test-results" id="integrationTestResults"></div>
+                <div class="console-output" id="integrationTestConsole" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <!-- Performance Tests -->
+        <div class="test-suite" id="performanceTestSuite">
+            <div class="test-suite-header" onclick="toggleSuite('performanceTestSuite')">
+                <div class="test-suite-title">Performance Tests - Latency and Throughput</div>
+                <div class="test-suite-status status-pending" id="performanceTestStatus">Pending</div>
+            </div>
+            <div class="test-suite-content">
+                <p>Tests routing latency, throughput capacity, concurrent routing, memory usage, and performance under stress conditions.</p>
+                <div class="test-results" id="performanceTestResults"></div>
+                <div class="console-output" id="performanceTestConsole" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <!-- Error Scenario Tests -->
+        <div class="test-suite" id="errorTestSuite">
+            <div class="test-suite-header" onclick="toggleSuite('errorTestSuite')">
+                <div class="test-suite-title">Error Scenario Tests - Fallback Mechanisms</div>
+                <div class="test-suite-status status-pending" id="errorTestStatus">Pending</div>
+            </div>
+            <div class="test-suite-content">
+                <p>Tests error handling, fallback mechanisms, circuit breaker behavior, and recovery scenarios for various failure modes.</p>
+                <div class="test-results" id="errorTestResults"></div>
+                <div class="console-output" id="errorTestConsole" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <!-- Context Switching Tests -->
+        <div class="test-suite" id="contextTestSuite">
+            <div class="test-suite-header" onclick="toggleSuite('contextTestSuite')">
+                <div class="test-suite-title">Context Switching Tests - Agent Context Preservation</div>
+                <div class="test-suite-status status-pending" id="contextTestStatus">Pending</div>
+            </div>
+            <div class="test-suite-content">
+                <p>Tests agent switching scenarios with context preservation validation, including complex conversation flows and memory management.</p>
+                <div class="test-results" id="contextTestResults"></div>
+                <div class="console-output" id="contextTestConsole" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load test dependencies -->
+    <script>
+        // Add error handling for script loading
+        window.addEventListener('error', function(e) {
+            console.error('Script loading error:', e.filename, e.lineno, e.message);
+        });
+        
+        // Track script loading
+        console.log('Starting to load dependencies...');
+    </script>
+    <script src="../streaming-agent-router.js" onerror="console.error('Failed to load streaming-agent-router.js')"></script>
+    <script src="../streaming-response-handler.js" onerror="console.error('Failed to load streaming-response-handler.js')"></script>
+    <script src="../streaming-agent-middleware.js" onerror="console.error('Failed to load streaming-agent-middleware.js')"></script>
+    
+    <!-- Load test suites -->
+    <script>console.log('Loading test suites...');</script>
+    <script src="test-basic-connectivity.js" onload="console.log('✅ Loaded test-basic-connectivity.js')" onerror="console.error('❌ Failed to load test-basic-connectivity.js')"></script>
+    <script src="test-streaming-agent-router-unit.js" onload="console.log('✅ Loaded test-streaming-agent-router-unit.js')" onerror="console.error('❌ Failed to load test-streaming-agent-router-unit.js')"></script>
+    <script src="test-streaming-agent-integration.js" onload="console.log('✅ Loaded test-streaming-agent-integration.js')" onerror="console.error('❌ Failed to load test-streaming-agent-integration.js')"></script>
+    <script src="test-streaming-agent-performance.js" onload="console.log('✅ Loaded test-streaming-agent-performance.js')" onerror="console.error('❌ Failed to load test-streaming-agent-performance.js')"></script>
+    <script src="test-streaming-agent-error-scenarios.js" onload="console.log('✅ Loaded test-streaming-agent-error-scenarios.js')" onerror="console.error('❌ Failed to load test-streaming-agent-error-scenarios.js')"></script>
+    <script src="test-streaming-agent-context-switching.js" onload="console.log('✅ Loaded test-streaming-agent-context-switching.js')" onerror="console.error('❌ Failed to load test-streaming-agent-context-switching.js')"></script>
+
+    <script>
+        // Global test state
+        let testState = {
+            running: false,
+            totalTests: 0,
+            passedTests: 0,
+            failedTests: 0,
+            completedSuites: 0,
+            totalSuites: 5
+        };
+
+        // Console capture for test output
+        const originalConsole = {
+            log: console.log,
+            debug: console.debug,
+            info: console.info,
+            warn: console.warn,
+            error: console.error
+        };
+
+        function captureConsoleForSuite(suiteId) {
+            const consoleElement = document.getElementById(suiteId + 'Console');
+            let output = '';
+            
+            ['log', 'debug', 'info', 'warn', 'error'].forEach(method => {
+                console[method] = (...args) => {
+                    const message = args.map(arg => 
+                        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                    ).join(' ');
+                    output += `[${method.toUpperCase()}] ${message}\n`;
+                    consoleElement.textContent = output;
+                    consoleElement.scrollTop = consoleElement.scrollHeight;
+                    
+                    // Also call original console method
+                    originalConsole[method](...args);
+                };
+            });
+            
+            return () => {
+                // Restore original console
+                Object.assign(console, originalConsole);
+            };
+        }
+
+        function restoreConsole() {
+            Object.assign(console, originalConsole);
+        }
+
+        function toggleSuite(suiteId) {
+            const suite = document.getElementById(suiteId);
+            suite.classList.toggle('expanded');
+        }
+
+        function updateSuiteStatus(suiteId, status) {
+            const statusElement = document.getElementById(suiteId.replace('Suite', 'Status'));
+            statusElement.className = `test-suite-status status-${status}`;
+            statusElement.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+
+        function displayTestResults(suiteId, results) {
+            const resultsElement = document.getElementById(suiteId.replace('Suite', 'Results'));
+            resultsElement.innerHTML = '';
+            
+            results.forEach(result => {
+                const resultDiv = document.createElement('div');
+                resultDiv.className = `test-result ${result.passed ? 'pass' : 'fail'}`;
+                resultDiv.innerHTML = `
+                    <strong>${result.passed ? '✅ PASS' : '❌ FAIL'}</strong> ${result.test}: ${result.message}
+                `;
+                resultsElement.appendChild(resultDiv);
+            });
+        }
+
+        function updateSummary() {
+            document.getElementById('totalTests').textContent = testState.totalTests;
+            document.getElementById('passedTests').textContent = testState.passedTests;
+            document.getElementById('failedTests').textContent = testState.failedTests;
+            
+            const successRate = testState.totalTests > 0 ? 
+                ((testState.passedTests / testState.totalTests) * 100).toFixed(1) : 0;
+            document.getElementById('successRate').textContent = successRate + '%';
+            
+            const progress = (testState.completedSuites / testState.totalSuites) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            
+            document.getElementById('summary').style.display = 'block';
+        }
+
+        function clearResults() {
+            testState = {
+                running: false,
+                totalTests: 0,
+                passedTests: 0,
+                failedTests: 0,
+                completedSuites: 0,
+                totalSuites: 5
+            };
+            
+            // Clear all test results
+            ['unit', 'integration', 'performance', 'error', 'context'].forEach(type => {
+                const suiteId = type + 'TestSuite';
+                updateSuiteStatus(suiteId, 'pending');
+                document.getElementById(type + 'TestResults').innerHTML = '';
+                document.getElementById(type + 'TestConsole').textContent = '';
+                document.getElementById(type + 'TestConsole').style.display = 'none';
+            });
+            
+            document.getElementById('summary').style.display = 'none';
+            document.getElementById('runAllIcon').textContent = '▶';
+        }
+
+        async function runTestSuite(suiteClass, suiteId, suiteName) {
+            console.log(`\n=== Starting ${suiteName} ===`);
+            updateSuiteStatus(suiteId, 'running');
+            
+            // Show console output
+            document.getElementById(suiteId.replace('Suite', 'Console')).style.display = 'block';
+            
+            try {
+                // Check if the test class exists
+                if (!suiteClass) {
+                    throw new Error(`Test class not found for ${suiteName}`);
+                }
+                
+                console.log(`Creating instance of ${suiteName}...`);
+                const testInstance = new suiteClass();
+                
+                console.log(`Running tests for ${suiteName}...`);
+                const results = await testInstance.runAllTests();
+                
+                console.log(`${suiteName} returned ${results.length} test results`);
+                
+                // Update test counts
+                testState.totalTests += results.length;
+                testState.passedTests += results.filter(r => r.passed).length;
+                testState.failedTests += results.filter(r => !r.passed).length;
+                
+                // Display results
+                displayTestResults(suiteId, results);
+                
+                // Update status
+                const allPassed = results.every(r => r.passed);
+                updateSuiteStatus(suiteId, allPassed ? 'passed' : 'failed');
+                
+                console.log(`=== ${suiteName} Complete ===\n`);
+                
+                return results;
+                
+            } catch (error) {
+                console.error(`Error running ${suiteName}:`, error);
+                console.error('Stack trace:', error.stack);
+                updateSuiteStatus(suiteId, 'failed');
+                
+                // Display error
+                const resultsElement = document.getElementById(suiteId.replace('Suite', 'Results'));
+                resultsElement.innerHTML = `
+                    <div class="test-result fail">
+                        <strong>❌ SUITE ERROR</strong> ${suiteName} failed to execute: ${error.message}
+                        <br><small>Stack: ${error.stack}</small>
+                    </div>
+                `;
+                
+                return [];
+            }
+        }
+
+        async function runUnitTests(fromRunAll = false) {
+            if (testState.running && !fromRunAll) return;
+            
+            const restoreConsole = captureConsoleForSuite('unitTest');
+            try {
+                console.log('Checking for StreamingAgentRouterUnitTests class:', typeof StreamingAgentRouterUnitTests);
+                await runTestSuite(window.StreamingAgentRouterUnitTests || StreamingAgentRouterUnitTests, 'unitTestSuite', 'Unit Tests');
+            } finally {
+                restoreConsole();
+            }
+            
+            if (!fromRunAll) {
+                testState.completedSuites++;
+                updateSummary();
+            }
+        }
+
+        async function runIntegrationTests(fromRunAll = false) {
+            if (testState.running && !fromRunAll) return;
+            
+            const restoreConsole = captureConsoleForSuite('integrationTest');
+            try {
+                console.log('Checking for StreamingAgentIntegrationTests class:', typeof StreamingAgentIntegrationTests);
+                await runTestSuite(window.StreamingAgentIntegrationTests || StreamingAgentIntegrationTests, 'integrationTestSuite', 'Integration Tests');
+            } finally {
+                restoreConsole();
+            }
+            
+            if (!fromRunAll) {
+                testState.completedSuites++;
+                updateSummary();
+            }
+        }
+
+        async function runPerformanceTests(fromRunAll = false) {
+            if (testState.running && !fromRunAll) return;
+            
+            const restoreConsole = captureConsoleForSuite('performanceTest');
+            try {
+                console.log('Checking for StreamingAgentPerformanceTests class:', typeof StreamingAgentPerformanceTests);
+                await runTestSuite(window.StreamingAgentPerformanceTests || StreamingAgentPerformanceTests, 'performanceTestSuite', 'Performance Tests');
+            } finally {
+                restoreConsole();
+            }
+            
+            if (!fromRunAll) {
+                testState.completedSuites++;
+                updateSummary();
+            }
+        }
+
+        async function runErrorTests(fromRunAll = false) {
+            if (testState.running && !fromRunAll) return;
+            
+            const restoreConsole = captureConsoleForSuite('errorTest');
+            try {
+                console.log('Checking for StreamingAgentErrorScenarioTests class:', typeof StreamingAgentErrorScenarioTests);
+                await runTestSuite(window.StreamingAgentErrorScenarioTests || StreamingAgentErrorScenarioTests, 'errorTestSuite', 'Error Scenario Tests');
+            } finally {
+                restoreConsole();
+            }
+            
+            if (!fromRunAll) {
+                testState.completedSuites++;
+                updateSummary();
+            }
+        }
+
+        async function runContextTests(fromRunAll = false) {
+            if (testState.running && !fromRunAll) return;
+            
+            const restoreConsole = captureConsoleForSuite('contextTest');
+            try {
+                console.log('Checking for StreamingAgentContextSwitchingTests class:', typeof StreamingAgentContextSwitchingTests);
+                await runTestSuite(window.StreamingAgentContextSwitchingTests || StreamingAgentContextSwitchingTests, 'contextTestSuite', 'Context Switching Tests');
+            } finally {
+                restoreConsole();
+            }
+            
+            if (!fromRunAll) {
+                testState.completedSuites++;
+                updateSummary();
+            }
+        }
+
+        async function runBasicTest() {
+            if (testState.running) return;
+            
+            console.log('Running basic connectivity test...');
+            console.log('Checking for BasicConnectivityTest class:', typeof BasicConnectivityTest);
+            console.log('Checking window.BasicConnectivityTest:', typeof window.BasicConnectivityTest);
+            
+            try {
+                const TestClass = window.BasicConnectivityTest || BasicConnectivityTest;
+                if (!TestClass) {
+                    console.error('BasicConnectivityTest class not found');
+                    return;
+                }
+                
+                const testInstance = new TestClass();
+                const results = await testInstance.runAllTests();
+                
+                console.log('Basic test results:', results);
+                
+                results.forEach(result => {
+                    const status = result.passed ? '✅ PASS' : '❌ FAIL';
+                    console.log(`${status} ${result.test}: ${result.message}`);
+                });
+                
+            } catch (error) {
+                console.error('Error running basic test:', error);
+            }
+        }
+
+        async function runAllTests() {
+            if (testState.running) return;
+            
+            testState.running = true;
+            document.getElementById('runAllIcon').innerHTML = '<div class="loading"></div>';
+            
+            // Clear previous results but preserve running state
+            const wasRunning = testState.running;
+            clearResults();
+            testState.running = wasRunning;
+            
+            console.log('🚀 Starting Comprehensive Streaming Agent Routing Test Suite');
+            console.log('================================================================');
+            
+            try {
+                // Verify test classes are available before running
+                const testClasses = [
+                    { name: 'StreamingAgentRouterUnitTests', class: window.StreamingAgentRouterUnitTests },
+                    { name: 'StreamingAgentIntegrationTests', class: window.StreamingAgentIntegrationTests },
+                    { name: 'StreamingAgentPerformanceTests', class: window.StreamingAgentPerformanceTests },
+                    { name: 'StreamingAgentErrorScenarioTests', class: window.StreamingAgentErrorScenarioTests },
+                    { name: 'StreamingAgentContextSwitchingTests', class: window.StreamingAgentContextSwitchingTests }
+                ];
+                
+                const availableClasses = testClasses.filter(tc => typeof tc.class === 'function');
+                console.log(`Found ${availableClasses.length}/${testClasses.length} test classes available`);
+                
+                if (availableClasses.length === 0) {
+                    throw new Error('No test classes are available. Please check that test files are loaded correctly.');
+                }
+                
+                // Run all test suites sequentially with proper error handling
+                console.log('Starting Unit Tests...');
+                await runUnitTests(true);
+                console.log(`Unit Tests completed. Total tests so far: ${testState.totalTests}`);
+                
+                console.log('Starting Integration Tests...');
+                await runIntegrationTests(true);
+                console.log(`Integration Tests completed. Total tests so far: ${testState.totalTests}`);
+                
+                console.log('Starting Performance Tests...');
+                await runPerformanceTests(true);
+                console.log(`Performance Tests completed. Total tests so far: ${testState.totalTests}`);
+                
+                console.log('Starting Error Tests...');
+                await runErrorTests(true);
+                console.log(`Error Tests completed. Total tests so far: ${testState.totalTests}`);
+                
+                console.log('Starting Context Tests...');
+                await runContextTests(true);
+                console.log(`Context Tests completed. Total tests so far: ${testState.totalTests}`);
+                
+                // Update completed suites count
+                testState.completedSuites = testState.totalSuites;
+                
+                // Final summary
+                console.log('\n🏁 All Test Suites Complete!');
+                console.log('================================================================');
+                console.log(`Total Tests: ${testState.totalTests}`);
+                console.log(`Passed: ${testState.passedTests}`);
+                console.log(`Failed: ${testState.failedTests}`);
+                console.log(`Success Rate: ${((testState.passedTests / testState.totalTests) * 100).toFixed(1)}%`);
+                
+                if (testState.failedTests === 0) {
+                    console.log('🎉 All tests passed! Streaming agent routing is working correctly.');
+                } else {
+                    console.log('⚠️ Some tests failed. Please review the detailed results above.');
+                }
+                
+            } catch (error) {
+                console.error('Error running test suite:', error);
+            } finally {
+                testState.running = false;
+                document.getElementById('runAllIcon').textContent = '▶';
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Streaming Agent Routing Test Suite Ready');
+            
+            // Check if test classes are loaded
+            const testClasses = [
+                'BasicConnectivityTest',
+                'StreamingAgentRouterUnitTests',
+                'StreamingAgentIntegrationTests', 
+                'StreamingAgentPerformanceTests',
+                'StreamingAgentErrorScenarioTests',
+                'StreamingAgentContextSwitchingTests'
+            ];
+            
+            console.log('Checking test class availability:');
+            testClasses.forEach(className => {
+                const isAvailable = typeof window[className] === 'function';
+                console.log(`  ${className}: ${isAvailable ? '✅ Available' : '❌ Missing'}`);
+                if (!isAvailable && typeof eval(className) === 'function') {
+                    console.log(`    Found in global scope as ${className}`);
+                    window[className] = eval(className);
+                }
+            });
+            
+            // Check if streaming components are loaded
+            const streamingComponents = [
+                'StreamingAgentRouter',
+                'StreamingResponseHandler', 
+                'StreamingAgentMiddleware'
+            ];
+            
+            console.log('Checking streaming component availability:');
+            streamingComponents.forEach(componentName => {
+                const isAvailable = typeof window[componentName] === 'function';
+                console.log(`  ${componentName}: ${isAvailable ? '✅ Available' : '❌ Missing'}`);
+            });
+            
+            console.log('Click "Run All Tests" to start comprehensive testing');
+            
+            // Expand first suite by default
+            document.getElementById('unitTestSuite').classList.add('expanded');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cache Bust Test</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .cache-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔄 Cache Bust Test</h1>
+        
+        <div class="cache-info">
+            <strong>This page loads the CSS with a timestamp to bypass browser cache.</strong><br>
+            If the layout works here but not on the main page, it's a caching issue.
+        </div>
+
+        <!-- Voice Controls -->
+        <div class="voice-controls">
+            <!-- Row 1: Mode Toggle, Status, and Audio Level -->
+            <div class="control-row-1">
+                <div class="mode-toggle-section">
+                    <div class="mode-toggle">
+                        <input type="checkbox" id="streamingMode" class="mode-checkbox" checked>
+                        <label for="streamingMode" class="toggle-label">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Streaming Mode</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="status-section">
+                    <div id="status" class="status-text">Ready to listen</div>
+                    <div id="recordingQuality" class="quality-indicator">
+                        <i class="fas fa-circle"></i>
+                        Not Recording
+                    </div>
+                </div>
+                
+                <div class="audio-level-section">
+                    <span class="level-label">Audio Level:</span>
+                    <div class="level-bar">
+                        <div id="audioLevel" class="level-fill" style="width: 60%;"></div>
+                    </div>
+                    <span id="audioLevelText">60%</span>
+                </div>
+            </div>
+
+            <!-- Row 2: Control Buttons -->
+            <div class="control-row-2">
+                <div id="streamingControls" class="control-group">
+                    <button id="connectBtn" class="primary-btn">
+                        <i class="fas fa-phone"></i>
+                        <span>Connect</span>
+                    </button>
+                    <button id="muteBtn" class="mute-btn" disabled>
+                        <i class="fas fa-microphone-slash"></i>
+                        <span>Mute</span>
+                    </button>
+                    <button id="disconnectBtn" class="secondary-btn" disabled>
+                        <i class="fas fa-phone-slash"></i>
+                        <span>Disconnect</span>
+                    </button>
+                    <button class="clear-btn">
+                        <i class="fas fa-trash"></i>
+                        <span>Clear Chat</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Row 3: Additional Information -->
+            <div class="control-row-3">
+                <div class="connection-status">
+                    <span id="connectionStatus" class="status-badge disconnected">
+                        <i class="fas fa-circle"></i>
+                        Disconnected
+                    </span>
+                </div>
+                
+                <div class="agent-indicator">
+                    <span class="agent-label">Active Agent:</span>
+                    <span id="currentAgent" class="agent-name">Default Agent</span>
+                </div>
+                
+                <div class="streaming-agent-status" id="streamingAgentStatus">
+                    <div class="streaming-agent-info">
+                        <span class="streaming-agent-label">Streaming Agent:</span>
+                        <span id="streamingCurrentAgent" class="streaming-agent-name">Default Agent</span>
+                        <span id="streamingAgentType" class="streaming-agent-type">General</span>
+                    </div>
+                    <div class="streaming-routing-status">
+                        <span id="routingStatus" class="routing-status-badge enabled">
+                            <i class="fas fa-route"></i>
+                            Routing Enabled
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode Description -->
+            <div class="mode-description">
+                <span id="modeDescription">Streaming Mode: Real-time conversation like a phone call</span>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; padding: 15px; background: #e9ecef; border-radius: 8px;">
+            <h3>Expected Layout:</h3>
+            <ul>
+                <li><strong>Row 1:</strong> Should show 3 sections stacked vertically with colored dashed borders:
+                    <ul>
+                        <li>Blue border: Mode toggle</li>
+                        <li>Green border: Status text</li>
+                        <li>Yellow border: Audio level</li>
+                    </ul>
+                </li>
+                <li><strong>Row 2:</strong> Buttons should be horizontal</li>
+                <li><strong>Row 3:</strong> Connection, agent, and routing info should be stacked vertically</li>
+            </ul>
+            <p><strong>If you see the colored borders and vertical stacking, the CSS is working!</strong></p>
+        </div>
+    </div>
+
+    <script>
+        // Load CSS with cache busting timestamp
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'main-styles.css?v=' + Date.now();
+        document.head.appendChild(link);
+
+        console.log('Cache bust test page loaded with CSS timestamp:', Date.now());
+    </script>
+</body>
+</html>

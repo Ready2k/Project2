@@ -17,7 +17,7 @@ const agentConfigFiles = [
     'config/agents/payments-agent-config.json',
     'config/agents/fraud-agent-config.json',
     'config/agents/idv-agent-config.json',
-    'config/agents/banking-info-agent-config.json'
+    'config/agents/bankinginfo-agent-config.json'
 ];
 
 let configFilesExist = 0;

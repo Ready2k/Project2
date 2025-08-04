@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vertical Layout Test</title>
+    <link rel="stylesheet" href="main-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .layout-demo {
+            border: 2px dashed #007bff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        .row-label {
+            background: #007bff;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔄 Vertical Stacking Layout Test</h1>
+        <p>This demonstrates the new vertical stacking layout where elements in each row are stacked on top of each other, not side by side.</p>
+        
+        <!-- Voice Controls with vertical stacking -->
+        <div class="voice-controls">
+            <div class="layout-demo">
+                <div class="row-label">ROW 1: Stacked Vertically</div>
+                <!-- Row 1: Mode Toggle, Status, and Audio Level -->
+                <div class="control-row-1">
+                    <div class="mode-toggle-section">
+                        <div class="mode-toggle">
+                            <input type="checkbox" id="streamingMode" class="mode-checkbox" checked>
+                            <label for="streamingMode" class="toggle-label">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-text">Streaming Mode</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="status-section">
+                        <div id="status" class="status-text">Ready to listen</div>
+                        <div id="recordingQuality" class="quality-indicator">
+                            <i class="fas fa-circle"></i>
+                            Not Recording
+                        </div>
+                    </div>
+                    
+                    <div class="audio-level-section">
+                        <span class="level-label">Audio Level:</span>
+                        <div class="level-bar">
+                            <div id="audioLevel" class="level-fill" style="width: 45%;"></div>
+                        </div>
+                        <span id="audioLevelText">45%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layout-demo">
+                <div class="row-label">ROW 2: Horizontal Buttons</div>
+                <!-- Row 2: Control Buttons -->
+                <div class="control-row-2">
+                    <!-- Streaming Mode Controls -->
+                    <div id="streamingControls" class="control-group">
+                        <button id="connectBtn" class="primary-btn">
+                            <i class="fas fa-phone"></i>
+                            <span>Connect</span>
+                        </button>
+                        <button id="muteBtn" class="mute-btn" disabled>
+                            <i class="fas fa-microphone-slash"></i>
+                            <span>Mute</span>
+                        </button>
+                        <button id="disconnectBtn" class="secondary-btn" disabled>
+                            <i class="fas fa-phone-slash"></i>
+                            <span>Disconnect</span>
+                        </button>
+                        <button class="clear-btn">
+                            <i class="fas fa-trash"></i>
+                            <span>Clear Chat</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layout-demo">
+                <div class="row-label">ROW 3: Stacked Vertically</div>
+                <!-- Row 3: Additional Information -->
+                <div class="control-row-3">
+                    <div class="connection-status">
+                        <span id="connectionStatus" class="status-badge disconnected">
+                            <i class="fas fa-circle"></i>
+                            Disconnected
+                        </span>
+                    </div>
+                    
+                    <div class="agent-indicator">
+                        <span class="agent-label">Active Agent:</span>
+                        <span id="currentAgent" class="agent-name">Default Agent</span>
+                    </div>
+                    
+                    <div class="streaming-agent-status" id="streamingAgentStatus">
+                        <div class="streaming-agent-info">
+                            <span class="streaming-agent-label">Streaming Agent:</span>
+                            <span id="streamingCurrentAgent" class="streaming-agent-name">Default Agent</span>
+                            <span id="streamingAgentType" class="streaming-agent-type">General</span>
+                        </div>
+                        <div class="streaming-routing-status">
+                            <span id="routingStatus" class="routing-status-badge enabled">
+                                <i class="fas fa-route"></i>
+                                Routing Enabled
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode Description -->
+            <div class="mode-description">
+                <span id="modeDescription">Streaming Mode: Real-time conversation like a phone call</span>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background: #e9ecef; border-radius: 8px;">
+            <h3>Layout Explanation</h3>
+            <ul>
+                <li><strong>Row 1 (Blue Box):</strong> Mode toggle, status text, and audio level are stacked vertically (one on top of the other)</li>
+                <li><strong>Row 2 (Blue Box):</strong> Action buttons remain horizontal for easy access</li>
+                <li><strong>Row 3 (Blue Box):</strong> Connection status, agent info, and routing status are stacked vertically</li>
+            </ul>
+            <p><em>This creates a cleaner, more organized layout where related information is grouped together vertically within each row.</em></p>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button onclick="toggleConnection()" style="padding: 10px 20px; margin: 5px; background: #28a745; color: white; border: none; border-radius: 4px;">Toggle Connection</button>
+            <button onclick="updateAudioLevel()" style="padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px;">Update Audio Level</button>
+        </div>
+    </div>
+
+    <script>
+        let isConnected = false;
+        let audioLevel = 45;
+
+        function toggleConnection() {
+            isConnected = !isConnected;
+            const connectionStatus = document.getElementById('connectionStatus');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const muteBtn = document.getElementById('muteBtn');
+
+            if (isConnected) {
+                connectionStatus.className = 'status-badge connected';
+                connectionStatus.innerHTML = '<i class="fas fa-circle"></i> Connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                muteBtn.disabled = false;
+            } else {
+                connectionStatus.className = 'status-badge disconnected';
+                connectionStatus.innerHTML = '<i class="fas fa-circle"></i> Disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                muteBtn.disabled = true;
+            }
+        }
+
+        function updateAudioLevel() {
+            audioLevel = Math.floor(Math.random() * 100);
+            document.getElementById('audioLevel').style.width = audioLevel + '%';
+            document.getElementById('audioLevelText').textContent = audioLevel + '%';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Vertical layout test page loaded');
+        });
+    </script>
+</body>
+</html>

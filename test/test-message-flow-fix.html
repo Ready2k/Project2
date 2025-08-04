@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message Flow Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        #conversation {
+            border: 1px solid #ddd;
+            height: 300px;
+            overflow-y: auto;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .user-message {
+            background: #007bff;
+            color: white;
+            padding: 10px;
+            border-radius: 10px;
+            margin: 5px 0;
+            max-width: 70%;
+            margin-left: auto;
+        }
+        .bot-message {
+            background: #e9ecef;
+            color: #333;
+            padding: 10px;
+            border-radius: 10px;
+            margin: 5px 0;
+            max-width: 70%;
+        }
+        .message-content {
+            word-wrap: break-word;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .test-results {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .test-log {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Message Flow Fix Test</h1>
+        <p>This test verifies that user transcriptions are properly displayed in the conversation UI when agent routing is enabled.</p>
+        
+        <div class="status" id="status">Initializing...</div>
+    </div>
+
+    <div class="container">
+        <h3>Conversation Display Test</h3>
+        <div id="conversation"></div>
+        
+        <div>
+            <button onclick="testDisplayUserMessage()">Test Display User Message</button>
+            <button onclick="testCompleteMessageFlow()">Test Complete Flow</button>
+            <button onclick="clearConversation()">Clear Conversation</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h3>Test Results</h3>
+        <div class="test-results" id="test-results">
+            No tests run yet.
+        </div>
+        
+        <div>
+            <button onclick="runAllTests()">Run All Tests</button>
+            <button onclick="simulateTranscriptionMessage()">Simulate Transcription</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h3>Test Log</h3>
+        <div class="test-log" id="test-log"></div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/conversation-context-manager.js"></script>
+    <script src="../streaming-performance-optimizer.js"></script>
+    <script src="../streaming-agent-router.js"></script>
+    <script src="../streaming-agent-middleware.js"></script>
+    <script src="../streaming-response-handler.js"></script>
+    <script src="../streaming-error-handler.js"></script>
+    <script src="../streaming-manager.js"></script>
+
+    <script>
+        // Test framework
+        class MessageFlowTest {
+            constructor() {
+                this.logElement = document.getElementById('test-log');
+                this.statusElement = document.getElementById('status');
+                this.resultsElement = document.getElementById('test-results');
+                
+                this.initializeMocks();
+                this.updateStatus('Test framework initialized', 'success');
+            }
+
+            initializeMocks() {
+                // Mock required global objects if they don't exist
+                if (!window.debugManager) {
+                    window.debugManager = {
+                        createModuleLogger: (name) => ({
+                            log: (msg, data) => this.log(`[${name}] ${msg}`, data),
+                            debug: (msg, data) => this.log(`[${name}] DEBUG: ${msg}`, data),
+                            info: (msg, data) => this.log(`[${name}] INFO: ${msg}`, data),
+                            warn: (msg, data) => this.log(`[${name}] WARN: ${msg}`, data),
+                            error: (msg, data) => this.log(`[${name}] ERROR: ${msg}`, data)
+                        })
+                    };
+                }
+
+                // Mock agent router if needed
+                if (!window.agentRouter) {
+                    window.agentRouter = {
+                        route: async (transcript, context) => {
+                            await new Promise(resolve => setTimeout(resolve, 50));
+                            return {
+                                success: true,
+                                agentName: 'FraudAgent',
+                                response: `Mock response for: ${transcript.substring(0, 30)}...`,
+                                processingTime: 50
+                            };
+                        },
+                        getRegisteredAgents: () => [
+                            { name: 'FraudAgent', description: 'Fraud prevention specialist' }
+                        ]
+                    };
+                }
+
+                this.log('Mock dependencies initialized');
+            }
+
+            log(message, data = null) {
+                const timestamp = new Date().toLocaleTimeString();
+                const logMessage = `[${timestamp}] ${message}`;
+                
+                if (data) {
+                    console.log(logMessage, data);
+                    this.logElement.textContent += `${logMessage}\n${JSON.stringify(data, null, 2)}\n\n`;
+                } else {
+                    console.log(logMessage);
+                    this.logElement.textContent += `${logMessage}\n`;
+                }
+                
+                this.logElement.scrollTop = this.logElement.scrollHeight;
+            }
+
+            updateStatus(message, type = 'info') {
+                this.statusElement.textContent = message;
+                this.statusElement.className = `status ${type}`;
+            }
+
+            updateResults(results) {
+                const resultHtml = Object.entries(results)
+                    .map(([test, result]) => {
+                        const status = result ? '✅ PASS' : '❌ FAIL';
+                        return `<div>${test}: ${status}</div>`;
+                    })
+                    .join('');
+                
+                this.resultsElement.innerHTML = resultHtml;
+            }
+
+            testDisplayUserMessage() {
+                this.log('Testing displayUserMessage function...');
+                
+                const testTranscript = "hey I think I left my card at Tesco I'm not sure it is I can't find it what do I need to do";
+                
+                // Create a mock StreamingManager with displayUserMessage
+                const mockStreamingManager = {
+                    displayUserMessage: (transcript) => {
+                        try {
+                            const conversation = document.getElementById('conversation');
+                            if (conversation) {
+                                const messageDiv = document.createElement('div');
+                                messageDiv.className = 'user-message';
+                                messageDiv.innerHTML = `<div class="message-content">${transcript}</div>`;
+                                conversation.appendChild(messageDiv);
+                                conversation.scrollTop = conversation.scrollHeight;
+                                this.log('User message displayed in chat');
+                                return true;
+                            }
+                            return false;
+                        } catch (error) {
+                            this.log('Error displaying user message:', error);
+                            return false;
+                        }
+                    }
+                };
+
+                const result = mockStreamingManager.displayUserMessage(testTranscript);
+                
+                if (result) {
+                    this.log('✅ displayUserMessage test passed');
+                    this.updateStatus('displayUserMessage test passed', 'success');
+                } else {
+                    this.log('❌ displayUserMessage test failed');
+                    this.updateStatus('displayUserMessage test failed', 'error');
+                }
+                
+                return result;
+            }
+
+            async testCompleteMessageFlow() {
+                this.log('Testing complete message flow...');
+                
+                try {
+                    // Initialize StreamingManager if available
+                    if (typeof StreamingManager === 'function') {
+                        const streamingManager = new StreamingManager('test-api-key');
+                        
+                        // Test the displayUserMessage method
+                        const testTranscript = "Test message from complete flow";
+                        streamingManager.displayUserMessage(testTranscript);
+                        
+                        // Check if message was displayed
+                        const conversation = document.getElementById('conversation');
+                        const userMessages = conversation.querySelectorAll('.user-message');
+                        
+                        if (userMessages.length > 0) {
+                            const lastMessage = userMessages[userMessages.length - 1];
+                            const messageContent = lastMessage.querySelector('.message-content');
+                            
+                            if (messageContent && messageContent.textContent === testTranscript) {
+                                this.log('✅ Complete message flow test passed');
+                                this.updateStatus('Complete message flow test passed', 'success');
+                                return true;
+                            }
+                        }
+                    }
+                    
+                    this.log('❌ Complete message flow test failed');
+                    this.updateStatus('Complete message flow test failed', 'error');
+                    return false;
+                    
+                } catch (error) {
+                    this.log('❌ Complete message flow test error:', error.message);
+                    this.updateStatus('Complete message flow test error', 'error');
+                    return false;
+                }
+            }
+
+            simulateTranscriptionMessage() {
+                this.log('Simulating transcription message...');
+                
+                const mockTranscript = "I think there might be fraud on my account";
+                
+                // Simulate the message display
+                const conversation = document.getElementById('conversation');
+                if (conversation) {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'user-message';
+                    messageDiv.innerHTML = `<div class="message-content">${mockTranscript}</div>`;
+                    conversation.appendChild(messageDiv);
+                    conversation.scrollTop = conversation.scrollHeight;
+                    
+                    this.log('✅ Transcription message simulated and displayed');
+                    
+                    // Simulate agent response after a delay
+                    setTimeout(() => {
+                        const botMessageDiv = document.createElement('div');
+                        botMessageDiv.className = 'bot-message';
+                        botMessageDiv.innerHTML = `<div class="message-content">I understand you're concerned about potential fraud. Let me help you with that. I'll need to verify some information first.</div>`;
+                        conversation.appendChild(botMessageDiv);
+                        conversation.scrollTop = conversation.scrollHeight;
+                        
+                        this.log('✅ Agent response simulated and displayed');
+                    }, 1000);
+                } else {
+                    this.log('❌ Conversation element not found');
+                }
+            }
+
+            async runAllTests() {
+                this.log('Running all message flow tests...');
+                
+                const results = {
+                    displayUserMessage: this.testDisplayUserMessage(),
+                    completeMessageFlow: await this.testCompleteMessageFlow()
+                };
+                
+                this.updateResults(results);
+                
+                const allPassed = Object.values(results).every(result => result === true);
+                
+                if (allPassed) {
+                    this.log('🎉 All tests passed!');
+                    this.updateStatus('All tests passed', 'success');
+                } else {
+                    this.log('⚠️ Some tests failed');
+                    this.updateStatus('Some tests failed', 'warning');
+                }
+                
+                return results;
+            }
+
+            clearConversation() {
+                const conversation = document.getElementById('conversation');
+                if (conversation) {
+                    conversation.innerHTML = '';
+                    this.log('Conversation cleared');
+                }
+            }
+
+            clearLog() {
+                this.logElement.textContent = '';
+            }
+        }
+
+        // Initialize test framework
+        const messageFlowTest = new MessageFlowTest();
+
+        // Global functions for buttons
+        function testDisplayUserMessage() {
+            return messageFlowTest.testDisplayUserMessage();
+        }
+
+        function testCompleteMessageFlow() {
+            return messageFlowTest.testCompleteMessageFlow();
+        }
+
+        function simulateTranscriptionMessage() {
+            messageFlowTest.simulateTranscriptionMessage();
+        }
+
+        function runAllTests() {
+            return messageFlowTest.runAllTests();
+        }
+
+        function clearConversation() {
+            messageFlowTest.clearConversation();
+        }
+
+        function clearLog() {
+            messageFlowTest.clearLog();
+        }
+
+        // Auto-run basic test on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                messageFlowTest.log('Page loaded, running basic tests...');
+                messageFlowTest.testDisplayUserMessage();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

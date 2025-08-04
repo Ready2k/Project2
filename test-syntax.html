@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syntax Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .console {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Streaming Agent Configuration Syntax Test</h1>
+    <p>This page tests the basic syntax and functionality of the streaming agent configuration system.</p>
+    
+    <div id="console" class="console">Loading tests...</div>
+
+    <!-- Mock settings panel for testing -->
+    <div id="settingsPanel" style="display: none;">
+        <div class="panel-content"></div>
+    </div>
+
+    <!-- Include the configuration script -->
+    <script src="streaming-agent-config.js"></script>
+    <script src="test-config-syntax.js"></script>
+
+    <script>
+        // Capture console output
+        const consoleDiv = document.getElementById('console');
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        function updateConsole(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '[ERROR]' : '[LOG]';
+            consoleDiv.textContent += `${prefix} ${timestamp} ${message}\n`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            updateConsole(message, 'log');
+            originalLog.apply(console, args);
+        };
+        
+        console.error = function(...args) {
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            updateConsole(message, 'error');
+            originalError.apply(console, args);
+        };
+        
+        // Clear initial message
+        consoleDiv.textContent = '';
+        console.log('Syntax test page loaded successfully');
+    </script>
+</body>
+</html>

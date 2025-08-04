@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Error Handler Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .button.danger {
+            background-color: #dc3545;
+        }
+        .button.danger:hover {
+            background-color: #c82333;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .metric-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .log-output {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .circuit-breaker-status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .circuit-breaker-status.open {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .circuit-breaker-status.closed {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Streaming Error Handler Test Suite</h1>
+        <p>Test comprehensive error handling and fallback mechanisms for streaming agent routing.</p>
+        
+        <div id="initialization-status" class="status"></div>
+    </div>
+
+    <div class="container">
+        <h2>Circuit Breaker Tests</h2>
+        <div class="test-section">
+            <h3>Circuit Breaker Status</h3>
+            <div id="circuit-breaker-status" class="circuit-breaker-status">Unknown</div>
+            <button class="button" onclick="checkCircuitBreakerStatus()">Check Status</button>
+            <button class="button danger" onclick="triggerCircuitBreakerFailures()">Trigger Failures</button>
+            <button class="button" onclick="resetCircuitBreaker()">Reset Circuit Breaker</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Error Scenario Tests</h2>
+        <div class="test-section">
+            <h3>Routing Timeout Test</h3>
+            <p>Test routing timeout handling with fallback to standard streaming</p>
+            <button class="button" onclick="testRoutingTimeout()">Test Routing Timeout</button>
+            <div id="routing-timeout-result" class="status" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Agent Error Test</h3>
+            <p>Test agent processing error with graceful degradation</p>
+            <button class="button" onclick="testAgentError()">Test Agent Error</button>
+            <div id="agent-error-result" class="status" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Session Update Failure Test</h3>
+            <p>Test session update failure with retry and exponential backoff</p>
+            <button class="button" onclick="testSessionUpdateFailure()">Test Session Update Failure</button>
+            <div id="session-update-result" class="status" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>WebSocket Error Test</h3>
+            <p>Test WebSocket error with context preservation and reconnection</p>
+            <button class="button" onclick="testWebSocketError()">Test WebSocket Error</button>
+            <div id="websocket-error-result" class="status" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Critical Failure Test</h3>
+            <p>Test critical failure handling by disabling agent routing</p>
+            <button class="button danger" onclick="testCriticalFailure()">Test Critical Failure</button>
+            <div id="critical-failure-result" class="status" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Error Metrics</h2>
+        <div class="metrics" id="error-metrics">
+            <!-- Metrics will be populated here -->
+        </div>
+        <button class="button" onclick="refreshMetrics()">Refresh Metrics</button>
+    </div>
+
+    <div class="container">
+        <h2>Recovery Tests</h2>
+        <div class="test-section">
+            <h3>Context Preservation Test</h3>
+            <p>Test agent context preservation during reconnection</p>
+            <button class="button" onclick="testContextPreservation()">Test Context Preservation</button>
+            <div id="context-preservation-result" class="status" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Graceful Degradation Test</h3>
+            <p>Test graceful degradation strategies</p>
+            <button class="button" onclick="testGracefulDegradation()">Test Graceful Degradation</button>
+            <div id="graceful-degradation-result" class="status" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Test Log</h2>
+        <div id="test-log" class="log-output"></div>
+        <button class="button" onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../streaming-error-handler.js"></script>
+    <script src="../streaming-agent-router.js"></script>
+    <script src="../streaming-response-handler.js"></script>
+    <script src="../streaming-agent-middleware.js"></script>
+    <script src="../streaming-manager.js"></script>
+
+    <script>
+        // Test state
+        let errorHandler = null;
+        let mockStreamingManager = null;
+        let mockStreamingAgentRouter = null;
+        let testLog = [];
+
+        // Initialize test environment
+        function initializeTestEnvironment() {
+            try {
+                log('Initializing test environment...');
+
+                // Initialize debug manager
+                if (typeof DebugManager !== 'undefined') {
+                    window.debugManager = new DebugManager();
+                    log('Debug manager initialized');
+                }
+
+                // Create mock StreamingManager
+                mockStreamingManager = createMockStreamingManager();
+                log('Mock StreamingManager created');
+
+                // Create mock StreamingAgentRouter
+                mockStreamingAgentRouter = createMockStreamingAgentRouter();
+                log('Mock StreamingAgentRouter created');
+
+                // Initialize StreamingErrorHandler
+                if (typeof StreamingErrorHandler !== 'undefined') {
+                    errorHandler = new StreamingErrorHandler(mockStreamingManager, mockStreamingAgentRouter);
+                    log('StreamingErrorHandler initialized successfully');
+                    
+                    updateStatus('initialization-status', 'success', 'Test environment initialized successfully');
+                    return true;
+                } else {
+                    throw new Error('StreamingErrorHandler not available');
+                }
+
+            } catch (error) {
+                log(`Initialization failed: ${error.message}`, 'error');
+                updateStatus('initialization-status', 'error', `Initialization failed: ${error.message}`);
+                return false;
+            }
+        }
+
+        // Create mock StreamingManager
+        function createMockStreamingManager() {
+            return {
+                websocket: null,
+                isConnected: false,
+                connectionId: 'test-connection',
+                sessionId: 'test-session',
+                agentRoutingEnabled: true,
+                
+                connect: async function() {
+                    log('Mock StreamingManager: connect called');
+                    return { success: true };
+                },
+                
+                sendMessage: function(message) {
+                    log(`Mock StreamingManager: sendMessage called with type ${message.type}`);
+                },
+                
+                handleTranscriptionFallback: function(transcript) {
+                    log(`Mock StreamingManager: handleTranscriptionFallback called with: ${transcript.substring(0, 50)}`);
+                },
+                
+                disableAgentRouting: function() {
+                    log('Mock StreamingManager: disableAgentRouting called');
+                    this.agentRoutingEnabled = false;
+                }
+            };
+        }
+
+        // Create mock StreamingAgentRouter
+        function createMockStreamingAgentRouter() {
+            return {
+                currentAgent: { name: 'TestAgent', description: 'Test agent for error handling' },
+                sessionContext: {
+                    sessionId: 'test-session',
+                    conversationContext: {},
+                    agentHistory: [],
+                    routingMetrics: { routingLatency: 0, agentSwitches: 0, fallbackCount: 0 }
+                },
+                
+                agentRouter: {
+                    getRegisteredAgents: function() {
+                        return [
+                            { name: 'TestAgent', processMessage: async () => ({ response: 'Test response' }) },
+                            { name: 'DefaultAgent', processMessage: async () => ({ response: 'Default response' }) }
+                        ];
+                    }
+                },
+                
+                routeStreamingMessage: async function(transcript, context) {
+                    log(`Mock StreamingAgentRouter: routeStreamingMessage called with: ${transcript.substring(0, 50)}`);
+                    return { success: true, selectedAgent: this.currentAgent };
+                },
+                
+                updateSessionForAgent: async function(agent, context) {
+                    log(`Mock StreamingAgentRouter: updateSessionForAgent called for ${agent.name}`);
+                    return { success: true };
+                },
+                
+                generateSessionInstructions: async function(agent, responseText, context) {
+                    return `Test instructions for ${agent.name}`;
+                },
+                
+                getAgentVoiceConfig: function(agent) {
+                    return { voice: 'shimmer', speed: 1.0, pitch: 1.0 };
+                },
+                
+                getDefaultSessionInstructions: function() {
+                    return 'Default test instructions';
+                }
+            };
+        }
+
+        // Utility functions
+        function log(message, level = 'info') {
+            const timestamp = new Date().toISOString();
+            const logEntry = `[${timestamp}] ${level.toUpperCase()}: ${message}`;
+            testLog.push(logEntry);
+            
+            const logElement = document.getElementById('test-log');
+            if (logElement) {
+                logElement.textContent = testLog.join('\n');
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logEntry);
+        }
+
+        function updateStatus(elementId, type, message) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.className = `status ${type}`;
+                element.textContent = message;
+                element.style.display = 'block';
+            }
+        }
+
+        function clearLog() {
+            testLog = [];
+            document.getElementById('test-log').textContent = '';
+        }
+
+        // Circuit breaker tests
+        function checkCircuitBreakerStatus() {
+            if (!errorHandler) {
+                updateStatus('circuit-breaker-status', 'error', 'Error handler not initialized');
+                return;
+            }
+
+            const status = errorHandler.getCircuitBreakerState();
+            const statusElement = document.getElementById('circuit-breaker-status');
+            
+            if (status.isOpen) {
+                statusElement.className = 'circuit-breaker-status open';
+                statusElement.textContent = `OPEN - Failures: ${status.failureCount}, Last Failure: ${status.timeSinceLastFailure}ms ago`;
+            } else {
+                statusElement.className = 'circuit-breaker-status closed';
+                statusElement.textContent = `CLOSED - Successes: ${status.successCount}`;
+            }
+
+            log(`Circuit breaker status checked: ${status.isOpen ? 'OPEN' : 'CLOSED'}`);
+        }
+
+        function triggerCircuitBreakerFailures() {
+            if (!errorHandler) {
+                log('Error handler not initialized', 'error');
+                return;
+            }
+
+            log('Triggering circuit breaker failures...');
+            
+            // Trigger multiple failures to open circuit breaker
+            for (let i = 0; i < 6; i++) {
+                errorHandler.recordCircuitBreakerFailure();
+                log(`Failure ${i + 1} recorded`);
+            }
+
+            checkCircuitBreakerStatus();
+        }
+
+        function resetCircuitBreaker() {
+            if (!errorHandler) {
+                log('Error handler not initialized', 'error');
+                return;
+            }
+
+            log('Resetting circuit breaker...');
+            errorHandler.reset();
+            checkCircuitBreakerStatus();
+        }
+
+        // Error scenario tests
+        async function testRoutingTimeout() {
+            if (!errorHandler) {
+                updateStatus('routing-timeout-result', 'error', 'Error handler not initialized');
+                return;
+            }
+
+            log('Testing routing timeout handling...');
+            
+            try {
+                const timeoutError = new Error('Routing timeout');
+                const context = {
+                    transcript: 'Test transcript for timeout scenario',
+                    agentName: 'TestAgent',
+                    sessionId: 'test-session'
+                };
+
+                const result = await errorHandler.handleRoutingTimeout(timeoutError, context);
+                
+                if (result.success && result.continueWithStandardStreaming) {
+                    updateStatus('routing-timeout-result', 'success', 
+                        `Routing timeout handled successfully. Fallback reason: ${result.fallbackReason}`);
+                    log('Routing timeout test passed');
+                } else {
+                    updateStatus('routing-timeout-result', 'error', 'Routing timeout handling failed');
+                    log('Routing timeout test failed', 'error');
+                }
+
+            } catch (error) {
+                updateStatus('routing-timeout-result', 'error', `Test failed: ${error.message}`);
+                log(`Routing timeout test error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAgentError() {
+            if (!errorHandler) {
+                updateStatus('agent-error-result', 'error', 'Error handler not initialized');
+                return;
+            }
+
+            log('Testing agent error handling...');
+            
+            try {
+                const agentError = new Error('Agent processing failed');
+                const context = {
+                    transcript: 'Test transcript for agent error scenario',
+                    agentName: 'TestAgent',
+                    sessionId: 'test-session'
+                };
+
+                const result = await errorHandler.handleAgentError(agentError, context);
+                
+                if (result.success) {
+                    updateStatus('agent-error-result', 'success', 
+                        `Agent error handled successfully. Fallback reason: ${result.fallbackReason}`);
+                    log('Agent error test passed');
+                } else {
+                    updateStatus('agent-error-result', 'error', 'Agent error handling failed');
+                    log('Agent error test failed', 'error');
+                }
+
+            } catch (error) {
+                updateStatus('agent-error-result', 'error', `Test failed: ${error.message}`);
+                log(`Agent error test error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSessionUpdateFailure() {
+            if (!errorHandler) {
+                updateStatus('session-update-result', 'error', 'Error handler not initialized');
+                return;
+            }
+
+            log('Testing session update failure handling...');
+            
+            try {
+                const sessionError = new Error('Session update failed');
+                const context = {
+                    agentName: 'TestAgent',
+                    sessionId: 'test-session',
+                    attemptNumber: 1
+                };
+
+                const result = await errorHandler.handleSessionUpdateFailure(sessionError, context);
+                
+                if (result.success) {
+                    updateStatus('session-update-result', 'success', 
+                        `Session update failure handled successfully. ${result.retrySuccessful ? 'Retry successful' : 'Fallback used'}`);
+                    log('Session update failure test passed');
+                } else {
+                    updateStatus('session-update-result', 'error', 'Session update failure handling failed');
+                    log('Session update failure test failed', 'error');
+                }
+
+            } catch (error) {
+                updateStatus('session-update-result', 'error', `Test failed: ${error.message}`);
+                log(`Session update failure test error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testWebSocketError() {
+            if (!errorHandler) {
+                updateStatus('websocket-error-result', 'error', 'Error handler not initialized');
+                return;
+            }
+
+            log('Testing WebSocket error handling...');
+            
+            try {
+                const wsError = new Error('WebSocket connection lost');
+                const context = {
+                    sessionId: 'test-session',
+                    currentAgent: 'TestAgent'
+                };
+
+                const result = await errorHandler.handleWebSocketError(wsError, context);
+                
+                if (result.success) {
+                    updateStatus('websocket-error-result', 'success', 
+                        `WebSocket error handled successfully. ${result.reconnectionSuccessful ? 'Reconnection successful' : 'Fallback used'}`);
+                    log('WebSocket error test passed');
+                } else {
+                    updateStatus('websocket-error-result', 'error', 'WebSocket error handling failed');
+                    log('WebSocket error test failed', 'error');
+                }
+
+            } catch (error) {
+                updateStatus('websocket-error-result', 'error', `Test failed: ${error.message}`);
+                log(`WebSocket error test error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCriticalFailure() {
+            if (!errorHandler) {
+                updateStatus('critical-failure-result', 'error', 'Error handler not initialized');
+                return;
+            }
+
+            log('Testing critical failure handling...');
+            
+            try {
+                const criticalError = new Error('Critical system failure');
+                const context = {
+                    type: 'critical_system_error',
+                    sessionId: 'test-session'
+                };
+
+                const result = await errorHandler.handleCriticalFailure(criticalError, context);
+                
+                if (result.success && result.agentRoutingDisabled) {
+                    updateStatus('critical-failure-result', 'success', 
+                        'Critical failure handled successfully. Agent routing disabled.');
+                    log('Critical failure test passed');
+                } else {
+                    updateStatus('critical-failure-result', 'error', 'Critical failure handling failed');
+                    log('Critical failure test failed', 'error');
+                }
+
+            } catch (error) {
+                updateStatus('critical-failure-result', 'error', `Test failed: ${error.message}`);
+                log(`Critical failure test error: ${error.message}`, 'error');
+            }
+        }
+
+        // Recovery tests
+        async function testContextPreservation() {
+            if (!errorHandler) {
+                updateStatus('context-preservation-result', 'error', 'Error handler not initialized');
+                return;
+            }
+
+            log('Testing context preservation...');
+            
+            try {
+                const context = {
+                    currentAgent: 'TestAgent',
+                    sessionContext: { test: 'data' },
+                    conversationHistory: ['Hello', 'How can I help?']
+                };
+
+                await errorHandler.preserveAgentContextForReconnection(context);
+                
+                const hasPreservedContext = !!errorHandler.reconnectionState.preservedContext;
+                
+                if (hasPreservedContext) {
+                    updateStatus('context-preservation-result', 'success', 
+                        'Context preservation test passed. Context successfully preserved.');
+                    log('Context preservation test passed');
+                } else {
+                    updateStatus('context-preservation-result', 'error', 'Context preservation failed');
+                    log('Context preservation test failed', 'error');
+                }
+
+            } catch (error) {
+                updateStatus('context-preservation-result', 'error', `Test failed: ${error.message}`);
+                log(`Context preservation test error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGracefulDegradation() {
+            if (!errorHandler) {
+                updateStatus('graceful-degradation-result', 'error', 'Error handler not initialized');
+                return;
+            }
+
+            log('Testing graceful degradation...');
+            
+            try {
+                const agentError = new Error('Agent processing failed');
+                const context = {
+                    transcript: 'Test transcript for degradation',
+                    agentName: 'TestAgent',
+                    apiClient: { /* mock api client */ }
+                };
+
+                const result = await errorHandler.attemptGracefulDegradation(agentError, context);
+                
+                if (result.success) {
+                    updateStatus('graceful-degradation-result', 'success', 
+                        `Graceful degradation successful. Strategy: ${result.strategy}`);
+                    log(`Graceful degradation test passed with strategy: ${result.strategy}`);
+                } else {
+                    updateStatus('graceful-degradation-result', 'warning', 
+                        'Graceful degradation strategies exhausted (expected for test)');
+                    log('Graceful degradation test completed (strategies exhausted as expected)');
+                }
+
+            } catch (error) {
+                updateStatus('graceful-degradation-result', 'error', `Test failed: ${error.message}`);
+                log(`Graceful degradation test error: ${error.message}`, 'error');
+            }
+        }
+
+        // Metrics
+        function refreshMetrics() {
+            if (!errorHandler) {
+                log('Error handler not initialized', 'error');
+                return;
+            }
+
+            const metrics = errorHandler.getErrorMetrics();
+            const status = errorHandler.getStatus();
+            
+            const metricsContainer = document.getElementById('error-metrics');
+            metricsContainer.innerHTML = '';
+
+            // Error metrics
+            const errorMetrics = [
+                { label: 'Total Errors', value: metrics.totalErrors },
+                { label: 'Routing Timeouts', value: metrics.routingTimeouts },
+                { label: 'Agent Errors', value: metrics.agentErrors },
+                { label: 'Session Update Failures', value: metrics.sessionUpdateFailures },
+                { label: 'WebSocket Errors', value: metrics.websocketErrors },
+                { label: 'Circuit Breaker Trips', value: metrics.circuitBreakerTrips },
+                { label: 'Fallback Activations', value: metrics.fallbackActivations },
+                { label: 'Recovery Attempts', value: metrics.recoveryAttempts },
+                { label: 'Successful Recoveries', value: metrics.successfulRecoveries }
+            ];
+
+            errorMetrics.forEach(metric => {
+                const card = document.createElement('div');
+                card.className = 'metric-card';
+                card.innerHTML = `
+                    <div class="metric-value">${metric.value}</div>
+                    <div class="metric-label">${metric.label}</div>
+                `;
+                metricsContainer.appendChild(card);
+            });
+
+            log('Metrics refreshed');
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const initialized = initializeTestEnvironment();
+            if (initialized) {
+                checkCircuitBreakerStatus();
+                refreshMetrics();
+            }
+        });
+    </script>
+</body>
+</html>

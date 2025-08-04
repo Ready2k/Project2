@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamingResponseHandler Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .test-pass {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .test-fail {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .test-info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .chunk-display {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .voice-config {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .stats {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>StreamingResponseHandler Test Suite</h1>
+    
+    <div class="test-container">
+        <h2>Test Controls</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="testBasicProcessing()">Test Basic Processing</button>
+        <button onclick="testChunkingStrategies()">Test Chunking Strategies</button>
+        <button onclick="testVoiceConfiguration()">Test Voice Configuration</button>
+        <button onclick="testWebSocketFormatting()">Test WebSocket Formatting</button>
+        <button onclick="testErrorHandling()">Test Error Handling</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="test-results"></div>
+
+    <div class="stats" id="stats-display">
+        <h3>Processing Statistics</h3>
+        <div id="stats-content">No statistics available yet.</div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../streaming-response-handler.js"></script>
+
+    <script>
+        // Initialize debug manager for testing
+        if (!window.debugManager) {
+            window.debugManager = {
+                createModuleLogger: (module) => ({
+                    log: (msg, data) => console.log(`[${module}]`, msg, data),
+                    debug: (msg, data) => console.debug(`[${module}]`, msg, data),
+                    info: (msg, data) => console.info(`[${module}]`, msg, data),
+                    warn: (msg, data) => console.warn(`[${module}]`, msg, data),
+                    error: (msg, data) => console.error(`[${module}]`, msg, data)
+                })
+            };
+        }
+
+        // Mock StreamingManager for testing
+        const mockStreamingManager = {
+            websocket: {
+                readyState: WebSocket.OPEN
+            },
+            sendMessage: (message) => {
+                console.log('Mock WebSocket message sent:', message);
+            }
+        };
+
+        // Mock persona manager
+        window.currentPersona = {
+            name: 'Test Banking Assistant',
+            instructions: 'You are a helpful test banking assistant.'
+        };
+
+        let streamingResponseHandler;
+        let testResults = [];
+
+        function initializeHandler() {
+            try {
+                streamingResponseHandler = new StreamingResponseHandler(mockStreamingManager);
+                return true;
+            } catch (error) {
+                addTestResult('Initialization', false, `Failed to initialize: ${error.message}`);
+                return false;
+            }
+        }
+
+        function addTestResult(testName, passed, details = '') {
+            const result = {
+                name: testName,
+                passed: passed,
+                details: details,
+                timestamp: new Date().toISOString()
+            };
+            testResults.push(result);
+            displayTestResult(result);
+        }
+
+        function displayTestResult(result) {
+            const resultsDiv = document.getElementById('test-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${result.passed ? 'test-pass' : 'test-fail'}`;
+            
+            resultDiv.innerHTML = `
+                <h3>${result.name}</h3>
+                <p><strong>Status:</strong> ${result.passed ? 'PASS' : 'FAIL'}</p>
+                ${result.details ? `<p><strong>Details:</strong> ${result.details}</p>` : ''}
+                <p><strong>Time:</strong> ${result.timestamp}</p>
+            `;
+            
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+            testResults = [];
+        }
+
+        async function runAllTests() {
+            clearResults();
+            
+            if (!initializeHandler()) {
+                return;
+            }
+
+            addTestResult('Initialization', true, 'StreamingResponseHandler initialized successfully');
+
+            await testBasicProcessing();
+            await testChunkingStrategies();
+            await testVoiceConfiguration();
+            await testWebSocketFormatting();
+            await testErrorHandling();
+
+            updateStatsDisplay();
+            
+            const passedTests = testResults.filter(r => r.passed).length;
+            const totalTests = testResults.length;
+            
+            addTestResult('Test Suite Summary', passedTests === totalTests, 
+                `${passedTests}/${totalTests} tests passed`);
+        }
+
+        async function testBasicProcessing() {
+            if (!streamingResponseHandler) {
+                if (!initializeHandler()) return;
+            }
+
+            try {
+                // Test basic agent response processing
+                const mockAgentResponse = {
+                    success: true,
+                    response: "Hello! I'm here to help you with your banking needs. How can I assist you today?",
+                    agentName: 'BankingInfoAgent',
+                    metadata: {
+                        processingTime: 150,
+                        tokensUsed: 25,
+                        chunkingStrategy: 'sentence_based'
+                    }
+                };
+
+                const mockStreamingContext = {
+                    sessionId: 'test-session-123',
+                    voiceConfiguration: {
+                        currentVoice: 'alloy'
+                    }
+                };
+
+                const result = await streamingResponseHandler.processAgentResponse(
+                    mockAgentResponse, 
+                    mockStreamingContext
+                );
+
+                if (result.success) {
+                    addTestResult('Basic Processing', true, 
+                        `Processed response with ${result.chunks.length} chunks using ${result.chunkingStrategy} strategy`);
+                    
+                    // Display chunks
+                    const chunksDiv = document.createElement('div');
+                    chunksDiv.className = 'test-info';
+                    chunksDiv.innerHTML = `
+                        <h4>Generated Chunks:</h4>
+                        ${result.chunks.map((chunk, i) => 
+                            `<div class="chunk-display">
+                                <strong>Chunk ${i + 1}:</strong> "${chunk.text}"
+                                <br><small>Strategy: ${chunk.metadata.strategy}, Last: ${chunk.isLast}</small>
+                            </div>`
+                        ).join('')}
+                    `;
+                    document.getElementById('test-results').appendChild(chunksDiv);
+                } else {
+                    addTestResult('Basic Processing', false, `Processing failed: ${result.error}`);
+                }
+
+            } catch (error) {
+                addTestResult('Basic Processing', false, `Exception: ${error.message}`);
+            }
+        }
+
+        async function testChunkingStrategies() {
+            if (!streamingResponseHandler) {
+                if (!initializeHandler()) return;
+            }
+
+            const testText = "This is the first sentence. Here's a second sentence! And a third one? Finally, the last sentence.";
+            
+            try {
+                // Test sentence-based chunking
+                const sentenceChunks = streamingResponseHandler.chunkResponseForStreaming(testText, 'sentence_based');
+                addTestResult('Sentence Chunking', sentenceChunks.length > 0, 
+                    `Generated ${sentenceChunks.length} sentence-based chunks`);
+
+                // Test word-based chunking
+                const wordChunks = streamingResponseHandler.chunkResponseForStreaming(testText, 'word_based');
+                addTestResult('Word Chunking', wordChunks.length > 0, 
+                    `Generated ${wordChunks.length} word-based chunks`);
+
+                // Test character-based chunking
+                const charChunks = streamingResponseHandler.chunkResponseForStreaming(testText, 'character_based');
+                addTestResult('Character Chunking', charChunks.length > 0, 
+                    `Generated ${charChunks.length} character-based chunks`);
+
+                // Display chunking comparison
+                const comparisonDiv = document.createElement('div');
+                comparisonDiv.className = 'test-info';
+                comparisonDiv.innerHTML = `
+                    <h4>Chunking Strategy Comparison:</h4>
+                    <p><strong>Original:</strong> "${testText}"</p>
+                    <p><strong>Sentence-based (${sentenceChunks.length} chunks):</strong></p>
+                    ${sentenceChunks.map(chunk => `<div class="chunk-display">"${chunk.text}"</div>`).join('')}
+                    <p><strong>Word-based (${wordChunks.length} chunks):</strong></p>
+                    ${wordChunks.slice(0, 3).map(chunk => `<div class="chunk-display">"${chunk.text}"</div>`).join('')}
+                    ${wordChunks.length > 3 ? `<div class="chunk-display">... and ${wordChunks.length - 3} more chunks</div>` : ''}
+                `;
+                document.getElementById('test-results').appendChild(comparisonDiv);
+
+            } catch (error) {
+                addTestResult('Chunking Strategies', false, `Exception: ${error.message}`);
+            }
+        }
+
+        async function testVoiceConfiguration() {
+            if (!streamingResponseHandler) {
+                if (!initializeHandler()) return;
+            }
+
+            try {
+                const agents = ['FraudAgent', 'PaymentsAgent', 'IDVAgent', 'BankingInfoAgent', 'UnknownAgent'];
+                const voiceResults = [];
+
+                for (const agentName of agents) {
+                    const voiceConfig = streamingResponseHandler.configureAgentVoice(agentName, {
+                        voiceConfiguration: { currentVoice: 'shimmer' }
+                    });
+                    
+                    voiceResults.push({
+                        agent: agentName,
+                        voice: voiceConfig.voice,
+                        changeRequired: voiceConfig.voiceChangeRequired,
+                        source: voiceConfig.configurationSource
+                    });
+                }
+
+                addTestResult('Voice Configuration', true, 
+                    `Configured voices for ${agents.length} agents`);
+
+                // Display voice configurations
+                const voiceDiv = document.createElement('div');
+                voiceDiv.className = 'test-info';
+                voiceDiv.innerHTML = `
+                    <h4>Agent Voice Configurations:</h4>
+                    ${voiceResults.map(result => 
+                        `<div class="voice-config">
+                            <strong>${result.agent}:</strong> ${result.voice} 
+                            (Change required: ${result.changeRequired}, Source: ${result.source})
+                        </div>`
+                    ).join('')}
+                `;
+                document.getElementById('test-results').appendChild(voiceDiv);
+
+            } catch (error) {
+                addTestResult('Voice Configuration', false, `Exception: ${error.message}`);
+            }
+        }
+
+        async function testWebSocketFormatting() {
+            if (!streamingResponseHandler) {
+                if (!initializeHandler()) return;
+            }
+
+            try {
+                const mockProcessedResponse = {
+                    success: true,
+                    agentName: 'PaymentsAgent',
+                    originalResponse: 'I can help you with your payment.',
+                    chunks: [
+                        { text: 'I can help you', index: 0, isLast: false },
+                        { text: 'with your payment.', index: 1, isLast: true }
+                    ],
+                    chunkingStrategy: 'sentence_based',
+                    voiceConfig: {
+                        voice: 'echo',
+                        speed: 1.0,
+                        voiceChangeRequired: true
+                    },
+                    sessionInstructions: 'You are a payments specialist.',
+                    streamingMetadata: {
+                        processingTime: 120,
+                        chunkCount: 2
+                    }
+                };
+
+                // Test different message types
+                const sessionUpdate = streamingResponseHandler.formatForWebSocket(mockProcessedResponse, 'session.update');
+                const agentResponse = streamingResponseHandler.formatForWebSocket(mockProcessedResponse, 'agent_response');
+                const voiceChange = streamingResponseHandler.formatForWebSocket(mockProcessedResponse, 'voice_change');
+
+                const allFormatted = sessionUpdate.type === 'session.update' && 
+                                  agentResponse.type === 'agent_response' && 
+                                  voiceChange.type === 'voice_change';
+
+                addTestResult('WebSocket Formatting', allFormatted, 
+                    'Successfully formatted session.update, agent_response, and voice_change messages');
+
+                // Display formatted messages
+                const formatDiv = document.createElement('div');
+                formatDiv.className = 'test-info';
+                formatDiv.innerHTML = `
+                    <h4>WebSocket Message Formats:</h4>
+                    <div class="chunk-display">
+                        <strong>Session Update:</strong>
+                        <pre>${JSON.stringify(sessionUpdate, null, 2)}</pre>
+                    </div>
+                    <div class="chunk-display">
+                        <strong>Agent Response:</strong>
+                        <pre>${JSON.stringify(agentResponse, null, 2)}</pre>
+                    </div>
+                `;
+                document.getElementById('test-results').appendChild(formatDiv);
+
+            } catch (error) {
+                addTestResult('WebSocket Formatting', false, `Exception: ${error.message}`);
+            }
+        }
+
+        async function testErrorHandling() {
+            if (!streamingResponseHandler) {
+                if (!initializeHandler()) return;
+            }
+
+            try {
+                // Test with invalid agent response (null)
+                const invalidResponse = await streamingResponseHandler.processAgentResponse(null, {});
+                const handlesNull = !invalidResponse.success && invalidResponse.error && invalidResponse.agentName;
+
+                // Test with empty response
+                const emptyResponse = await streamingResponseHandler.processAgentResponse({ response: '' }, {});
+                const handlesEmpty = emptyResponse.success && Array.isArray(emptyResponse.chunks);
+
+                // Test chunking with invalid input
+                const invalidChunks = streamingResponseHandler.chunkResponseForStreaming(null, 'sentence_based');
+                const handlesInvalidChunking = Array.isArray(invalidChunks) && invalidChunks.length > 0 && invalidChunks[0].text === '';
+
+                const allErrorsHandled = handlesNull && handlesEmpty && handlesInvalidChunking;
+
+                addTestResult('Error Handling', allErrorsHandled, 
+                    `Null response: ${handlesNull}, Empty response: ${handlesEmpty}, Invalid chunking: ${handlesInvalidChunking}`);
+
+                // Display error handling details
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'test-info';
+                errorDiv.innerHTML = `
+                    <h4>Error Handling Details:</h4>
+                    <div class="chunk-display">
+                        <strong>Null Response:</strong> ${JSON.stringify(invalidResponse, null, 2)}
+                    </div>
+                    <div class="chunk-display">
+                        <strong>Empty Response:</strong> ${JSON.stringify(emptyResponse, null, 2)}
+                    </div>
+                    <div class="chunk-display">
+                        <strong>Invalid Chunking:</strong> ${JSON.stringify(invalidChunks, null, 2)}
+                    </div>
+                `;
+                document.getElementById('test-results').appendChild(errorDiv);
+
+            } catch (error) {
+                addTestResult('Error Handling', false, `Exception: ${error.message}`);
+            }
+        }
+
+        function updateStatsDisplay() {
+            if (!streamingResponseHandler) return;
+
+            try {
+                const stats = streamingResponseHandler.getProcessingStats();
+                document.getElementById('stats-content').innerHTML = `
+                    <p><strong>Total Responses Processed:</strong> ${stats.totalResponses}</p>
+                    <p><strong>Average Processing Time:</strong> ${stats.averageProcessingTime.toFixed(2)}ms</p>
+                    <p><strong>Supported Strategies:</strong> ${stats.supportedStrategies.join(', ')}</p>
+                    <p><strong>Supported Voices:</strong> ${stats.supportedVoices.join(', ')}</p>
+                    <p><strong>Chunking Usage:</strong></p>
+                    <ul>
+                        <li>Sentence-based: ${stats.chunkingStats.sentence_based}</li>
+                        <li>Word-based: ${stats.chunkingStats.word_based}</li>
+                        <li>Character-based: ${stats.chunkingStats.character_based}</li>
+                    </ul>
+                `;
+            } catch (error) {
+                document.getElementById('stats-content').innerHTML = `Error getting stats: ${error.message}`;
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            console.log('StreamingResponseHandler test page loaded');
+            updateStatsDisplay();
+        });
+    </script>
+</body>
+</html>

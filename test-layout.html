@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layout Test</title>
+    <link rel="stylesheet" href="main-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Voice Controls Layout Test</h1>
+        <p>Testing the new 3-row layout with vertical stacking within each row</p>
+        
+        <!-- Voice Controls with new layout -->
+        <div class="voice-controls">
+            <!-- Row 1: Mode Toggle, Status, and Audio Level -->
+            <div class="control-row-1">
+                <div class="mode-toggle-section">
+                    <div class="mode-toggle">
+                        <input type="checkbox" id="streamingMode" class="mode-checkbox">
+                        <label for="streamingMode" class="toggle-label">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Streaming Mode</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="status-section">
+                    <div id="status" class="status-text">Ready to listen</div>
+                    <div id="recordingQuality" class="quality-indicator">
+                        <i class="fas fa-circle"></i>
+                        Not Recording
+                    </div>
+                </div>
+                
+                <div class="audio-level-section">
+                    <span class="level-label">Audio Level:</span>
+                    <div class="level-bar">
+                        <div id="audioLevel" class="level-fill" style="width: 25%;"></div>
+                    </div>
+                    <span id="audioLevelText">25%</span>
+                </div>
+            </div>
+
+            <!-- Row 2: Control Buttons -->
+            <div class="control-row-2">
+                <!-- Batch Mode Controls -->
+                <div id="batchControls" class="control-group hidden">
+                    <button id="startBtn" class="primary-btn">
+                        <i class="fas fa-microphone"></i>
+                        <span>Start Speaking</span>
+                    </button>
+                    <button id="stopBtn" class="secondary-btn" disabled>
+                        <i class="fas fa-stop"></i>
+                        <span>Stop</span>
+                    </button>
+                    <button id="batchMuteBtn" class="mute-btn" disabled>
+                        <i class="fas fa-microphone-slash"></i>
+                        <span>Mute</span>
+                    </button>
+                    <button id="clearConversationBtn" class="clear-btn">
+                        <i class="fas fa-trash"></i>
+                        <span>Clear Chat</span>
+                    </button>
+                </div>
+
+                <!-- Streaming Mode Controls -->
+                <div id="streamingControls" class="control-group">
+                    <button id="connectBtn" class="primary-btn">
+                        <i class="fas fa-phone"></i>
+                        <span>Connect</span>
+                    </button>
+                    <button id="muteBtn" class="mute-btn" disabled>
+                        <i class="fas fa-microphone-slash"></i>
+                        <span>Mute</span>
+                    </button>
+                    <button id="disconnectBtn" class="secondary-btn" disabled>
+                        <i class="fas fa-phone-slash"></i>
+                        <span>Disconnect</span>
+                    </button>
+                    <button class="clear-btn">
+                        <i class="fas fa-trash"></i>
+                        <span>Clear Chat</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Row 3: Additional Information -->
+            <div class="control-row-3">
+                <div class="connection-status">
+                    <span id="connectionStatus" class="status-badge disconnected">
+                        <i class="fas fa-circle"></i>
+                        Disconnected
+                    </span>
+                </div>
+                
+                <div class="agent-indicator">
+                    <span class="agent-label">Active Agent:</span>
+                    <span id="currentAgent" class="agent-name">Default Agent</span>
+                    <div id="agentSwitchingIndicator" class="agent-switching-indicator hidden">
+                        <i class="fas fa-sync fa-spin"></i>
+                        <span>Switching...</span>
+                    </div>
+                </div>
+                
+                <div class="streaming-agent-status" id="streamingAgentStatus">
+                    <div class="streaming-agent-info">
+                        <span class="streaming-agent-label">Streaming Agent:</span>
+                        <span id="streamingCurrentAgent" class="streaming-agent-name">Default Agent</span>
+                        <span id="streamingAgentType" class="streaming-agent-type">General</span>
+                    </div>
+                    <div class="streaming-routing-status">
+                        <span id="routingStatus" class="routing-status-badge enabled">
+                            <i class="fas fa-route"></i>
+                            Routing Enabled
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode Description (shown below everything) -->
+            <div class="mode-description">
+                <span id="modeDescription">Streaming Mode: Real-time conversation like a phone call</span>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px;">
+            <h3>Layout Test Controls</h3>
+            <button onclick="toggleMode()" style="padding: 10px 20px; margin: 5px;">Toggle Mode</button>
+            <button onclick="toggleConnection()" style="padding: 10px 20px; margin: 5px;">Toggle Connection</button>
+            <button onclick="updateAudioLevel()" style="padding: 10px 20px; margin: 5px;">Update Audio Level</button>
+        </div>
+    </div>
+
+    <script>
+        let isStreaming = true;
+        let isConnected = false;
+        let audioLevel = 25;
+
+        function toggleMode() {
+            isStreaming = !isStreaming;
+            const streamingMode = document.getElementById('streamingMode');
+            const batchControls = document.getElementById('batchControls');
+            const streamingControls = document.getElementById('streamingControls');
+            const modeDescription = document.getElementById('modeDescription');
+
+            streamingMode.checked = isStreaming;
+            
+            if (isStreaming) {
+                batchControls.classList.add('hidden');
+                streamingControls.classList.remove('hidden');
+                modeDescription.textContent = 'Streaming Mode: Real-time conversation like a phone call';
+            } else {
+                batchControls.classList.remove('hidden');
+                streamingControls.classList.add('hidden');
+                modeDescription.textContent = 'Batch Mode: Click to record, then process';
+            }
+        }
+
+        function toggleConnection() {
+            isConnected = !isConnected;
+            const connectionStatus = document.getElementById('connectionStatus');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const muteBtn = document.getElementById('muteBtn');
+
+            if (isConnected) {
+                connectionStatus.className = 'status-badge connected';
+                connectionStatus.innerHTML = '<i class="fas fa-circle"></i> Connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                muteBtn.disabled = false;
+            } else {
+                connectionStatus.className = 'status-badge disconnected';
+                connectionStatus.innerHTML = '<i class="fas fa-circle"></i> Disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                muteBtn.disabled = true;
+            }
+        }
+
+        function updateAudioLevel() {
+            audioLevel = Math.floor(Math.random() * 100);
+            document.getElementById('audioLevel').style.width = audioLevel + '%';
+            document.getElementById('audioLevelText').textContent = audioLevel + '%';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Layout test page loaded');
+        });
+    </script>
+</body>
+</html>

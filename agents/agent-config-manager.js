@@ -13,7 +13,7 @@ class AgentConfigManager {
             'PaymentsAgent': 'config/agents/payments-agent-config.json',
             'FraudAgent': 'config/agents/fraud-agent-config.json',
             'IDVAgent': 'config/agents/idv-agent-config.json',
-            'BankingInfoAgent': 'config/agents/banking-info-agent-config.json'
+            'BankingInfoAgent': 'config/agents/bankinginfo-agent-config.json'
         };
         
         // Default configuration template for new agents

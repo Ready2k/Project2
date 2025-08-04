@@ -298,6 +298,224 @@ body {
     color: #667eea;
 }
 
+/* Streaming Agent UI Enhancements */
+.agent-switching-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 10px;
+    padding: 4px 8px;
+    background: #fff3cd;
+    color: #856404;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    animation: pulse 1.5s infinite;
+}
+
+.agent-switching-indicator.hidden {
+    display: none;
+}
+
+.streaming-agent-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    margin: 8px 0;
+}
+
+.streaming-agent-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.streaming-agent-label {
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.streaming-agent-name {
+    padding: 4px 12px;
+    background: #e9ecef;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.streaming-agent-type {
+    padding: 2px 8px;
+    background: #d1ecf1;
+    color: #0c5460;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.routing-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.routing-status-badge.enabled {
+    background: #d4edda;
+    color: #155724;
+}
+
+.routing-status-badge.disabled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.routing-status-badge.processing {
+    background: #fff3cd;
+    color: #856404;
+    animation: pulse 1s infinite;
+}
+
+/* Agent-specific streaming styles */
+.streaming-agent-name.agent-bankinginfoagent {
+    background: linear-gradient(135deg, #2c5aa0, #4a90e2);
+    color: white;
+}
+
+.streaming-agent-name.agent-fraudagent {
+    background: linear-gradient(135deg, #dc3545, #e74c3c);
+    color: white;
+}
+
+.streaming-agent-name.agent-idvagent {
+    background: linear-gradient(135deg, #28a745, #2ecc71);
+    color: white;
+}
+
+.streaming-agent-name.agent-paymentsagent {
+    background: linear-gradient(135deg, #17a2b8, #3498db);
+    color: white;
+}
+
+.streaming-agent-name.agent-defaultagent {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+}
+
+/* Streaming debug panel styles */
+.streaming-debug .debug-section {
+    margin-bottom: 15px;
+}
+
+.streaming-debug .debug-section h5 {
+    font-size: 13px;
+    color: #495057;
+    margin-bottom: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.streaming-debug .debug-output {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #495057;
+    max-height: 120px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.streaming-debug-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* Animation for smooth transitions */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-10px); }
+}
+
+.streaming-agent-status {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.streaming-agent-status.hidden {
+    animation: fadeOut 0.3s ease-in-out;
+}
+
+/* Enhanced visual feedback for agent types */
+.streaming-agent-type.security {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.streaming-agent-type.payments {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.streaming-agent-type.verification {
+    background: #d4edda;
+    color: #155724;
+}
+
+.streaming-agent-type.information {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.streaming-agent-type.general {
+    background: #e2e3e5;
+    color: #383d41;
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 768px) {
+    .streaming-agent-status {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .streaming-agent-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .streaming-debug .debug-output {
+        font-size: 11px;
+        max-height: 100px;
+    }
+}
+
 /* Voice Controls */
 .voice-controls {
     background: #f8f9fa;
@@ -306,22 +524,28 @@ body {
     border: 1px solid #e9ecef;
 }
 
-/* Mode Selector */
-.mode-selector {
-    text-align: center;
-    margin-bottom: 25px;
+/* Row 1: Mode Toggle, Status, and Audio Level - Stacked Vertically */
+.control-row-1 {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 15px;
+    margin-bottom: 20px;
     padding: 20px;
     background: white;
     border-radius: 10px;
     border: 1px solid #e9ecef;
 }
 
+.mode-toggle-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
 .mode-toggle {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 15px;
-    margin-bottom: 10px;
+    gap: 12px;
 }
 
 .mode-checkbox {
@@ -367,29 +591,185 @@ body {
     transform: translateX(30px);
 }
 
-.mode-description {
-    font-size: 13px;
-    color: #6c757d;
-    font-style: italic;
+.status-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
 }
 
-/* Control Buttons */
-.control-buttons {
+.status-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.quality-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.audio-level-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+}
+
+.level-label {
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.level-bar {
+    width: 80px;
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.level-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
+    width: 0%;
+    transition: width 0.1s ease;
+}
+
+#audioLevelText {
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: 500;
+    min-width: 30px;
+}
+
+/* Row 2: Control Buttons */
+.control-row-2 {
     display: flex;
     justify-content: center;
-    gap: 15px;
-    margin-bottom: 25px;
-    flex-wrap: wrap;
+    margin-bottom: 20px;
 }
 
 .control-group {
     display: flex;
     gap: 15px;
     flex-wrap: wrap;
+    justify-content: center;
 }
 
 .control-group.hidden {
     display: none;
+}
+
+/* Row 3: Additional Information - Stacked Vertically */
+.control-row-3 {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 15px;
+    margin-bottom: 15px;
+    padding: 15px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+}
+
+.connection-status, .agent-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.streaming-agent-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.streaming-agent-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.streaming-routing-status {
+    margin-top: 5px;
+}
+
+.routing-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.routing-status-badge.enabled {
+    background: #d4edda;
+    color: #155724;
+}
+
+.routing-status-badge.disabled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.routing-status-badge.processing {
+    background: #fff3cd;
+    color: #856404;
+    animation: pulse 1s infinite;
+}
+
+.streaming-agent-name, .streaming-agent-type {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.streaming-agent-name {
+    color: #495057;
+}
+
+.streaming-agent-type {
+    color: #6c757d;
+    font-style: italic;
+}
+
+.agent-switching-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #856404;
+    background: #fff3cd;
+    padding: 4px 8px;
+    border-radius: 12px;
+    margin-top: 4px;
+}
+
+.agent-switching-indicator.hidden {
+    display: none;
+}
+
+/* Mode Description */
+.mode-description {
+    text-align: center;
+    font-size: 13px;
+    color: #6c757d;
+    font-style: italic;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
 }
 
 /* Button Styles */
@@ -465,7 +845,7 @@ button:disabled {
     box-shadow: none !important;
 }
 
-/* Status Indicators */
+/* Status Indicators (Legacy - keeping for compatibility) */
 .status-indicators {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -477,7 +857,7 @@ button:disabled {
     border: 1px solid #e9ecef;
 }
 
-.connection-status, .agent-indicator, .audio-level {
+.audio-level {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -547,31 +927,7 @@ button:disabled {
     transition: width 0.1s ease;
 }
 
-/* Main Status */
-.main-status {
-    text-align: center;
-    padding: 15px;
-    background: white;
-    border-radius: 10px;
-    border: 1px solid #e9ecef;
-}
-
-.status-text {
-    font-size: 16px;
-    font-weight: 500;
-    color: #495057;
-    margin-bottom: 8px;
-}
-
-.quality-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 500;
-}
+/* Main Status - Now integrated into control-row-1 */
 
 .quality-indicator.not-recording {
     background: #f8d7da;
@@ -982,7 +1338,7 @@ button:disabled {
         right: -100%;
     }
     
-    .control-buttons {
+    .control-row-2 {
         flex-direction: column;
         align-items: center;
     }

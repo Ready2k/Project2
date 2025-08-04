@@ -71,7 +71,7 @@ The system now correctly loads from these existing files:
 - `config/agents/payments-agent-config.json`
 - `config/agents/fraud-agent-config.json`
 - `config/agents/idv-agent-config.json`
-- `config/agents/banking-info-agent-config.json`
+- `config/agents/bankinginfo-agent-config.json`
 
 ## Key Benefits
 1. **Dynamic Loading** - System prompts are now loaded from actual config files

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .console {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 500px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Streaming Agent Configuration - Simple Integration Test</h1>
+        <p>This page tests the basic integration of the streaming agent configuration system.</p>
+        
+        <div id="status" class="status">Loading...</div>
+        
+        <div>
+            <button class="button" onclick="runVerification()">Run Verification</button>
+            <button class="button" onclick="testConfiguration()">Test Configuration</button>
+            <button class="button" onclick="clearConsole()">Clear Console</button>
+        </div>
+        
+        <div id="console" class="console">Console output will appear here...</div>
+    </div>
+
+    <!-- Mock settings panel for testing -->
+    <div id="settingsPanel" style="display: none;">
+        <div class="panel-content"></div>
+    </div>
+
+    <!-- Include required scripts -->
+    <script src="streaming-agent-config.js"></script>
+    <script src="verify-config-integration.js"></script>
+
+    <script>
+        const consoleDiv = document.getElementById('console');
+        const statusDiv = document.getElementById('status');
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        function updateConsole(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '[ERROR]' : '[LOG]';
+            consoleDiv.textContent += `${prefix} ${timestamp} ${message}\n`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            updateConsole(message, 'log');
+            originalLog.apply(console, args);
+        };
+        
+        console.error = function(...args) {
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            updateConsole(message, 'error');
+            originalError.apply(console, args);
+        };
+        
+        function clearConsole() {
+            consoleDiv.textContent = '';
+        }
+        
+        function runVerification() {
+            clearConsole();
+            console.log('Starting verification...');
+            
+            if (typeof verifyConfigurationIntegration === 'function') {
+                const results = verifyConfigurationIntegration();
+                
+                setTimeout(() => {
+                    const passed = Object.values(results).filter(Boolean).length;
+                    const total = Object.keys(results).length;
+                    
+                    if (passed === total) {
+                        statusDiv.className = 'status success';
+                        statusDiv.textContent = `✅ All ${total} tests passed!`;
+                    } else {
+                        statusDiv.className = 'status error';
+                        statusDiv.textContent = `⚠️ ${passed}/${total} tests passed`;
+                    }
+                }, 1000);
+            } else {
+                console.error('Verification function not available');
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Verification function not available';
+            }
+        }
+        
+        function testConfiguration() {
+            clearConsole();
+            console.log('Testing configuration functionality...');
+            
+            try {
+                if (typeof StreamingAgentConfig !== 'undefined') {
+                    const config = new StreamingAgentConfig();
+                    
+                    // Test basic functionality
+                    console.log('Current configuration:', config.getConfiguration());
+                    console.log('Agent priorities:', config.getAgentPriorities());
+                    console.log('Agent voices:', config.getAgentVoices());
+                    
+                    // Test configuration changes
+                    const originalEnabled = config.config.enabled;
+                    config.config.enabled = !originalEnabled;
+                    console.log('Changed enabled state to:', config.config.enabled);
+                    
+                    // Test validation
+                    const validation = config.validateConfiguration();
+                    console.log('Validation result:', validation);
+                    
+                    // Restore original state
+                    config.config.enabled = originalEnabled;
+                    
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✅ Configuration test completed successfully';
+                    
+                } else {
+                    throw new Error('StreamingAgentConfig not available');
+                }
+            } catch (error) {
+                console.error('Configuration test failed:', error);
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Configuration test failed: ' + error.message;
+            }
+        }
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            clearConsole();
+            console.log('Simple integration test page loaded');
+            
+            // Check if configuration is available
+            if (typeof StreamingAgentConfig !== 'undefined') {
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ StreamingAgentConfig loaded successfully';
+                console.log('StreamingAgentConfig is available');
+            } else {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ StreamingAgentConfig not loaded';
+                console.error('StreamingAgentConfig is not available');
+            }
+        });
+    </script>
+</body>
+</html>

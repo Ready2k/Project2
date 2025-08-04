@@ -15,7 +15,8 @@ class ComponentInitializer {
         
         // Optional components that may or may not be instantiated
         this.optionalComponents = [
-            'streamingManager' // This is instantiated by the main app, not always available
+            'streamingManager', // This is instantiated by the main app, not always available
+            'streamingAgentRoutingInitializer' // Streaming agent routing system
         ];
         
         this.debug = console;
@@ -174,6 +175,9 @@ class ComponentInitializer {
             if (success) {
                 this.debug.log('✅ Component initialization completed successfully');
                 
+                // Initialize streaming agent routing if available
+                await this.initializeStreamingAgentRouting();
+                
                 // Log component status
                 const status = this.getComponentStatus();
                 this.debug.log('📊 Component Status:', status);
@@ -188,6 +192,119 @@ class ComponentInitializer {
             this.debug.error('❌ Component initialization failed:', error);
             return false;
         }
+    }
+
+    /**
+     * Initialize streaming agent routing system
+     */
+    async initializeStreamingAgentRouting() {
+        try {
+            if (!window.streamingAgentRoutingInitializer) {
+                this.debug.warn('⚠️ Streaming agent routing initializer not available');
+                return false;
+            }
+
+            // Check if we have the required dependencies
+            const dependencies = {
+                streamingManager: this.getStreamingManager(),
+                agentRouter: this.getAgentRouter(),
+                conversationContextManager: this.getConversationContextManager(),
+                debugManager: window.debugManager,
+                systemLogger: window.systemLogger
+            };
+
+            // Debug dependency availability
+            this.debug.log('🔍 Checking streaming agent routing dependencies:', {
+                streamingManager: !!dependencies.streamingManager,
+                agentRouter: !!dependencies.agentRouter,
+                conversationContextManager: !!dependencies.conversationContextManager,
+                debugManager: !!dependencies.debugManager,
+                systemLogger: !!dependencies.systemLogger,
+                speechApp: !!window.speechApp,
+                speechAppAgentRouter: !!(window.speechApp && window.speechApp.agentRouter)
+            });
+
+            // Only initialize if we have the core dependencies
+            if (!dependencies.streamingManager || !dependencies.agentRouter) {
+                this.debug.log('📝 Streaming agent routing dependencies not available, skipping initialization', {
+                    missingStreamingManager: !dependencies.streamingManager,
+                    missingAgentRouter: !dependencies.agentRouter,
+                    note: 'This is normal if the main application has not fully loaded yet'
+                });
+                return false;
+            }
+
+            this.debug.log('🔄 Initializing streaming agent routing system...');
+
+            const config = {
+                agentRoutingEnabled: true,
+                routingLatencyThreshold: 100,
+                maxRoutingTimeout: 200,
+                circuitBreakerThreshold: 5,
+                sessionUpdateRetries: 3,
+                performanceOptimizationEnabled: true,
+                healthCheckInterval: 15000
+            };
+
+            const result = await window.streamingAgentRoutingInitializer.initialize(config, dependencies);
+
+            if (result.success) {
+                this.debug.log('✅ Streaming agent routing initialized successfully', {
+                    initializationTime: result.initializationTime,
+                    componentsInitialized: result.componentsInitialized
+                });
+                return true;
+            } else {
+                this.debug.warn('⚠️ Streaming agent routing initialization failed', {
+                    error: result.error,
+                    note: 'This may be normal if dependencies are not fully ready'
+                });
+                return false;
+            }
+
+        } catch (error) {
+            this.debug.error('❌ Streaming agent routing initialization error:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Get streaming manager instance
+     */
+    getStreamingManager() {
+        if (window.streamingManager) {
+            return window.streamingManager;
+        }
+        if (window.speechApp && window.speechApp.streamingManager) {
+            return window.speechApp.streamingManager;
+        }
+        return null;
+    }
+
+    /**
+     * Get agent router instance
+     */
+    getAgentRouter() {
+        if (window.speechApp && window.speechApp.agentRouter) {
+            return window.speechApp.agentRouter;
+        }
+        if (window.agentRouter) {
+            return window.agentRouter;
+        }
+        return null;
+    }
+
+    /**
+     * Get conversation context manager instance
+     */
+    getConversationContextManager() {
+        if (window.speechApp && window.speechApp.conversationContextManager) {
+            return window.speechApp.conversationContextManager;
+        }
+        if (window.conversationContextManager) {
+            return window.conversationContextManager;
+        }
+        return null;
     }
 
     /**
@@ -267,6 +384,94 @@ class ComponentInitializer {
         return localStorage.getItem('debugMode') === 'true' || 
                new URLSearchParams(window.location.search).get('debug') === 'true';
     }
+
+    /**
+     * Cleanup all initialized components
+     */
+    async cleanup() {
+        try {
+            this.debug.log('🧹 Starting component cleanup...');
+
+            // Cleanup streaming agent routing first
+            if (window.streamingAgentRoutingInitializer) {
+                const routingCleanup = await window.streamingAgentRoutingInitializer.cleanup();
+                if (routingCleanup.success) {
+                    this.debug.log('✅ Streaming agent routing cleaned up successfully');
+                } else {
+                    this.debug.warn('⚠️ Streaming agent routing cleanup failed:', routingCleanup.error);
+                }
+            }
+
+            // Reset component state
+            this.componentsReady = false;
+            this.initializationPromise = null;
+
+            this.debug.log('✅ Component cleanup completed');
+            return true;
+
+        } catch (error) {
+            this.debug.error('❌ Component cleanup failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Get health status of all components
+     */
+    async getHealthStatus() {
+        try {
+            const status = {
+                overall: 'healthy',
+                components: {},
+                timestamp: Date.now()
+            };
+
+            // Check streaming agent routing health
+            if (window.streamingAgentRoutingInitializer) {
+                const routingStatus = window.streamingAgentRoutingInitializer.getStatus();
+                status.components.streamingAgentRouting = {
+                    initialized: routingStatus.isInitialized,
+                    health: routingStatus.healthStatus,
+                    componentCount: routingStatus.components.length,
+                    lastHealthCheck: routingStatus.lastHealthCheck
+                };
+
+                if (routingStatus.healthStatus === 'unhealthy') {
+                    status.overall = 'unhealthy';
+                } else if (routingStatus.healthStatus === 'degraded' && status.overall === 'healthy') {
+                    status.overall = 'degraded';
+                }
+            }
+
+            // Check other components
+            const componentStatus = this.getComponentStatus();
+            for (const [componentName, componentInfo] of Object.entries(componentStatus)) {
+                status.components[componentName] = {
+                    available: componentInfo.available,
+                    initialized: componentInfo.initialized,
+                    health: componentInfo.available && componentInfo.initialized ? 'healthy' : 'unhealthy'
+                };
+
+                if (!componentInfo.available || !componentInfo.initialized) {
+                    if (componentInfo.required) {
+                        status.overall = 'unhealthy';
+                    } else if (status.overall === 'healthy') {
+                        status.overall = 'degraded';
+                    }
+                }
+            }
+
+            return status;
+
+        } catch (error) {
+            this.debug.error('Health status check failed:', error);
+            return {
+                overall: 'unhealthy',
+                error: error.message,
+                timestamp: Date.now()
+            };
+        }
+    }
 }
 
 // Initialize global component initializer
@@ -293,6 +498,8 @@ window.initializeComponents = () => window.componentInitializer.initializeCompon
 window.runSafeTests = () => window.componentInitializer.runSafeTests();
 window.getComponentStatus = () => window.componentInitializer.getComponentStatus();
 window.getStreamingManagerInfo = () => window.componentInitializer.getStreamingManagerInfo();
+window.cleanupComponents = () => window.componentInitializer.cleanup();
+window.getComponentHealthStatus = () => window.componentInitializer.getHealthStatus();
 
 // Helper function to check if we're in a test environment
 window.isTestEnvironment = () => {
@@ -300,3 +507,48 @@ window.isTestEnvironment = () => {
            window.location.search.includes('test=true') ||
            localStorage.getItem('testMode') === 'true';
 };
+
+// Page lifecycle event handlers for proper cleanup
+window.addEventListener('beforeunload', async (event) => {
+    // Attempt graceful cleanup before page unload
+    if (window.streamingAgentRoutingInitializer) {
+        // Don't wait for cleanup to complete as the page is unloading
+        window.streamingAgentRoutingInitializer.gracefulShutdown(2000).catch(() => {
+            // Ignore errors during shutdown
+        });
+    }
+});
+
+window.addEventListener('pagehide', async (event) => {
+    // Cleanup when page is hidden (mobile browsers)
+    if (window.componentInitializer) {
+        window.componentInitializer.cleanup().catch(() => {
+            // Ignore errors during cleanup
+        });
+    }
+});
+
+// Visibility change handler for resource management
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+        // Page is hidden, consider pausing non-essential operations
+        if (window.streamingAgentRoutingInitializer) {
+            const status = window.streamingAgentRoutingInitializer.getStatus();
+            if (status.isInitialized) {
+                // Log that page is hidden for debugging
+                console.log('Page hidden, streaming agent routing still active');
+            }
+        }
+    } else if (document.visibilityState === 'visible') {
+        // Page is visible again, resume operations if needed
+        if (window.streamingAgentRoutingInitializer) {
+            const status = window.streamingAgentRoutingInitializer.getStatus();
+            if (status.isInitialized) {
+                // Perform health check after page becomes visible
+                window.streamingAgentRoutingInitializer.performHealthCheck().catch(() => {
+                    // Ignore errors during health check
+                });
+            }
+        }
+    }
+});

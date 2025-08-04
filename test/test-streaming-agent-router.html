@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamingAgentRouter Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-output {
+            background: #1e1e1e;
+            color: #ffffff;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196F3; }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>StreamingAgentRouter Test Suite</h1>
+        <p>This test suite validates the core functionality of the StreamingAgentRouter class.</p>
+        
+        <div>
+            <button onclick="runTests()">Run All Tests</button>
+            <button onclick="clearOutput()">Clear Output</button>
+        </div>
+        
+        <div id="status" class="status" style="display: none;"></div>
+        
+        <h3>Test Output:</h3>
+        <div id="output" class="test-output">
+            Click "Run All Tests" to start testing...
+        </div>
+    </div>
+
+    <!-- Load the StreamingAgentRouter class -->
+    <script src="../streaming-agent-router.js"></script>
+    
+    <script>
+        // Override console methods to capture output
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn,
+            info: console.info
+        };
+
+        let testOutput = '';
+
+        function captureConsole() {
+            console.log = (...args) => {
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                ).join(' ');
+                testOutput += message + '\n';
+                originalConsole.log(...args);
+                updateOutput();
+            };
+
+            console.error = (...args) => {
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                ).join(' ');
+                testOutput += '❌ ERROR: ' + message + '\n';
+                originalConsole.error(...args);
+                updateOutput();
+            };
+
+            console.warn = (...args) => {
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                ).join(' ');
+                testOutput += '⚠️ WARN: ' + message + '\n';
+                originalConsole.warn(...args);
+                updateOutput();
+            };
+
+            console.info = (...args) => {
+                const message = args.map(arg => 
+                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+                ).join(' ');
+                testOutput += 'ℹ️ INFO: ' + message + '\n';
+                originalConsole.info(...args);
+                updateOutput();
+            };
+        }
+
+        function restoreConsole() {
+            console.log = originalConsole.log;
+            console.error = originalConsole.error;
+            console.warn = originalConsole.warn;
+            console.info = originalConsole.info;
+        }
+
+        function updateOutput() {
+            document.getElementById('output').textContent = testOutput;
+            // Auto-scroll to bottom
+            const outputElement = document.getElementById('output');
+            outputElement.scrollTop = outputElement.scrollHeight;
+        }
+
+        function clearOutput() {
+            testOutput = '';
+            updateOutput();
+            document.getElementById('status').style.display = 'none';
+        }
+
+        function showStatus(message, isError = false) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = 'status ' + (isError ? 'error' : 'success');
+            statusElement.style.display = 'block';
+        }
+
+        async function runTests() {
+            clearOutput();
+            captureConsole();
+            
+            try {
+                showStatus('Running tests...', false);
+                
+                // Load and run the test script
+                await loadTestScript();
+                
+                showStatus('All tests completed successfully!', false);
+                
+            } catch (error) {
+                showStatus('Tests failed: ' + error.message, true);
+                console.error('Test execution failed:', error);
+            } finally {
+                restoreConsole();
+            }
+        }
+
+        async function loadTestScript() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'test-streaming-agent-router.js';
+                script.onload = resolve;
+                script.onerror = () => reject(new Error('Failed to load test script'));
+                document.head.appendChild(script);
+            });
+        }
+
+        // Initialize
+        captureConsole();
+    </script>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Agent UI Test</title>
+    <link rel="stylesheet" href="../main-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-controls {
+            margin: 10px 0;
+        }
+        .test-controls button {
+            margin: 5px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-controls button.primary {
+            background: #007bff;
+            color: white;
+        }
+        .test-controls button.secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .test-output {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Streaming Agent UI Test</h1>
+    
+    <div class="test-section">
+        <h2>Mode Toggle Test</h2>
+        <div class="mode-selector">
+            <div class="mode-toggle">
+                <input type="checkbox" id="streamingMode" class="mode-checkbox">
+                <label for="streamingMode" class="toggle-label">
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-text">Streaming Mode</span>
+                </label>
+            </div>
+            <div class="mode-description">
+                <span id="modeDescription">Batch Mode: Click to record, then process</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Agent Status Indicators</h2>
+        
+        <!-- Status Indicators -->
+        <div class="status-indicators">
+            <div class="connection-status">
+                <span id="connectionStatus" class="status-badge disconnected">
+                    <i class="fas fa-circle"></i>
+                    Disconnected
+                </span>
+            </div>
+            <div class="agent-indicator">
+                <span class="agent-label">Active Agent:</span>
+                <span id="currentAgent" class="agent-name">Default Agent</span>
+                <div id="agentSwitchingIndicator" class="agent-switching-indicator hidden">
+                    <i class="fas fa-sync fa-spin"></i>
+                    <span>Switching...</span>
+                </div>
+            </div>
+            <div class="streaming-agent-status" id="streamingAgentStatus" style="display: none;">
+                <div class="streaming-agent-info">
+                    <span class="streaming-agent-label">Streaming Agent:</span>
+                    <span id="streamingCurrentAgent" class="streaming-agent-name">Default Agent</span>
+                    <span id="streamingAgentType" class="streaming-agent-type">General</span>
+                </div>
+                <div class="streaming-routing-status">
+                    <span id="routingStatus" class="routing-status-badge enabled">
+                        <i class="fas fa-route"></i>
+                        Routing Enabled
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Agent Control Tests</h2>
+        <div class="test-controls">
+            <button class="primary" onclick="testAgentSwitch('FraudAgent')">Switch to Fraud Agent</button>
+            <button class="primary" onclick="testAgentSwitch('PaymentsAgent')">Switch to Payments Agent</button>
+            <button class="primary" onclick="testAgentSwitch('IDVAgent')">Switch to IDV Agent</button>
+            <button class="primary" onclick="testAgentSwitch('BankingInfoAgent')">Switch to Banking Info Agent</button>
+            <button class="secondary" onclick="testAgentSwitch('DefaultAgent')">Reset to Default Agent</button>
+        </div>
+        
+        <div class="test-controls">
+            <button class="primary" onclick="testAgentSwitching()">Test Agent Switching Animation</button>
+            <button class="secondary" onclick="testRoutingToggle()">Toggle Routing Status</button>
+            <button class="secondary" onclick="testPerformanceMetrics()">Add Performance Metrics</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Debug Panel Test</h2>
+        <div class="debug-card streaming-debug" id="streamingAgentDebug" style="display: none;">
+            <h4>Streaming Agent Routing</h4>
+            <div class="streaming-debug-content">
+                <div class="debug-section">
+                    <h5>Current Routing State</h5>
+                    <div id="streamingRoutingState" class="debug-output">No routing activity...</div>
+                </div>
+                <div class="debug-section">
+                    <h5>Agent Decisions</h5>
+                    <div id="streamingAgentDecisions" class="debug-output">No agent decisions...</div>
+                </div>
+                <div class="debug-section">
+                    <h5>Performance Metrics</h5>
+                    <div id="streamingPerformanceMetrics" class="debug-output">No metrics available...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Output</h2>
+        <div id="testOutput" class="test-output">Test output will appear here...</div>
+    </div>
+
+    <script src="../streaming-agent-ui.js"></script>
+    <script>
+        let testOutput = document.getElementById('testOutput');
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            testOutput.innerHTML += `[${timestamp}] ${message}\n`;
+            testOutput.scrollTop = testOutput.scrollHeight;
+        }
+
+        function testAgentSwitch(agentName) {
+            if (window.streamingAgentUI) {
+                log(`Testing agent switch to: ${agentName}`);
+                
+                // Show switching animation first
+                window.streamingAgentUI.showAgentSwitching();
+                
+                // Simulate routing delay
+                setTimeout(() => {
+                    window.streamingAgentUI.updateCurrentAgent(agentName);
+                    window.streamingAgentUI.hideAgentSwitching();
+                    
+                    // Add some performance metrics
+                    const latency = Math.floor(Math.random() * 150) + 50;
+                    window.streamingAgentUI.addPerformanceMetric('routingLatency', latency);
+                    window.streamingAgentUI.logAgentDecision(`Switched to ${agentName} (${latency}ms)`, 'switch');
+                    
+                    log(`Agent switched successfully to ${agentName}`);
+                }, 1000);
+            } else {
+                log('ERROR: streamingAgentUI not available');
+            }
+        }
+
+        function testAgentSwitching() {
+            if (window.streamingAgentUI) {
+                log('Testing agent switching animation...');
+                window.streamingAgentUI.showAgentSwitching();
+                
+                setTimeout(() => {
+                    window.streamingAgentUI.hideAgentSwitching();
+                    log('Agent switching animation completed');
+                }, 2000);
+            } else {
+                log('ERROR: streamingAgentUI not available');
+            }
+        }
+
+        function testRoutingToggle() {
+            if (window.streamingAgentUI) {
+                const currentState = window.streamingAgentUI.getState();
+                const newState = !currentState.routingEnabled;
+                log(`Toggling routing from ${currentState.routingEnabled} to ${newState}`);
+                window.streamingAgentUI.setRoutingEnabled(newState);
+            } else {
+                log('ERROR: streamingAgentUI not available');
+            }
+        }
+
+        function testPerformanceMetrics() {
+            if (window.streamingAgentUI) {
+                log('Adding test performance metrics...');
+                window.streamingAgentUI.addPerformanceMetric('routingLatency', Math.floor(Math.random() * 200) + 50);
+                window.streamingAgentUI.addPerformanceMetric('fallback', 1);
+                window.streamingAgentUI.logAgentDecision('Test agent decision logged', 'test');
+                log('Performance metrics added');
+            } else {
+                log('ERROR: streamingAgentUI not available');
+            }
+        }
+
+        // Initialize test
+        document.addEventListener('DOMContentLoaded', () => {
+            log('Streaming Agent UI Test initialized');
+            
+            // Test streaming mode toggle
+            const streamingToggle = document.getElementById('streamingMode');
+            streamingToggle.addEventListener('change', (e) => {
+                log(`Streaming mode toggled: ${e.target.checked}`);
+            });
+            
+            // Check if streamingAgentUI is available
+            setTimeout(() => {
+                if (window.streamingAgentUI) {
+                    log('StreamingAgentUI is available and ready');
+                    const state = window.streamingAgentUI.getState();
+                    log(`Initial state: ${JSON.stringify(state, null, 2)}`);
+                } else {
+                    log('ERROR: StreamingAgentUI not found');
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>

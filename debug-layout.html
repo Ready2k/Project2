@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Layout</title>
+    <link rel="stylesheet" href="main-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .debug-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .debug-info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .highlight-row {
+            border: 3px solid red !important;
+            background: rgba(255, 0, 0, 0.1) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <h1>🔍 Layout Debug Page</h1>
+        <p>This page helps debug why the main page layout isn't working as expected.</p>
+        
+        <div class="debug-info">
+            <strong>Expected Behavior:</strong><br>
+            - Row 1 should stack elements vertically (toggle, status, audio level)<br>
+            - Row 2 should show buttons horizontally<br>
+            - Row 3 should stack elements vertically (connection, agent, routing)<br>
+        </div>
+
+        <!-- Exact copy of the voice controls from index.html -->
+        <div class="voice-controls">
+            <!-- Row 1: Mode Toggle, Status, and Audio Level -->
+            <div class="control-row-1 highlight-row">
+                <div class="mode-toggle-section">
+                    <div class="mode-toggle">
+                        <input type="checkbox" id="streamingMode" class="mode-checkbox">
+                        <label for="streamingMode" class="toggle-label">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Streaming Mode</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="status-section">
+                    <div id="status" class="status-text">Ready to listen</div>
+                    <div id="recordingQuality" class="quality-indicator">
+                        <i class="fas fa-circle"></i>
+                        Not Recording
+                    </div>
+                </div>
+                
+                <div class="audio-level-section">
+                    <span class="level-label">Audio Level:</span>
+                    <div class="level-bar">
+                        <div id="audioLevel" class="level-fill" style="width: 30%;"></div>
+                    </div>
+                    <span id="audioLevelText">30%</span>
+                </div>
+            </div>
+
+            <!-- Row 2: Control Buttons -->
+            <div class="control-row-2 highlight-row">
+                <!-- Streaming Mode Controls -->
+                <div id="streamingControls" class="control-group">
+                    <button id="connectBtn" class="primary-btn">
+                        <i class="fas fa-phone"></i>
+                        <span>Connect</span>
+                    </button>
+                    <button id="muteBtn" class="mute-btn" disabled>
+                        <i class="fas fa-microphone-slash"></i>
+                        <span>Mute</span>
+                    </button>
+                    <button id="disconnectBtn" class="secondary-btn" disabled>
+                        <i class="fas fa-phone-slash"></i>
+                        <span>Disconnect</span>
+                    </button>
+                    <button class="clear-btn">
+                        <i class="fas fa-trash"></i>
+                        <span>Clear Chat</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Row 3: Additional Information -->
+            <div class="control-row-3 highlight-row">
+                <div class="connection-status">
+                    <span id="connectionStatus" class="status-badge disconnected">
+                        <i class="fas fa-circle"></i>
+                        Disconnected
+                    </span>
+                </div>
+                
+                <div class="agent-indicator">
+                    <span class="agent-label">Active Agent:</span>
+                    <span id="currentAgent" class="agent-name">Default Agent</span>
+                </div>
+                
+                <div class="streaming-agent-status" id="streamingAgentStatus">
+                    <div class="streaming-agent-info">
+                        <span class="streaming-agent-label">Streaming Agent:</span>
+                        <span id="streamingCurrentAgent" class="streaming-agent-name">Default Agent</span>
+                        <span id="streamingAgentType" class="streaming-agent-type">General</span>
+                    </div>
+                    <div class="streaming-routing-status">
+                        <span id="routingStatus" class="routing-status-badge enabled">
+                            <i class="fas fa-route"></i>
+                            Routing Enabled
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode Description -->
+            <div class="mode-description">
+                <span id="modeDescription">Streaming Mode: Real-time conversation like a phone call</span>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px;">
+            <h3>Debug Actions</h3>
+            <button onclick="checkCSS()" style="padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px;">Check CSS Properties</button>
+            <button onclick="forceRefresh()" style="padding: 10px 20px; margin: 5px; background: #28a745; color: white; border: none; border-radius: 4px;">Force Refresh CSS</button>
+        </div>
+
+        <div id="cssDebugInfo" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-family: monospace; font-size: 12px; display: none;"></div>
+    </div>
+
+    <script>
+        function checkCSS() {
+            const row1 = document.querySelector('.control-row-1');
+            const debugInfo = document.getElementById('cssDebugInfo');
+            
+            if (row1) {
+                const computedStyle = window.getComputedStyle(row1);
+                const info = `
+CSS Properties for .control-row-1:
+- display: ${computedStyle.display}
+- flex-direction: ${computedStyle.flexDirection}
+- gap: ${computedStyle.gap}
+- margin-bottom: ${computedStyle.marginBottom}
+- padding: ${computedStyle.padding}
+- background: ${computedStyle.backgroundColor}
+- border-radius: ${computedStyle.borderRadius}
+- border: ${computedStyle.border}
+
+Element structure:
+- Children count: ${row1.children.length}
+- Child elements: ${Array.from(row1.children).map(child => child.className).join(', ')}
+                `;
+                
+                debugInfo.textContent = info;
+                debugInfo.style.display = 'block';
+            } else {
+                debugInfo.textContent = 'ERROR: .control-row-1 element not found!';
+                debugInfo.style.display = 'block';
+            }
+        }
+
+        function forceRefresh() {
+            // Force reload the CSS
+            const links = document.querySelectorAll('link[rel="stylesheet"]');
+            links.forEach(link => {
+                const href = link.href;
+                link.href = href + '?v=' + Date.now();
+            });
+            
+            setTimeout(() => {
+                alert('CSS refreshed! Check if the layout changed.');
+            }, 500);
+        }
+
+        // Auto-check CSS on load
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Debug layout page loaded');
+            setTimeout(checkCSS, 1000);
+        });
+    </script>
+</body>
+</html>

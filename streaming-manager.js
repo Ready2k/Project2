@@ -49,6 +49,32 @@ class StreamingManager {
         this.isConnecting = false;
         this.connectionId = null;
 
+        // Agent routing integration
+        this.agentRoutingEnabled = false;
+        this.streamingAgentRouter = null;
+        this.streamingResponseHandler = null;
+        this.currentStreamingAgent = null;
+        this.streamingErrorHandler = null;
+        this.streamingPerformanceOptimizer = null;
+        this.streamingSessionManager = null;
+
+        // Voice configuration for agent-specific voices
+        this.voiceConfiguration = {
+            currentVoice: 'shimmer', // Default voice
+            previousVoice: null,
+            agentVoices: new Map([
+                ['FraudAgent', { voice: 'alloy', speed: 0.9, pitch: 1.0, temperature: 0.8 }],
+                ['PaymentsAgent', { voice: 'echo', speed: 1.0, pitch: 1.0, temperature: 0.7 }],
+                ['IDVAgent', { voice: 'coral', speed: 0.95, pitch: 1.0, temperature: 0.8 }],
+                ['BankingInfoAgent', { voice: 'shimmer', speed: 1.0, pitch: 1.0, temperature: 0.9 }],
+                ['MultiAgentOrchestrator', { voice: 'sage', speed: 1.0, pitch: 1.0, temperature: 0.9 }],
+                ['DefaultAgent', { voice: 'shimmer', speed: 1.0, pitch: 1.0, temperature: 0.9 }]
+            ]),
+            voiceTransitionInProgress: false,
+            fallbackVoice: 'shimmer',
+            voiceChangeHistory: []
+        };
+
         // Audio context and streaming
         this.audioContext = null;
         this.mediaStream = null;
@@ -91,6 +117,15 @@ class StreamingManager {
 
         // Debug logging
         this.debug.log('StreamingManager initialized with token tracking:', !!this.tokenTracker);
+        
+        // Initialize agent routing if available
+        this.initializeAgentRouting();
+        
+        // Initialize error handler
+        this.initializeErrorHandler();
+        
+        // Initialize performance optimizer
+        this.initializePerformanceOptimizer();
     }
 
     // Legacy debug method for backward compatibility with debugCallback
@@ -165,8 +200,15 @@ class StreamingManager {
                         this.isConnected = true;
                         this.isConnecting = false;
 
+                        // Try to restore voice configuration from previous session
+                        const voiceRestored = this.restoreVoiceConfiguration();
+                        
                         // Send initial session configuration
                         this.sendSessionConfig();
+
+                        if (voiceRestored) {
+                            this.debug.log('Voice configuration restored after reconnection');
+                        }
 
                         resolve(this.websocket);
                     };
@@ -184,6 +226,9 @@ class StreamingManager {
                         this.debug.log('WebSocket closed:', { code: event.code, reason: event.reason });
                         this.isConnected = false;
                         this.isConnecting = false;
+
+                        // Persist voice configuration for potential reconnection
+                        this.persistVoiceConfiguration();
 
                         if (this.isConnecting) {
                             reject(new Error(`Connection failed: ${event.reason || 'Unknown reason'}`));
@@ -237,12 +282,15 @@ class StreamingManager {
 
         const instructions = this.generateInstructions(currentPersona);
 
+        // Get voice configuration for current agent or default
+        const voiceConfig = this.getVoiceConfigForAgent(this.currentStreamingAgent?.name || 'DefaultAgent');
+
         const config = {
             type: 'session.update',
             session: {
                 modalities: ['text', 'audio'],
                 instructions: instructions,
-                voice: 'shimmer', // More expressive voice
+                voice: voiceConfig.voice,
                 input_audio_format: 'pcm16',
                 output_audio_format: 'pcm16',
                 input_audio_transcription: {
@@ -257,12 +305,19 @@ class StreamingManager {
                 },
                 tools: [],
                 tool_choice: 'auto',
-                temperature: 0.9, // More expressive responses
+                temperature: voiceConfig.temperature || 0.9,
                 max_response_output_tokens: 500 // Allow longer responses
             }
         };
 
-        this.debug.log('Sending session config with persona:', currentPersona?.name || 'Unknown');
+        // Update current voice configuration
+        this.voiceConfiguration.currentVoice = voiceConfig.voice;
+
+        this.debug.log('Sending session config with persona and voice:', {
+            persona: currentPersona?.name || 'Unknown',
+            voice: voiceConfig.voice,
+            agent: this.currentStreamingAgent?.name || 'DefaultAgent'
+        });
         this.sendMessage(config);
     }
 
@@ -299,6 +354,458 @@ class StreamingManager {
     }
 
     /**
+     * Get voice configuration for a specific agent
+     * @param {string} agentName - Name of the agent
+     * @returns {Object} - Voice configuration object
+     */
+    getVoiceConfigForAgent(agentName) {
+        try {
+            const agentVoiceConfig = this.voiceConfiguration.agentVoices.get(agentName);
+            
+            if (agentVoiceConfig) {
+                this.debug.log('Using agent-specific voice configuration', {
+                    agentName: agentName,
+                    voice: agentVoiceConfig.voice
+                });
+                return agentVoiceConfig;
+            }
+
+            // Fallback to default voice configuration
+            const defaultConfig = this.voiceConfiguration.agentVoices.get('DefaultAgent') || {
+                voice: this.voiceConfiguration.fallbackVoice,
+                speed: 1.0,
+                pitch: 1.0,
+                temperature: 0.9
+            };
+
+            this.debug.log('Using fallback voice configuration', {
+                agentName: agentName,
+                voice: defaultConfig.voice
+            });
+
+            return defaultConfig;
+
+        } catch (error) {
+            this.debug.error('Error getting voice config for agent', {
+                error: error.message,
+                agentName: agentName
+            });
+
+            // Return safe fallback
+            return {
+                voice: this.voiceConfiguration.fallbackVoice,
+                speed: 1.0,
+                pitch: 1.0,
+                temperature: 0.9
+            };
+        }
+    }
+
+    /**
+     * Switch voice configuration for a new agent
+     * @param {string} newAgentName - Name of the new agent
+     * @param {Object} context - Current streaming context
+     * @returns {Promise<boolean>} - Success status of voice switch
+     */
+    async switchAgentVoice(newAgentName, context = {}) {
+        try {
+            if (this.voiceConfiguration.voiceTransitionInProgress) {
+                this.debug.warn('Voice transition already in progress, skipping switch');
+                return false;
+            }
+
+            const newVoiceConfig = this.getVoiceConfigForAgent(newAgentName);
+            const currentVoice = this.voiceConfiguration.currentVoice;
+
+            // Check if voice change is needed
+            if (newVoiceConfig.voice === currentVoice) {
+                this.debug.log('Voice change not needed, same voice', {
+                    agentName: newAgentName,
+                    voice: currentVoice
+                });
+                return true;
+            }
+
+            this.debug.log('Switching voice for agent', {
+                agentName: newAgentName,
+                fromVoice: currentVoice,
+                toVoice: newVoiceConfig.voice
+            });
+
+            // Mark transition in progress
+            this.voiceConfiguration.voiceTransitionInProgress = true;
+            this.voiceConfiguration.previousVoice = currentVoice;
+
+            try {
+                // Update session with new voice configuration
+                const success = await this.updateSessionVoice(newVoiceConfig, newAgentName, context);
+                
+                if (success) {
+                    // Update current voice configuration
+                    this.voiceConfiguration.currentVoice = newVoiceConfig.voice;
+                    
+                    // Record voice change in history
+                    this.voiceConfiguration.voiceChangeHistory.push({
+                        timestamp: Date.now(),
+                        fromVoice: currentVoice,
+                        toVoice: newVoiceConfig.voice,
+                        agentName: newAgentName,
+                        success: true
+                    });
+
+                    this.debug.log('Voice switch completed successfully', {
+                        agentName: newAgentName,
+                        newVoice: newVoiceConfig.voice
+                    });
+
+                    return true;
+                } else {
+                    throw new Error('Session voice update failed');
+                }
+
+            } catch (error) {
+                this.debug.error('Voice switch failed', {
+                    error: error.message,
+                    agentName: newAgentName,
+                    targetVoice: newVoiceConfig.voice
+                });
+
+                // Record failed voice change
+                this.voiceConfiguration.voiceChangeHistory.push({
+                    timestamp: Date.now(),
+                    fromVoice: currentVoice,
+                    toVoice: newVoiceConfig.voice,
+                    agentName: newAgentName,
+                    success: false,
+                    error: error.message
+                });
+
+                // Handle voice switch failure gracefully
+                return await this.handleVoiceTransitionFailure(currentVoice, newAgentName);
+
+            } finally {
+                // Clear transition flag
+                this.voiceConfiguration.voiceTransitionInProgress = false;
+            }
+
+        } catch (error) {
+            this.debug.error('Critical error in voice switching', {
+                error: error.message,
+                agentName: newAgentName
+            });
+
+            this.voiceConfiguration.voiceTransitionInProgress = false;
+            return false;
+        }
+    }
+
+    /**
+     * Update session with new voice configuration
+     * @param {Object} voiceConfig - New voice configuration
+     * @param {string} agentName - Agent name for context
+     * @param {Object} context - Current streaming context
+     * @returns {Promise<boolean>} - Success status
+     */
+    async updateSessionVoice(voiceConfig, agentName, context) {
+        try {
+            // Get current persona and generate instructions
+            const currentPersona = this.getCurrentPersonaInfo();
+            const instructions = this.generateInstructions(currentPersona, agentName);
+
+            const sessionUpdate = {
+                type: 'session.update',
+                session: {
+                    modalities: ['text', 'audio'],
+                    instructions: instructions,
+                    voice: voiceConfig.voice,
+                    input_audio_format: 'pcm16',
+                    output_audio_format: 'pcm16',
+                    input_audio_transcription: {
+                        model: 'whisper-1'
+                    },
+                    turn_detection: {
+                        type: 'server_vad',
+                        threshold: this.getVadThreshold(),
+                        prefix_padding_ms: 300,
+                        silence_duration_ms: this.settings.responseDelay * 1000
+                    },
+                    tools: [],
+                    tool_choice: 'auto',
+                    temperature: voiceConfig.temperature || 0.9,
+                    max_response_output_tokens: 500
+                }
+            };
+
+            // Send session update with retry logic
+            return await this.sendSessionUpdateWithRetry(sessionUpdate, 3);
+
+        } catch (error) {
+            this.debug.error('Failed to update session voice', {
+                error: error.message,
+                agentName: agentName,
+                voice: voiceConfig.voice
+            });
+            return false;
+        }
+    }
+
+    /**
+     * Send session update with retry logic
+     * @param {Object} sessionUpdate - Session update message
+     * @param {number} maxRetries - Maximum number of retries
+     * @returns {Promise<boolean>} - Success status
+     */
+    async sendSessionUpdateWithRetry(sessionUpdate, maxRetries = 3) {
+        let retryCount = 0;
+        
+        while (retryCount < maxRetries) {
+            try {
+                // Send the session update
+                this.sendMessage(sessionUpdate);
+                
+                // Wait for confirmation (simplified - in production you'd wait for session.updated event)
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                this.debug.log('Session update sent successfully', {
+                    voice: sessionUpdate.session.voice,
+                    retryCount: retryCount
+                });
+                
+                return true;
+
+            } catch (error) {
+                retryCount++;
+                const delay = Math.pow(2, retryCount) * 100; // Exponential backoff
+                
+                this.debug.warn('Session update failed, retrying', {
+                    error: error.message,
+                    retryCount: retryCount,
+                    maxRetries: maxRetries,
+                    nextRetryDelay: delay
+                });
+
+                if (retryCount < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                    this.debug.error('Session update failed after all retries', {
+                        error: error.message,
+                        totalRetries: retryCount
+                    });
+                    return false;
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Handle voice transition failure gracefully
+     * @param {string} previousVoice - Previous voice that was working
+     * @param {string} agentName - Agent name for context
+     * @returns {Promise<boolean>} - Recovery success status
+     */
+    async handleVoiceTransitionFailure(previousVoice, agentName) {
+        try {
+            this.debug.log('Handling voice transition failure', {
+                previousVoice: previousVoice,
+                agentName: agentName
+            });
+
+            // Try to revert to previous voice
+            if (previousVoice && previousVoice !== this.voiceConfiguration.currentVoice) {
+                const revertConfig = {
+                    voice: previousVoice,
+                    speed: 1.0,
+                    pitch: 1.0,
+                    temperature: 0.9
+                };
+
+                const revertSuccess = await this.updateSessionVoice(revertConfig, agentName, {});
+                
+                if (revertSuccess) {
+                    this.voiceConfiguration.currentVoice = previousVoice;
+                    this.debug.log('Successfully reverted to previous voice', {
+                        voice: previousVoice
+                    });
+                    return true;
+                }
+            }
+
+            // If revert fails, try fallback voice
+            const fallbackConfig = {
+                voice: this.voiceConfiguration.fallbackVoice,
+                speed: 1.0,
+                pitch: 1.0,
+                temperature: 0.9
+            };
+
+            const fallbackSuccess = await this.updateSessionVoice(fallbackConfig, agentName, {});
+            
+            if (fallbackSuccess) {
+                this.voiceConfiguration.currentVoice = this.voiceConfiguration.fallbackVoice;
+                this.debug.log('Successfully switched to fallback voice', {
+                    voice: this.voiceConfiguration.fallbackVoice
+                });
+                return true;
+            }
+
+            // If all else fails, continue with current voice
+            this.debug.warn('Voice transition recovery failed, continuing with current voice');
+            return false;
+
+        } catch (error) {
+            this.debug.error('Error in voice transition failure handling', {
+                error: error.message,
+                previousVoice: previousVoice,
+                agentName: agentName
+            });
+            return false;
+        }
+    }
+
+    /**
+     * Configure agent-specific voice settings
+     * @param {string} agentName - Agent name
+     * @param {Object} voiceSettings - Voice configuration
+     */
+    configureAgentVoice(agentName, voiceSettings) {
+        try {
+            if (!agentName || !voiceSettings) {
+                throw new Error('Agent name and voice settings are required');
+            }
+
+            // Validate voice settings
+            const validatedSettings = {
+                voice: voiceSettings.voice || this.voiceConfiguration.fallbackVoice,
+                speed: Math.max(0.5, Math.min(2.0, voiceSettings.speed || 1.0)),
+                pitch: Math.max(0.5, Math.min(2.0, voiceSettings.pitch || 1.0)),
+                temperature: Math.max(0.1, Math.min(1.0, voiceSettings.temperature || 0.9))
+            };
+
+            // Update agent voice configuration
+            this.voiceConfiguration.agentVoices.set(agentName, validatedSettings);
+
+            this.debug.log('Agent voice configuration updated', {
+                agentName: agentName,
+                voiceSettings: validatedSettings
+            });
+
+            // If this is the current agent, apply the voice change immediately
+            if (this.currentStreamingAgent?.name === agentName) {
+                this.switchAgentVoice(agentName).catch(error => {
+                    this.debug.error('Failed to apply immediate voice change', {
+                        error: error.message,
+                        agentName: agentName
+                    });
+                });
+            }
+
+        } catch (error) {
+            this.debug.error('Error configuring agent voice', {
+                error: error.message,
+                agentName: agentName,
+                voiceSettings: voiceSettings
+            });
+        }
+    }
+
+    /**
+     * Get current voice configuration state
+     * @returns {Object} - Current voice configuration
+     */
+    getVoiceConfiguration() {
+        return {
+            currentVoice: this.voiceConfiguration.currentVoice,
+            previousVoice: this.voiceConfiguration.previousVoice,
+            currentAgent: this.currentStreamingAgent?.name || 'DefaultAgent',
+            agentVoices: Object.fromEntries(this.voiceConfiguration.agentVoices),
+            voiceTransitionInProgress: this.voiceConfiguration.voiceTransitionInProgress,
+            fallbackVoice: this.voiceConfiguration.fallbackVoice,
+            voiceChangeHistory: this.voiceConfiguration.voiceChangeHistory.slice(-10) // Last 10 changes
+        };
+    }
+
+    /**
+     * Persist voice configuration across WebSocket reconnections
+     */
+    persistVoiceConfiguration() {
+        try {
+            const voiceConfig = this.getVoiceConfiguration();
+            
+            // Store in session storage for reconnection recovery
+            if (typeof sessionStorage !== 'undefined') {
+                sessionStorage.setItem('streamingVoiceConfig', JSON.stringify({
+                    currentVoice: voiceConfig.currentVoice,
+                    currentAgent: voiceConfig.currentAgent,
+                    timestamp: Date.now()
+                }));
+            }
+
+            this.debug.log('Voice configuration persisted', {
+                currentVoice: voiceConfig.currentVoice,
+                currentAgent: voiceConfig.currentAgent
+            });
+
+        } catch (error) {
+            this.debug.error('Failed to persist voice configuration', {
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Restore voice configuration after WebSocket reconnection
+     */
+    restoreVoiceConfiguration() {
+        try {
+            if (typeof sessionStorage === 'undefined') {
+                return false;
+            }
+
+            const storedConfig = sessionStorage.getItem('streamingVoiceConfig');
+            if (!storedConfig) {
+                return false;
+            }
+
+            const config = JSON.parse(storedConfig);
+            
+            // Check if stored config is recent (within last 5 minutes)
+            if (Date.now() - config.timestamp > 5 * 60 * 1000) {
+                sessionStorage.removeItem('streamingVoiceConfig');
+                return false;
+            }
+
+            // Restore voice configuration
+            if (config.currentVoice && config.currentAgent) {
+                this.voiceConfiguration.currentVoice = config.currentVoice;
+                
+                // Apply the restored configuration
+                this.switchAgentVoice(config.currentAgent).catch(error => {
+                    this.debug.error('Failed to restore voice configuration', {
+                        error: error.message,
+                        config: config
+                    });
+                });
+
+                this.debug.log('Voice configuration restored', {
+                    currentVoice: config.currentVoice,
+                    currentAgent: config.currentAgent
+                });
+
+                return true;
+            }
+
+        } catch (error) {
+            this.debug.error('Error restoring voice configuration', {
+                error: error.message
+            });
+        }
+
+        return false;
+    }
+
+    /**
      * Send message to WebSocket
      */
     sendMessage(message) {
@@ -313,7 +820,7 @@ class StreamingManager {
     /**
      * Handle incoming WebSocket messages
      */
-    handleMessage(event) {
+    async handleMessage(event) {
         try {
             const message = JSON.parse(event.data);
             this.debug.log('Message received:', message.type, message);
@@ -359,6 +866,17 @@ class StreamingManager {
                         this.displayUserMessage(transcript);
                         if (message.transcript) {
                             this.currentUserTranscript = '';
+                        }
+                        
+                        // NEW: Route through agents if agent routing is enabled
+                        // But only if not already handled by middleware
+                        if (this.agentRoutingEnabled && this.streamingAgentRouter && !message._agentRouted) {
+                            this.debug.log('Routing transcript through agents:', transcript);
+                            await this.routeThroughAgentsWithErrorHandling(transcript);
+                            return; // Skip default OpenAI response generation
+                        } else if (message._agentRouted) {
+                            this.debug.log('Transcript already routed by middleware, skipping StreamingManager routing');
+                            // Don't return here - let normal processing continue for UI display
                         }
                     } else {
                         this.debug.log('Warning: No transcript in transcription completed message');
@@ -502,6 +1020,35 @@ class StreamingManager {
     }
 
     /**
+     * Initialize error handler for streaming agent routing
+     */
+    initializeErrorHandler() {
+        try {
+            if (window.StreamingErrorHandler && this.streamingAgentRouter) {
+                this.streamingErrorHandler = new window.StreamingErrorHandler(this, this.streamingAgentRouter);
+                
+                // Connect error handler to router
+                if (typeof this.streamingAgentRouter.setErrorHandler === 'function') {
+                    this.streamingAgentRouter.setErrorHandler(this.streamingErrorHandler);
+                }
+                
+                // Connect error handler to middleware if available
+                if (this.streamingAgentMiddleware && typeof this.streamingAgentMiddleware.setErrorHandler === 'function') {
+                    this.streamingAgentMiddleware.setErrorHandler(this.streamingErrorHandler);
+                }
+                
+                this.debug.log('StreamingErrorHandler initialized and connected');
+            } else {
+                this.debug.log('StreamingErrorHandler not available or agent router not initialized');
+            }
+        } catch (error) {
+            this.debug.error('Failed to initialize StreamingErrorHandler:', error);
+        }
+    }
+
+
+
+    /**
      * Disconnect from the streaming service
      */
     async disconnect() {
@@ -509,6 +1056,12 @@ class StreamingManager {
         // Track session end
         this.streamingSession.endTime = Date.now();
         this.trackSessionEnd();
+        
+        // Cleanup error handler
+        if (this.streamingErrorHandler) {
+            this.streamingErrorHandler.cleanup();
+        }
+        
         this.cleanup();
         return { success: true };
     }
@@ -747,6 +1300,24 @@ class StreamingManager {
 
         // Clear WebSocket reference
         this.websocket = null;
+
+        // Clean up voice configuration
+        this.voiceConfiguration.voiceTransitionInProgress = false;
+        this.voiceConfiguration.previousVoice = null;
+        
+        // Clear voice change history (keep last 5 for debugging)
+        if (this.voiceConfiguration.voiceChangeHistory.length > 5) {
+            this.voiceConfiguration.voiceChangeHistory = this.voiceConfiguration.voiceChangeHistory.slice(-5);
+        }
+
+        // Reset current streaming agent
+        this.currentStreamingAgent = null;
+        
+        // Cleanup session manager
+        if (this.streamingSessionManager) {
+            this.streamingSessionManager.cleanup();
+            this.streamingSessionManager = null;
+        }
 
         // Verify cleanup was successful
         if (typeof this.resourceManager.verifyCleanup === 'function') {
@@ -1567,24 +2138,39 @@ class StreamingManager {
     }
 
     /**
-     * Generate instructions with persona context
+     * Generate instructions with persona context and agent-specific guidance
+     * @param {Object} persona - Current persona information
+     * @param {string} agentName - Name of the current agent (optional)
      */
-    generateInstructions(persona) {
+    generateInstructions(persona, agentName = null) {
         try {
             // Use the SystemPromptsManager from the main app if available
             if (window.app && window.app.systemPromptsManager) {
-                this.debug.log('Using SystemPromptsManager for streaming instructions');
-                return window.app.systemPromptsManager.generateSystemPrompt(persona, 'streaming');
+                this.debug.log('Using SystemPromptsManager for streaming instructions', {
+                    agentName: agentName
+                });
+                return window.app.systemPromptsManager.generateSystemPrompt(persona, 'streaming', agentName);
             }
         } catch (error) {
             this.debug.log('Error using SystemPromptsManager, falling back to hardcoded:', error);
         }
 
         // Fallback to hardcoded instructions if SystemPromptsManager is not available
-        this.debug.log('Using fallback hardcoded instructions for streaming');
+        this.debug.log('Using fallback hardcoded instructions for streaming', {
+            agentName: agentName
+        });
+        
         let instructions = `You are a helpful, professional, and friendly financial services AI assistant. You should be empathetic, clear in your communication, and always prioritize customer satisfaction. Speak in a conversational tone while maintaining professionalism.
 
 Keep responses conversational and concise (suitable for voice). Use natural speech patterns with contractions (I'll, you're, we'll). Sound human and empathetic, not robotic. Use clear, simple language avoiding jargon. Always end with asking if there's anything else you can help with. Maximum response length: 2-3 sentences for voice clarity.`;
+
+        // Add agent-specific instructions if agent is specified
+        if (agentName) {
+            const agentInstructions = this.getAgentSpecificInstructions(agentName);
+            if (agentInstructions) {
+                instructions += `\n\nAGENT CONTEXT: ${agentInstructions}`;
+            }
+        }
 
         if (persona) {
             instructions += `\n\nCURRENT CUSTOMER INFORMATION:
@@ -1600,6 +2186,47 @@ When the customer asks about their account, balance, transactions, or card, use 
         }
 
         return instructions;
+    }
+
+    /**
+     * Generate default instructions for an agent
+     * @param {Object} agent - Agent instance
+     * @returns {string} - Default instructions
+     */
+    generateDefaultInstructions(agent) {
+        try {
+            const currentPersona = this.getCurrentPersonaInfo();
+            return this.generateInstructions(currentPersona, agent.name);
+        } catch (error) {
+            this.debug.error('Error generating default instructions', {
+                error: error.message,
+                agentName: agent.name
+            });
+            return 'You are a helpful financial services AI assistant. Provide clear, concise responses suitable for voice interaction.';
+        }
+    }
+
+    /**
+     * Get agent-specific instructions for streaming context
+     * @param {string} agentName - Name of the agent
+     * @returns {string} - Agent-specific instructions
+     */
+    getAgentSpecificInstructions(agentName) {
+        const agentInstructions = {
+            'FraudAgent': 'You are now operating as a fraud prevention specialist. Focus on security concerns, card blocking, suspicious activity, and account protection. Use a confident, security-focused tone while being reassuring.',
+            
+            'PaymentsAgent': 'You are now operating as a payments specialist. Focus on money transfers, payment processing, transaction confirmations, and payment-related inquiries. Be precise with amounts and verification details.',
+            
+            'IDVAgent': 'You are now operating as an identity verification specialist. Focus on account security, password resets, authentication processes, and identity verification. Be thorough but user-friendly with security procedures.',
+            
+            'BankingInfoAgent': 'You are now operating as a banking information specialist. Focus on account balances, transaction history, statements, and general account information. Provide accurate and helpful account details.',
+            
+            'MultiAgentOrchestrator': 'You are coordinating multiple banking services. Handle complex requests that may require multiple types of assistance. Provide comprehensive banking support.',
+            
+            'DefaultAgent': 'You are providing general banking assistance. Handle a wide range of banking inquiries with friendly, professional service.'
+        };
+
+        return agentInstructions[agentName] || null;
     }
 
     /**
@@ -1684,6 +2311,627 @@ When the customer asks about their account, balance, transactions, or card, use 
         this.resetSessionTracking();
         
         this.debug.log('Streaming conversation state cleared');
+    }
+
+    /**
+     * Initialize agent routing integration
+     */
+    initializeAgentRouting() {
+        try {
+            this.debug.log('Initializing agent routing integration...');
+            
+            // Check if required components are available
+            if (typeof window.StreamingAgentRouter === 'function' && 
+                typeof window.StreamingResponseHandler === 'function' &&
+                window.agentRouter) {
+                
+                // Initialize StreamingAgentRouter
+                this.streamingAgentRouter = new window.StreamingAgentRouter(
+                    window.agentRouter, 
+                    this
+                );
+                
+                // Initialize StreamingResponseHandler
+                this.streamingResponseHandler = new window.StreamingResponseHandler(this);
+                
+                // Initialize StreamingAgentMiddleware if available
+                if (typeof window.StreamingAgentMiddleware === 'function') {
+                    this.streamingAgentMiddleware = new window.StreamingAgentMiddleware(
+                        this,
+                        this.streamingAgentRouter
+                    );
+                    this.debug.log('StreamingAgentMiddleware initialized');
+                }
+                
+                // Initialize StreamingSessionManager
+                if (typeof window.StreamingSessionManager === 'function') {
+                    this.streamingSessionManager = new window.StreamingSessionManager(
+                        this,
+                        this.streamingAgentRouter
+                    );
+                    
+                    // Connect session manager to router
+                    if (typeof this.streamingAgentRouter.setSessionManager === 'function') {
+                        this.streamingAgentRouter.setSessionManager(this.streamingSessionManager);
+                    }
+                    
+                    this.debug.log('StreamingSessionManager initialized and connected');
+                }
+                
+                // Enable agent routing by default if components are available
+                this.agentRoutingEnabled = true;
+                
+                this.debug.log('Agent routing integration initialized successfully', {
+                    hasStreamingAgentRouter: !!this.streamingAgentRouter,
+                    hasStreamingResponseHandler: !!this.streamingResponseHandler,
+                    agentRoutingEnabled: this.agentRoutingEnabled
+                });
+                
+            } else {
+                this.debug.log('Agent routing components not available, running in standard streaming mode', {
+                    hasStreamingAgentRouter: typeof window.StreamingAgentRouter === 'function',
+                    hasStreamingResponseHandler: typeof window.StreamingResponseHandler === 'function',
+                    hasAgentRouter: !!window.agentRouter
+                });
+                this.agentRoutingEnabled = false;
+            }
+            
+        } catch (error) {
+            this.debug.error('Failed to initialize agent routing integration:', error);
+            this.agentRoutingEnabled = false;
+        }
+        
+        // Load configuration after initialization
+        this.loadAgentRoutingConfiguration();
+        
+        // Listen for configuration changes
+        this.setupConfigurationEventListeners();
+    }
+
+    /**
+     * Initialize performance optimizer for streaming routing
+     */
+    initializePerformanceOptimizer() {
+        try {
+            this.debug.log('Initializing performance optimizer...');
+            
+            // Check if performance optimizer is available and agent routing is initialized
+            if (typeof window.StreamingPerformanceOptimizer === 'function' && 
+                this.streamingAgentRouter) {
+                
+                // Initialize performance optimizer
+                this.streamingPerformanceOptimizer = new window.StreamingPerformanceOptimizer(
+                    this.streamingAgentRouter,
+                    this
+                );
+                
+                // Set the optimizer in the agent router
+                this.streamingAgentRouter.setPerformanceOptimizer(this.streamingPerformanceOptimizer);
+                
+                this.debug.log('Performance optimizer initialized successfully', {
+                    hasOptimizer: !!this.streamingPerformanceOptimizer,
+                    optimizationEnabled: this.streamingAgentRouter.optimizationEnabled
+                });
+                
+            } else {
+                this.debug.log('Performance optimizer not available or agent routing not initialized', {
+                    hasOptimizerClass: typeof window.StreamingPerformanceOptimizer === 'function',
+                    hasAgentRouter: !!this.streamingAgentRouter
+                });
+            }
+            
+        } catch (error) {
+            this.debug.error('Failed to initialize performance optimizer:', error);
+            this.streamingPerformanceOptimizer = null;
+        }
+    }
+
+    /**
+     * Load agent routing configuration from StreamingAgentConfig
+     */
+    loadAgentRoutingConfiguration() {
+        try {
+            // Use a timeout to ensure StreamingAgentConfig is loaded
+            setTimeout(() => {
+                if (window.streamingAgentConfig) {
+                    const config = window.streamingAgentConfig.getConfiguration();
+                    this.updateAgentRoutingConfig(config);
+                    this.debug.log('Agent routing configuration loaded successfully');
+                } else {
+                    // Set default enabled state
+                    this.agentRoutingEnabled = false;
+                    this.debug.log('StreamingAgentConfig not available, using default settings');
+                }
+            }, 100);
+        } catch (error) {
+            this.debug.error('Error loading agent routing configuration:', error);
+            this.agentRoutingEnabled = false;
+        }
+    }
+
+    /**
+     * Update agent routing configuration
+     * @param {Object} config - Configuration object from StreamingAgentConfig
+     */
+    updateAgentRoutingConfig(config) {
+        try {
+            this.debug.log('Updating agent routing configuration', config);
+            
+            // Update enabled state
+            this.agentRoutingEnabled = config.enabled && !!this.streamingAgentRouter;
+            
+            // Update voice configuration with agent-specific voices
+            if (config.agentVoices) {
+                Object.entries(config.agentVoices).forEach(([agentName, voiceConfig]) => {
+                    this.voiceConfiguration.agentVoices.set(agentName, voiceConfig);
+                });
+            }
+            
+            // Update voice settings
+            if (config.voiceSettings) {
+                this.voiceConfiguration.fallbackVoice = config.voiceSettings.fallbackVoice || 'shimmer';
+                this.voiceConfiguration.enableVoiceSwitching = config.voiceSettings.enableVoiceSwitching !== false;
+                this.voiceConfiguration.smoothTransitions = config.voiceSettings.smoothTransitions !== false;
+                this.voiceConfiguration.transitionDelay = config.voiceSettings.transitionDelay || 200;
+            }
+            
+            // Update routing settings if StreamingAgentRouter is available
+            if (this.streamingAgentRouter && typeof this.streamingAgentRouter.updateConfiguration === 'function') {
+                this.streamingAgentRouter.updateConfiguration(config);
+            }
+            
+            this.debug.log('Agent routing configuration updated successfully', {
+                enabled: this.agentRoutingEnabled,
+                agentVoicesCount: this.voiceConfiguration.agentVoices.size,
+                fallbackVoice: this.voiceConfiguration.fallbackVoice
+            });
+            
+        } catch (error) {
+            this.debug.error('Error updating agent routing configuration:', error);
+        }
+    }
+
+    /**
+     * Setup event listeners for configuration changes
+     */
+    setupConfigurationEventListeners() {
+        try {
+            // Listen for configuration changes from StreamingAgentConfig
+            window.addEventListener('streamingAgentConfigChanged', (event) => {
+                if (event.detail && event.detail.config) {
+                    this.debug.log('Configuration change event received');
+                    this.updateAgentRoutingConfig(event.detail.config);
+                }
+            });
+            
+            this.debug.log('Configuration event listeners setup successfully');
+        } catch (error) {
+            this.debug.error('Error setting up configuration event listeners:', error);
+        }
+    }
+
+    /**
+     * Route transcript through agent system
+     * @param {string} transcript - Transcribed user message
+     */
+    async routeThroughAgents(transcript) {
+        try {
+            this.debug.log('Routing transcript through agents:', transcript.substring(0, 100));
+            
+            if (!this.streamingAgentRouter) {
+                this.debug.warn('StreamingAgentRouter not available, falling back to standard streaming');
+                this.handleTranscriptionFallback(transcript);
+                return;
+            }
+
+            // Get or create session context
+            let sessionContext = this.getSessionContext();
+            let sessionId = null;
+            
+            // Create or get session if session manager is available
+            if (this.streamingSessionManager) {
+                const currentSession = this.streamingSessionManager.getCurrentSession();
+                if (!currentSession) {
+                    sessionId = this.streamingSessionManager.createSession({
+                        conversationContext: sessionContext,
+                        voiceConfiguration: this.getVoiceConfiguration()
+                    });
+                    this.debug.log('Created new streaming session', { sessionId });
+                } else {
+                    sessionId = currentSession.sessionId;
+                    this.debug.log('Using existing streaming session', { sessionId });
+                }
+                
+                // Update session context with session ID
+                sessionContext.sessionId = sessionId;
+            }
+            
+            // Route through agent system
+            const routingResult = await this.streamingAgentRouter.routeStreamingMessage(
+                transcript, 
+                sessionContext
+            );
+
+            if (routingResult.success) {
+                this.debug.log('Agent routing successful', {
+                    selectedAgent: routingResult.selectedAgent?.name,
+                    agentChanged: routingResult.agentChanged,
+                    sessionUpdateRequired: routingResult.sessionUpdateRequired
+                });
+
+                // Check if agent changed and handle voice switching
+                const previousAgent = this.currentStreamingAgent?.name || 'DefaultAgent';
+                const newAgent = routingResult.selectedAgent?.name || 'DefaultAgent';
+                
+                if (newAgent !== previousAgent) {
+                    this.debug.log('Agent changed, switching voice', {
+                        fromAgent: previousAgent,
+                        toAgent: newAgent
+                    });
+
+                    // Switch voice for new agent
+                    const voiceSwitchSuccess = await this.switchAgentVoice(newAgent, this.getSessionContext());
+                    
+                    if (!voiceSwitchSuccess) {
+                        this.debug.warn('Voice switch failed, continuing with current voice', {
+                            targetAgent: newAgent,
+                            currentVoice: this.voiceConfiguration.currentVoice
+                        });
+                    }
+                }
+
+                // Update session with agent response
+                await this.updateSessionWithAgentResponse(routingResult);
+                
+                // Update current streaming agent
+                if (routingResult.selectedAgent) {
+                    this.currentStreamingAgent = routingResult.selectedAgent;
+                }
+                
+            } else {
+                this.debug.warn('Agent routing failed, falling back to standard streaming', {
+                    fallbackReason: routingResult.fallbackReason,
+                    error: routingResult.error
+                });
+                
+                // Fallback to standard streaming
+                this.handleTranscriptionFallback(transcript);
+            }
+
+        } catch (error) {
+            this.debug.error('Error routing through agents:', error);
+            this.handleTranscriptionFallback(transcript);
+        }
+    }
+
+    /**
+     * Update OpenAI session with agent response
+     * @param {Object} routingResult - Result from agent routing
+     */
+    async updateSessionWithAgentResponse(routingResult) {
+        try {
+            this.debug.log('Updating session with agent response', {
+                agentName: routingResult.selectedAgent?.name,
+                sessionUpdateRequired: routingResult.sessionUpdateRequired
+            });
+
+            if (!routingResult.agentResponse) {
+                this.debug.warn('No agent response to update session with');
+                return;
+            }
+
+            // Process agent response for streaming if response handler is available
+            let processedResponse = routingResult.agentResponse;
+            if (this.streamingResponseHandler) {
+                const streamingContext = this.getSessionContext();
+                processedResponse = await this.streamingResponseHandler.processAgentResponse(
+                    routingResult.agentResponse,
+                    streamingContext
+                );
+            }
+
+            // Update session instructions if required
+            if (routingResult.sessionUpdateRequired && routingResult.selectedAgent) {
+                let sessionUpdateResult;
+                
+                // Use session manager if available
+                if (this.streamingSessionManager) {
+                    const currentSession = this.streamingSessionManager.getCurrentSession();
+                    if (currentSession) {
+                        const agentContext = {
+                            agentName: routingResult.selectedAgent.name,
+                            agentType: routingResult.selectedAgent.type || 'unknown',
+                            switchReason: routingResult.routingReason || 'context_change'
+                        };
+                        
+                        const instructions = processedResponse.streamingInstructions || 
+                                           routingResult.agentResponse.streamingInstructions ||
+                                           this.generateDefaultInstructions(routingResult.selectedAgent);
+                        
+                        const updateSuccess = await this.streamingSessionManager.updateSessionForAgent(
+                            currentSession.sessionId,
+                            agentContext,
+                            instructions
+                        );
+                        
+                        sessionUpdateResult = {
+                            success: updateSuccess,
+                            error: updateSuccess ? null : 'Session manager update failed'
+                        };
+                    } else {
+                        this.debug.warn('No current session available for update');
+                        sessionUpdateResult = { success: false, error: 'No current session' };
+                    }
+                } else {
+                    // Fallback to direct router update
+                    sessionUpdateResult = await this.streamingAgentRouter.updateSessionForAgent(
+                        routingResult.selectedAgent,
+                        this.getSessionContext()
+                    );
+                }
+
+                if (sessionUpdateResult.success) {
+                    this.debug.log('Session updated successfully for agent', {
+                        agentName: routingResult.selectedAgent.name,
+                        usingSessionManager: !!this.streamingSessionManager
+                    });
+                } else {
+                    this.debug.warn('Failed to update session for agent', {
+                        error: sessionUpdateResult.error,
+                        agentName: routingResult.selectedAgent.name,
+                        usingSessionManager: !!this.streamingSessionManager
+                    });
+                }
+            }
+
+            // Generate response using OpenAI with updated session
+            if (processedResponse.success && processedResponse.response) {
+                // Create a conversation item with the agent's response
+                const responseMessage = {
+                    type: 'conversation.item.create',
+                    item: {
+                        type: 'message',
+                        role: 'assistant',
+                        content: [{
+                            type: 'text',
+                            text: processedResponse.response
+                        }]
+                    }
+                };
+
+                // Send the agent response to OpenAI for audio generation
+                this.sendMessage(responseMessage);
+
+                // Create response to trigger audio generation
+                const createResponse = {
+                    type: 'response.create',
+                    response: {
+                        modalities: ['audio', 'text'],
+                        instructions: `Please respond with the following message in the configured voice: "${processedResponse.response}"`
+                    }
+                };
+
+                this.sendMessage(createResponse);
+
+                this.debug.log('Agent response sent to OpenAI for audio generation', {
+                    responseLength: processedResponse.response.length,
+                    agentName: routingResult.selectedAgent?.name
+                });
+            }
+
+        } catch (error) {
+            this.debug.error('Error updating session with agent response:', error);
+            // Don't fallback here as the session update might have partially succeeded
+        }
+    }
+
+    /**
+     * Handle fallback to standard streaming when agent routing fails
+     * @param {string} transcript - Original transcript to process
+     */
+    handleTranscriptionFallback(transcript) {
+        try {
+            this.debug.log('Handling transcription fallback for:', transcript.substring(0, 50));
+
+            // Create a conversation item with the user's transcript
+            const userMessage = {
+                type: 'conversation.item.create',
+                item: {
+                    type: 'message',
+                    role: 'user',
+                    content: [{
+                        type: 'input_text',
+                        text: transcript
+                    }]
+                }
+            };
+
+            // Send user message
+            this.sendMessage(userMessage);
+
+            // Create response to generate standard OpenAI response
+            const createResponse = {
+                type: 'response.create',
+                response: {
+                    modalities: ['audio', 'text']
+                }
+            };
+
+            this.sendMessage(createResponse);
+
+            this.debug.log('Fallback to standard streaming initiated');
+
+        } catch (error) {
+            this.debug.error('Error in transcription fallback:', error);
+        }
+    }
+
+    /**
+     * Get current session context for agent routing
+     * @returns {Object} - Session context object
+     */
+    getSessionContext() {
+        return {
+            sessionId: this.connectionId || 'streaming_session',
+            currentAgent: this.currentStreamingAgent,
+            conversationContext: {
+                isStreamingMode: true,
+                hasAudioResponse: this.hasAudioResponse,
+                isResponseActive: this.isResponseActive
+            },
+            voiceConfiguration: this.getVoiceConfiguration(),
+            streamingSession: this.streamingSession,
+            timestamp: Date.now()
+        };
+    }
+
+
+
+    /**
+     * Initialize error handler
+     */
+    initializeErrorHandler() {
+        try {
+            if (typeof StreamingErrorHandler !== 'undefined') {
+                this.streamingErrorHandler = new StreamingErrorHandler(this);
+                this.debug.log('Streaming error handler initialized');
+            }
+        } catch (error) {
+            this.debug.error('Error initializing error handler:', error);
+        }
+    }
+
+    /**
+     * Route transcript through agents with error handling
+     * @param {string} transcript - The transcribed text to route
+     */
+    async routeThroughAgentsWithErrorHandling(transcript) {
+        const startTime = Date.now();
+        
+        try {
+            // Update UI to show agent switching
+            if (window.streamingAgentUI) {
+                window.streamingAgentUI.showAgentSwitching();
+                window.streamingAgentUI.logRoutingState(`Starting agent routing for: "${transcript.substring(0, 50)}..."`);
+            }
+
+            // Route through the streaming agent router
+            const routingResult = await this.streamingAgentRouter.routeStreamingMessage(
+                transcript, 
+                this.getSessionContext()
+            );
+
+            const routingLatency = Date.now() - startTime;
+
+            if (routingResult.success) {
+                // Update current agent
+                this.currentStreamingAgent = routingResult.selectedAgent?.name || 'DefaultAgent';
+                
+                // Update UI with new agent
+                if (window.streamingAgentUI) {
+                    window.streamingAgentUI.updateCurrentAgent(
+                        this.currentStreamingAgent,
+                        routingResult.selectedAgent?.type
+                    );
+                    window.streamingAgentUI.hideAgentSwitching();
+                    window.streamingAgentUI.addPerformanceMetric('routingLatency', routingLatency);
+                    window.streamingAgentUI.logAgentDecision(
+                        `Routed to ${this.currentStreamingAgent} (${routingLatency}ms)`,
+                        'success'
+                    );
+                }
+
+                // Update session with agent response
+                await this.updateSessionWithAgentResponse(routingResult);
+
+                this.debug.log('Agent routing completed successfully', {
+                    agent: this.currentStreamingAgent,
+                    latency: routingLatency
+                });
+
+            } else {
+                // Routing failed, fallback to standard streaming
+                this.debug.log('Agent routing failed, falling back to standard streaming');
+                
+                if (window.streamingAgentUI) {
+                    window.streamingAgentUI.hideAgentSwitching();
+                    window.streamingAgentUI.addPerformanceMetric('fallback', 1);
+                    window.streamingAgentUI.logAgentDecision(
+                        `Routing failed: ${routingResult.error || 'Unknown error'}`,
+                        'error'
+                    );
+                }
+
+                this.handleTranscriptionFallback(transcript);
+            }
+
+        } catch (error) {
+            const routingLatency = Date.now() - startTime;
+            this.debug.error('Error in agent routing:', error);
+
+            // Update UI with error state
+            if (window.streamingAgentUI) {
+                window.streamingAgentUI.hideAgentSwitching();
+                window.streamingAgentUI.addPerformanceMetric('fallback', 1);
+                window.streamingAgentUI.logAgentDecision(
+                    `Routing error: ${error.message}`,
+                    'error'
+                );
+            }
+
+            // Fallback to standard streaming
+            this.handleTranscriptionFallback(transcript);
+        }
+    }
+
+    /**
+     * Enable or disable agent routing
+     * @param {boolean} enabled - Whether to enable agent routing
+     */
+    setAgentRoutingEnabled(enabled) {
+        const wasEnabled = this.agentRoutingEnabled;
+        this.agentRoutingEnabled = enabled && !!this.streamingAgentRouter;
+        
+        this.debug.log('Agent routing enabled state changed', {
+            wasEnabled: wasEnabled,
+            nowEnabled: this.agentRoutingEnabled,
+            requested: enabled,
+            hasComponents: !!this.streamingAgentRouter
+        });
+
+        // Reset current agent if disabling
+        if (!this.agentRoutingEnabled) {
+            this.currentStreamingAgent = null;
+        }
+    }
+
+    /**
+     * Get agent routing status and statistics
+     * @returns {Object} - Agent routing status
+     */
+    getAgentRoutingStatus() {
+        return {
+            enabled: this.agentRoutingEnabled,
+            currentAgent: this.currentStreamingAgent,
+            hasStreamingAgentRouter: !!this.streamingAgentRouter,
+            hasStreamingResponseHandler: !!this.streamingResponseHandler,
+            routingStats: this.streamingAgentRouter ? 
+                this.streamingAgentRouter.getRoutingStats() : null,
+            sessionContext: this.getSessionContext()
+        };
+    }
+
+    /**
+     * Reset agent routing state (useful for new conversations)
+     */
+    resetAgentRoutingState() {
+        this.debug.log('Resetting agent routing state');
+        
+        this.currentStreamingAgent = null;
+        
+        if (this.streamingAgentRouter) {
+            this.streamingAgentRouter.resetSession();
+        }
     }
 }
 

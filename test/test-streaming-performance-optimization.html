@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Performance Optimization Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .metric-card {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .metric-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .log-output {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .cache-visualization {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 2px;
+            margin: 10px 0;
+        }
+        .cache-item {
+            height: 20px;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: white;
+        }
+        .cache-hit { background: #28a745; }
+        .cache-miss { background: #dc3545; }
+        .cache-empty { background: #e9ecef; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Streaming Performance Optimization Test</h1>
+        <p>Test suite for streaming agent routing performance optimizations including caching, parallel processing, preemptive loading, and memory optimization.</p>
+    </div>
+
+    <div class="container">
+        <div class="test-section">
+            <h3>Performance Optimizer Status</h3>
+            <div id="optimizer-status" class="status">Initializing...</div>
+            <button onclick="initializeOptimizer()">Initialize Optimizer</button>
+            <button onclick="resetOptimizer()">Reset Metrics</button>
+            <button onclick="toggleOptimization()">Toggle Optimization</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Performance Metrics</h3>
+            <div class="metrics-grid" id="performance-metrics">
+                <!-- Metrics will be populated here -->
+            </div>
+            <button onclick="updateMetrics()">Refresh Metrics</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Routing Cache Test</h3>
+            <div class="cache-visualization" id="cache-visualization">
+                <!-- Cache visualization will be populated here -->
+            </div>
+            <div>
+                <button onclick="testRoutingCache()">Test Cache Performance</button>
+                <button onclick="clearCache()">Clear Cache</button>
+                <span id="cache-stats"></span>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>Parallel Processing Test</h3>
+            <div id="parallel-status"></div>
+            <button onclick="testParallelProcessing()">Test Parallel Routing</button>
+            <button onclick="testConcurrentLoad()">Test Concurrent Load</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Preemptive Loading Test</h3>
+            <div id="preload-status"></div>
+            <button onclick="testPreemptiveLoading()">Test Context Preloading</button>
+            <button onclick="testAgentPrediction()">Test Agent Prediction</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Latency Monitoring Test</h3>
+            <div id="latency-chart"></div>
+            <button onclick="testLatencyMonitoring()">Test Latency Tracking</button>
+            <button onclick="simulateSlowRouting()">Simulate Slow Routing</button>
+            <button onclick="triggerLatencyFallback()">Trigger Fallback</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Memory Optimization Test</h3>
+            <div id="memory-stats"></div>
+            <button onclick="testMemoryOptimization()">Test Memory Cleanup</button>
+            <button onclick="simulateMemoryPressure()">Simulate Memory Pressure</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Integration Test</h3>
+            <div id="integration-status"></div>
+            <button onclick="runIntegrationTest()">Run Full Integration Test</button>
+            <button onclick="runPerformanceBenchmark()">Run Performance Benchmark</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Test Log</h3>
+            <div id="test-log" class="log-output"></div>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+    </div>
+
+    <!-- Load required dependencies -->
+    <script src="../debug-manager.js"></script>
+    <script src="../agents/conversation-context-manager.js"></script>
+    <script src="../streaming-performance-optimizer.js"></script>
+    <script src="../streaming-agent-router.js"></script>
+    <script src="../streaming-manager.js"></script>
+
+    <script>
+        // Test framework
+        class StreamingPerformanceTest {
+            constructor() {
+                this.optimizer = null;
+                this.mockAgentRouter = null;
+                this.mockStreamingManager = null;
+                this.testResults = [];
+                this.logElement = document.getElementById('test-log');
+                
+                this.initializeMocks();
+            }
+
+            initializeMocks() {
+                // Mock AgentRouter
+                this.mockAgentRouter = {
+                    route: async (transcript, context) => {
+                        // Simulate routing delay
+                        await new Promise(resolve => setTimeout(resolve, Math.random() * 100));
+                        
+                        return {
+                            success: true,
+                            agentName: this.predictAgent(transcript),
+                            response: `Mock response for: ${transcript.substring(0, 30)}...`,
+                            processingTime: Math.random() * 50,
+                            tokensUsed: Math.floor(Math.random() * 100)
+                        };
+                    },
+                    getRegisteredAgents: () => [
+                        { name: 'FraudAgent', description: 'Fraud prevention specialist' },
+                        { name: 'PaymentsAgent', description: 'Payments specialist' },
+                        { name: 'IDVAgent', description: 'Identity verification specialist' },
+                        { name: 'BankingInfoAgent', description: 'Banking information specialist' }
+                    ]
+                };
+
+                // Mock StreamingManager
+                this.mockStreamingManager = {
+                    websocket: { readyState: WebSocket.OPEN },
+                    apiClient: {},
+                    debug: window.debugManager?.createModuleLogger('MockStreamingManager') || console
+                };
+
+                // Mock StreamingAgentRouter
+                this.mockStreamingAgentRouter = {
+                    routeStreamingMessage: async (transcript, context) => {
+                        return await this.mockAgentRouter.route(transcript, context);
+                    },
+                    agentRouter: this.mockAgentRouter,
+                    generateSessionInstructions: async (agent, response, context) => {
+                        return `Instructions for ${agent.name}: ${response}`;
+                    },
+                    getAgentVoiceConfig: (agent) => ({
+                        voice: 'alloy',
+                        speed: 1.0,
+                        pitch: 1.0,
+                        temperature: 0.8
+                    })
+                };
+
+                this.log('Mock components initialized');
+            }
+
+            predictAgent(transcript) {
+                const lower = transcript.toLowerCase();
+                if (lower.includes('fraud') || lower.includes('suspicious')) return 'FraudAgent';
+                if (lower.includes('transfer') || lower.includes('payment')) return 'PaymentsAgent';
+                if (lower.includes('verify') || lower.includes('identity')) return 'IDVAgent';
+                return 'BankingInfoAgent';
+            }
+
+            log(message, data = null) {
+                const timestamp = new Date().toLocaleTimeString();
+                const logMessage = `[${timestamp}] ${message}`;
+                
+                if (data) {
+                    console.log(logMessage, data);
+                    this.logElement.textContent += `${logMessage}\n${JSON.stringify(data, null, 2)}\n\n`;
+                } else {
+                    console.log(logMessage);
+                    this.logElement.textContent += `${logMessage}\n`;
+                }
+                
+                this.logElement.scrollTop = this.logElement.scrollHeight;
+            }
+
+            updateStatus(elementId, message, type = 'info') {
+                const element = document.getElementById(elementId);
+                if (element) {
+                    element.textContent = message;
+                    element.className = `status ${type}`;
+                }
+            }
+
+            async initializeOptimizer() {
+                try {
+                    this.optimizer = new StreamingPerformanceOptimizer(
+                        this.mockStreamingAgentRouter,
+                        this.mockStreamingManager
+                    );
+                    
+                    this.updateStatus('optimizer-status', 'Performance optimizer initialized successfully', 'success');
+                    this.log('Performance optimizer initialized');
+                    
+                    // Start metrics updates
+                    this.startMetricsUpdates();
+                    
+                } catch (error) {
+                    this.updateStatus('optimizer-status', `Initialization failed: ${error.message}`, 'error');
+                    this.log('Optimizer initialization failed', { error: error.message });
+                }
+            }
+
+            startMetricsUpdates() {
+                // Update metrics every 2 seconds
+                setInterval(() => {
+                    if (this.optimizer) {
+                        this.updateMetricsDisplay();
+                    }
+                }, 2000);
+            }
+
+            updateMetricsDisplay() {
+                if (!this.optimizer) return;
+
+                const metrics = this.optimizer.getPerformanceMetrics();
+                const metricsContainer = document.getElementById('performance-metrics');
+                
+                metricsContainer.innerHTML = `
+                    <div class="metric-card">
+                        <div class="metric-label">Cache Hit Rate</div>
+                        <div class="metric-value">${metrics.cache.hitRate.toFixed(1)}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Average Latency</div>
+                        <div class="metric-value">${metrics.latency.average}ms</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Parallel Operations</div>
+                        <div class="metric-value">${metrics.parallelProcessing.activeOperations}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Preloaded Contexts</div>
+                        <div class="metric-value">${metrics.preloading.preloadedContexts}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Cache Size</div>
+                        <div class="metric-value">${metrics.cache.size}/${metrics.cache.maxSize}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Total Requests</div>
+                        <div class="metric-value">${metrics.totalOptimizedRequests}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Fallbacks Triggered</div>
+                        <div class="metric-value">${metrics.fallbacksTriggered}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Memory Cleanups</div>
+                        <div class="metric-value">${metrics.memory.cleanups}</div>
+                    </div>
+                `;
+            }
+
+            async testRoutingCache() {
+                if (!this.optimizer) {
+                    this.log('Optimizer not initialized');
+                    return;
+                }
+
+                this.log('Testing routing cache performance...');
+                
+                const testTranscripts = [
+                    'I think there is fraud on my account',
+                    'I want to transfer money to my friend',
+                    'Can you verify my identity please',
+                    'What is my account balance',
+                    'I think there is fraud on my account', // Duplicate for cache test
+                    'I want to transfer money to my friend'  // Duplicate for cache test
+                ];
+
+                const results = [];
+                
+                for (let i = 0; i < testTranscripts.length; i++) {
+                    const transcript = testTranscripts[i];
+                    const startTime = Date.now();
+                    
+                    try {
+                        const result = await this.optimizer.optimizeRoutingMessage(transcript, {
+                            sessionId: 'test-session',
+                            currentAgent: null
+                        });
+                        
+                        const latency = Date.now() - startTime;
+                        results.push({
+                            transcript: transcript.substring(0, 30),
+                            latency,
+                            cacheHit: result.cacheHit,
+                            success: result.success
+                        });
+                        
+                        this.log(`Request ${i + 1}: ${result.cacheHit ? 'CACHE HIT' : 'CACHE MISS'} (${latency}ms)`);
+                        
+                    } catch (error) {
+                        this.log(`Request ${i + 1} failed: ${error.message}`);
+                    }
+                }
+
+                // Update cache visualization
+                this.updateCacheVisualization(results);
+                
+                const cacheHits = results.filter(r => r.cacheHit).length;
+                const avgLatency = results.reduce((sum, r) => sum + r.latency, 0) / results.length;
+                
+                this.log('Cache test completed', {
+                    totalRequests: results.length,
+                    cacheHits,
+                    hitRate: (cacheHits / results.length * 100).toFixed(1) + '%',
+                    averageLatency: avgLatency.toFixed(1) + 'ms'
+                });
+            }
+
+            updateCacheVisualization(results) {
+                const visualization = document.getElementById('cache-visualization');
+                visualization.innerHTML = '';
+                
+                results.forEach((result, index) => {
+                    const item = document.createElement('div');
+                    item.className = `cache-item ${result.cacheHit ? 'cache-hit' : 'cache-miss'}`;
+                    item.textContent = index + 1;
+                    item.title = `${result.transcript} - ${result.cacheHit ? 'HIT' : 'MISS'} (${result.latency}ms)`;
+                    visualization.appendChild(item);
+                });
+            }
+
+            async testParallelProcessing() {
+                if (!this.optimizer) {
+                    this.log('Optimizer not initialized');
+                    return;
+                }
+
+                this.log('Testing parallel processing...');
+                
+                const testTranscripts = [
+                    'Check for fraud on my account',
+                    'Transfer $100 to John',
+                    'Verify my identity',
+                    'Show my balance'
+                ];
+
+                const startTime = Date.now();
+                
+                // Execute all requests in parallel
+                const promises = testTranscripts.map(transcript => 
+                    this.optimizer.optimizeRoutingMessage(transcript, {
+                        sessionId: 'parallel-test-session',
+                        currentAgent: null
+                    })
+                );
+
+                try {
+                    const results = await Promise.all(promises);
+                    const totalTime = Date.now() - startTime;
+                    
+                    this.log('Parallel processing completed', {
+                        totalRequests: results.length,
+                        totalTime: totalTime + 'ms',
+                        averageTime: (totalTime / results.length).toFixed(1) + 'ms',
+                        successfulRequests: results.filter(r => r.success).length
+                    });
+
+                    document.getElementById('parallel-status').innerHTML = `
+                        <div class="status success">
+                            Parallel test completed: ${results.length} requests in ${totalTime}ms
+                        </div>
+                    `;
+                    
+                } catch (error) {
+                    this.log('Parallel processing test failed', { error: error.message });
+                    document.getElementById('parallel-status').innerHTML = `
+                        <div class="status error">Parallel test failed: ${error.message}</div>
+                    `;
+                }
+            }
+
+            async testPreemptiveLoading() {
+                if (!this.optimizer) {
+                    this.log('Optimizer not initialized');
+                    return;
+                }
+
+                this.log('Testing preemptive loading...');
+                
+                const testCases = [
+                    {
+                        transcript: 'I think someone is using my card fraudulently',
+                        expectedAgent: 'FraudAgent'
+                    },
+                    {
+                        transcript: 'I need to send money to my daughter',
+                        expectedAgent: 'PaymentsAgent'
+                    },
+                    {
+                        transcript: 'Can you help me verify who I am',
+                        expectedAgent: 'IDVAgent'
+                    }
+                ];
+
+                for (const testCase of testCases) {
+                    try {
+                        const result = await this.optimizer.optimizeRoutingMessage(testCase.transcript, {
+                            sessionId: 'preload-test-session',
+                            currentAgent: null
+                        });
+
+                        // Check if context was preloaded
+                        const preloadedContext = this.optimizer.getPreloadedContext(testCase.expectedAgent);
+                        
+                        this.log(`Preload test for ${testCase.expectedAgent}`, {
+                            transcript: testCase.transcript.substring(0, 40),
+                            contextPreloaded: !!preloadedContext,
+                            routingSuccess: result.success
+                        });
+                        
+                    } catch (error) {
+                        this.log(`Preload test failed for ${testCase.expectedAgent}`, { error: error.message });
+                    }
+                }
+
+                const metrics = this.optimizer.getPerformanceMetrics();
+                document.getElementById('preload-status').innerHTML = `
+                    <div class="status success">
+                        Preloading test completed. Effectiveness: ${metrics.preloading.effectiveness.toFixed(1)}%
+                    </div>
+                `;
+            }
+
+            async testLatencyMonitoring() {
+                if (!this.optimizer) {
+                    this.log('Optimizer not initialized');
+                    return;
+                }
+
+                this.log('Testing latency monitoring...');
+                
+                // Simulate various latency scenarios
+                const testScenarios = [
+                    { delay: 50, description: 'Fast routing' },
+                    { delay: 120, description: 'Slow routing (warning)' },
+                    { delay: 250, description: 'Very slow routing (critical)' },
+                    { delay: 30, description: 'Fast routing' },
+                    { delay: 180, description: 'Slow routing' }
+                ];
+
+                for (const scenario of testScenarios) {
+                    // Mock delay in the agent router
+                    const originalRoute = this.mockAgentRouter.route;
+                    this.mockAgentRouter.route = async (transcript, context) => {
+                        await new Promise(resolve => setTimeout(resolve, scenario.delay));
+                        return originalRoute.call(this.mockAgentRouter, transcript, context);
+                    };
+
+                    try {
+                        const result = await this.optimizer.optimizeRoutingMessage(
+                            `Test latency with ${scenario.delay}ms delay`,
+                            { sessionId: 'latency-test-session' }
+                        );
+
+                        this.log(`${scenario.description}: ${result.latency || 'N/A'}ms`, {
+                            fallbackTriggered: result.fallbackTriggered || false,
+                            success: result.success
+                        });
+                        
+                    } catch (error) {
+                        this.log(`Latency test failed: ${error.message}`);
+                    }
+
+                    // Restore original route function
+                    this.mockAgentRouter.route = originalRoute;
+                }
+
+                const metrics = this.optimizer.getPerformanceMetrics();
+                this.log('Latency monitoring test completed', {
+                    averageLatency: metrics.latency.average + 'ms',
+                    consecutiveSlowRequests: metrics.latency.consecutiveSlowRequests,
+                    fallbacksTriggered: metrics.fallbacksTriggered
+                });
+            }
+
+            async testMemoryOptimization() {
+                if (!this.optimizer) {
+                    this.log('Optimizer not initialized');
+                    return;
+                }
+
+                this.log('Testing memory optimization...');
+                
+                // Create some test data to optimize
+                for (let i = 0; i < 50; i++) {
+                    await this.optimizer.optimizeRoutingMessage(
+                        `Test message ${i} for memory optimization`,
+                        { sessionId: `memory-test-session-${i % 5}` }
+                    );
+                }
+
+                // Get memory stats before optimization
+                const statsBefore = this.optimizer.getPerformanceMetrics();
+                
+                // Trigger memory optimization
+                this.optimizer.optimizeMemoryUsage();
+                
+                // Get memory stats after optimization
+                const statsAfter = this.optimizer.getPerformanceMetrics();
+                
+                this.log('Memory optimization completed', {
+                    cacheSize: {
+                        before: statsBefore.cache.size,
+                        after: statsAfter.cache.size
+                    },
+                    preloadedContexts: {
+                        before: statsBefore.preloading.preloadedContexts,
+                        after: statsAfter.preloading.preloadedContexts
+                    },
+                    cleanups: statsAfter.memory.cleanups
+                });
+
+                document.getElementById('memory-stats').innerHTML = `
+                    <div class="status success">
+                        Memory optimization completed. Cache size: ${statsAfter.cache.size}, 
+                        Cleanups: ${statsAfter.memory.cleanups}
+                    </div>
+                `;
+            }
+
+            async runIntegrationTest() {
+                this.log('Running full integration test...');
+                
+                try {
+                    // Initialize if not already done
+                    if (!this.optimizer) {
+                        await this.initializeOptimizer();
+                    }
+
+                    // Run all test components
+                    await this.testRoutingCache();
+                    await this.testParallelProcessing();
+                    await this.testPreemptiveLoading();
+                    await this.testLatencyMonitoring();
+                    await this.testMemoryOptimization();
+
+                    const finalMetrics = this.optimizer.getPerformanceMetrics();
+                    
+                    this.log('Integration test completed successfully', finalMetrics);
+                    
+                    document.getElementById('integration-status').innerHTML = `
+                        <div class="status success">
+                            Integration test completed successfully. 
+                            Total requests: ${finalMetrics.totalOptimizedRequests}, 
+                            Cache hit rate: ${finalMetrics.cache.hitRate.toFixed(1)}%
+                        </div>
+                    `;
+                    
+                } catch (error) {
+                    this.log('Integration test failed', { error: error.message });
+                    document.getElementById('integration-status').innerHTML = `
+                        <div class="status error">Integration test failed: ${error.message}</div>
+                    `;
+                }
+            }
+
+            clearLog() {
+                this.logElement.textContent = '';
+            }
+
+            resetOptimizer() {
+                if (this.optimizer) {
+                    this.optimizer.resetPerformanceMetrics();
+                    this.log('Performance metrics reset');
+                    this.updateMetricsDisplay();
+                }
+            }
+        }
+
+        // Initialize test framework
+        const performanceTest = new StreamingPerformanceTest();
+
+        // Global functions for buttons
+        function initializeOptimizer() {
+            performanceTest.initializeOptimizer();
+        }
+
+        function resetOptimizer() {
+            performanceTest.resetOptimizer();
+        }
+
+        function toggleOptimization() {
+            if (performanceTest.optimizer) {
+                const currentState = performanceTest.optimizer.optimizationEnabled;
+                performanceTest.optimizer.setOptimizationEnabled(!currentState);
+                performanceTest.log(`Optimization ${!currentState ? 'enabled' : 'disabled'}`);
+            }
+        }
+
+        function updateMetrics() {
+            performanceTest.updateMetricsDisplay();
+        }
+
+        function testRoutingCache() {
+            performanceTest.testRoutingCache();
+        }
+
+        function clearCache() {
+            if (performanceTest.optimizer) {
+                performanceTest.optimizer.routingCache.clear();
+                performanceTest.log('Cache cleared');
+            }
+        }
+
+        function testParallelProcessing() {
+            performanceTest.testParallelProcessing();
+        }
+
+        function testConcurrentLoad() {
+            performanceTest.log('Testing concurrent load...');
+            // Run multiple parallel tests simultaneously
+            Promise.all([
+                performanceTest.testParallelProcessing(),
+                performanceTest.testParallelProcessing(),
+                performanceTest.testParallelProcessing()
+            ]).then(() => {
+                performanceTest.log('Concurrent load test completed');
+            });
+        }
+
+        function testPreemptiveLoading() {
+            performanceTest.testPreemptiveLoading();
+        }
+
+        function testAgentPrediction() {
+            performanceTest.log('Testing agent prediction...');
+            const testCases = [
+                'I think there is fraud on my account',
+                'I want to transfer money',
+                'Please verify my identity',
+                'What is my balance'
+            ];
+            
+            testCases.forEach(transcript => {
+                const predicted = performanceTest.predictAgent(transcript);
+                performanceTest.log(`"${transcript}" -> ${predicted}`);
+            });
+        }
+
+        function testLatencyMonitoring() {
+            performanceTest.testLatencyMonitoring();
+        }
+
+        function simulateSlowRouting() {
+            performanceTest.log('Simulating slow routing...');
+            // This would be implemented with actual slow routing simulation
+        }
+
+        function triggerLatencyFallback() {
+            performanceTest.log('Triggering latency fallback...');
+            // This would be implemented with actual fallback triggering
+        }
+
+        function testMemoryOptimization() {
+            performanceTest.testMemoryOptimization();
+        }
+
+        function simulateMemoryPressure() {
+            performanceTest.log('Simulating memory pressure...');
+            // Create lots of test data
+            if (performanceTest.optimizer) {
+                for (let i = 0; i < 100; i++) {
+                    performanceTest.optimizer.optimizeRoutingMessage(
+                        `Memory pressure test ${i}`,
+                        { sessionId: `pressure-test-${i}` }
+                    );
+                }
+                performanceTest.log('Memory pressure simulation completed');
+            }
+        }
+
+        function runIntegrationTest() {
+            performanceTest.runIntegrationTest();
+        }
+
+        function runPerformanceBenchmark() {
+            performanceTest.log('Running performance benchmark...');
+            // This would run a comprehensive performance benchmark
+        }
+
+        function clearLog() {
+            performanceTest.clearLog();
+        }
+
+        // Auto-initialize on page load
+        window.addEventListener('load', () => {
+            performanceTest.log('Streaming Performance Optimization Test initialized');
+            performanceTest.updateStatus('optimizer-status', 'Ready to initialize optimizer', 'warning');
+        });
+    </script>
+</body>
+</html>

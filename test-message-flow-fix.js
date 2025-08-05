@@ -2,14 +2,42 @@
  * Test script to verify the message flow fix for transcription display
  */
 
+// Helper function to wait for SpeechApp initialization
+function waitForSpeechAppInitialization(timeout = 10000) {
+    return new Promise((resolve, reject) => {
+        const startTime = Date.now();
+        
+        const checkInitialization = () => {
+            if (window.speechApp && window.speechApp.streamingManager) {
+                console.log('✅ SpeechApp and StreamingManager are available');
+                resolve(true);
+                return;
+            }
+            
+            if (Date.now() - startTime > timeout) {
+                console.log('⏰ Timeout waiting for SpeechApp initialization');
+                resolve(false);
+                return;
+            }
+            
+            setTimeout(checkInitialization, 100);
+        };
+        
+        checkInitialization();
+    });
+}
+
 // Test the message flow to ensure user messages are displayed
 function testMessageFlow() {
     console.log('🧪 Testing message flow fix...');
     
     // Check if components are available before testing
-    if (!window.streamingManager) {
+    const streamingManager = window.speechApp?.streamingManager || window.streamingManager;
+    if (!streamingManager) {
         console.log('⏳ StreamingManager instance not available, skipping test');
         console.log('💡 Note: StreamingManager may not be instantiated until streaming mode is used');
+        console.log('- Checked window.speechApp.streamingManager:', !!(window.speechApp?.streamingManager));
+        console.log('- Checked window.streamingManager:', !!window.streamingManager);
         return false;
     }
     
@@ -29,12 +57,12 @@ function testMessageFlow() {
     }
 
     // Test displayUserMessage function
-    if (window.streamingManager && typeof window.streamingManager.displayUserMessage === 'function') {
+    if (streamingManager && typeof streamingManager.displayUserMessage === 'function') {
         console.log('✅ Testing displayUserMessage...');
         
         try {
             const testTranscript = "hey I think I left my card at Tesco I'm not sure it is I can't find it what do I need to do";
-            window.streamingManager.displayUserMessage(testTranscript);
+            streamingManager.displayUserMessage(testTranscript);
             
             // Check if message was added to conversation
             const conversation = document.getElementById('conversation');
@@ -76,12 +104,15 @@ function testMessageFlow() {
 function testMiddlewareInterception() {
     console.log('🧪 Testing middleware message interception...');
     
-    if (!window.streamingManager || !window.streamingManager.streamingAgentMiddleware) {
+    const streamingManager = window.speechApp?.streamingManager || window.streamingManager;
+    if (!streamingManager || !streamingManager.streamingAgentMiddleware) {
         console.log('⏳ StreamingAgentMiddleware not available - component may not be initialized yet');
+        console.log('- StreamingManager available:', !!streamingManager);
+        console.log('- StreamingAgentMiddleware available:', !!(streamingManager?.streamingAgentMiddleware));
         return false;
     }
     
-    const middleware = window.streamingManager.streamingAgentMiddleware;
+    const middleware = streamingManager.streamingAgentMiddleware;
     
     // Test message that should be intercepted
     const testMessage = {
@@ -105,8 +136,11 @@ function testMiddlewareInterception() {
 async function testCompleteFlow() {
     console.log('🧪 Testing complete message flow...');
     
-    if (!window.streamingManager) {
+    const streamingManager = window.speechApp?.streamingManager || window.streamingManager;
+    if (!streamingManager) {
         console.log('⏳ StreamingManager instance not available - may not be instantiated until streaming mode is used');
+        console.log('- Checked window.speechApp.streamingManager:', !!(window.speechApp?.streamingManager));
+        console.log('- Checked window.streamingManager:', !!window.streamingManager);
         return false;
     }
     
@@ -130,8 +164,8 @@ async function testCompleteFlow() {
         console.log('Message count before:', messageCountBefore);
         
         // Simulate the message handling
-        if (window.streamingManager.handleMessage) {
-            await window.streamingManager.handleMessage(mockEvent);
+        if (streamingManager.handleMessage) {
+            await streamingManager.handleMessage(mockEvent);
             
             // Check if message was added
             const messageCountAfter = conversation ? conversation.querySelectorAll('.user-message').length : 0;
@@ -160,6 +194,8 @@ async function testCompleteFlow() {
             }
         } else {
             console.log('❌ StreamingManager.handleMessage not available');
+            console.log('- StreamingManager available:', !!streamingManager);
+            console.log('- handleMessage method available:', !!(streamingManager?.handleMessage));
             return false;
         }
         
@@ -172,6 +208,14 @@ async function testCompleteFlow() {
 // Run all tests
 async function runAllTests() {
     console.log('🚀 Starting message flow tests...\n');
+    
+    // Wait for SpeechApp initialization
+    console.log('⏳ Waiting for SpeechApp initialization...');
+    const isInitialized = await waitForSpeechAppInitialization();
+    
+    if (!isInitialized) {
+        console.log('❌ SpeechApp not initialized, tests may fail');
+    }
     
     const results = {
         displayUserMessage: testMessageFlow(),
@@ -206,18 +250,21 @@ if (typeof window !== 'undefined') {
         return runAllTests();
     };
     
-    // Check if we should auto-run tests (only in debug mode)
+    // Check if we should auto-run tests (only in explicit debug mode)
     const urlParams = new URLSearchParams(window.location.search);
-    const debugMode = urlParams.get('debug') === 'true' || localStorage.getItem('debugMode') === 'true';
+    const explicitDebugMode = urlParams.get('debug') === 'true' && urlParams.get('autotest') === 'true';
     
-    if (debugMode) {
+    if (explicitDebugMode) {
         // Run tests after a longer delay to ensure everything is loaded
         window.addEventListener('load', () => {
             setTimeout(() => {
-                console.log('Debug mode detected - running message flow tests...');
+                console.log('Explicit debug mode detected - running message flow tests...');
                 runAllTests();
             }, 5000); // Increased delay
         });
+    } else {
+        console.log('💡 Message flow tests loaded. Run manually with: runAllTests()');
+        console.log('💡 To auto-run tests, add ?debug=true&autotest=true to URL');
     }
 }
 

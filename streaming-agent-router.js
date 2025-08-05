@@ -214,7 +214,13 @@ class StreamingAgentRouter {
                 streamingMode: true,
                 currentAgent: this.currentAgent?.name,
                 sessionId: this.sessionContext.sessionId,
-                apiClient: this.streamingManager.apiClient || window.apiClient
+                apiClient: this.streamingManager.apiClient || window.apiClient,
+                // Add required dependencies for agents
+                personaManager: window.personaManager || (window.speechApp && window.speechApp.personaManager),
+                conversationContextManager: window.conversationContextManager || (window.speechApp && window.speechApp.conversationContextManager),
+                systemPromptsManager: window.systemPromptsManager || (window.speechApp && window.speechApp.systemPromptsManager),
+                debugManager: window.debugManager,
+                systemLogger: window.systemLogger
             };
 
             // Route through existing agent system

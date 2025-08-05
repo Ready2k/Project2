@@ -1,0 +1,78 @@
+/* Debug Output Styles */
+.debug-output {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 10px;
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    border: 1px solid #333;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.debug-output.debug-updated {
+    border-color: #4CAF50;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+    background-color: #1a2e1a;
+}
+
+.debug-output.debug-error {
+    border-color: #f44336;
+    box-shadow: 0 0 5px rgba(244, 67, 54, 0.3);
+    background-color: #2e1a1a;
+    color: #ffcdd2;
+}
+
+/* Scrollbar styling for debug outputs */
+.debug-output::-webkit-scrollbar {
+    width: 6px;
+}
+
+.debug-output::-webkit-scrollbar-track {
+    background: #2e2e2e;
+    border-radius: 3px;
+}
+
+.debug-output::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 3px;
+}
+
+.debug-output::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
+
+/* System prompt specific styling */
+#systemPrompt {
+    max-height: 300px; /* Larger for system prompts */
+}
+
+/* Syntax highlighting for system prompts */
+.debug-output .prompt-section {
+    color: #569cd6;
+    font-weight: bold;
+}
+
+.debug-output .prompt-persona {
+    color: #4ec9b0;
+}
+
+.debug-output .prompt-instructions {
+    color: #ce9178;
+}
+
+/* Animation for content updates */
+@keyframes debugUpdate {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.9; }
+}
+
+.debug-updated {
+    animation: debugUpdate 0.5s ease-in-out;
+}

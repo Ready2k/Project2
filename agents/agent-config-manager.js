@@ -7,6 +7,9 @@ class AgentConfigManager {
     constructor() {
         this.debug = window.debugManager.createModuleLogger('AgentConfigManager');
         
+        // Initialize system prompt manager for proper fallback hierarchy
+        this.systemPromptManager = new SystemPromptManager();
+        
         // Agent configuration files mapping
         this.agentConfigFiles = {
             'DefaultAgent': 'config/agents/default-agent-config.json',
@@ -227,6 +230,38 @@ class AgentConfigManager {
      */
     getAgentConfig(agentName) {
         return this.agentConfigs[agentName] || null;
+    }
+    
+    /**
+     * Get system prompts for a specific agent with proper fallback hierarchy
+     * @param {string} agentName - Name of the agent
+     * @returns {Promise<Object>} - Resolved system prompts
+     */
+    async getSystemPromptsForAgent(agentName) {
+        const agentConfig = this.getAgentConfig(agentName);
+        if (!agentConfig) {
+            this.debug.warn(`Agent config not found for ${agentName}, using fallback prompts`);
+            return await this.systemPromptManager.loadSystemPrompts();
+        }
+        
+        return await this.systemPromptManager.getSystemPromptsForAgent(agentName, agentConfig);
+    }
+    
+    /**
+     * Generate complete system prompt for an agent
+     * @param {string} agentName - Name of the agent
+     * @param {Object} personaData - Current persona data (optional)
+     * @param {string} userInput - User input for context (optional)
+     * @returns {Promise<string>} - Complete system prompt
+     */
+    async generateSystemPromptForAgent(agentName, personaData = null, userInput = '') {
+        const agentConfig = this.getAgentConfig(agentName);
+        if (!agentConfig) {
+            this.debug.warn(`Agent config not found for ${agentName}, using minimal prompt`);
+            return this.systemPromptManager.getMinimalSystemPrompt(agentName, { description: 'Banking assistant' });
+        }
+        
+        return await this.systemPromptManager.generateSystemPromptForAgent(agentName, agentConfig, personaData, userInput);
     }
     
     /**

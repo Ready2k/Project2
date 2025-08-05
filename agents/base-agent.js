@@ -213,22 +213,123 @@ class BaseAgent {
     
     /**
      * Helper method to generate system prompt for this agent
-     * Can be overridden by subclasses for domain-specific prompts
+     * Uses proper fallback hierarchy: agent config overrides > system-prompts.json fallback
+     * @param {Object} context - Context object containing AgentConfigManager
+     * @param {string} userInput - The user's input text
+     * @param {Object} personaDataOverride - Optional persona data override (for backward compatibility)
+     * @returns {Promise<string>} - Generated system prompt
+     */
+    async generateSystemPrompt(context, userInput, personaDataOverride = null) {
+        try {
+            this.debug.info('generateSystemPrompt called', { 
+                agentName: this.name,
+                userInputLength: userInput?.length || 0,
+                hasPersonaOverride: !!personaDataOverride,
+                hasAgentConfigManager: !!context.agentConfigManager
+            });
+            
+            let systemPrompt;
+            // Use persona data override if provided, otherwise get from context
+            const personaData = personaDataOverride || this.getPersonaData(context);
+            
+            // Use AgentConfigManager for proper system prompt hierarchy
+            if (context.agentConfigManager) {
+                systemPrompt = await context.agentConfigManager.generateSystemPromptForAgent(
+                    this.name, 
+                    personaData, 
+                    userInput
+                );
+            } else {
+                // Fallback to legacy method if AgentConfigManager not available
+                this.debug.warn('AgentConfigManager not available, using legacy system prompt generation');
+                systemPrompt = this.generateLegacySystemPrompt(context, userInput);
+            }
+            
+            // Update debug output with the generated system prompt
+            this.updateDebugOutputWithSystemPrompt(context, systemPrompt, personaData);
+            
+            return systemPrompt;
+            
+        } catch (error) {
+            this.debug.error('Failed to generate system prompt', { error: error.message });
+            
+            // Return minimal fallback prompt to prevent complete failure
+            const fallbackPrompt = this.getMinimalFallbackPrompt(userInput);
+            
+            // Still try to update debug output with error info
+            this.updateDebugOutputWithError(context, error.message);
+            
+            return fallbackPrompt;
+        }
+    }
+    
+    /**
+     * Update debug output with the generated system prompt
+     * @param {Object} context - Context object
+     * @param {string} systemPrompt - Generated system prompt
+     * @param {Object} personaData - Persona data used
+     */
+    updateDebugOutputWithSystemPrompt(context, systemPrompt, personaData) {
+        try {
+            this.debug.info('updateDebugOutputWithSystemPrompt called', {
+                agentName: this.name,
+                promptLength: systemPrompt?.length || 0,
+                hasPersonaData: !!personaData,
+                personaName: personaData?.name || 'Unknown'
+            });
+            
+            // Check if we have access to the main app's debug output manager
+            const speechApp = window.speechApp || window.speechToSpeechApp;
+            if (speechApp && speechApp.debugOutputManager) {
+                const metadata = {
+                    agentName: this.name,
+                    personaName: personaData?.name || 'Unknown',
+                    promptLength: systemPrompt.length,
+                    tokensEstimate: Math.ceil(systemPrompt.length / 4) // Rough token estimate
+                };
+                
+                speechApp.debugOutputManager.updateSystemPrompt(systemPrompt, metadata);
+                this.debug.info('System prompt updated in debug panel', metadata);
+            } else {
+                this.debug.warn('Debug output manager not available for system prompt display');
+            }
+        } catch (error) {
+            this.debug.error('Failed to update debug output with system prompt', { error: error.message });
+        }
+    }
+    
+    /**
+     * Update debug output with error information
+     * @param {Object} context - Context object
+     * @param {string} errorMessage - Error message
+     */
+    updateDebugOutputWithError(context, errorMessage) {
+        try {
+            const speechApp = window.speechApp || window.speechToSpeechApp;
+            if (speechApp && speechApp.debugOutputManager) {
+                speechApp.debugOutputManager.showError('systemPrompt', `System prompt generation failed: ${errorMessage}`);
+            }
+        } catch (error) {
+            this.debug.error('Failed to update debug output with error', { error: error.message });
+        }
+    }
+    
+    /**
+     * Legacy system prompt generation for backward compatibility
      * @param {Object} context - Context object containing SystemPromptsManager
      * @param {string} userInput - The user's input text
      * @returns {string} - Generated system prompt
      */
-    generateSystemPrompt(context, userInput) {
+    generateLegacySystemPrompt(context, userInput) {
         if (!context.systemPromptsManager) {
-            this.debug.warn('SystemPromptsManager not available in context');
-            return '';
+            return this.getMinimalFallbackPrompt(userInput);
         }
         
         // Get current persona data for context
         const personaData = this.getPersonaData(context);
         
         // Check if agent wants to override any system prompt components
-        const overrides = this.getSystemPromptOverrides(context, personaData);
+        const overrides = this.getSystemPromptOverrides ? this.getSystemPromptOverrides(context, personaData) : {};
         
         // Generate base system prompt with persona integration and any overrides
         let basePrompt;
@@ -237,11 +338,15 @@ class BaseAgent {
             basePrompt = this.buildCustomSystemPrompt(context, personaData, userInput, overrides);
         } else {
             // Use standard system prompt generation
-            basePrompt = context.systemPromptsManager.generateSystemPrompt(personaData, userInput);
+            basePrompt = context.systemPromptsManager.generateSystemPrompt ? 
+                context.systemPromptsManager.generateSystemPrompt(personaData, userInput) :
+                this.getMinimalFallbackPrompt(userInput);
         }
         
         // Allow agent to supplement the base prompt
-        basePrompt = this.supplementSystemPrompt(context, basePrompt, personaData);
+        if (this.supplementSystemPrompt) {
+            basePrompt = this.supplementSystemPrompt(context, basePrompt, personaData);
+        }
         
         // Add agent-specific context
         const agentContext = `\n\nYou are currently operating as ${this.name}: ${this.description}`;
@@ -260,7 +365,7 @@ class BaseAgent {
     }
     
     /**
-     * Build custom system prompt with agent-specific overrides
+     * Build custom system prompt with agent-specific overrides (legacy)
      * @param {Object} context - Context object containing SystemPromptsManager
      * @param {Object} personaData - Current persona data
      * @param {string} userInput - The user's input text
@@ -287,14 +392,16 @@ class BaseAgent {
             systemPrompt += `Customer Information:
 - Name: ${personaData.name}
 - Account Type: ${personaData.accountType}
-- Current Balance: ${context.personaManager.formatCurrency(personaData.balance)}
+- Current Balance: ${context.personaManager?.formatCurrency ? context.personaManager.formatCurrency(personaData.balance) : `£${personaData.balance}`}
 - Card Last 4 Digits: ${personaData.cardLast4}`;
 
             // Add recent transactions if available
             if (personaData.recentTransactions && personaData.recentTransactions.length > 0) {
                 systemPrompt += '\n- Recent Transactions:\n';
                 personaData.recentTransactions.slice(0, 3).forEach(tx => {
-                    const amount = context.personaManager.formatCurrency(tx.amount);
+                    const amount = context.personaManager?.formatCurrency ? 
+                        context.personaManager.formatCurrency(tx.amount) : 
+                        `£${tx.amount}`;
                     systemPrompt += `  ${tx.date}: ${amount} - ${tx.description}\n`;
                 });
             }
@@ -312,6 +419,21 @@ class BaseAgent {
         }
 
         return systemPrompt;
+    }
+    
+    /**
+     * Get minimal fallback prompt when all else fails
+     * @param {string} userInput - The user's input text
+     * @returns {string} - Minimal system prompt
+     */
+    getMinimalFallbackPrompt(userInput) {
+        return `You are a helpful, professional, and friendly AI voice assistant for a UK financial services company. You should be empathetic, clear in your communication, and engaging in conversation.
+
+When handling financial services requests, be conversational and natural in your responses. Provide helpful and accurate information about UK banking. Ask clarifying questions when needed.
+
+Keep responses conversational and concise (suitable for voice). Use natural speech patterns with contractions. Address users in a friendly manner. Sound human and empathetic, not robotic.
+
+You are currently operating as ${this.name}: ${this.description}`;
     }
     
     /**

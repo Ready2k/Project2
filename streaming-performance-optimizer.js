@@ -24,9 +24,11 @@ class StreamingPerformanceOptimizer {
         // Parallel processing state
         this.parallelProcessing = {
             enabled: true,
-            maxConcurrentOperations: 3,
+            maxConcurrentOperations: 5,
             activeOperations: new Map(),
-            operationQueue: []
+            operationQueue: [],
+            lastWarningTime: 0,
+            warningThrottleMs: 5000 // Only warn every 5 seconds
         };
 
         // Preemptive agent context loading
@@ -404,10 +406,16 @@ class StreamingPerformanceOptimizer {
         try {
             // Check if we can start a new parallel operation
             if (this.parallelProcessing.activeOperations.size >= this.parallelProcessing.maxConcurrentOperations) {
-                this.debug.warn('Max parallel operations reached, queuing request', {
-                    activeOperations: this.parallelProcessing.activeOperations.size,
-                    maxConcurrent: this.parallelProcessing.maxConcurrentOperations
-                });
+                // Throttle warnings to avoid spam
+                const now = Date.now();
+                if (now - this.parallelProcessing.lastWarningTime > this.parallelProcessing.warningThrottleMs) {
+                    this.debug.warn('Max parallel operations reached, queuing request', {
+                        activeOperations: this.parallelProcessing.activeOperations.size,
+                        maxConcurrent: this.parallelProcessing.maxConcurrentOperations,
+                        queueLength: this.parallelProcessing.operationQueue.length
+                    });
+                    this.parallelProcessing.lastWarningTime = now;
+                }
                 
                 // Queue the operation
                 return new Promise((resolve, reject) => {

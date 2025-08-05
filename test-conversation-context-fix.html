@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversation Context Integration Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .test-results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Conversation Context Manager Integration Test</h1>
+        
+        <div class="status" id="loadingStatus">
+            Loading dependencies...
+        </div>
+        
+        <div class="test-section">
+            <h3>Integration Tests</h3>
+            <p>These tests verify that the ConversationContextManager is properly integrated with the streaming system.</p>
+            
+            <button class="test-button" onclick="runIntegrationTest()">Run Integration Test</button>
+            <button class="test-button" onclick="testStreamingIntegration()">Test Streaming Integration</button>
+            <button class="test-button" onclick="simulateStreamingConversation()">Simulate Streaming Conversation</button>
+            <button class="test-button" onclick="clearResults()">Clear Results</button>
+            
+            <div class="test-results" id="testResults">
+                Click a test button to see results...
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Manual Verification</h3>
+            <p>Use these controls to manually verify conversation context tracking:</p>
+            
+            <input type="text" id="testMessage" placeholder="Enter a test message..." style="width: 300px; padding: 8px; margin-right: 10px;">
+            <button class="test-button" onclick="addTestMessage()">Add User Message</button>
+            <button class="test-button" onclick="addTestResponse()">Add Bot Response</button>
+            <button class="test-button" onclick="showConversationHistory()">Show History</button>
+        </div>
+    </div>
+
+    <!-- Load minimal dependencies for testing -->
+    <script src="debug-manager.js"></script>
+    <script src="system-logger.js"></script>
+    <script src="agents/conversation-context-manager.js"></script>
+    
+    <!-- Initialize a standalone ConversationContextManager for testing -->
+    <script>
+        // Create a standalone ConversationContextManager for testing
+        if (typeof ConversationContextManager !== 'undefined' && !window.conversationContextManager) {
+            try {
+                window.conversationContextManager = new ConversationContextManager();
+                console.log('✅ Standalone ConversationContextManager created for testing');
+            } catch (error) {
+                console.error('❌ Failed to create ConversationContextManager:', error);
+            }
+        }
+    </script>
+    
+    <script src="test-conversation-context-integration.js"></script>
+
+    <script>
+        let testOutput = '';
+        
+        function log(message) {
+            testOutput += message + '\n';
+            document.getElementById('testResults').textContent = testOutput;
+            console.log(message);
+        }
+        
+        function clearResults() {
+            testOutput = '';
+            document.getElementById('testResults').textContent = 'Results cleared...';
+        }
+        
+        async function runIntegrationTest() {
+            clearResults();
+            log('🧪 Running Conversation Context Integration Test...\n');
+            
+            try {
+                const results = await testConversationContextIntegration();
+                log('\n📊 Test completed. Check console for detailed results.');
+            } catch (error) {
+                log('❌ Test failed with error: ' + error.message);
+            }
+        }
+        
+        function testStreamingIntegration() {
+            clearResults();
+            log('🔄 Testing Streaming Integration...\n');
+            
+            // Check if streaming components can access conversation context manager
+            const checks = [
+                {
+                    name: 'Component Initializer Access',
+                    test: () => {
+                        if (typeof ComponentInitializer !== 'undefined') {
+                            const initializer = new ComponentInitializer();
+                            return initializer.getConversationContextManager() !== null;
+                        }
+                        return false;
+                    }
+                },
+                {
+                    name: 'Streaming Manager Integration',
+                    test: () => {
+                        return window.conversationContextManager && 
+                               typeof window.conversationContextManager.addMessage === 'function';
+                    }
+                },
+                {
+                    name: 'Global Availability',
+                    test: () => {
+                        return window.conversationContextManager !== undefined;
+                    }
+                }
+            ];
+            
+            checks.forEach(check => {
+                try {
+                    const result = check.test();
+                    log(`${result ? '✅' : '❌'} ${check.name}: ${result ? 'PASS' : 'FAIL'}`);
+                } catch (error) {
+                    log(`❌ ${check.name}: ERROR - ${error.message}`);
+                }
+            });
+        }
+        
+        function simulateStreamingConversation() {
+            clearResults();
+            log('💬 Simulating Streaming Conversation...\n');
+            
+            if (!window.conversationContextManager) {
+                log('❌ ConversationContextManager not available');
+                return;
+            }
+            
+            try {
+                // Simulate a streaming conversation
+                const messages = [
+                    { role: 'user', content: 'What\'s my balance?', agent: null },
+                    { role: 'assistant', content: 'Your current balance is £1,234.56', agent: 'BankingInfoAgent' },
+                    { role: 'user', content: 'I have fraud in my account', agent: null },
+                    { role: 'assistant', content: 'I understand your concern about fraud. Let me help you secure your account.', agent: 'FraudAgent' }
+                ];
+                
+                messages.forEach((msg, index) => {
+                    setTimeout(() => {
+                        window.conversationContextManager.addMessage(
+                            msg.role, 
+                            msg.content, 
+                            msg.agent, 
+                            { streamingMode: true, simulatedMessage: true }
+                        );
+                        log(`Added ${msg.role} message: "${msg.content.substring(0, 50)}..."`);
+                        
+                        if (index === messages.length - 1) {
+                            // Show final history
+                            setTimeout(() => {
+                                const history = window.conversationContextManager.getHistory();
+                                log(`\n📚 Final conversation history (${history.length} messages):`);
+                                history.forEach((h, i) => {
+                                    log(`${i + 1}. [${h.role}] ${h.content.substring(0, 60)}...`);
+                                });
+                            }, 100);
+                        }
+                    }, index * 500);
+                });
+                
+            } catch (error) {
+                log('❌ Error simulating conversation: ' + error.message);
+            }
+        }
+        
+        function addTestMessage() {
+            const input = document.getElementById('testMessage');
+            const message = input.value.trim();
+            
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            if (!window.conversationContextManager) {
+                log('❌ ConversationContextManager not available');
+                return;
+            }
+            
+            try {
+                window.conversationContextManager.addMessage('user', message, null, { 
+                    streamingMode: true, 
+                    manualTest: true 
+                });
+                log(`✅ Added user message: "${message}"`);
+                input.value = '';
+            } catch (error) {
+                log('❌ Error adding message: ' + error.message);
+            }
+        }
+        
+        function addTestResponse() {
+            if (!window.conversationContextManager) {
+                log('❌ ConversationContextManager not available');
+                return;
+            }
+            
+            try {
+                const response = 'This is a test response from the assistant.';
+                window.conversationContextManager.addMessage('assistant', response, 'TestAgent', { 
+                    streamingMode: true, 
+                    manualTest: true 
+                });
+                log(`✅ Added assistant response: "${response}"`);
+            } catch (error) {
+                log('❌ Error adding response: ' + error.message);
+            }
+        }
+        
+        function showConversationHistory() {
+            if (!window.conversationContextManager) {
+                log('❌ ConversationContextManager not available');
+                return;
+            }
+            
+            try {
+                const history = window.conversationContextManager.getHistory();
+                log(`\n📚 Conversation History (${history.length} messages):`);
+                
+                if (history.length === 0) {
+                    log('No messages in history');
+                } else {
+                    history.forEach((msg, index) => {
+                        const timestamp = new Date(msg.timestamp).toLocaleTimeString();
+                        log(`${index + 1}. [${timestamp}] ${msg.role}: ${msg.content}`);
+                        if (msg.agent) {
+                            log(`    Agent: ${msg.agent}`);
+                        }
+                    });
+                }
+            } catch (error) {
+                log('❌ Error getting history: ' + error.message);
+            }
+        }
+        
+        // Initialize page
+        window.addEventListener('load', () => {
+            const statusEl = document.getElementById('loadingStatus');
+            
+            // Check if dependencies loaded
+            setTimeout(() => {
+                if (window.conversationContextManager) {
+                    statusEl.className = 'status success';
+                    statusEl.textContent = '✅ Dependencies loaded successfully. ConversationContextManager is available.';
+                } else {
+                    statusEl.className = 'status error';
+                    statusEl.textContent = '❌ ConversationContextManager not available. Check console for errors.';
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -304,6 +304,15 @@ class StreamingAgentMiddleware {
                 transcriptLength: transcript.length
             });
 
+            // IMPORTANT: Display the user message in the UI first
+            // This ensures the user sees their message regardless of agent routing
+            if (this.streamingManager && typeof this.streamingManager.displayUserMessage === 'function') {
+                this.streamingManager.displayUserMessage(transcript);
+                this.debug.info('User message displayed via middleware');
+            } else {
+                this.debug.warn('StreamingManager.displayUserMessage not available');
+            }
+
             // Get current session context
             const sessionContext = this.getSessionContext();
             

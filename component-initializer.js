@@ -298,12 +298,34 @@ class ComponentInitializer {
      * Get conversation context manager instance
      */
     getConversationContextManager() {
+        // Add debugging to understand what's happening
+        console.log('🔍 ComponentInitializer.getConversationContextManager() called');
+        console.log('- window.speechApp:', !!window.speechApp);
+        console.log('- window.speechApp.conversationContextManager:', !!(window.speechApp && window.speechApp.conversationContextManager));
+        console.log('- window.conversationContextManager:', !!window.conversationContextManager);
+        console.log('- ConversationContextManager class:', typeof ConversationContextManager);
+        
         if (window.speechApp && window.speechApp.conversationContextManager) {
+            console.log('✅ Returning conversationContextManager from speechApp');
             return window.speechApp.conversationContextManager;
         }
         if (window.conversationContextManager) {
+            console.log('✅ Returning global conversationContextManager');
             return window.conversationContextManager;
         }
+        
+        // Try to create one if the class is available
+        if (typeof ConversationContextManager !== 'undefined') {
+            try {
+                console.log('🔧 Creating ConversationContextManager as last resort');
+                window.conversationContextManager = new ConversationContextManager();
+                return window.conversationContextManager;
+            } catch (error) {
+                console.error('❌ Failed to create ConversationContextManager as last resort:', error);
+            }
+        }
+        
+        console.warn('❌ ConversationContextManager not available anywhere');
         return null;
     }
 
@@ -479,18 +501,49 @@ window.componentInitializer = new ComponentInitializer();
 
 // Auto-initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Small delay to ensure all scripts are loaded
-    setTimeout(async () => {
-        const initializer = window.componentInitializer;
+    // Function to check if core dependencies are ready
+    const checkDependencies = () => {
+        const hasConversationContextManager = !!(window.conversationContextManager || 
+            (window.speechApp && window.speechApp.conversationContextManager));
+        const hasSpeechApp = !!window.speechApp;
         
-        if (initializer.isDebugMode()) {
-            initializer.debug.log('🐛 Debug mode detected, initializing components...');
-            await initializer.runSafeTests();
+        console.log('🔍 ComponentInitializer dependency check:', {
+            hasConversationContextManager,
+            hasSpeechApp,
+            hasAgentRouter: !!window.agentRouter,
+            hasStreamingManager: !!(window.StreamingManager || window.streamingManager)
+        });
+        
+        return hasConversationContextManager && hasSpeechApp;
+    };
+    
+    // Function to initialize with retries
+    const initializeWithRetries = async (attempt = 1, maxAttempts = 5) => {
+        console.log(`🚀 ComponentInitializer attempt ${attempt}/${maxAttempts}`);
+        
+        if (checkDependencies()) {
+            console.log('✅ Dependencies ready, initializing components...');
+            const initializer = window.componentInitializer;
+            
+            if (initializer.isDebugMode()) {
+                initializer.debug.log('🐛 Debug mode detected, initializing components...');
+                await initializer.runSafeTests();
+            } else {
+                // Just initialize components without running tests
+                await initializer.initializeComponents();
+            }
+        } else if (attempt < maxAttempts) {
+            console.log(`⏳ Dependencies not ready, retrying in ${attempt * 1000}ms...`);
+            setTimeout(() => initializeWithRetries(attempt + 1, maxAttempts), attempt * 1000);
         } else {
-            // Just initialize components without running tests
+            console.warn('⚠️ Max attempts reached, initializing anyway...');
+            const initializer = window.componentInitializer;
             await initializer.initializeComponents();
         }
-    }, 1000);
+    };
+    
+    // Start with initial delay
+    setTimeout(() => initializeWithRetries(), 1500);
 });
 
 // Make functions available globally

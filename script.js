@@ -22,6 +22,21 @@ class SpeechToSpeechApp {
             console.warn('[SpeechToSpeechApp] debugManager not available, using fallback logger');
         }
 
+        // Initialize debug output manager for debug panel updates
+        if (typeof DebugOutputManager !== 'undefined') {
+            this.debugOutputManager = new DebugOutputManager();
+        } else {
+            console.warn('[SpeechToSpeechApp] DebugOutputManager not available, debug panel updates disabled');
+            this.debugOutputManager = {
+                updateSpeechToText: () => {},
+                updateSystemPrompt: () => {},
+                updateGPTResponse: () => {},
+                updateTextToSpeech: () => {},
+                updateSystemLogs: () => {},
+                showError: () => {}
+            };
+        }
+
         // Initialize persona manager with safety check
         if (typeof PersonaManager !== 'undefined') {
             this.personaManager = new PersonaManager();
@@ -184,6 +199,21 @@ this.apiClient = {
 
 
         this.init();
+        
+        // Make the app available globally for debug output access
+        window.speechApp = this;
+    }
+
+    /**
+     * Update debug output in the debug panel
+     * @param {string} section - Debug section to update
+     * @param {string} content - Content to display
+     * @param {string} title - Optional title
+     */
+    updateDebugOutput(section, content, title = null) {
+        if (this.debugOutputManager) {
+            this.debugOutputManager.updateDebugOutput(section, content, title);
+        }
     }
 
     /**
@@ -207,6 +237,9 @@ this.apiClient = {
 
             // Initialize AgentRouter first (this creates the configuration manager)
             this.agentRouter = new AgentRouter({ agents: [], apiClient: this.apiClient });
+            
+            // Get the AgentConfigManager from the router for system prompt hierarchy
+            this.agentConfigManager = this.agentRouter.configManager;
 
             // Create domain-specific agents and register them with configurations
             const agents = [
@@ -237,11 +270,48 @@ this.apiClient = {
 
             // Make AgentRouter available globally for extensibility system
             window.agentRouter = this.agentRouter;
+            
+            // Expose conversation context manager for streaming integration
+            if (this.agentRouter.contextManager) {
+                this.conversationContextManager = this.agentRouter.contextManager;
+                window.conversationContextManager = this.conversationContextManager;
+                this.debug.info('ConversationContextManager exposed globally from AgentRouter');
+            } else {
+                this.debug.warn('AgentRouter contextManager not available, creating standalone instance');
+                // Create standalone instance as fallback
+                if (typeof ConversationContextManager !== 'undefined') {
+                    this.conversationContextManager = new ConversationContextManager();
+                    window.conversationContextManager = this.conversationContextManager;
+                    this.debug.info('Standalone ConversationContextManager created');
+                }
+            }
+            
+            // Immediately make speechApp available with conversationContextManager
+            // This ensures early access for streaming components
+            if (this.conversationContextManager) {
+                window.speechApp = this;
+                this.debug.info('SpeechApp made available early with ConversationContextManager');
+            }
 
         } catch (error) {
             this.debug.error('Failed to initialize AgentRouter', { error: error.message });
             // Set agentRouter to null so we can fall back to original behavior
             this.agentRouter = null;
+            
+            // Even if AgentRouter fails, try to create a standalone ConversationContextManager
+            try {
+                if (typeof ConversationContextManager !== 'undefined') {
+                    this.conversationContextManager = new ConversationContextManager();
+                    window.conversationContextManager = this.conversationContextManager;
+                    this.debug.info('Standalone ConversationContextManager created as fallback');
+                    
+                    // Make speechApp available early even in fallback mode
+                    window.speechApp = this;
+                    this.debug.info('SpeechApp made available early in fallback mode');
+                }
+            } catch (fallbackError) {
+                this.debug.error('Failed to create standalone ConversationContextManager', { error: fallbackError.message });
+            }
         }
     }
 
@@ -717,7 +787,15 @@ this.apiClient = {
             });
     
             console.log('Transcription received:', text);
-            this.updateDebugOutput('sttOutput', text, 'Transcribed Text:');
+            
+            // Update debug output with transcription
+            if (this.debugOutputManager) {
+                this.debugOutputManager.updateSpeechToText(text, {
+                    language: this.speechSettings.whisperLanguage,
+                    confidence: 0.95 // Placeholder - Whisper doesn't provide confidence
+                });
+            }
+            
             return text;
     
         } catch (error) {
@@ -758,6 +836,7 @@ this.apiClient = {
                 const agentContext = {
                     personaManager: this.personaManager,
                     systemPromptsManager: this.systemPromptsManager,
+                    agentConfigManager: this.agentConfigManager, // Add for proper system prompt hierarchy
                     apiClient: this.apiClient,
                     tokenTracker: this.tokenTracker,
                     currentPersona: this.personaManager.getCurrentPersona(),
@@ -785,10 +864,14 @@ this.apiClient = {
                     this.updateConversationContext(userMessage, agentResult.response, agentResult.agentName);
                     
                     // Update debug output with agent information
-                    this.updateDebugOutput('gptResponse', 
-                        `Agent: ${agentResult.agentName}\nResponse: ${agentResult.response}`,
-                        'Agent Response:'
-                    );
+                    if (this.debugOutputManager) {
+                        this.debugOutputManager.updateGPTResponse(agentResult.response, {
+                            agentName: agentResult.agentName,
+                            processingTime: agentResult.processingTime,
+                            tokensUsed: agentResult.tokensUsed,
+                            model: 'gpt-3.5-turbo' // Default model
+                        });
+                    }
                     
                     return {
                         response: agentResult.response,
@@ -1088,7 +1171,13 @@ this.apiClient = {
                 this.updateStatus('🔊 Audio ready - Click the blue button to play');
             }
 
-            this.updateDebugOutput('ttsOutput', `Speech generated successfully\nCharacters: ${text.length}\nModel: ${this.ttsSettings.model}\nVoice: ${this.ttsSettings.voice}`);
+            // Update debug output with TTS information
+            if (this.debugOutputManager) {
+                this.debugOutputManager.updateTextToSpeech(text, ttsOptions, {
+                    characters: text.length,
+                    provider: 'OpenAI'
+                });
+            }
 
         } catch (error) {
             console.error('OpenAI TTS error:', error);
@@ -1140,7 +1229,17 @@ this.apiClient = {
                     utterance.pitch = ttsSettings.pitch ? (ttsSettings.pitch / 10 + 1) : this.browserTtsSettings.pitch; // Convert semitones to browser pitch
                     utterance.volume = ttsSettings.volume || this.browserTtsSettings.volume;
                     
-                    this.updateDebugOutput('ttsOutput', `Generating speech with agent voice config - Voice: ${utterance.voice?.name || 'Default'}, Rate: ${utterance.rate}, Pitch: ${utterance.pitch}`);
+                    // Update debug output with browser TTS info
+                    if (this.debugOutputManager) {
+                        this.debugOutputManager.updateTextToSpeech(text, {
+                            voice: utterance.voice?.name || 'Default',
+                            speed: utterance.rate,
+                            pitch: utterance.pitch
+                        }, {
+                            characters: text.length,
+                            provider: 'Browser TTS'
+                        });
+                    }
                 } else {
                     // Apply default settings
                     if (this.browserTtsSettings.voice && this.availableVoices.length > 0) {
@@ -1154,7 +1253,17 @@ this.apiClient = {
                     utterance.pitch = this.browserTtsSettings.pitch;
                     utterance.volume = this.browserTtsSettings.volume;
                     
-                    this.updateDebugOutput('ttsOutput', `Generating speech with Browser TTS`);
+                    // Update debug output with default browser TTS info
+                    if (this.debugOutputManager) {
+                        this.debugOutputManager.updateTextToSpeech(text, {
+                            voice: utterance.voice?.name || 'Default',
+                            speed: utterance.rate,
+                            pitch: utterance.pitch
+                        }, {
+                            characters: text.length,
+                            provider: 'Browser TTS'
+                        });
+                    }
                 }
 
                 utterance.onstart = () => {
@@ -2105,6 +2214,18 @@ this.apiClient = {
         // Clear agent router context if available
         if (this.agentRouter && this.agentRouter.contextManager) {
             this.agentRouter.clearConversationContext();
+        }
+        
+        // Also clear the global conversation context manager
+        if (window.conversationContextManager) {
+            window.conversationContextManager.clearContext();
+            this.debug.log('Global ConversationContextManager cleared');
+        }
+        
+        // Clear conversation context manager from speechApp if different instance
+        if (this.conversationContextManager && this.conversationContextManager !== window.conversationContextManager) {
+            this.conversationContextManager.clearContext();
+            this.debug.log('SpeechApp ConversationContextManager cleared');
         }
         
         // Reset agent indicator to default

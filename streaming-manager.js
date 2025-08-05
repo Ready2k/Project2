@@ -859,11 +859,25 @@ class StreamingManager {
 
                 case 'conversation.item.input_audio_transcription.completed':
                     this.debug.log('Transcription completed:', message.transcript);
+                    console.log('🎤 Transcription completed event received');
+                    console.log('🎤 message.transcript:', message.transcript);
+                    console.log('🎤 this.currentUserTranscript:', this.currentUserTranscript);
+                    
                     // Track input transcription for token estimation
                     const transcript = message.transcript || this.currentUserTranscript;
+                    console.log('🎤 Final transcript to display:', transcript);
+                    
                     if (transcript) {
+                        console.log('✅ Transcript available, processing...');
                         this.trackInputText(transcript);
-                        this.displayUserMessage(transcript);
+                        
+                        // Only display user message if not already handled by middleware
+                        if (!message._agentRouted) {
+                            console.log('✅ Calling displayUserMessage (not handled by middleware)');
+                            this.displayUserMessage(transcript);
+                        } else {
+                            console.log('ℹ️ User message already displayed by middleware');
+                        }
                         if (message.transcript) {
                             this.currentUserTranscript = '';
                         }
@@ -2015,16 +2029,40 @@ class StreamingManager {
     displayUserMessage(transcript) {
         try {
             const conversation = document.getElementById('conversation');
+            
             if (conversation) {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'user-message';
-                messageDiv.innerHTML = `<div class="message-content">${transcript}</div>`;
+                
+                // Professional user message styling with proper structure
+                messageDiv.innerHTML = `
+                    <div class="message-avatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-text">${transcript}</div>
+                    </div>
+                `;
                 conversation.appendChild(messageDiv);
                 conversation.scrollTop = conversation.scrollHeight;
+                
                 this.debug.log('User message displayed in chat');
+            } else {
+                this.debug.error('Conversation element not found');
+            }
+            
+            // Add to conversation context manager for proper conversation tracking
+            if (window.conversationContextManager) {
+                window.conversationContextManager.addMessage('user', transcript, null, {
+                    streamingMode: true,
+                    timestamp: Date.now()
+                });
+                this.debug.log('User message added to conversation context');
+            } else {
+                this.debug.warn('ConversationContextManager not available - user message not tracked');
             }
         } catch (error) {
-            this.debug.log('Error displaying user message:', error);
+            this.debug.error('Error displaying user message:', error);
         }
     }
 
@@ -2055,6 +2093,18 @@ class StreamingManager {
                 // Also update debug panel
                 this.updateDebugPanel('gptResponse', text);
             }
+            
+            // Add to conversation context manager for proper conversation tracking
+            if (window.conversationContextManager) {
+                const currentAgent = this.currentStreamingAgent?.name || 'StreamingAgent';
+                window.conversationContextManager.addMessage('assistant', text, currentAgent, {
+                    streamingMode: true,
+                    timestamp: Date.now()
+                });
+                this.debug.log('Bot message added to conversation context', { agent: currentAgent });
+            } else {
+                this.debug.warn('ConversationContextManager not available - bot message not tracked');
+            }
         } catch (error) {
             this.debug.log('Error displaying bot message:', error);
         }
@@ -2080,19 +2130,9 @@ class StreamingManager {
     indicateAudioResponse() {
         if (!this.hasAudioResponse) {
             this.hasAudioResponse = true;
-            try {
-                const conversation = document.getElementById('conversation');
-                if (conversation) {
-                    this.audioResponseElement = document.createElement('div');
-                    this.audioResponseElement.className = 'bot-message';
-                    this.audioResponseElement.innerHTML = `<div class="message-content">🔊 <em>Playing audio response...</em></div>`;
-                    conversation.appendChild(this.audioResponseElement);
-                    conversation.scrollTop = conversation.scrollHeight;
-                    this.debug.log('Audio response indicator added to chat');
-                }
-            } catch (error) {
-                this.debug.log('Error indicating audio response:', error);
-            }
+            // Audio response indication disabled for cleaner UI
+            // The audio will play without showing a "Playing audio response" message
+            this.debug.log('Audio response started (UI indication disabled)');
         }
     }
 

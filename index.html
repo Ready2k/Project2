@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Voice Assistant - Professional Edition</title>
     <link rel="stylesheet" href="main-styles.css">
+    <link rel="stylesheet" href="debug-output-styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 
@@ -806,10 +807,12 @@
     <!-- Scripts -->
     <script src="version-config.js"></script>
     <script src="debug-manager.js"></script>
+    <script src="debug-output-manager.js"></script>
     <script src="system-logger.js"></script>
     <script src="agent-icon-manager.js"></script>
     <script src="persona-manager.js"></script>
     <script src="system-prompts-manager.js"></script>
+    <script src="system-prompt-manager.js"></script>
     <script src="token-tracker.js"></script>
     <script src="api-client.js"></script>
     
@@ -837,6 +840,54 @@
     <!-- Streaming Agent Routing Initialization -->
     <script src="streaming-agent-routing-initializer.js"></script>
     <script src="streaming-agent-routing-integration.js"></script>
+    
+    <!-- Debug script for agent routing -->
+    <script src="test-agent-routing-debug.js"></script>
+    
+    <!-- Fix for agent routing -->
+    <script src="fix-agent-routing.js"></script>
+    
+    <!-- Comprehensive agent routing fix -->
+    <script src="comprehensive-agent-routing-fix.js"></script>
+    
+    <!-- Final streaming routing fix -->
+    <script src="final-streaming-routing-fix.js"></script>
+    
+    <!-- Fix for agent dependencies -->
+    <script src="fix-agent-dependencies.js"></script>
+    
+    <!-- Fix for duplicate messages -->
+    <script src="fix-duplicate-messages.js"></script>
+    
+    <!-- Ensure PersonaManager is available -->
+    <script src="ensure-persona-manager.js"></script>
+    
+    <!-- Direct agent context fix -->
+    <script src="direct-agent-context-fix.js"></script>
+    
+    <!-- Final agent routing test -->
+    <script src="test-agent-routing-final.js"></script>
+    
+    <!-- Suppress verbose audio logs -->
+    <script src="suppress-audio-logs.js"></script>
+    
+    <!-- Enhance persona data -->
+    <script src="enhance-persona-data.js"></script>
+    
+    <!-- Fix streaming UI updates -->
+    <script src="fix-streaming-ui-updates.js"></script>
+    
+    <!-- Fix debug system prompt display -->
+    <script src="fix-debug-system-prompt.js"></script>
+    
+    <!-- Populate debug panels -->
+    <script src="populate-debug-panels.js"></script>
+    
+    <!-- Fix agent config prompts -->
+    <script src="fix-agent-config-prompts.js"></script>
+    
+    <!-- Direct debug panel fix -->
+    <script src="direct-debug-panel-fix.js"></script>
     <!-- Agent system scripts (must load before main script) -->
     <script src="agents/base-agent.js"></script>
     <script src="agents/payments-agent.js"></script>
@@ -855,6 +906,18 @@
     <script src="agents/lru-cache.js"></script>
     <script src="agents/routing-fallback-chain.js"></script>
     <script src="agents/conversation-context-manager.js"></script>
+    <script>
+        // Immediately create ConversationContextManager instance to ensure it's available
+        if (typeof ConversationContextManager !== 'undefined' && !window.conversationContextManager) {
+            try {
+                window.conversationContextManager = new ConversationContextManager();
+                console.log('🚀 ConversationContextManager created immediately after class load');
+            } catch (error) {
+                console.error('❌ Failed to create immediate ConversationContextManager:', error);
+            }
+        }
+    </script>
+    <script src="ensure-conversation-context.js"></script>
     <script src="agents/multi-agent-orchestrator.js"></script>
     <script src="agents/agent-router.js"></script>
     <script src="agent-telemetry.js"></script>
@@ -872,6 +935,12 @@
     <script src="test-dependency-fix.js"></script>
     <script src="test-initialization-order-fix.js"></script>
     <script src="test-middleware-fix.js"></script>
+    <script src="verify-conversation-context-fix.js"></script>
+    <script src="debug-conversation-context.js"></script>
+    <script src="test-user-message-display.js"></script>
+    <script src="test-display-user-message.js"></script>
+    <script src="test-system-prompt-hierarchy.js"></script>
+    <script src="test-debug-output-system-prompt.js"></script>
 </body>
 
 </html>

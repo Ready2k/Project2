@@ -6,7 +6,7 @@ class SpeechToSpeechApp {
         this.isRecording = false;
         this.mediaRecorder = null;
         this.audioChunks = [];
-        
+
         // Initialize debug logger for this module with safety check
         if (window.debugManager) {
             this.debug = window.debugManager.createModuleLogger('SpeechToSpeechApp');
@@ -28,12 +28,12 @@ class SpeechToSpeechApp {
         } else {
             console.warn('[SpeechToSpeechApp] DebugOutputManager not available, debug panel updates disabled');
             this.debugOutputManager = {
-                updateSpeechToText: () => {},
-                updateSystemPrompt: () => {},
-                updateGPTResponse: () => {},
-                updateTextToSpeech: () => {},
-                updateSystemLogs: () => {},
-                showError: () => {}
+                updateSpeechToText: () => { },
+                updateSystemPrompt: () => { },
+                updateGPTResponse: () => { },
+                updateTextToSpeech: () => { },
+                updateSystemLogs: () => { },
+                showError: () => { }
             };
         }
 
@@ -45,7 +45,7 @@ class SpeechToSpeechApp {
             this.personaManager = {
                 getCurrentPersona: () => 'default',
                 getCurrentPersonaData: () => ({ name: 'default', description: 'Default persona' }),
-                setPersona: () => {},
+                setPersona: () => { },
                 getPersonas: () => ({})
             };
         }
@@ -58,7 +58,7 @@ class SpeechToSpeechApp {
             this.systemPromptsManager = {
                 generateSystemPrompt: () => 'You are a helpful AI assistant.',
                 getPrompts: () => ({}),
-                setPrompt: () => {}
+                setPrompt: () => { }
             };
         }
 
@@ -71,9 +71,9 @@ class SpeechToSpeechApp {
         } else {
             console.warn('[SpeechToSpeechApp] TokenTracker not available, using fallback');
             this.tokenTracker = {
-                trackTokens: () => {},
+                trackTokens: () => { },
                 getUsage: () => ({ totalTokens: 0, totalCost: 0 }),
-                reset: () => {}
+                reset: () => { }
             };
         }
 
@@ -82,10 +82,10 @@ class SpeechToSpeechApp {
         } else {
             console.warn('[SpeechToSpeechApp] OpenAIClient not available, using fallback');
             console.warn('[SpeechToSpeechApp] OpenAIClient not available, using fallback');
-this.apiClient = {
-    transcribeAudio: () => Promise.resolve({ success: false, error: 'API client not available' }),
-    generateSpeech: () => Promise.resolve({ success: false, error: 'API client not available' })
-};
+            this.apiClient = {
+                transcribeAudio: () => Promise.resolve({ success: false, error: 'API client not available' }),
+                generateSpeech: () => Promise.resolve({ success: false, error: 'API client not available' })
+            };
         }
 
         // Initialize AgentRouter with all domain agents
@@ -114,6 +114,15 @@ this.apiClient = {
 
         // Initialize streaming manager with token tracker
         this.streamingManager = new StreamingManager(this.openaiApiKey, this.debugStreamingMessage.bind(this), this.tokenTracker);
+
+        // Enable agent routing for streaming manager
+        this.enableStreamingAgentRouting();
+
+        // Auto-fix agent routing status to ensure it's always working
+        this.autoFixAgentRouting();
+        
+        // Auto-fix streaming agent timeouts to prevent routing failures
+        this.autoFixStreamingTimeouts();
 
         // Streaming mode properties
         this.isStreamingMode = localStorage.getItem('streaming_mode') === 'true' || false;
@@ -199,7 +208,7 @@ this.apiClient = {
 
 
         this.init();
-        
+
         // Make the app available globally for debug output access
         window.speechApp = this;
     }
@@ -217,6 +226,144 @@ this.apiClient = {
     }
 
     /**
+     * Enable agent routing for streaming manager
+     */
+    enableStreamingAgentRouting() {
+        try {
+            if (!this.streamingManager) {
+                this.debug.warn('StreamingManager not available for agent routing setup');
+                return;
+            }
+
+            if (!this.agentRouter) {
+                this.debug.warn('AgentRouter not available for streaming integration');
+                return;
+            }
+
+            // Enable agent routing in streaming manager
+            this.streamingManager.agentRoutingEnabled = true;
+
+            // Set up the streaming agent router if available
+            if (typeof StreamingAgentRouter !== 'undefined') {
+                this.streamingManager.streamingAgentRouter = new StreamingAgentRouter(
+                    this.agentRouter,
+                    this.streamingManager
+                );
+                this.debug.info('StreamingAgentRouter initialized');
+            }
+
+            // Set up streaming response handler if available
+            if (typeof StreamingResponseHandler !== 'undefined') {
+                this.streamingManager.streamingResponseHandler = new StreamingResponseHandler(
+                    this.streamingManager
+                );
+                this.debug.info('StreamingResponseHandler initialized');
+            }
+
+            this.debug.info('Streaming agent routing enabled', {
+                agentRoutingEnabled: this.streamingManager.agentRoutingEnabled,
+                hasStreamingAgentRouter: !!this.streamingManager.streamingAgentRouter,
+                hasStreamingResponseHandler: !!this.streamingManager.streamingResponseHandler
+            });
+
+        } catch (error) {
+            this.debug.error('Failed to enable streaming agent routing', { error: error.message });
+        }
+    }
+
+    /**
+     * Generate system prompt for fallback method (when agent routing fails)
+     * @param {string} persona - Current persona
+     * @param {string} userMessage - User's message
+     * @returns {string} - Generated system prompt
+     */
+    generateSystemPrompt(persona, userMessage) {
+        try {
+            // Get persona data
+            const personaData = this.personaManager.getCurrentPersonaData();
+
+            // Use system prompts manager if available
+            if (this.systemPromptsManager && this.systemPromptsManager.generateSystemPrompt) {
+                const systemPrompt = this.systemPromptsManager.generateSystemPrompt(personaData, userMessage);
+
+                // Update debug output with the generated system prompt
+                if (this.debugOutputManager) {
+                    this.debugOutputManager.updateSystemPrompt(systemPrompt, {
+                        agentName: 'FallbackHandler',
+                        personaName: personaData?.name || 'Unknown',
+                        promptLength: systemPrompt.length,
+                        tokensEstimate: Math.ceil(systemPrompt.length / 4)
+                    });
+                }
+
+                return systemPrompt;
+            }
+
+            // Fallback to basic system prompt
+            const basicPrompt = this.generateBasicSystemPrompt(personaData);
+
+            // Update debug output
+            if (this.debugOutputManager) {
+                this.debugOutputManager.updateSystemPrompt(basicPrompt, {
+                    agentName: 'FallbackHandler',
+                    personaName: personaData?.name || 'Unknown',
+                    promptLength: basicPrompt.length,
+                    tokensEstimate: Math.ceil(basicPrompt.length / 4)
+                });
+            }
+
+            return basicPrompt;
+
+        } catch (error) {
+            console.error('Error generating system prompt:', error);
+
+            // Show error in debug panel
+            if (this.debugOutputManager) {
+                this.debugOutputManager.showError('systemPrompt', `System prompt generation failed: ${error.message}`);
+            }
+
+            // Return minimal fallback
+            return "You are a helpful AI assistant for a UK financial services company.";
+        }
+    }
+
+    /**
+     * Generate basic system prompt when all else fails
+     * @param {Object} personaData - Persona data
+     * @returns {string} - Basic system prompt
+     */
+    generateBasicSystemPrompt(personaData) {
+        let prompt = "You are a helpful, professional, and friendly AI voice assistant for a UK financial services company. You should be empathetic, clear in your communication, and engaging in conversation.";
+
+        if (personaData) {
+            prompt += `\n\nCustomer Information:`;
+            prompt += `\n- Name: ${personaData.name || 'Not provided'}`;
+            prompt += `\n- Account Type: ${personaData.accountType || 'Standard'}`;
+
+            if (typeof personaData.balance === 'number') {
+                prompt += `\n- Current Balance: £${personaData.balance.toFixed(2)}`;
+            }
+
+            if (personaData.cardLast4) {
+                prompt += `\n- Card Last 4 Digits: ${personaData.cardLast4}`;
+            }
+
+            // Add recent transactions if available
+            if (personaData.recentTransactions && personaData.recentTransactions.length > 0) {
+                prompt += '\n- Recent Transactions:';
+                personaData.recentTransactions.slice(0, 3).forEach(tx => {
+                    const amount = typeof tx.amount === 'number' ? `£${tx.amount.toFixed(2)}` : tx.amount;
+                    prompt += `\n  ${tx.date}: ${amount} - ${tx.description}`;
+                });
+            }
+        }
+
+        prompt += "\n\nKeep responses conversational and concise (suitable for voice). Use natural speech patterns with contractions. Address users in a friendly manner.";
+
+        return prompt;
+    }
+
+    /**
      * Initialize AgentRouter with all domain-specific agents
      */
     initializeAgentRouter() {
@@ -230,14 +377,14 @@ this.apiClient = {
             const AgentRouter = window.AgentRouter || (typeof AgentRouter !== 'undefined' ? AgentRouter : undefined);
             const AgentConfigManager = window.AgentConfigManager || (typeof AgentConfigManager !== 'undefined' ? AgentConfigManager : undefined);
             const SecurityManager = window.SecurityManager || (typeof SecurityManager !== 'undefined' ? SecurityManager : undefined);
-            
+
             if (!BaseAgent || !IDVAgent || !BankingInfoAgent || !FraudAgent || !PaymentsAgent || !AgentRouter || !AgentConfigManager || !SecurityManager) {
                 throw new Error('Agent classes not loaded - falling back to original behavior');
             }
 
             // Initialize AgentRouter first (this creates the configuration manager)
             this.agentRouter = new AgentRouter({ agents: [], apiClient: this.apiClient });
-            
+
             // Get the AgentConfigManager from the router for system prompt hierarchy
             this.agentConfigManager = this.agentRouter.configManager;
 
@@ -270,7 +417,7 @@ this.apiClient = {
 
             // Make AgentRouter available globally for extensibility system
             window.agentRouter = this.agentRouter;
-            
+
             // Expose conversation context manager for streaming integration
             if (this.agentRouter.contextManager) {
                 this.conversationContextManager = this.agentRouter.contextManager;
@@ -285,7 +432,7 @@ this.apiClient = {
                     this.debug.info('Standalone ConversationContextManager created');
                 }
             }
-            
+
             // Immediately make speechApp available with conversationContextManager
             // This ensures early access for streaming components
             if (this.conversationContextManager) {
@@ -297,14 +444,14 @@ this.apiClient = {
             this.debug.error('Failed to initialize AgentRouter', { error: error.message });
             // Set agentRouter to null so we can fall back to original behavior
             this.agentRouter = null;
-            
+
             // Even if AgentRouter fails, try to create a standalone ConversationContextManager
             try {
                 if (typeof ConversationContextManager !== 'undefined') {
                     this.conversationContextManager = new ConversationContextManager();
                     window.conversationContextManager = this.conversationContextManager;
                     this.debug.info('Standalone ConversationContextManager created as fallback');
-                    
+
                     // Make speechApp available early even in fallback mode
                     window.speechApp = this;
                     this.debug.info('SpeechApp made available early in fallback mode');
@@ -336,24 +483,24 @@ this.apiClient = {
         this.initializeStreamingSettings();
 
         this.initializeDebugSettings();
-        
+
         // Ensure token tracker is properly linked to API client
         this.apiClient.setTokenTracker(this.tokenTracker);
         this.tokenTracker.updateDisplay();
-        
+
         // Log token tracking status for debugging
         this.debug.log('Token tracking initialized:', {
             hasTokenTracker: !!this.tokenTracker,
             apiClientHasTracker: !!this.apiClient.tokenTracker,
             currentUsage: this.tokenTracker.getUsage()
         });
-        
+
         this.initializeStreamingMode();
         this.initializeMuteButtons();
-        
+
         // Initialize agent indicator
         this.updateAgentIndicator('Default Agent');
-        
+
         // Initialize extensibility system
         await this.initializeExtensibilitySystem();
         this.updateKeyStatus();
@@ -378,7 +525,7 @@ this.apiClient = {
         const stopBtn = document.getElementById('stopBtn');
         const clearConversationBtn = document.getElementById('clearConversationBtn');
         const clearStreamingConversationBtn = document.getElementById('clearStreamingConversationBtn');
-        
+
         if (startBtn) startBtn.addEventListener('click', () => this.startRecording());
         if (stopBtn) stopBtn.addEventListener('click', () => this.stopRecording());
         if (clearConversationBtn) clearConversationBtn.addEventListener('click', () => this.clearConversation());
@@ -478,7 +625,7 @@ this.apiClient = {
         const refreshAgentStatus = document.getElementById('refreshAgentStatus');
         const testAgentRouting = document.getElementById('testAgentRouting');
         const testBasicRouting = document.getElementById('testBasicRouting');
-        
+
         if (openAgentConfig) {
             openAgentConfig.addEventListener('click', () => this.openAgentConfiguration());
         }
@@ -496,7 +643,7 @@ this.apiClient = {
         const resetTokens = document.getElementById('resetTokens');
         const updateTokens = document.getElementById('updateTokens');
         const testTokens = document.getElementById('testTokens');
-        
+
         if (resetTokens) {
             resetTokens.addEventListener('click', () => this.resetTokenUsage());
         }
@@ -566,7 +713,7 @@ this.apiClient = {
             if (this.cachedMicStream && this.micPermissionGranted) {
                 const tracks = this.cachedMicStream.getAudioTracks();
                 const activeTrack = tracks.find(track => track.readyState === 'live');
-                
+
                 if (activeTrack) {
                     console.log('Using cached microphone stream');
                     stream = this.cachedMicStream;
@@ -669,32 +816,32 @@ this.apiClient = {
 
     cleanupAllResources() {
         console.log('Cleaning up all resources...');
-        
+
         // Stop any ongoing recording
         if (this.isRecording && this.mediaRecorder) {
             this.mediaRecorder.stop();
         }
-        
+
         // Clean up microphone stream
         this.cleanupMicrophoneStream();
-        
+
         // Stop any playing audio
         if (this.currentAudio) {
             this.currentAudio.pause();
             this.currentAudio.src = '';
             this.currentAudio = null;
         }
-        
+
         // Stop browser TTS
         if ('speechSynthesis' in window) {
             speechSynthesis.cancel();
         }
-        
+
         // Disconnect streaming if active
         if (this.isConnected && this.streamingManager) {
             this.streamingManager.disconnect();
         }
-        
+
         // Stop audio level monitoring
         this.stopAudioLevelMonitoring();
     }
@@ -703,13 +850,13 @@ this.apiClient = {
         this.debug.log('Stop recording clicked');
         if (this.mediaRecorder && this.isRecording) {
             this.mediaRecorder.stop();
-            
+
             // Only stop tracks if user preference is to not keep mic active
             if (!this.speechSettings.keepMicActive) {
                 this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
                 this.cleanupMicrophoneStream();
             }
-            
+
             this.isRecording = false;
             this.currentState = 'processing';
 
@@ -775,19 +922,19 @@ this.apiClient = {
             console.log('Sending audio to Whisper API...');
             this.updateStatus('🔄 Converting speech to text...');
             this.updateDebugOutput('sttOutput', 'Processing audio with Whisper...');
-    
+
             console.log('Using language setting:', this.speechSettings.whisperLanguage);
             const text = await this.apiClient.speechToText(audioBlob, {
                 language: this.speechSettings.whisperLanguage
             });
-    
+
             this.debug.log('After Whisper API call - Token tracker status:', {
                 hasTracker: !!this.apiClient.tokenTracker,
                 currentUsage: this.tokenTracker.getUsage()
             });
-    
+
             console.log('Transcription received:', text);
-            
+
             // Update debug output with transcription
             if (this.debugOutputManager) {
                 this.debugOutputManager.updateSpeechToText(text, {
@@ -795,15 +942,15 @@ this.apiClient = {
                     confidence: 0.95 // Placeholder - Whisper doesn't provide confidence
                 });
             }
-            
+
             return text;
-    
+
         } catch (error) {
             console.error('Speech-to-text error:', error);
             this.updateDebugOutput('sttOutput', `Error: ${error.message}`);
             throw error;
         }
-    
+
     }
 
     /**
@@ -825,13 +972,13 @@ this.apiClient = {
         try {
             // If AgentRouter is available, use it
             if (this.agentRouter) {
-                this.debug.info('Routing request through AgentRouter', { 
-                    message: userMessage.substring(0, 50) + '...' 
+                this.debug.info('Routing request through AgentRouter', {
+                    message: userMessage.substring(0, 50) + '...'
                 });
 
                 // Get enhanced context from router's context manager if available
                 const routerContext = this.agentRouter?.contextManager?.getRoutingContext() || {};
-                
+
                 // Create context object for agents
                 const agentContext = {
                     personaManager: this.personaManager,
@@ -852,17 +999,19 @@ this.apiClient = {
                 };
 
                 // Route through agents
+                this.debug.info('Attempting agent routing', { message: userMessage.substring(0, 50) });
                 const agentResult = await this.agentRouter.route(userMessage, agentContext);
 
                 if (agentResult.success) {
-                    this.debug.info('Agent routing successful', { 
+                    this.debug.info('Agent routing succeeded', { agentName: agentResult.agentName });
+                    this.debug.info('Agent routing successful', {
                         agentName: agentResult.agentName,
-                        processingTime: agentResult.processingTime 
+                        processingTime: agentResult.processingTime
                     });
-                    
+
                     // Update conversation context for future AI routing
                     this.updateConversationContext(userMessage, agentResult.response, agentResult.agentName);
-                    
+
                     // Update debug output with agent information
                     if (this.debugOutputManager) {
                         this.debugOutputManager.updateGPTResponse(agentResult.response, {
@@ -872,14 +1021,14 @@ this.apiClient = {
                             model: 'gpt-3.5-turbo' // Default model
                         });
                     }
-                    
+
                     return {
                         response: agentResult.response,
                         agentName: agentResult.agentName
                     };
                 } else {
-                    this.debug.warn('Agent routing failed, falling back to original method', { 
-                        error: agentResult.error 
+                    this.debug.warn('Agent routing failed, falling back to original method', {
+                        error: agentResult.error
                     });
                     // Fall through to original method
                 }
@@ -888,15 +1037,16 @@ this.apiClient = {
             }
 
             // Fallback to original generateResponse method
+            this.debug.info('Using fallback generateResponse method');
             const fallbackResponse = await this.generateResponse(userMessage);
             return {
                 response: fallbackResponse,
-                agentName: null
+                agentName: 'FallbackHandler'
             };
 
         } catch (error) {
-            this.debug.error('Error in agent routing, falling back to original method', { 
-                error: error.message 
+            this.debug.error('Error in agent routing, falling back to original method', {
+                error: error.message
             });
             // Fallback to original method on any error
             const fallbackResponse = await this.generateResponse(userMessage);
@@ -914,7 +1064,7 @@ this.apiClient = {
      */
     inferCorrectAgent(userMessage) {
         const lowerInput = userMessage.toLowerCase();
-        
+
         // Fraud-related patterns
         const fraudPatterns = [
             /block.*card/, /freeze.*card/, /stop.*card/, /cancel.*card/,
@@ -922,40 +1072,40 @@ this.apiClient = {
             /stolen/, /compromised/, /hacked/, /scam/,
             /report.*fraud/, /mark.*fraud/, /dispute/
         ];
-        
+
         if (fraudPatterns.some(pattern => pattern.test(lowerInput))) {
-            this.debug.info('Inferred FraudAgent for failed routing', { 
-                userMessage: userMessage.substring(0, 50) 
+            this.debug.info('Inferred FraudAgent for failed routing', {
+                userMessage: userMessage.substring(0, 50)
             });
             return 'FraudAgent';
         }
-        
+
         // Payment patterns
         const paymentPatterns = [
             /send.*money/, /transfer.*money/, /pay.*£/, /send.*£/,
             /make.*payment/, /wire.*money/
         ];
-        
+
         if (paymentPatterns.some(pattern => pattern.test(lowerInput))) {
-            this.debug.info('Inferred PaymentsAgent for failed routing', { 
-                userMessage: userMessage.substring(0, 50) 
+            this.debug.info('Inferred PaymentsAgent for failed routing', {
+                userMessage: userMessage.substring(0, 50)
             });
             return 'PaymentsAgent';
         }
-        
+
         // Banking info patterns
         const bankingPatterns = [
             /balance/, /transaction.*history/, /account.*statement/,
             /recent.*transactions/, /account.*details/
         ];
-        
+
         if (bankingPatterns.some(pattern => pattern.test(lowerInput))) {
-            this.debug.info('Inferred BankingInfoAgent for failed routing', { 
-                userMessage: userMessage.substring(0, 50) 
+            this.debug.info('Inferred BankingInfoAgent for failed routing', {
+                userMessage: userMessage.substring(0, 50)
             });
             return 'BankingInfoAgent';
         }
-        
+
         return null;
     }
 
@@ -971,10 +1121,10 @@ this.apiClient = {
             // The router's context manager already handles this during routing
             // Just sync our simple tracking variables
             this.lastAgentUsed = agentName;
-            
+
             // Get updated history from router's context manager
             this.conversationHistory = this.agentRouter.contextManager.getHistory(10);
-            
+
             this.debug.info('Conversation context synced with router', {
                 agentName,
                 historyLength: this.conversationHistory.length,
@@ -1010,14 +1160,18 @@ this.apiClient = {
     }
 
     async generateResponse(userMessage) {
+        this.debug.info('generateResponse called (fallback method)', {
+            message: userMessage.substring(0, 50)
+        });
+
         const systemPrompt = this.generateSystemPrompt(this.personaManager.getCurrentPersona(), userMessage);
 
         try {
             console.log('Generating AI response for:', userMessage);
             this.updateStatus('🤖 Generating AI response...');
 
-            // Update debug panel with system prompt
-            this.updateDebugOutput('systemPrompt', systemPrompt);
+            // System prompt is already updated in generateSystemPrompt method
+            // No need to update it again here
 
             const messages = [
                 { role: 'system', content: systemPrompt },
@@ -1029,7 +1183,7 @@ this.apiClient = {
                 maxTokens: 200,
                 temperature: 0.8
             });
-            
+
             // Debug: Check if tracking happened
             this.debug.log('After GPT API call - Token tracker status:', {
                 hasTracker: !!this.apiClient.tokenTracker,
@@ -1039,16 +1193,16 @@ this.apiClient = {
             if (result.success) {
                 console.log('AI response received:', result.text);
                 this.updateDebugOutput('gptResponse', result.text);
-                
+
                 // Try to infer the correct agent for context, don't just use FallbackHandler
                 const inferredAgent = this.inferCorrectAgent(userMessage);
                 this.updateConversationContext(userMessage, result.text, inferredAgent || 'FallbackHandler');
-                
+
                 return result.text;
             } else {
                 throw new Error(result.error);
             }
-              
+
 
         } catch (error) {
             console.error('AI response error:', error);
@@ -1060,7 +1214,7 @@ this.apiClient = {
     async textToSpeech(text, agentName = null) {
         // Apply agent-specific voice configuration if available
         const voiceConfig = this.getAgentVoiceConfig(agentName);
-        
+
         if (this.ttsMode === 'browser') {
             return this.textToSpeechBrowser(text, voiceConfig);
         } else {
@@ -1075,10 +1229,10 @@ this.apiClient = {
                 console.error('OpenAI TTS error: No text provided');
                 throw new Error('No text provided for TTS');
             }
-            
+
             console.log('Converting text to speech with OpenAI:', text);
             this.updateStatus('🔊 Generating voice...');
-            
+
             // Use voice configuration if provided, otherwise fall back to default settings
             let ttsOptions;
             if (voiceConfig && voiceConfig.ttsSettings) {
@@ -1099,7 +1253,7 @@ this.apiClient = {
             }
 
             const result = await this.apiClient.textToSpeech(text, ttsOptions);
-            
+
             // Debug: Check if tracking happened
             this.debug.log('After TTS API call - Token tracker status:', {
                 hasTracker: !!this.apiClient.tokenTracker,
@@ -1190,7 +1344,8 @@ this.apiClient = {
     }
 
     async textToSpeechBrowser(text, voiceConfig = null) {
-        return new Promise((resolve, reject) => {;
+        return new Promise((resolve, reject) => {
+            ;
             try {
                 // Check for undefined or empty text
                 if (!text || text.trim() === '') {
@@ -1198,10 +1353,10 @@ this.apiClient = {
                     reject(new Error('No text provided for TTS'));
                     return;
                 }
-                
+
                 console.log('Converting text to speech with Browser TTS:', text);
                 this.updateStatus('🔊 Generating voice with browser...');
-                
+
                 if (!('speechSynthesis' in window)) {
                     throw new Error('Browser TTS not supported');
                 }
@@ -1214,21 +1369,21 @@ this.apiClient = {
                 // Apply voice configuration if provided, otherwise use default settings
                 if (voiceConfig && voiceConfig.ttsSettings) {
                     const ttsSettings = voiceConfig.ttsSettings;
-                    
+
                     // For browser TTS, we need to map the voice name to available voices
                     if (ttsSettings.voice && this.availableVoices.length > 0) {
-                        const matchingVoice = this.availableVoices.find(voice => 
+                        const matchingVoice = this.availableVoices.find(voice =>
                             voice.name.toLowerCase().includes(ttsSettings.voice.toLowerCase())
                         );
                         if (matchingVoice) {
                             utterance.voice = matchingVoice;
                         }
                     }
-                    
+
                     utterance.rate = ttsSettings.speed || this.browserTtsSettings.rate;
                     utterance.pitch = ttsSettings.pitch ? (ttsSettings.pitch / 10 + 1) : this.browserTtsSettings.pitch; // Convert semitones to browser pitch
                     utterance.volume = ttsSettings.volume || this.browserTtsSettings.volume;
-                    
+
                     // Update debug output with browser TTS info
                     if (this.debugOutputManager) {
                         this.debugOutputManager.updateTextToSpeech(text, {
@@ -1252,7 +1407,7 @@ this.apiClient = {
                     utterance.rate = this.browserTtsSettings.rate;
                     utterance.pitch = this.browserTtsSettings.pitch;
                     utterance.volume = this.browserTtsSettings.volume;
-                    
+
                     // Update debug output with default browser TTS info
                     if (this.debugOutputManager) {
                         this.debugOutputManager.updateTextToSpeech(text, {
@@ -1521,7 +1676,7 @@ this.apiClient = {
     async initializeExtensibilitySystem() {
         try {
             this.debug.info('Initializing extensibility system');
-            
+
             // Check if extensibility components are available
             if (typeof initializeExtensibilitySystem === 'undefined') {
                 this.debug.warn('Extensibility system not available - skipping initialization');
@@ -1535,7 +1690,7 @@ this.apiClient = {
                 // Make sure it's available globally
                 window.agentRouter = this.agentRouter;
             }
-            
+
             // Initialize with default configuration
             const config = {
                 enablePredefinedHooks: true,
@@ -1545,21 +1700,21 @@ this.apiClient = {
                     }
                 }
             };
-            
+
             const result = await initializeExtensibilitySystem(config);
-            
+
             if (result.success) {
                 this.debug.info('Extensibility system initialized successfully', {
                     llmProviders: result.llmProviderManager ? 'Available' : 'Not available',
                     agentLoader: result.agentLoader ? 'Available' : 'Not available',
                     telemetryHooks: result.telemetryHooks ? 'Available' : 'Not available'
                 });
-                
+
                 // Update API client to use LLM provider manager if available
                 if (window.llmProviderManager) {
                     this.debug.info('LLM Provider Manager available - agents can now use multiple providers');
                 }
-                
+
                 // Log extensibility status
                 if (window.extensibilityAPI) {
                     const status = window.extensibilityAPI.utils.getSystemInfo();
@@ -1593,7 +1748,7 @@ this.apiClient = {
             const displayContent = label ? `${label}\n${content}` : content;
             element.textContent = `[${timestamp}] ${displayContent}`;
         }
-        
+
         // Update new interface if available
         if (window.mainInterface) {
             const timestamp = new Date().toLocaleTimeString();
@@ -1607,7 +1762,7 @@ this.apiClient = {
         if (!agentName || !this.voiceConfigManager) {
             return null;
         }
-        
+
         return this.voiceConfigManager.getVoiceConfig(agentName);
     }
 
@@ -2026,7 +2181,7 @@ this.apiClient = {
             window.agentIconManager.addMessage(content, type, agentName);
             return;
         }
-        
+
         // Fallback to old method
         const conversation = document.getElementById('conversation');
         if (!conversation) return;
@@ -2047,12 +2202,12 @@ this.apiClient = {
 
         conversation.appendChild(messageDiv);
         conversation.scrollTop = conversation.scrollHeight;
-        
+
         // Update agent indicator for bot messages
         if (type === 'bot' && agentName) {
             this.updateAgentIndicator(agentName);
         }
-        
+
         console.log('Message added:', type, content, agentName ? `(Agent: ${agentName})` : '');
     }
 
@@ -2062,21 +2217,21 @@ this.apiClient = {
 
         // Update the agent name
         agentElement.textContent = agentName;
-        
+
         // Remove existing agent classes
         agentElement.classList.remove('fraud-agent', 'payments-agent', 'idv-agent', 'banking-info-agent', 'default-agent');
-        
+
         // Add appropriate class based on agent name
         const agentClass = this.getAgentClass(agentName);
         if (agentClass) {
             agentElement.classList.add(agentClass);
         }
-        
+
         // Update new interface if available
         if (window.mainInterface) {
             window.mainInterface.updateAgentIndicator(agentName);
         }
-        
+
         console.log('Agent indicator updated:', agentName);
     }
 
@@ -2088,40 +2243,40 @@ this.apiClient = {
             'BankingInfoAgent': 'banking-info-agent',
             'Default Agent': 'default-agent'
         };
-        
+
         return agentClassMap[agentName] || 'default-agent';
     }
 
     clearConversation() {
         // Show confirmation dialog
         const confirmed = confirm('Are you sure you want to clear the conversation and restart the experience? This action cannot be undone.');
-        
+
         if (confirmed) {
             this.debug.log('Starting complete conversation restart...');
-            
+
             // 1. Stop all active processes
             this.stopAllActiveProcesses();
-            
+
             // 2. Clear conversation display
             this.clearConversationDisplay();
-            
+
             // 3. Reset all state variables
             this.resetApplicationState();
-            
+
             // 4. Clear agent routing context
             this.clearAgentContext();
-            
+
             // 5. Reset UI elements to initial state
             this.resetUIToInitialState();
-            
+
             // 6. Log the restart
             if (window.systemLogger) {
-                window.systemLogger.logUserAction('Complete conversation restart', { 
+                window.systemLogger.logUserAction('Complete conversation restart', {
                     timestamp: new Date().toISOString(),
                     previousState: this.currentState
                 });
             }
-            
+
             console.log('Complete conversation restart completed');
             this.updateStatus('Experience restarted - Ready to begin fresh conversation');
         }
@@ -2133,28 +2288,28 @@ this.apiClient = {
             this.mediaRecorder.stop();
             this.isRecording = false;
         }
-        
+
         // Stop any currently playing audio
         if (this.currentAudio) {
             this.currentAudio.pause();
             this.currentAudio.src = '';
             this.currentAudio = null;
         }
-        
+
         // Stop browser TTS if active
         if ('speechSynthesis' in window) {
             speechSynthesis.cancel();
         }
-        
+
         // Disconnect streaming if active
         if (this.isConnected && this.streamingManager) {
             this.streamingManager.disconnect();
             this.isConnected = false;
         }
-        
+
         // Stop audio level monitoring
         this.stopAudioLevelMonitoring();
-        
+
         // Clear any active timers
         if (this.silenceTimer) {
             clearTimeout(this.silenceTimer);
@@ -2192,18 +2347,18 @@ this.apiClient = {
         this.isConnected = false;
         this.isSpeaking = false;
         this.isMuted = false;
-        
+
         // Clear conversation history and agent tracking
         this.conversationHistory = [];
         this.lastAgentUsed = null;
-        
+
         // Clear audio chunks and media recorder
         this.audioChunks = [];
         this.mediaRecorder = null;
-        
+
         // Reset current audio reference
         this.currentAudio = null;
-        
+
         // Clear streaming conversation state
         if (this.streamingManager && this.isStreamingMode) {
             this.streamingManager.clearConversationState();
@@ -2215,22 +2370,22 @@ this.apiClient = {
         if (this.agentRouter && this.agentRouter.contextManager) {
             this.agentRouter.clearConversationContext();
         }
-        
+
         // Also clear the global conversation context manager
         if (window.conversationContextManager) {
             window.conversationContextManager.clearContext();
             this.debug.log('Global ConversationContextManager cleared');
         }
-        
+
         // Clear conversation context manager from speechApp if different instance
         if (this.conversationContextManager && this.conversationContextManager !== window.conversationContextManager) {
             this.conversationContextManager.clearContext();
             this.debug.log('SpeechApp ConversationContextManager cleared');
         }
-        
+
         // Reset agent indicator to default
         this.updateAgentIndicator('Default Agent');
-        
+
         // Clear any cached agent routing decisions
         if (window.agentTelemetry) {
             window.agentTelemetry.clearSession();
@@ -2245,22 +2400,22 @@ this.apiClient = {
         const disconnectBtn = document.getElementById('disconnectBtn');
         const muteBtn = document.getElementById('muteBtn');
         const batchMuteBtn = document.getElementById('batchMuteBtn');
-        
+
         if (startBtn) startBtn.disabled = false;
         if (stopBtn) stopBtn.disabled = true;
         if (connectBtn) connectBtn.disabled = false;
         if (disconnectBtn) disconnectBtn.disabled = true;
         if (muteBtn) muteBtn.disabled = true;
         if (batchMuteBtn) batchMuteBtn.disabled = true;
-        
+
         // Reset status indicators
         this.updateConnectionStatus('disconnected');
         this.updateRecordingStatus('🔴 Not Recording');
         this.updateRecordingQuality('not-recording');
-        
+
         // Reset audio level display
         this.updateAudioLevel(0);
-        
+
         // Reset persona selector to first option (if desired)
         const personaSelect = document.getElementById('personaSelect');
         if (personaSelect && personaSelect.options.length > 0) {
@@ -2270,7 +2425,7 @@ this.apiClient = {
                 this.personaManager.setCurrentPersona(personaSelect.value);
             }
         }
-        
+
         // Close any open panels
         if (window.mainInterface) {
             window.mainInterface.closeAllPanels();
@@ -2537,7 +2692,7 @@ this.apiClient = {
         const statusElement = document.getElementById('status');
         if (statusElement) statusElement.textContent = message;
         console.log('Status:', message);
-        
+
         // Update new interface if available
         if (window.mainInterface) {
             window.mainInterface.updateStatus(message);
@@ -2633,7 +2788,7 @@ this.apiClient = {
             statusElement.className = `status-indicator ${status}`;
             statusElement.textContent = status.charAt(0).toUpperCase() + status.slice(1);
         }
-        
+
         // Update new interface if available
         if (window.mainInterface) {
             window.mainInterface.updateConnectionStatus(status);
@@ -2694,14 +2849,14 @@ this.apiClient = {
                 </div>
             `;
         }
-        
+
         // Clear conversation history
         this.conversationHistory = [];
         this.lastAgentUsed = null;
-        
+
         // Update status
         this.updateStatus('Conversation cleared - Ready to listen');
-        
+
         console.log('Conversation cleared');
     }
 
@@ -2725,7 +2880,7 @@ this.apiClient = {
 
         // Clear existing options
         selector.innerHTML = '';
-        
+
         // Add personas to selector
         Object.keys(personas).forEach(personaId => {
             const option = document.createElement('option');
@@ -2891,7 +3046,7 @@ this.apiClient = {
         if (modelDescription) {
             modelDescription.textContent = descriptions[model] || 'Selected model for AI responses';
         }
-        
+
         if (gptModelLabel) {
             gptModelLabel.textContent = labels[model] || model;
         }
@@ -2981,18 +3136,18 @@ this.apiClient = {
 
     initializeSpeechSettings() {
         console.log('Initializing speech settings...');
-        
+
         // Initialize microphone sensitivity slider
         const micSensitivity = document.getElementById('micSensitivity');
         const sensitivityValue = document.getElementById('sensitivityValue');
-        
+
         if (micSensitivity) {
             micSensitivity.value = this.speechSettings.micSensitivity;
         }
         if (sensitivityValue) {
             sensitivityValue.textContent = this.speechSettings.micSensitivity + '%';
         }
-        
+
         console.log('Microphone sensitivity initialized to:', this.speechSettings.micSensitivity);
     }
 
@@ -3100,7 +3255,7 @@ this.apiClient = {
             console.warn('debugManager not available');
             return;
         }
-        
+
         if (enabled) {
             window.debugManager.enable();
         } else {
@@ -3211,21 +3366,21 @@ this.apiClient = {
     }
 
     // Agent Configuration Methods
-    
+
     /**
      * Open the agent configuration page in a new tab
      */
     openAgentConfiguration() {
         this.debug.log('Opening agent configuration page...');
-        
+
         // Open the configuration page in a new tab
         const configUrl = 'test/test-agent-configuration.html';
         const configWindow = window.open(configUrl, '_blank');
-        
+
         if (configWindow) {
             this.debug.log('Agent configuration page opened successfully');
             this.updateStatus('Agent configuration page opened in new tab');
-            
+
             // Refresh status after a short delay to show updated info
             setTimeout(() => {
                 this.refreshAgentStatus();
@@ -3242,28 +3397,28 @@ this.apiClient = {
      */
     refreshAgentStatus() {
         this.debug.log('Refreshing agent status...');
-        
+
         try {
             if (this.agentRouter) {
                 const stats = this.agentRouter.getStats();
-                
+
                 // Update status display elements
                 const totalAgentsEl = document.getElementById('totalAgents');
                 const enabledAgentsEl = document.getElementById('enabledAgents');
                 const disabledAgentsEl = document.getElementById('disabledAgents');
-                
+
                 if (totalAgentsEl) totalAgentsEl.textContent = stats.totalAgents;
                 if (enabledAgentsEl) enabledAgentsEl.textContent = stats.enabledAgents;
                 if (disabledAgentsEl) disabledAgentsEl.textContent = stats.disabledAgents;
-                
+
                 this.debug.log('Agent status updated', stats);
                 this.updateStatus(`Agent status: ${stats.enabledAgents}/${stats.totalAgents} enabled`);
-                
+
                 // Brief status message
                 setTimeout(() => {
                     this.updateStatus('Ready to listen');
                 }, 2000);
-                
+
             } else {
                 this.debug.warn('AgentRouter not available');
                 this.updateStatus('Agent system not available');
@@ -3281,29 +3436,29 @@ this.apiClient = {
      */
     initializeLLMManager() {
         this.debug.log('Initializing LLM Manager integration...');
-        
+
         try {
             // Initialize LLM Manager if available
             if (typeof LLMManager !== 'undefined') {
                 this.llmManager = new LLMManager();
                 this.debug.log('LLM Manager initialized successfully');
             }
-            
+
             // Initialize Guardrails Manager if available
             if (typeof GuardrailsManager !== 'undefined') {
                 this.guardrailsManager = new GuardrailsManager();
                 this.debug.log('Guardrails Manager initialized successfully');
             }
-            
+
             // Initialize Voice Config Manager if available
             if (typeof VoiceConfigManager !== 'undefined') {
                 this.voiceConfigManager = new VoiceConfigManager();
                 this.debug.log('Voice Config Manager initialized successfully');
             }
-            
+
             // Set up LLM Manager event listeners
             this.setupLLMManagerEventListeners();
-            
+
         } catch (error) {
             this.debug.error('Failed to initialize LLM Manager:', error);
         }
@@ -3334,19 +3489,19 @@ this.apiClient = {
      */
     switchLLMSection(sectionName) {
         this.debug.log('Switching to LLM section:', sectionName);
-        
+
         // Update navigation
         document.querySelectorAll('.llm-nav-btn').forEach(btn => {
             btn.classList.remove('active');
         });
         document.querySelector(`[data-llm-section="${sectionName}"]`).classList.add('active');
-        
+
         // Update content
         document.querySelectorAll('.llm-content-section').forEach(section => {
             section.classList.remove('active');
         });
         document.getElementById(`llm-${sectionName}-section`).classList.add('active');
-        
+
         // Load section-specific content
         this.loadLLMSectionContent(sectionName);
     }
@@ -3379,39 +3534,39 @@ this.apiClient = {
      */
     refreshLLMData() {
         this.debug.log('Refreshing LLM Manager data...');
-        
+
         try {
             if (!this.llmManager) {
                 this.debug.warn('LLM Manager not available');
                 return;
             }
-            
+
             // Force reinitialization to pick up any changes
             this.debug.log('Reinitializing LLM Manager to ensure latest data...');
             this.llmManager = new LLMManager();
-            
+
             const stats = this.llmManager.getConfigurationStats();
             const agents = this.llmManager.getAgentConfigurations();
-            
+
             // Update statistics
             const totalEl = document.getElementById('llmTotalAgents');
             const enabledEl = document.getElementById('llmEnabledAgents');
             const disabledEl = document.getElementById('llmDisabledAgents');
             const lastUpdatedEl = document.getElementById('llmLastUpdated');
-            
+
             if (totalEl) totalEl.textContent = stats.totalAgents;
             if (enabledEl) enabledEl.textContent = stats.enabledAgents;
             if (disabledEl) disabledEl.textContent = stats.disabledAgents;
             if (lastUpdatedEl) {
-                lastUpdatedEl.textContent = stats.lastUpdated ? 
+                lastUpdatedEl.textContent = stats.lastUpdated ?
                     new Date(stats.lastUpdated).toLocaleString() : 'Never';
             }
-            
+
             // Update agent grid
             this.renderLLMAgentGrid(agents);
-            
+
             this.debug.log('LLM Manager data refreshed successfully');
-            
+
         } catch (error) {
             this.debug.error('Failed to refresh LLM Manager data:', error);
         }
@@ -3423,9 +3578,9 @@ this.apiClient = {
     renderLLMAgentGrid(agents) {
         const grid = document.getElementById('llmAgentsGrid');
         if (!grid) return;
-        
+
         grid.innerHTML = '';
-        
+
         Object.entries(agents).forEach(([name, config]) => {
             const card = this.createLLMAgentCard(name, config);
             grid.appendChild(card);
@@ -3438,11 +3593,11 @@ this.apiClient = {
     createLLMAgentCard(name, config) {
         const card = document.createElement('div');
         card.className = 'llm-agent-card';
-        
+
         const statusClass = config.enabled !== false ? 'enabled' : 'disabled';
         const statusText = config.enabled !== false ? 'Enabled' : 'Disabled';
         const statusIndicator = config.enabled !== false ? 'online' : 'offline';
-        
+
         card.innerHTML = `
             <div class="llm-agent-header">
                 <div class="llm-agent-name">
@@ -3491,7 +3646,7 @@ this.apiClient = {
                 </button>
             </div>
         `;
-        
+
         return card;
     }
 
@@ -3501,17 +3656,17 @@ this.apiClient = {
     loadLLMConfigurationContent() {
         const content = document.getElementById('llmConfigurationContent');
         if (!content || !this.llmManager) return;
-        
+
         const agents = this.llmManager.getAgentConfigurations();
-        
+
         content.innerHTML = `
             <div class="form-group">
                 <label class="form-label">Select Agent to Configure</label>
                 <select class="llm-form-select" id="llmConfigAgentSelect" onchange="app.openLLMAgentConfiguration(this.value)">
                     <option value="">Choose an agent...</option>
-                    ${Object.keys(agents).map(name => 
-                        `<option value="${name}">${name}</option>`
-                    ).join('')}
+                    ${Object.keys(agents).map(name =>
+            `<option value="${name}">${name}</option>`
+        ).join('')}
                 </select>
             </div>
             
@@ -3537,17 +3692,17 @@ this.apiClient = {
     loadLLMGuardrailsContent() {
         const content = document.getElementById('llmGuardrailsContent');
         if (!content || !this.llmManager) return;
-        
+
         const agents = this.llmManager.getAgentConfigurations();
-        
+
         content.innerHTML = `
             <div class="form-group">
                 <label class="form-label">Select Agent</label>
                 <select class="llm-form-select" id="llmGuardrailsAgentSelect" onchange="app.loadLLMGuardrailsEditor(this.value)">
                     <option value="">Choose an agent...</option>
-                    ${Object.keys(agents).map(name => 
-                        `<option value="${name}">${name}</option>`
-                    ).join('')}
+                    ${Object.keys(agents).map(name =>
+            `<option value="${name}">${name}</option>`
+        ).join('')}
                 </select>
             </div>
             
@@ -3563,17 +3718,17 @@ this.apiClient = {
     loadLLMVoiceContent() {
         const content = document.getElementById('llmVoiceContent');
         if (!content || !this.llmManager) return;
-        
+
         const agents = this.llmManager.getAgentConfigurations();
-        
+
         content.innerHTML = `
             <div class="form-group">
                 <label class="form-label">Select Agent</label>
                 <select class="llm-form-select" id="llmVoiceAgentSelect" onchange="app.loadLLMVoiceEditor(this.value)">
                     <option value="">Choose an agent...</option>
-                    ${Object.keys(agents).map(name => 
-                        `<option value="${name}">${name}</option>`
-                    ).join('')}
+                    ${Object.keys(agents).map(name =>
+            `<option value="${name}">${name}</option>`
+        ).join('')}
                 </select>
             </div>
             
@@ -3589,7 +3744,7 @@ this.apiClient = {
     refreshLLMAuditLog() {
         const entries = document.getElementById('llmAuditLogEntries');
         if (!entries) return;
-        
+
         // Mock audit log entries for demonstration
         const mockEntries = [
             {
@@ -3611,7 +3766,7 @@ this.apiClient = {
                 type: 'voice'
             }
         ];
-        
+
         entries.innerHTML = mockEntries.map(entry => `
             <div class="llm-log-entry">
                 <div class="llm-log-info">
@@ -3645,17 +3800,17 @@ this.apiClient = {
      */
     exportLLMConfiguration() {
         this.debug.log('Exporting LLM configuration...');
-        
+
         try {
             if (!this.llmManager) {
                 this.showNotification('LLM Manager not available', 'error');
                 return;
             }
-            
+
             const config = this.llmManager.exportConfiguration();
             const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
-            
+
             const a = document.createElement('a');
             a.href = url;
             a.download = `llm-config-${new Date().toISOString().split('T')[0]}.json`;
@@ -3663,9 +3818,9 @@ this.apiClient = {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            
+
             this.showNotification('Configuration exported successfully', 'success');
-            
+
         } catch (error) {
             this.debug.error('Failed to export configuration:', error);
             this.showNotification('Failed to export configuration', 'error');
@@ -3677,20 +3832,20 @@ this.apiClient = {
      */
     importLLMConfiguration() {
         this.debug.log('Importing LLM configuration...');
-        
+
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.json';
-        
+
         input.onchange = (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            
+
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
                     const config = JSON.parse(e.target.result);
-                    
+
                     if (this.llmManager) {
                         this.llmManager.importConfiguration(config);
                         this.refreshLLMData();
@@ -3698,7 +3853,7 @@ this.apiClient = {
                     } else {
                         this.showNotification('LLM Manager not available', 'error');
                     }
-                    
+
                 } catch (error) {
                     this.debug.error('Failed to import configuration:', error);
                     this.showNotification('Failed to import configuration', 'error');
@@ -3706,7 +3861,7 @@ this.apiClient = {
             };
             reader.readAsText(file);
         };
-        
+
         input.click();
     }
 
@@ -3715,24 +3870,24 @@ this.apiClient = {
      */
     async enableAllAgents() {
         this.debug.log('Enabling all agents...');
-        
+
         try {
             if (!this.llmManager) {
                 this.showNotification('LLM Manager not available', 'error');
                 return;
             }
-            
+
             const agents = this.llmManager.getAgentConfigurations();
             const updatePromises = Object.keys(agents).map(async (agentName) => {
                 return await this.llmManager.updateAgentConfiguration(agentName, { enabled: true });
             });
-            
+
             // Wait for all updates to complete
             await Promise.all(updatePromises);
-            
+
             this.refreshLLMData();
             this.showNotification('All agents enabled successfully', 'success');
-            
+
         } catch (error) {
             this.debug.error('Failed to enable all agents:', error);
             this.showNotification('Failed to enable all agents', 'error');
@@ -3744,24 +3899,24 @@ this.apiClient = {
      */
     async disableAllAgents() {
         this.debug.log('Disabling all agents...');
-        
+
         try {
             if (!this.llmManager) {
                 this.showNotification('LLM Manager not available', 'error');
                 return;
             }
-            
+
             const agents = this.llmManager.getAgentConfigurations();
             const updatePromises = Object.keys(agents).map(async (agentName) => {
                 return await this.llmManager.updateAgentConfiguration(agentName, { enabled: false });
             });
-            
+
             // Wait for all updates to complete
             await Promise.all(updatePromises);
-            
+
             this.refreshLLMData();
             this.showNotification('All agents disabled successfully', 'success');
-            
+
         } catch (error) {
             this.debug.error('Failed to disable all agents:', error);
             this.showNotification('Failed to disable all agents', 'error');
@@ -3773,18 +3928,18 @@ this.apiClient = {
      */
     resetAllToDefaults() {
         this.debug.log('Resetting all configurations to defaults...');
-        
+
         if (confirm('Are you sure you want to reset all agent configurations to defaults? This cannot be undone.')) {
             try {
                 if (!this.llmManager) {
                     this.showNotification('LLM Manager not available', 'error');
                     return;
                 }
-                
+
                 this.llmManager.resetToDefaults();
                 this.refreshLLMData();
                 this.showNotification('All configurations reset to defaults', 'success');
-                
+
             } catch (error) {
                 this.debug.error('Failed to reset configurations:', error);
                 this.showNotification('Failed to reset configurations', 'error');
@@ -3797,23 +3952,23 @@ this.apiClient = {
      */
     validateAllConfigurations() {
         this.debug.log('Validating all configurations...');
-        
+
         try {
             if (!this.llmManager) {
                 this.showNotification('LLM Manager not available', 'error');
                 return;
             }
-            
+
             const validationResults = this.llmManager.validateAllConfigurations();
             const validCount = validationResults.filter(r => r.valid).length;
             const totalCount = validationResults.length;
-            
+
             if (validCount === totalCount) {
                 this.showNotification(`All ${totalCount} configurations are valid`, 'success');
             } else {
                 this.showNotification(`${validCount}/${totalCount} configurations are valid`, 'warning');
             }
-            
+
         } catch (error) {
             this.debug.error('Failed to validate configurations:', error);
             this.showNotification('Failed to validate configurations', 'error');
@@ -3825,7 +3980,7 @@ this.apiClient = {
      */
     clearLLMAuditLog() {
         this.debug.log('Clearing LLM audit log...');
-        
+
         if (confirm('Are you sure you want to clear the audit log?')) {
             const entries = document.getElementById('llmAuditLogEntries');
             if (entries) {
@@ -3840,16 +3995,16 @@ this.apiClient = {
      */
     openLLMAgentConfiguration(agentName) {
         if (!agentName) return;
-        
+
         this.debug.log('Opening LLM agent configuration for:', agentName);
         this.switchLLMSection('configuration');
-        
+
         // Set the selected agent in the dropdown
         const select = document.getElementById('llmConfigAgentSelect');
         if (select) {
             select.value = agentName;
         }
-        
+
         this.showNotification(`Configuration for ${agentName} opened`, 'info');
     }
 
@@ -3858,16 +4013,16 @@ this.apiClient = {
      */
     openLLMGuardrailsEditor(agentName) {
         if (!agentName) return;
-        
+
         this.debug.log('Opening LLM guardrails editor for:', agentName);
         this.switchLLMSection('guardrails');
-        
+
         // Set the selected agent in the dropdown
         const select = document.getElementById('llmGuardrailsAgentSelect');
         if (select) {
             select.value = agentName;
         }
-        
+
         this.loadLLMGuardrailsEditor(agentName);
     }
 
@@ -3876,16 +4031,16 @@ this.apiClient = {
      */
     openLLMVoiceConfig(agentName) {
         if (!agentName) return;
-        
+
         this.debug.log('Opening LLM voice config for:', agentName);
         this.switchLLMSection('voice');
-        
+
         // Set the selected agent in the dropdown
         const select = document.getElementById('llmVoiceAgentSelect');
         if (select) {
             select.value = agentName;
         }
-        
+
         this.loadLLMVoiceEditor(agentName);
     }
 
@@ -3894,9 +4049,9 @@ this.apiClient = {
      */
     toggleLLMAgent(agentName) {
         if (!agentName || !this.llmManager) return;
-        
+
         this.debug.log('Toggling LLM agent:', agentName);
-        
+
         try {
             const config = this.llmManager.getAgentConfiguration(agentName);
             if (config) {
@@ -3919,10 +4074,10 @@ this.apiClient = {
             document.getElementById('llmGuardrailsEditor').style.display = 'none';
             return;
         }
-        
+
         const editor = document.getElementById('llmGuardrailsEditor');
         if (!editor) return;
-        
+
         editor.style.display = 'block';
         editor.innerHTML = `
             <h5>Guardrails for ${agentName}</h5>
@@ -3972,10 +4127,10 @@ this.apiClient = {
             document.getElementById('llmVoiceEditor').style.display = 'none';
             return;
         }
-        
+
         const editor = document.getElementById('llmVoiceEditor');
         if (!editor) return;
-        
+
         editor.style.display = 'block';
         editor.innerHTML = `
             <h5>Voice Configuration for ${agentName}</h5>
@@ -4059,15 +4214,15 @@ this.apiClient = {
      */
     openAgentRoutingTest() {
         this.debug.log('Opening AI agent routing test page...');
-        
+
         // Open the AI routing test page in a new tab
         const testUrl = 'test/test-ai-agent-routing.html';
         const testWindow = window.open(testUrl, '_blank');
-        
+
         if (testWindow) {
             this.debug.log('AI agent routing test page opened successfully');
             this.updateStatus('AI agent routing test page opened in new tab');
-            
+
             setTimeout(() => {
                 this.updateStatus('Ready to listen');
             }, 2000);
@@ -4082,21 +4237,254 @@ this.apiClient = {
      */
     openBasicRoutingTest() {
         this.debug.log('Opening basic agent routing test page...');
-        
+
         // Open the basic routing test page in a new tab
         const testUrl = 'test/test-agent-routing.html';
         const testWindow = window.open(testUrl, '_blank');
-        
+
         if (testWindow) {
             this.debug.log('Basic agent routing test page opened successfully');
             this.updateStatus('Basic agent routing test page opened in new tab');
-            
+
             setTimeout(() => {
                 this.updateStatus('Ready to listen');
             }, 2000);
         } else {
             this.debug.error('Failed to open basic agent routing test page - popup blocked?');
             this.updateStatus('Failed to open test page - check popup blocker');
+        }
+    }
+
+    /**
+     * Enable agent routing for streaming manager
+     */
+    enableStreamingAgentRouting() {
+        try {
+            if (!this.streamingManager) {
+                this.debug.warn('StreamingManager not available for agent routing setup');
+                return;
+            }
+
+            if (!this.agentRouter) {
+                this.debug.warn('AgentRouter not available for streaming integration');
+                return;
+            }
+
+            // Enable agent routing in streaming manager
+            this.streamingManager.agentRoutingEnabled = true;
+
+            // Set up the streaming agent router if available
+            if (typeof StreamingAgentRouter !== 'undefined') {
+                this.streamingManager.streamingAgentRouter = new StreamingAgentRouter(
+                    this.agentRouter,
+                    this.streamingManager
+                );
+                this.debug.info('StreamingAgentRouter initialized');
+            }
+
+            // Set up streaming response handler if available
+            if (typeof StreamingResponseHandler !== 'undefined') {
+                this.streamingManager.streamingResponseHandler = new StreamingResponseHandler(
+                    this.streamingManager
+                );
+                this.debug.info('StreamingResponseHandler initialized');
+            }
+
+            this.debug.info('Streaming agent routing enabled', {
+                agentRoutingEnabled: this.streamingManager.agentRoutingEnabled,
+                hasStreamingAgentRouter: !!this.streamingManager.streamingAgentRouter,
+                hasStreamingResponseHandler: !!this.streamingManager.streamingResponseHandler
+            });
+
+        } catch (error) {
+            this.debug.error('Failed to enable streaming agent routing', { error: error.message });
+        }
+    }
+
+    /**
+     * Auto-fix agent routing status to ensure it's always working
+     */
+    autoFixAgentRouting() {
+        try {
+            this.debug.info('Auto-fixing agent routing status...');
+
+            // Wait a moment for all components to initialize
+            setTimeout(() => {
+                this.performAgentRoutingAutoFix();
+            }, 1000);
+
+        } catch (error) {
+            this.debug.error('Failed to auto-fix agent routing', { error: error.message });
+        }
+    }
+
+    /**
+     * Perform the actual agent routing auto-fix
+     */
+    performAgentRoutingAutoFix() {
+        try {
+            let fixed = false;
+
+            // Check if streaming agent routing needs to be enabled
+            if (this.streamingManager && !this.streamingManager.agentRoutingEnabled) {
+                this.debug.info('Auto-fix: Enabling streaming agent routing...');
+
+                // Enable agent routing
+                this.streamingManager.agentRoutingEnabled = true;
+
+                // Set up streaming agent router if not already set
+                if (!this.streamingManager.streamingAgentRouter && this.agentRouter) {
+                    if (typeof StreamingAgentRouter !== 'undefined') {
+                        this.streamingManager.streamingAgentRouter = new StreamingAgentRouter(
+                            this.agentRouter,
+                            this.streamingManager
+                        );
+                        this.debug.info('Auto-fix: StreamingAgentRouter created');
+                    }
+                }
+
+                // Set up streaming response handler if available
+                if (!this.streamingManager.streamingResponseHandler) {
+                    if (typeof StreamingResponseHandler !== 'undefined') {
+                        this.streamingManager.streamingResponseHandler = new StreamingResponseHandler(
+                            this.streamingManager
+                        );
+                        this.debug.info('Auto-fix: StreamingResponseHandler created');
+                    }
+                }
+
+                fixed = true;
+            }
+
+            // Verify the fix worked
+            const isWorking = this.verifyAgentRoutingStatus();
+
+            if (isWorking) {
+                this.debug.info('✅ Agent routing auto-fix completed successfully');
+            } else if (fixed) {
+                this.debug.warn('⚠️ Agent routing auto-fix applied but may still have issues');
+            } else {
+                this.debug.info('ℹ️ Agent routing auto-fix: No fixes needed');
+            }
+
+        } catch (error) {
+            this.debug.error('Error in agent routing auto-fix', { error: error.message });
+        }
+    }
+
+    /**
+     * Verify agent routing status
+     * @returns {boolean} - True if agent routing is working
+     */
+    verifyAgentRoutingStatus() {
+        try {
+            const hasAgentRouter = !!this.agentRouter;
+            const hasStreamingManager = !!this.streamingManager;
+            const streamingAgentRoutingEnabled = this.streamingManager ? this.streamingManager.agentRoutingEnabled : false;
+            const hasStreamingAgentRouter = this.streamingManager ? !!this.streamingManager.streamingAgentRouter : false;
+
+            // Determine if agent routing is working based on current mode
+            let agentRoutingWorking = false;
+            if (this.isStreamingMode) {
+                agentRoutingWorking = streamingAgentRoutingEnabled && hasStreamingAgentRouter;
+            } else {
+                agentRoutingWorking = hasAgentRouter;
+            }
+
+            this.debug.info('Agent routing status verification', {
+                hasAgentRouter,
+                hasStreamingManager,
+                streamingAgentRoutingEnabled,
+                hasStreamingAgentRouter,
+                isStreamingMode: this.isStreamingMode,
+                agentRoutingWorking
+            });
+
+            return agentRoutingWorking;
+
+        } catch (error) {
+            this.debug.error('Error verifying agent routing status', { error: error.message });
+            return false;
+        }
+    }
+
+    /**
+     * Auto-fix streaming agent timeouts to prevent routing failures
+     */
+    autoFixStreamingTimeouts() {
+        try {
+            this.debug.info('Auto-fixing streaming agent timeouts...');
+            
+            // Wait a moment for streaming components to initialize
+            setTimeout(() => {
+                this.performStreamingTimeoutAutoFix();
+            }, 1500); // Slightly longer delay to ensure streaming router is ready
+            
+        } catch (error) {
+            this.debug.error('Failed to auto-fix streaming timeouts', { error: error.message });
+        }
+    }
+
+    /**
+     * Perform the actual streaming timeout auto-fix
+     */
+    performStreamingTimeoutAutoFix() {
+        try {
+            if (!this.streamingManager || !this.streamingManager.streamingAgentRouter) {
+                this.debug.warn('StreamingAgentRouter not available for timeout fix');
+                return;
+            }
+            
+            const router = this.streamingManager.streamingAgentRouter;
+            
+            // Check if timeouts need fixing
+            const needsFix = router.routingLatencyThreshold < 300 || router.maxRoutingTimeout < 1000;
+            const circuitBreakerOpen = router.circuitBreakerOpen;
+            
+            if (needsFix || circuitBreakerOpen) {
+                this.debug.info('Auto-fix: Applying streaming timeout fixes...', {
+                    currentLatencyThreshold: router.routingLatencyThreshold,
+                    currentMaxTimeout: router.maxRoutingTimeout,
+                    circuitBreakerOpen
+                });
+                
+                // Store original values for logging
+                const originalValues = {
+                    routingLatencyThreshold: router.routingLatencyThreshold,
+                    maxRoutingTimeout: router.maxRoutingTimeout,
+                    maxConsecutiveErrors: router.maxConsecutiveErrors
+                };
+                
+                // Apply more reasonable timeout values
+                router.routingLatencyThreshold = 500; // Increased from 100ms to 500ms
+                router.maxRoutingTimeout = 2000; // Increased from 200ms to 2000ms (2 seconds)
+                router.maxConsecutiveErrors = 5; // Increased from 3 to 5
+                
+                // Reset circuit breaker if it's currently open
+                if (router.circuitBreakerOpen) {
+                    router.circuitBreakerOpen = false;
+                    router.circuitBreakerResetTime = null;
+                    router.consecutiveErrors = 0;
+                    this.debug.info('Auto-fix: Circuit breaker reset');
+                }
+                
+                const newValues = {
+                    routingLatencyThreshold: router.routingLatencyThreshold,
+                    maxRoutingTimeout: router.maxRoutingTimeout,
+                    maxConsecutiveErrors: router.maxConsecutiveErrors
+                };
+                
+                this.debug.info('✅ Streaming timeout auto-fix completed', {
+                    originalValues,
+                    newValues
+                });
+                
+            } else {
+                this.debug.info('ℹ️ Streaming timeout auto-fix: No fixes needed');
+            }
+            
+        } catch (error) {
+            this.debug.error('Error in streaming timeout auto-fix', { error: error.message });
         }
     }
 }
@@ -4106,10 +4494,10 @@ function toggleAgent(agentName) {
     if (window.app && window.app.agentRouter) {
         const configManager = window.app.agentRouter.getConfigManager();
         const currentConfig = configManager.getAgentConfig(agentName);
-        
+
         if (currentConfig) {
             const newStatus = !currentConfig.enabled;
-            
+
             if (newStatus) {
                 configManager.enableAgent(agentName);
                 console.log(`${agentName} enabled`);
@@ -4119,12 +4507,12 @@ function toggleAgent(agentName) {
                 console.log(`${agentName} disabled`);
                 window.app.updateStatus(`${agentName} disabled`);
             }
-            
+
             // Refresh the status display
             setTimeout(() => {
                 window.app.refreshAgentStatus();
             }, 500);
-            
+
         } else {
             console.error(`Agent ${agentName} not found`);
             window.app.updateStatus(`Agent ${agentName} not found`);

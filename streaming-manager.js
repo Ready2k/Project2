@@ -1701,45 +1701,58 @@ class StreamingManager {
     /**
      * Handle incoming audio response from OpenAI
      */
-    handleAudioResponse(audioData) {
-        try {
-            this.debug.log('Received audio response chunk from OpenAI');
+    async handleAudioResponse(audioData) {
+        // Count chunks for diagnostics
+        this.totalAudioChunks = (this.totalAudioChunks || 0) + 1;
+        this.debug.log(`Audio chunk #${this.totalAudioChunks} received`);
 
-            this.totalAudioChunks++;
-            this.debug.log(`Received audio chunk ${this.totalAudioChunks} from OpenAI`);
-
-            // Add to queue for processing
-            this.audioQueue.push({ type: 'base64', data: audioData });
-
-            // Smart buffering: Wait for initial chunks before starting playback
-            if (!this.isPlayingAudio) {
-                if (this.totalAudioChunks === 1) {
-                    // First chunk - start buffering with delay
-                    this.debug.log('First audio chunk received, starting buffered playback...');
-                    setTimeout(() => {
-                        if (!this.isPlayingAudio && this.audioQueue.length > 0) {
-                            this.debug.log(`Starting playback after buffer delay with ${this.audioQueue.length} chunks`);
-                            this.playQueuedAudio();
-                        }
-                    }, 300); // 300ms buffer delay for smoother start
-                } else if (this.audioQueue.length >= 2) {
-                    // Multiple chunks available - start immediately
-                    this.debug.log('Multiple chunks available, starting playback immediately');
-                    this.playQueuedAudio();
+        // Use AudioWorklet path by default for sample-accurate, low-latency playback
+        if (window.AudioWorkletNode) {
+            this.debug.log('AudioWorkletNode is supported — attempting worklet playback');
+            // Lazy initialize AudioContext & worklet processor if not already
+            if (!this._pcm16Player) {
+                if (!this.audioContext) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+                    this.debug.log('Created AudioContext for worklet');
                 }
-            } else {
-                this.debug.log(`Added chunk to queue, ${this.audioQueue.length} chunks queued`);
-                // Ensure playback continues even if there was a gap
-                setTimeout(() => {
-                    if (!this.isPlayingAudio && this.audioQueue.length > 0) {
-                        this.debug.log('Restarting stalled audio playback');
-                        this.playQueuedAudio();
-                    }
-                }, 100);
+                try {
+                    await this.audioContext.audioWorklet.addModule('audio-worklet/pcm16-player.js');
+                    this._pcm16Player = new AudioWorkletNode(this.audioContext, 'pcm16-player', { outputChannelCount: [1] });
+                    this._pcm16Player.connect(this.audioContext.destination);
+                    await this.audioContext.resume();
+                    this.debug.log('AudioWorklet pcm16-player initialized');
+                } catch (e) {
+                    this.debug.log('Failed to load AudioWorklet module:', e);
+                }
             }
-
+            // Prepare PCM buffer
+            let pcmBuffer;
+            if (typeof audioData === 'string') {
+                const binary = atob(audioData);
+                const arr = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+                pcmBuffer = arr.buffer;
+            } else if (audioData instanceof ArrayBuffer) {
+                pcmBuffer = audioData;
+            } else {
+                this.debug.log('Unexpected audioData format, skipping:', audioData);
+            }
+            if (this._pcm16Player && pcmBuffer) {
+                this.debug.log('Posting PCM16 buffer to worklet');
+                this._pcm16Player.port.postMessage(pcmBuffer, [pcmBuffer]);
+                return;
+            }
+            this.debug.log('AudioWorklet unavailable or failed to init, falling back to legacy playback');
+        }
+        // Fallback: legacy playback path if worklet unusable
+        try {
+            this.debug.log('Starting legacy audio playback fallback');
+            this.audioQueue.push({ type: 'base64', data: audioData });
+            if (!this.isPlayingAudio && this.audioQueue.length === 1) {
+                this.playQueuedAudio();
+            }
         } catch (error) {
-            this.debug.log('Error handling audio response:', error);
+            this.debug.log('Error in legacy audio playback fallback:', error);
         }
     }
 

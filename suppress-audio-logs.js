@@ -45,7 +45,11 @@ function suppressAudioLogs() {
         'Added chunk to queue',
         'chunks queued',
         'Message received: response.audio_transcript.delta',
-        'Audio transcript delta:'
+        'Audio transcript delta:',
+        // Additional messages you're seeing
+        'Posting PCM16 buffer to worklet',
+        'Audio chunk #',
+        'received'
     ];
     
     // Override the debug.log method
@@ -94,7 +98,11 @@ function suppressGlobalAudioLogs() {
                         'Added chunk to queue',
                         'chunks queued',
                         'Message received: response.audio_transcript.delta',
-                        'Audio transcript delta:'
+                        'Audio transcript delta:',
+                        // Additional messages you're seeing
+                        'Posting PCM16 buffer to worklet',
+                        'Audio chunk #',
+                        'received'
                     ];
                     
                     const shouldSuppress = suppressedMessages.some(suppressedMsg => 
